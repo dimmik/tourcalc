@@ -20,6 +20,7 @@ namespace Opds.Controllers
         private string path => Configuration.GetValue<string>("DatabasePath");//= @"C:\tmp\Tour2.db";
 
         private readonly IConfiguration Configuration;
+
         public TourController(IConfiguration config)
         {
             Configuration = config;
@@ -43,9 +44,10 @@ namespace Opds.Controllers
         [HttpGet]
         public IActionResult GetAllTours()
         {
-            var tours = TourStorageUtilities.LoadAllTours(path);
+            var tours = TourStorageUtilities_LoadAllTours(path);
             return Ok(tours.ToArray());
         }
+
 
         [HttpPost]
         public IActionResult AddTour([FromBody]Tour t)
@@ -230,6 +232,11 @@ namespace Opds.Controllers
         {
             // TODO check if tour is available for a user
             return TourStorageUtilities.LoadFromLiteDBbyId(path, tourid);
+        }
+        private IEnumerable<Tour> TourStorageUtilities_LoadAllTours(string path)
+        {
+            // TODO check what tours are available
+            return TourStorageUtilities.LoadAllToursFromDb(path);
         }
     }
 }
