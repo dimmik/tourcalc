@@ -28,7 +28,7 @@ namespace TCalc.Logic
                 if (spending.FromGuid == person.GUID)
                 {
                     var amount = spending.AmountInCents;
-                    person.ReceivedSendingInfo.Add(new SpendingInfo()
+                    person.SpentSendingInfo.Add(new SpendingInfo()
                     {
                         TotalSpendingAmountInCents = amount,
                         ReceivedAmountInCents = -1,
