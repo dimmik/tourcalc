@@ -5,7 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
+using System;
+using TourCalcWebApp.Auth;
 
 namespace TourCalcWebApp
 {
@@ -26,8 +29,41 @@ namespace TourCalcWebApp
                 {
                     options.SerializerSettings.Formatting = Formatting.Indented;
                 });
-        }
+            SetupAuth(services);
 
+        }
+        private void SetupAuth(IServiceCollection services)
+        {
+            var privateKey = Configuration.GetValue<string>("AuthPrivateECDSAKey");
+            var sk = new ECDSAKey(privateKey);
+            services.AddSingleton<IECDsaCryptoKey>(sk);
+
+            const string jwtSchemeName = "JwtBearer";
+            services
+                .AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = jwtSchemeName;
+                    options.DefaultChallengeScheme = jwtSchemeName;
+                })
+                .AddJwtBearer(jwtSchemeName, jwtBearerOptions =>
+                {
+                    jwtBearerOptions.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = sk.GetPublicKey(),
+
+                        ValidateIssuer = true,
+                        ValidIssuer = "TourCalc",
+
+                        ValidateAudience = true,
+                        ValidAudience = "Users",
+
+                        ValidateLifetime = true,
+
+                        ClockSkew = TimeSpan.FromSeconds(5)
+                    };
+                });
+        }
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
@@ -35,13 +71,11 @@ namespace TourCalcWebApp
             {
                 app.UseDeveloperExceptionPage();
             }
-            else
-            {
-                app.UseExceptionHandler("/Error");
-                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-                app.UseHsts();
-            }
+            
+            app.UseHttpsRedirection();
+            app.UseAuthentication();
             app.UseMvc();
+
         }
     }
 }

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using TCalc.Domain;
 using LiteDB;
+using System.Linq.Expressions;
 
 namespace TCalc.Logic
 {
@@ -14,9 +15,14 @@ namespace TCalc.Logic
 
         public static IEnumerable<Tour> LoadAllToursFromDb(string path)
         {
+            return LoadAllToursFromDb(path, x => true);
+        }
+
+        public static IEnumerable<Tour> LoadAllToursFromDb(string path, Expression<Func<Tour, bool>> predicate)
+        {
             using (var db = new LiteDatabase(path))
             {
-                return db.GetCollection<Tour>("Tour").FindAll();
+                return db.GetCollection<Tour>("Tour").Find(predicate);
             }
         }
 

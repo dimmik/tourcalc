@@ -11,6 +11,6 @@ namespace TCalc.Domain
         public string Name { get; set; } = $"Tour of {DateTime.Now.ToLongDateString()}";
         public DateTime DateCreated { get; set; } = DateTime.Now;
         public string Id { get { return GUID; } set { GUID = value; } }
-        public string AccessCode { get; set; }
+        public string AccessCode { get; set; } = "tmp";
     }
 }
