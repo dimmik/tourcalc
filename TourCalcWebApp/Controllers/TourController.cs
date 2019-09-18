@@ -261,7 +261,7 @@ namespace TourCalcWebApp.Controllers
             else
             {
                 // default = master for debugging purposes
-                authData = Configuration.GetValue<bool>("AnonimousIsMaster", false) 
+                authData = Configuration.GetValue<bool>("AnonymousIsMaster", false) 
                     ? new AuthData() { Type = "Master", IsMaster = true }
                     : new AuthData() { Type = "AccessCode", IsMaster = false, AccessCode = "no access code" };
             }
