@@ -35,6 +35,7 @@ namespace TourCalcWebApp.Controllers
         public IActionResult GenerateRandomKey(int numb)
         {
             var r = new SecureRandom();
+            if (numb > 8192) numb = 8192;
             byte[] bytes = new byte[numb];
             r.NextBytes(bytes);
             return Ok(Convert.ToBase64String(bytes));
