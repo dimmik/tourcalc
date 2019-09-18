@@ -29,14 +29,7 @@ namespace TourCalcWebApp.Controllers
         {
             Configuration = config;
         }
-        [HttpGet("ticksb64")]
-        public IActionResult GetTicksB64()
-        {
-            var t = DateTime.Now.Millisecond;
-            var tb = BitConverter.GetBytes(t);
-            var tb64 = Convert.ToBase64String(tb).Substring(0,6);
-            return Ok(tb64);
-        }
+
         [HttpGet("token/{key}")]
         public IActionResult GetToken(string key, [FromServices] IECDsaCryptoKey signerKey)
         {
