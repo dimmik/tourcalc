@@ -1,17 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Web.Http;
 using TCalc.Domain;
-using TCalc.Logic;
+using TCalc.Storage;
 using LiteDB;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
-using TourCalcWebApp.Controllers;
+using TCalc.Logic;
 
 namespace TourCalcWebApp.Controllers
 {
@@ -81,12 +78,8 @@ namespace TourCalcWebApp.Controllers
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
             if (tour == null) return NotFound($"no tour with id {tourid}");
 
-            using (var db = new LiteDatabase(dbFilePath))
-            {
-                var col = db.GetCollection<Tour>("Tour");
-                col.Delete(x => x.GUID == tourid);
-                return Ok(tourid);
-            }
+            TourStorageUtilities.DeleteTour(dbFilePath, tourid);
+            return Ok(tourid);
         }
         #endregion
         #region Persons

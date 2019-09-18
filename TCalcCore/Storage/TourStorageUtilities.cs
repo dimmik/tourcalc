@@ -8,24 +8,30 @@ using TCalc.Domain;
 using LiteDB;
 using System.Linq.Expressions;
 
-namespace TCalc.Logic
+namespace TCalc.Storage
 {
     public static class TourStorageUtilities
     {
 
-        public static IEnumerable<Tour> LoadAllToursFromDb(string path)
+        public static IEnumerable<Tour> LoadAllToursFromDb(string path, Expression<Func<Tour, bool>> predicate = null)
         {
-            return LoadAllToursFromDb(path, x => true);
-        }
-
-        public static IEnumerable<Tour> LoadAllToursFromDb(string path, Expression<Func<Tour, bool>> predicate)
-        {
+            if (predicate == null)
+            {
+                predicate = x => true;
+            }
             using (var db = new LiteDatabase(path))
             {
                 return db.GetCollection<Tour>("Tour").Find(predicate);
             }
         }
-
+        public static void DeleteTour(string path, string tourid)
+        {
+            using (var db = new LiteDatabase(path))
+            {
+                var col = db.GetCollection<Tour>("Tour");
+                col.Delete(x => x.GUID == tourid);
+            }
+        }
         // Using one .db file for single Tour
         public static void StoreToLiteDB (this Tour tour, string path)
         {
