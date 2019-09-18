@@ -42,7 +42,9 @@ export default class TourChoose extends React.Component {
                 <ul>
                     {tours.map(tour => (
                         <li key={tour.id}>
-                            {tour.name} -- {tour.id}
+                            <i onClick={() => this.props.chooseTourAction(tour)}>
+                                {tour.name} -- {tour.id} -- {this.props.chosenTour == null ? "n/a" : this.props.chosenTour.name}
+                            </i>
                         </li>
                     ))}
                 </ul>

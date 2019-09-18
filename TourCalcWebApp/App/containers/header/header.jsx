@@ -8,17 +8,18 @@ export default class Header extends React.Component {
                 <menu>
                     <ul>
                         <li>
-                            <Link to="/">Tour Persons</Link>
+                            <Link to="/persons">Tour Persons</Link>
                         </li>
                         <li>
                             <Link to="/spendings">Tour Spendings</Link>
                         </li>
                         <li>
-                            <Link to="/choose">Choose Tour</Link>
+                            <Link to="/">Choose Tour</Link>
                         </li>
                         <li>
                             <Link to="/auth">Auth</Link>
                         </li>
+                        <li> Chosen tour: {this.props.tour == null ? "n/a" : this.props.tour.name} </li>
                     </ul>
                 </menu>
             </header>

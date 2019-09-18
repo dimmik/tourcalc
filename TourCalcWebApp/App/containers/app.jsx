@@ -8,17 +8,32 @@ import TourChoose from './tour/choose.jsx';
 import Auth from './auth/auth.jsx';
 
 export default class App extends React.Component {
+    constructor(props) {
+        super(props);
+        this.chooseTour = this.chooseTour.bind(this);
+        this.state = {
+            isTourChosen: false,
+            chosenTour: null
+        };
+    }
+    chooseTour(tour) {
+        this.setState({
+            isTourChosen: true,
+            chosenTour: tour
+        })
+    }
     render() {
         return (
             <Router>
                 <div>
-                    <Header />
+                    <Header tour={this.state.chosenTour}/>
                     <main>
                         <Switch>
-                            <Route path="/spendings" component={TourSpendings} />
-                            <Route path="/choose" component={TourChoose} />
+                            <Route path="/spendings" render={(props) => <TourSpendings tourid={this.state.isTourChosen ? this.state.chosenTour.id : null} />} />
                             <Route path="/auth" component={Auth} />
-                            <Route path="/" component={TourPersons} />
+                            <Route path="/persons" render={(props) => <TourPersons tourid={this.state.isTourChosen ? this.state.chosenTour.id : null} />} />
+                            <Route path="/"
+                                render={(props) => <TourChoose chosenTour={this.state.chosenTour} chooseTourAction={this.chooseTour} />} />
                         </Switch>
                     </main>
                 </div>
