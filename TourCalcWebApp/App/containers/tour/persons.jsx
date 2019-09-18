@@ -1,4 +1,6 @@
 ﻿import React from 'react';
+import { Redirect } from 'react-router-dom'
+import FetchHelper from './helpers.jsx'
 
 export default class TourPersons extends React.Component {
     constructor(props) {
@@ -12,26 +14,12 @@ export default class TourPersons extends React.Component {
 
     componentDidMount() {
         if (this.props.tourid != null) {
-            fetch('/api/tour/' + this.props.tourid + '/calculated')
-                .then(res => res.json())
-                .then(
-                    (result) => {
-                        this.setState({
-                            isLoaded: true,
-                            tour: result
-                        });
-                    },
-                    (error) => {
-                        this.setState({
-                            isLoaded: true,
-                            error
-                        });
-                    })
+            FetchHelper.fetchTourCalculated(this, this.props.tourid)
         }
     }
 
     render() {
-        if (this.props.tourid == null) return (<div>please choose tour</div>);
+        if (this.props.tourid == null) return (<Redirect to='/choose' />);
 
         const { error, isLoaded, tour } = this.state;
         if (error) {

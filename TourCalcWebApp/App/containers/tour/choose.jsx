@@ -1,4 +1,5 @@
 ﻿import React from 'react';
+import FetchHelper from './helpers.jsx'
 
 export default class TourChoose extends React.Component {
     constructor(props) {
@@ -11,24 +12,7 @@ export default class TourChoose extends React.Component {
     }
 
     componentDidMount() {
-        fetch('/api/tour')
-            .then(res => res.json())
-            .then(
-                (result) => {
-                    this.setState({
-                        isLoaded: true,
-                        tours: result
-                    });
-                },
-                // Note: it's important to handle errors here
-                // instead of a catch() block so that we don't swallow
-                // exceptions from actual bugs in components.
-                (error) => {
-                    this.setState({
-                        isLoaded: true,
-                        error
-                    });
-                })
+        FetchHelper.fetchTours(this)
     }
     
     render() {
@@ -38,6 +22,12 @@ export default class TourChoose extends React.Component {
         } else if (!isLoaded) {
             return <div>Loading...</div>;
         } else {
+            // if not chosen - make first chosen
+            if (this.props.chosenTour == null) {
+                if (tours.length > 0) {
+                    this.props.chooseTourAction(tours[0])
+                }
+            }
             return (
                 <ul>
                     {tours.map(tour => (

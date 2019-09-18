@@ -1,4 +1,5 @@
 ﻿import React from 'react';
+import FetchHelper from './helpers.jsx'
 
 export default class TourSpendings extends React.Component {
     constructor(props) {
@@ -12,21 +13,7 @@ export default class TourSpendings extends React.Component {
 
     componentDidMount() {
         if (this.props.tourid != null) {
-            fetch('/api/tour/' + this.props.tourid + '/calculated')
-                .then(res => res.json())
-                .then(
-                    (result) => {
-                        this.setState({
-                            isLoaded: true,
-                            tour: result
-                        });
-                    },
-                    (error) => {
-                        this.setState({
-                            isLoaded: true,
-                            error
-                        });
-                    })
+            FetchHelper.fetchTourCalculated(this, this.props.tourid)
         }
     }
 
