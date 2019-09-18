@@ -32,9 +32,10 @@ namespace TCalc.Storage.LiteDB
                 col.Delete(x => x.GUID == tourid);
             }
         }
-        // Using one .db file for single Tour
+        // Using one .db file for each Tour (one collection per tour)
         public static void StoreToLiteDB (this Tour tour, string path)
         {
+            tour.StripCalculations();
             using (var db = new LiteDatabase(path))
             {
                 var col = db.GetCollection<Tour>("Tour");
