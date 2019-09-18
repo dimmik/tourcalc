@@ -12,6 +12,6 @@ namespace TCalc.Storage
         Tour GetTour(string tourid);
         void AddTour(Tour tour);
         void DeleteTour(string tourid);
-        void StoreStour(Tour tour);
+        void StoreTour(Tour tour);
     }
 }

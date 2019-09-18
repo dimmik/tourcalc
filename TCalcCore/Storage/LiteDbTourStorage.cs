@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Text;
 using TCalc.Domain;
+using TCalc.Storage.LiteDB;
 
 namespace TCalc.Storage
 {
@@ -21,20 +22,20 @@ namespace TCalc.Storage
 
         public void DeleteTour(string tourid)
         {
-            TourStorageUtilities.DeleteTour(dbPath, tourid);
+            LiteDBTourStorageUtilities.DeleteTour(dbPath, tourid);
         }
 
         public Tour GetTour(string tourid)
         {
-            return TourStorageUtilities.LoadFromLiteDBbyId(dbPath, tourid);
+            return LiteDBTourStorageUtilities.LoadFromLiteDBbyId(dbPath, tourid);
         }
 
         public IEnumerable<Tour> GetTours(Expression<Func<Tour, bool>> predicate = null)
         {
-            return TourStorageUtilities.LoadAllToursFromDb(dbPath, predicate);
+            return LiteDBTourStorageUtilities.LoadAllToursFromDb(dbPath, predicate);
         }
 
-        public void StoreStour(Tour tour)
+        public void StoreTour(Tour tour)
         {
             tour.StoreToLiteDB(dbPath);
         }

@@ -8,9 +8,9 @@ using TCalc.Domain;
 using LiteDB;
 using System.Linq.Expressions;
 
-namespace TCalc.Storage
+namespace TCalc.Storage.LiteDB
 {
-    public static class TourStorageUtilities
+    public static class LiteDBTourStorageUtilities
     {
 
         public static IEnumerable<Tour> LoadAllToursFromDb(string path, Expression<Func<Tour, bool>> predicate = null)

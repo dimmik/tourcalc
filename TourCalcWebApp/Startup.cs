@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using React.AspNet;
 using System;
+using TCalc.Storage;
 using TourCalcWebApp.Auth;
 
 namespace TourCalcWebApp
@@ -28,18 +29,29 @@ namespace TourCalcWebApp
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-            services.AddReact();
-            services.AddJsEngineSwitcher(options => options.DefaultEngineName = ChakraCoreJsEngine.EngineName)
-                .AddChakraCore();
+            ITourStorage tourStorage = new LiteDbTourStorage(Configuration.GetValue<string>("DatabasePath", "AppData/Tour.db"));
+            services.AddSingleton<ITourStorage>(tourStorage);
+
+            SetupReact(services);
+
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2)
                 .AddJsonOptions(options =>
                 {
                     options.SerializerSettings.Formatting = Formatting.Indented;
                 });
+
             SetupAuth(services);
 
         }
+
+        private static void SetupReact(IServiceCollection services)
+        {
+            services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+            services.AddReact();
+            services.AddJsEngineSwitcher(options => options.DefaultEngineName = ChakraCoreJsEngine.EngineName)
+                .AddChakraCore();
+        }
+
         private void SetupAuth(IServiceCollection services)
         {
             var privateKey = Configuration.GetValue<string>("AuthPrivateECDSAKey");
