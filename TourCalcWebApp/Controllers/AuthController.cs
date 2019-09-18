@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Org.BouncyCastle.Security;
 using TCalc.Domain;
 using TourCalcWebApp.Auth;
 
@@ -28,6 +29,15 @@ namespace TourCalcWebApp.Controllers
         public AuthController(IConfiguration config)
         {
             Configuration = config;
+        }
+
+        [HttpGet("random/{numb=32}")]
+        public IActionResult GenerateRandomKey(int numb)
+        {
+            var r = new SecureRandom();
+            byte[] bytes = new byte[numb];
+            r.NextBytes(bytes);
+            return Ok(Convert.ToBase64String(bytes));
         }
 
         [HttpGet("token/{key}")]
