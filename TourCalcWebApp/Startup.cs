@@ -89,13 +89,13 @@ namespace TourCalcWebApp
             
             app.UseHttpsRedirection();
             app.UseAuthentication();
-            // react
+            app.UseStaticFiles();
 
             app.UseMvc(routes => {
                 routes.MapRoute(
-                    name: "DefaultApi",
-                    template: "api/{controller}/{action}");
-                routes.MapSpaFallbackRoute("spa-fallback", new { controller = "Home", action = "Index" });
+                    name: "default",
+                    template: "/");
+//                routes.MapSpaFallbackRoute("spa-fallback", new { });
             });
 
         }
