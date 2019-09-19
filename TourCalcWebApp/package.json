@@ -22,7 +22,9 @@
     "webpack": "^3.11.0"
   },
   "dependencies": {
+    "@material-ui/core": "^4.4.2",
     "babel-polyfill": "^6.26.0",
+    "history": "^4.7.2",
     "isomorphic-fetch": "^2.2.1",
     "query-string": "^5.0.1",
     "react": "^16.2.0",

@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import ReactDOM from 'react-dom';
 import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+
 import Header from './header/header.jsx';
 import TourPersons from './tour/persons.jsx';
 import TourSpendings from './tour/spendings.jsx';
@@ -13,6 +14,7 @@ export default class App extends React.Component {
     constructor(props) {
         super(props);
         this.chooseTour = this.chooseTour.bind(this);
+        this.remount = this.remount.bind(this)
         this.state = {
             isTourChosen: false,
             chosenTour: null,
@@ -33,6 +35,11 @@ export default class App extends React.Component {
             chosenTour: tour
         })
     }
+
+    remount() {
+        this.setState({ state: this.state });
+    }
+
     render() {
         const { isTourChosen, chosenTour, error, isLoaded, tours } = this.state;
         if (error) {
@@ -49,7 +56,7 @@ export default class App extends React.Component {
             return (
                 <Router>
                     <div>
-                        <Header tour={this.state.chosenTour} />
+                        <Header tour={this.state.chosenTour} remountAction={this.remount}/>
                         <main>
                             <Switch>
                                 <Route path="/spendings"
