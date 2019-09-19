@@ -56,7 +56,7 @@ namespace TourCalcWebApp.Controllers
         public IActionResult AddTour([FromBody]Tour t)
         {
             // TODO - authentication!!!
-            t.GUID = Guid.NewGuid().ToString();
+            t.GUID = IdHelper.NewId();
             tourStorage.AddTour(t);
             return Ok(t.GUID);
         }
@@ -116,7 +116,7 @@ namespace TourCalcWebApp.Controllers
 
             if (tour != null)
             {
-                p.GUID = Guid.NewGuid().ToString();
+                p.GUID = IdHelper.NewId();
                 tour.Persons.Add(p);
                 tourStorage.StoreTour(tour);
             }
@@ -205,7 +205,7 @@ namespace TourCalcWebApp.Controllers
             var t = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             if (t != null)
             {
-                s.GUID = Guid.NewGuid().ToString();
+                s.GUID = IdHelper.NewId();
                 t.Spendings.Add(s);
                 tourStorage.StoreTour(t);
             }

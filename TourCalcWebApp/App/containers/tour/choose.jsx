@@ -41,7 +41,7 @@ export default class TourChoose extends React.Component {
                     <RadioGroup aria-label="tours" name="tours" value={this.props.chosenTour.id} onChange={(e, v) => this.props.chooseTourAction(tours.find((t) => t.id == v)) }>
                         {
                             tours.map(tour => (
-                                <FormControlLabel value={tour.id} control={<Radio />} label={tour.name} key={tour.id}/>
+                                <FormControlLabel value={tour.id} control={<Radio />} label={tour.name + ',  ' + tour.id} key={tour.id} />
                         ))
                         }   
                     </RadioGroup>

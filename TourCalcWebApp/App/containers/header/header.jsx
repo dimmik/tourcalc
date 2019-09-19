@@ -13,7 +13,9 @@ function NavTabs(comp) {
     return (
         <Paper square>
             <Tabs
-                value={history.location.pathname}
+                value={history.location.pathname.substring(0,
+                    history.location.pathname.lastIndexOf("/") > 1 ? history.location.pathname.lastIndexOf("/") : history.location.pathname.length
+                )}
                 indicatorColor="primary"
                 textColor="primary"
                 onChange={(event, v) => { history.push(v); comp.props.remountAction() } }

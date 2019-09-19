@@ -12,13 +12,18 @@ export default class TourSpendings extends React.Component {
     }
 
     componentDidMount() {
-        if (this.props.tourid != null) {
+        if (this.props.match != null && this.props.match.params.tourid != null) {
+            FetchHelper.fetchTourCalculated(this, this.props.match.params.tourid);
+        }
+        else if (this.props.tourid != null) {
             FetchHelper.fetchTourCalculated(this, this.props.tourid)
         }
+        
     }
 
     render() {
-        if (this.props.tourid == null) return (<div>please choose tour</div>);
+        console.log(this.props)
+        if (this.props.tourid == null && this.props.match == null && this.props.match.tourid == null) return (<div>please choose tour</div>);
 
         const { error, isLoaded, tour } = this.state;
         if (error) {
@@ -38,7 +43,7 @@ export default class TourSpendings extends React.Component {
                                         <li key={sp.guid}>'{sp.description}': {sp.amountInCents / 100}
                                             <br />from: {person != null ? person.name : "unknown"} -- {sp.fromGuid}
                                             <br />toAll: {sp.toAll ? 'yes' : 'no'}
-                                            <br />to: <ul> {sp.toAll ? 'n/a' : toP.map(p => <li key={p.guid}>{p.name},</li>)} </ul>
+                                            <br />to: <ul> {sp.toAll ? 'n/a' : toP.map(p => <li key={p.guid}>{p.name},</li>)} -- match {this.props.match != null ? this.props.match.params.tourid : 'no match'} -- props {this.props.tourid}</ul>
                                         </li>
                                     )
                                 }

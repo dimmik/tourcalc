@@ -59,10 +59,13 @@ export default class App extends React.Component {
                         <Header tour={this.state.chosenTour} remountAction={this.remount}/>
                         <main>
                             <Switch>
-                                <Route path="/spendings"
+                                <Route path="/spendings/:tourid"
+                                    component={TourSpendings}
+                            />} />
+                                <Route exact path="/spendings"
                                     render={(props) => <TourSpendings
                                         tourid={this.state.isTourChosen ? this.state.chosenTour.id : null}
-                                        />} />
+                                    />} />
                                 <Route path="/auth" component={Auth} />
                                 <Route path="/persons"
                                     render={(props) => <TourPersons
