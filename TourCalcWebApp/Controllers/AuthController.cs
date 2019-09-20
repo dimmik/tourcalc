@@ -41,11 +41,11 @@ namespace TourCalcWebApp.Controllers
             return Ok(Convert.ToBase64String(bytes));
         }
 
-        [HttpGet("token/{key}")]
-        public IActionResult GetToken(string key, [FromServices] IECDsaCryptoKey signerKey)
+        [HttpGet("token/{scope}/{key}")]
+        public IActionResult GetToken(string scope, string key, [FromServices] IECDsaCryptoKey signerKey)
         {
             if (key == null) key = "";
-            AuthData auth = Authorize(key);
+            AuthData auth = Authorize(scope, key);
 
             var claims = new Claim[]
             {
@@ -65,14 +65,20 @@ namespace TourCalcWebApp.Controllers
             string jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
             return Ok(jwtToken);
         }
+        [HttpGet("whoami")]
+        public IActionResult WhoAmI()
+        {
+            var authData = AuthHelper.GetAuthData(User, Configuration);
+            return Ok(authData);
+        }
 
-        private AuthData Authorize(string key)
+        private AuthData Authorize(string scope, string key)
         {
             AuthData auth = new AuthData();
-            if (key.StartsWith("m:"))
+            if (scope == "admin")
             {
                 // generate for master key
-                string keyProvided = key.Substring("m:".Length);
+                string keyProvided = key;
                 string keyFromConfig = Configuration.GetValue<string>("MasterKey");
                 if (keyProvided == keyFromConfig)
                 {
@@ -80,10 +86,10 @@ namespace TourCalcWebApp.Controllers
                     auth.IsMaster = true;
                 }
             }
-            else if (key.StartsWith("U:"))
+            else if (scope == "user")
             {
-                // generate for creation of tour
-                string keyProvided = key.Substring("m:".Length);
+                // can create tours, but not delete. TODO: think about it
+                string keyProvided = key;
                 string keyFromConfig = Configuration.GetValue<string>("UserKey");
                 if (keyProvided == keyFromConfig)
                 {
@@ -91,26 +97,21 @@ namespace TourCalcWebApp.Controllers
                     auth.IsMaster = false;
                 }
             }
-            else
+            else if (scope == "tour")
             {
+                // TODO change to user-related 
                 // Access code
                 // get all tours with given access code
                 using (var db = new LiteDatabase(dbFilePath))
                 {
                     auth.Type = "AccessCode";
                     auth.IsMaster = false;
-                    auth.AccessCode = key;
+                    auth.TourId = key;
                 }
 
             }
 
             return auth;
         }
-    }
-    public class AuthData
-    {
-        public string Type { get; set; }
-        public bool IsMaster { get; set; } = false; // allow all
-        public string AccessCode { get; set; }
     }
 }
