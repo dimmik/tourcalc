@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using TCalc.Logic;
+using TourCalcWebApp.Auth;
 
 namespace TourCalcWebApp.Controllers
 {
@@ -56,6 +57,11 @@ namespace TourCalcWebApp.Controllers
         public IActionResult AddTour([FromBody]Tour t)
         {
             // TODO - authentication!!!
+            AuthData authData = AuthHelper.GetAuthData(User, Configuration);
+            if (!authData.IsMaster)
+            {
+                return Forbid();
+            }
             t.GUID = IdHelper.NewId();
             tourStorage.AddTour(t);
             return Ok(t.GUID);
@@ -230,7 +236,7 @@ namespace TourCalcWebApp.Controllers
         #endregion
         private Tour TourStorageUtilities_LoadFromLiteDBbyId(string tourid)
         {
-            AuthData authData = GetAuthData();
+            AuthData authData = AuthHelper.GetAuthData(User, Configuration);
             var tour = tourStorage.GetTour(tourid);
             if (tour == null) return null;
             if (!authData.IsMaster)
@@ -245,28 +251,9 @@ namespace TourCalcWebApp.Controllers
         private IEnumerable<Tour> TourStorageUtilities_LoadAllTours()
         {
             
-            AuthData authData = GetAuthData();
-            return tourStorage.GetTours(x => authData.IsMaster ? true : authData.AccessCode == x.AccessCode);
+            AuthData authData = AuthHelper.GetAuthData(User, Configuration);
+            return tourStorage.GetTours(x => authData.IsMaster ? true : authData.TourId == x.Id);
         }
 
-        private AuthData GetAuthData()
-        {
-            var claimsIdentity = User.Identity as ClaimsIdentity;
-            var authDataJson = claimsIdentity.FindFirst("AuthDataJson")?.Value;
-            AuthData authData;
-            if (authDataJson != null)
-            {
-                authData = Newtonsoft.Json.JsonConvert.DeserializeObject<AuthData>(authDataJson);
-            }
-            else
-            {
-                // default = master for debugging purposes
-                authData = Configuration.GetValue<bool>("AnonymousIsMaster", false) 
-                    ? new AuthData() { Type = "Master", IsMaster = true }
-                    : new AuthData() { Type = "AccessCode", IsMaster = false, AccessCode = "no access code" };
-            }
-
-            return authData;
-        }
     }
 }
