@@ -4,3 +4,5 @@ TCalcCore/obj/
 TourCalcWebApp/bin/
 TourCalcWebApp/obj/
 TCalcCore/bin/
+TourCalcWebApp/node_modules/
+TourCalcWebApp/wwwroot/assets/

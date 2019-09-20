@@ -12,5 +12,10 @@ namespace TCalc.Domain
         public DateTime DateCreated { get; set; } = DateTime.Now;
         public string Id { get { return GUID; } set { GUID = value; } }
         public string AccessCode { get; set; } = Convert.ToBase64String(BitConverter.GetBytes(DateTime.Now.Millisecond)).Substring(0, 6);
+        public void StripCalculations()
+        {
+            // delete spending lists that might be rather large
+            Persons.ForEach(p => { p.ReceivedSendingInfo = new List<SpendingInfo>(); p.SpentSendingInfo = new List<SpendingInfo>(); });
+        }
     }
 }

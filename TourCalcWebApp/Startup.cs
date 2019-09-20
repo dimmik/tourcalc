@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using System;
+using TCalc.Storage;
 using TourCalcWebApp.Auth;
 
 namespace TourCalcWebApp
@@ -24,14 +26,26 @@ namespace TourCalcWebApp
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            ITourStorage tourStorage = new LiteDbTourStorage(Configuration.GetValue<string>("DatabasePath", "AppData/Tour.db"));
+            services.AddSingleton<ITourStorage>(tourStorage);
+
+            SetupReact(services);
+
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2)
                 .AddJsonOptions(options =>
                 {
                     options.SerializerSettings.Formatting = Formatting.Indented;
                 });
+
             SetupAuth(services);
 
         }
+
+        private static void SetupReact(IServiceCollection services)
+        {
+            services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+        }
+
         private void SetupAuth(IServiceCollection services)
         {
             var privateKey = Configuration.GetValue<string>("AuthPrivateECDSAKey");
@@ -70,11 +84,19 @@ namespace TourCalcWebApp
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+                app.UseWebpackDevMiddleware();
             }
             
             app.UseHttpsRedirection();
             app.UseAuthentication();
-            app.UseMvc();
+            app.UseStaticFiles();
+
+            app.UseMvc(routes => {
+                routes.MapRoute(
+                    name: "default",
+                    template: "/");
+//                routes.MapSpaFallbackRoute("spa-fallback", new { });
+            });
 
         }
     }

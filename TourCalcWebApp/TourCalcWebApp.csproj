@@ -3,17 +3,53 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
     <AspNetCoreHostingModel>InProcess</AspNetCoreHostingModel>
+    <TypeScriptToolsVersion>3.1</TypeScriptToolsVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Remove="package-lock.json" />
+    <Content Remove="package.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="App\containers\auth\auth.jsx" />
+    <None Remove="App\containers\tour\choose.jsx" />
+    <None Remove="App\containers\tour\spendings.jsx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="App\containers\app.jsx" />
+    <Content Include="App\containers\auth\auth.jsx" />
+    <Content Include="App\containers\header\header.jsx" />
+    <Content Include="App\containers\tour\choose.jsx" />
+    <Content Include="App\containers\tour\spendings.jsx" />
+    <Content Include="App\containers\tour\persons.jsx" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BouncyCastle.NetCore" Version="1.8.5" />
     <PackageReference Include="LiteDB" Version="4.1.4" />
     <PackageReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.Razor.Design" Version="2.2.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.AspNetCore.SpaServices" Version="2.2.7" />
+    <PackageReference Include="Microsoft.ChakraCore" Version="1.11.13">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="2.2.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\TCalcCore\TCalcCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="package-lock.json" />
+    <None Include="package.json" />
   </ItemGroup>
 
 </Project>

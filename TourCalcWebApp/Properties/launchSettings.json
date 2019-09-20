@@ -18,7 +18,6 @@
     "TourCalcWebApp": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "api/tour",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },

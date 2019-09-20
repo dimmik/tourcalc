@@ -1,17 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Web.Http;
 using TCalc.Domain;
-using TCalc.Logic;
+using TCalc.Storage;
 using LiteDB;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
-using TourCalcWebApp.Controllers;
+using TCalc.Logic;
 
 namespace TourCalcWebApp.Controllers
 {
@@ -21,25 +18,26 @@ namespace TourCalcWebApp.Controllers
     [ApiController]
     public class TourController : ControllerBase
     {
-        private string dbFilePath => Configuration.GetValue<string>("DatabasePath");//= @"C:\tmp\Tour2.db";
 
         private readonly IConfiguration Configuration;
+        private readonly ITourStorage tourStorage;
 
-        public TourController(IConfiguration config)
+        public TourController(IConfiguration config, ITourStorage storage)
         {
             Configuration = config;
+            tourStorage = storage;
         }
         #region Tours
         [HttpGet("{tourid}")]
         public IActionResult GetTour(string tourid)
         {
-            var tour = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             return tour == null ? (IActionResult)NotFound($"No tour with id {tourid}") : (IActionResult)Ok(tour);
         }
         [HttpGet("{tourid}/calculated")]
         public IActionResult GetTourCalculated(string tourid)
         {
-            var tour = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             if (tour == null) return NotFound($"no tour with id {tourid}");
             var calculator = new TourCalculator(tour);
             var calculated = calculator.Calculate();
@@ -49,7 +47,7 @@ namespace TourCalcWebApp.Controllers
         [HttpGet]
         public IActionResult GetAllTours()
         {
-            var tours = TourStorageUtilities_LoadAllTours(dbFilePath);
+            var tours = TourStorageUtilities_LoadAllTours();
             return Ok(tours.ToArray());
         }
 
@@ -57,20 +55,21 @@ namespace TourCalcWebApp.Controllers
         [HttpPost]
         public IActionResult AddTour([FromBody]Tour t)
         {
-            t.GUID = Guid.NewGuid().ToString();
-            TourStorageUtilities.NewLiteDB(t, dbFilePath);
+            // TODO - authentication!!!
+            t.GUID = IdHelper.NewId();
+            tourStorage.AddTour(t);
             return Ok(t.GUID);
         }
 
         [HttpPatch("{tourid}")]
         public IActionResult UpdateTour(string tourid, Tour t)
         {
-            var tour = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
             if (tour == null) return NotFound($"no tour with id {tourid}");
 
             t.GUID = tourid;
-            t.StoreToLiteDB(dbFilePath);
+            tourStorage.StoreTour(t);
 
             return Ok(t.GUID);
         }
@@ -78,22 +77,18 @@ namespace TourCalcWebApp.Controllers
         [HttpDelete("{tourid}")]
         public IActionResult DeleteTour(string tourid)
         {
-            var tour = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             if (tour == null) return NotFound($"no tour with id {tourid}");
 
-            using (var db = new LiteDatabase(dbFilePath))
-            {
-                var col = db.GetCollection<Tour>("Tour");
-                col.Delete(x => x.GUID == tourid);
-                return Ok(tourid);
-            }
+            tourStorage.DeleteTour(tourid);
+            return Ok(tourid);
         }
         #endregion
         #region Persons
         [HttpGet("{tourid}/person")]
         public IActionResult GetAllTourPersons(string tourid)
         {
-            var tour = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
             if (tour != null) return Ok(tour.Persons);
             else return NotFound($"no tour with id {tourid}");
@@ -103,7 +98,7 @@ namespace TourCalcWebApp.Controllers
         [HttpGet("{tourid}/person/{personguid}")]
         public IActionResult GetTourPerson(string tourid, string personguid)
         {
-            var tour = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
             if (tour != null)
             {
@@ -117,13 +112,13 @@ namespace TourCalcWebApp.Controllers
         [HttpPost("{tourid}/person")]
         public IActionResult AddTourPerson(string tourid, Person p)
         {
-            var tour = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
             if (tour != null)
             {
-                p.GUID = Guid.NewGuid().ToString();
+                p.GUID = IdHelper.NewId();
                 tour.Persons.Add(p);
-                tour.StoreToLiteDB(dbFilePath);
+                tourStorage.StoreTour(tour);
             }
             else return NotFound($"no tour with id {tourid}");
             return Ok(p.GUID);
@@ -132,7 +127,7 @@ namespace TourCalcWebApp.Controllers
         [HttpPatch("{tourid}/person/{personguid}")]
         public IActionResult UpdateTourPerson(string tourid, string personguid, Person p)
         {
-            var t = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var t = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             p.GUID = personguid;
 
             if (t != null)
@@ -141,8 +136,8 @@ namespace TourCalcWebApp.Controllers
                 if (idx < 0) return NotFound($"No person with id {personguid} in tour {tourid}");
 
                 t.Persons[idx] = p;
-                
-                t.StoreToLiteDB(dbFilePath);
+
+                tourStorage.StoreTour(t);
             }
             else return NotFound($"cannot update: no tour with id {tourid}");
             return Ok(p.GUID);
@@ -151,7 +146,7 @@ namespace TourCalcWebApp.Controllers
         [HttpDelete("{tourid}/person/{personguid}")]
         public IActionResult DeleteTourPerson(string tourid, string personguid)
         {
-            var t = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var t = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
             if (t != null)
             {
@@ -159,7 +154,7 @@ namespace TourCalcWebApp.Controllers
                 if (removedPerson != null)
                 {
                     t.Persons.Remove(removedPerson);
-                    t.StoreToLiteDB(dbFilePath);
+                    tourStorage.StoreTour(t);
                     return Ok(removedPerson.GUID);
                 }
                 else return NotFound($"cannot delete: no person with id {personguid}");
@@ -171,7 +166,7 @@ namespace TourCalcWebApp.Controllers
         [HttpGet("{tourid}/spending")]
         public IActionResult GetAllTourSpendings(string tourid)
         {
-            var t = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var t = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
             if (t != null) return Ok(t.Spendings);
             else return NotFound($"no tour with id {tourid}");
@@ -180,7 +175,7 @@ namespace TourCalcWebApp.Controllers
         [HttpPatch("{tourid}/spending/{spendingid}")]
         public IActionResult UpdateTourSpending(string tourid, string spendingid, Spending sp)
         {
-            var t = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var t = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
             sp.GUID = spendingid;
 
@@ -189,7 +184,7 @@ namespace TourCalcWebApp.Controllers
                 var idx = t.Spendings.FindIndex(x => x.GUID == spendingid);
                 if (idx < 0) return NotFound($"No spending with id {spendingid} in tour {tourid}");
                 t.Spendings[idx] = sp;
-                t.StoreToLiteDB(dbFilePath);
+                tourStorage.StoreTour(t);
             }
             else return NotFound($"no tour with id {tourid}");
             return Ok(sp.GUID);
@@ -198,7 +193,7 @@ namespace TourCalcWebApp.Controllers
         [HttpGet("{tourid}/spending/{spendingid}")]
         public IActionResult GetTourSpending(string tourid, string spendingid)
         {
-            var t = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var t = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
             if (t != null) return Ok(t.Spendings.Find(x => x.GUID == spendingid));
             else return NotFound($"no tour with id {tourid}");
@@ -207,12 +202,12 @@ namespace TourCalcWebApp.Controllers
         [HttpPost("{tourid}/spending")]
         public IActionResult AddTourSpending(string tourid, Spending s)
         {
-            var t = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var t = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             if (t != null)
             {
-                s.GUID = Guid.NewGuid().ToString();
+                s.GUID = IdHelper.NewId();
                 t.Spendings.Add(s);
-                t.StoreToLiteDB(dbFilePath);
+                tourStorage.StoreTour(t);
             }
             else return NotFound($"no tour with id {tourid}");
             return Ok(s.GUID);
@@ -221,22 +216,22 @@ namespace TourCalcWebApp.Controllers
         [HttpDelete("{tourid}/spending/{spendingid}")]
         public IActionResult DeleteTourSpending(string tourid, string spendingid)
         {
-            var t = TourStorageUtilities_LoadFromLiteDBbyId(dbFilePath, tourid);
+            var t = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
             if (t != null)
             {
                 var removedSpending = t.Spendings.SingleOrDefault(x => x.GUID == spendingid);
                 if (removedSpending != null) t.Spendings.Remove(removedSpending);
-                t.StoreToLiteDB(dbFilePath);
+                tourStorage.StoreTour(t);
                 return Ok(spendingid);
             }
             else return NotFound($"no tour with id {tourid}");
         }
         #endregion
-        private Tour TourStorageUtilities_LoadFromLiteDBbyId(string path, string tourid)
+        private Tour TourStorageUtilities_LoadFromLiteDBbyId(string tourid)
         {
             AuthData authData = GetAuthData();
-            var tour = TourStorageUtilities.LoadFromLiteDBbyId(path, tourid);
+            var tour = tourStorage.GetTour(tourid);
             if (tour == null) return null;
             if (!authData.IsMaster)
             {
@@ -247,11 +242,11 @@ namespace TourCalcWebApp.Controllers
             }
             return tour;
         }
-        private IEnumerable<Tour> TourStorageUtilities_LoadAllTours(string path)
+        private IEnumerable<Tour> TourStorageUtilities_LoadAllTours()
         {
             
             AuthData authData = GetAuthData();
-            return TourStorageUtilities.LoadAllToursFromDb(path, x => authData.IsMaster ? true : authData.AccessCode == x.AccessCode);
+            return tourStorage.GetTours(x => authData.IsMaster ? true : authData.AccessCode == x.AccessCode);
         }
 
         private AuthData GetAuthData()
@@ -266,7 +261,7 @@ namespace TourCalcWebApp.Controllers
             else
             {
                 // default = master for debugging purposes
-                authData = Configuration.GetValue<bool>("AnonimousIsMaster", false) 
+                authData = Configuration.GetValue<bool>("AnonymousIsMaster", false) 
                     ? new AuthData() { Type = "Master", IsMaster = true }
                     : new AuthData() { Type = "AccessCode", IsMaster = false, AccessCode = "no access code" };
             }
