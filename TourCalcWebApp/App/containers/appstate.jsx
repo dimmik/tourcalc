@@ -17,7 +17,7 @@ export default class AppState {
 
     static login(comp, scope, code) {
         let url = '/api/auth/token/' + scope + '/' + code;
-        fetch(url)
+        return fetch(url)
             .then((res) => res.text())
             .then((result) => {
 //                alert('url: ' + url + ' res: ' + JSON.stringify(result, null, 2));
@@ -30,7 +30,7 @@ export default class AppState {
     static checkWhoAmI(comp) {
         this.token = Cookies.get('__tourcalc_token')
         //alert('token: ' + this.token)
-        fetch('/api/auth/whoami', {
+        return fetch('/api/auth/whoami', {
             method: 'get',
             headers: new Headers({
                 "Authorization": 'Bearer ' + this.token

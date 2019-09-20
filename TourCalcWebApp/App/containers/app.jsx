@@ -1,7 +1,7 @@
 ﻿import React from 'react';
 import ReactDOM from 'react-dom';
 import AppState from './appstate.jsx'
-import Cookies from 'js-cookie';
+import { BrowserRouter as Router, Route, Switch, Redirect  } from 'react-router-dom';
 import LoginScreen from './login-screen.jsx';
 import AuthenticatedApp from './authenticated-app.jsx'
 
@@ -10,7 +10,48 @@ export default class App extends React.Component {
         super(props);
         this.state = {}
     }
+    render() {
+        return (
+            <Router>
+                <div>
+                    <main>
+                    <Switch>
+                            <Route path="/access/:scope/:code" render={(props) => (<AccessCode app={this} scope={props.match.params.scope} code={props.match.params.code}/>)} />
+                       <Route path="/" component={Index} />
+                    </Switch>
+                    </main>
+                    </div>
+            </Router>
+            )
+    }
+    
+};
+class AccessCode extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            redirect: false
+        }
+    }
+    
+    componentDidMount() {
+        AppState.login(this.props.app, this.props.scope, this.props.code)
+            .then(() => { this.setState({redirect: true}) })
+    }
 
+    render() {
+        if (this.state.redirect) {
+            return <Redirect to="/"/>
+        } else {
+            return <div>Checking Access Code</div>
+        }
+    }
+}
+class Index extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {}
+    }
     componentDidMount() {
         AppState.checkWhoAmI(this);
     }
@@ -20,7 +61,7 @@ export default class App extends React.Component {
             return (<div>Checking Who you are...</div>)
         } else {
             if (this.state.authData.type == "None") {
-                return (<div><pre>{JSON.stringify(this.state.authData, null, 2)}</pre><LoginScreen app={this}/></div>)
+                return (<div><pre>{JSON.stringify(this.state.authData, null, 2)}</pre><LoginScreen app={this} /></div>)
             } else {
                 return (
                     <div><pre>{JSON.stringify(this.state.authData, null, 2)}</pre><AuthenticatedApp app={this} authData={this.state.authData} /></div>
@@ -28,9 +69,8 @@ export default class App extends React.Component {
             }
         }
     }
-    
-};
 
+}
 ReactDOM.render(
     <App />,
     document.getElementById("content")
