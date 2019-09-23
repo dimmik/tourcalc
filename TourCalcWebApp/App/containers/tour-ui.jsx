@@ -2,6 +2,15 @@
 import ReactDOM from 'react-dom';
 import AppState from './appstate.jsx'
 
+import Paper from '@material-ui/core/Paper';
+import Tabs from '@material-ui/core/Tabs';
+import Tab from '@material-ui/core/Tab';
+import Header from './header/header.jsx';
+import { BrowserRouter as Router, Route, Switch, Link } from 'react-router-dom';
+
+
+
+
 export default class TourUI extends React.Component {
     constructor(props) {
         super(props);
@@ -13,13 +22,14 @@ export default class TourUI extends React.Component {
     componentDidMount() {
         AppState.checkWhoAmI(this);
     }
+
     render() {
         if (!this.state.isAuthLoaded) {
             return (<div>Checking Who you are...</div>)
         } else {
             if (!this.state.authData.isMaster
                 && this.state.authData.tourIds.indexOf(this.props.tourid) == -1) { // no such tour for credentials
-                return (<div><pre>{JSON.stringify(this.state.authData, null, 2)}</pre><TourEnterAccessCode app={this} /></div>)
+                return (<div><pre>{JSON.stringify(this.state.authData, null, 2)}</pre><TourRequestAccessCode app={this} /></div>)
             } else {
                 return (<TourTable tourid={this.props.tourid} />)
             }
@@ -46,13 +56,36 @@ class TourTable extends React.Component {
         if (!this.state.isTourLoaded) {
             return <div>Tour {this.props.tourid} loading...</div>
         } else {
-            return <div><pre>Tour: {JSON.stringify(this.state.tour, null, 2)}}</pre></div>
+            return (
+                <Router>
+                    <div>
+                        <Link to={'/tour/' + this.props.tourid + '/persons'}>Persons</Link>&nbsp;
+                        <Link to={'/tour/' + this.props.tourid + '/spendings'}>Spendings</Link>
+                        <main>
+                            <Switch>
+                                <Route path={'/tour/' + this.props.tourid + '/spendings'}
+                                    render={(props) => (<div> spendings: <pre>{JSON.stringify(this.state.tour.spendings, null, 2)}</pre></div>)} />
+                                <Route path={'/tour/' + this.props.tourid}
+                                    render={(props) => (<div> persons: <pre>{JSON.stringify(this.state.tour.persons, null, 2)}</pre></div>)} />
+                            </Switch>
+                        </main>
+                    </div>
+                </Router>
+
+                )
+            //return <div><pre>Tour: {JSON.stringify(this.state.tour, null, 2)}}</pre></div>
+        }
+        function TPersons() {
+            return <div> persons: <pre>{JSON.stringify(this.state.tour.persons, null, 2)}}</pre></div>
+        }
+        function TSpendings() {
+            return <div> spendings: <pre>{JSON.stringify(this.state.tour.spendings, null, 2)}}</pre></div>
         }
     }
 
 }
 
-class TourEnterAccessCode extends React.Component {
+class TourRequestAccessCode extends React.Component {
     constructor(props) {
         super(props);
         this.state = {

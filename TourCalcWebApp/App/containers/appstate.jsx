@@ -56,7 +56,7 @@ export default class AppState {
     }
 
     static loadTour(comp, tourid) {
-        return fetch('/api/tour/' + tourid, {
+        return fetch('/api/tour/' + tourid + '/calculated', {
             method: 'get',
             headers: new Headers({
                 "Authorization": 'Bearer ' + this.token

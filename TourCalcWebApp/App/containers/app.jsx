@@ -18,7 +18,7 @@ export default class App extends React.Component {
                     <main>
                     <Switch>
                             <Route path="/access/:scope/:code"
-                                render={(props) => (<AccessCode app={this} scope={props.match.params.scope} code={props.match.params.code} />)} />
+                                render={(props) => (<RequestAccessCode app={this} scope={props.match.params.scope} code={props.match.params.code} />)} />
                             <Route path="/tour/:tourid"
                                 render={(props) => (<TourUI app={this} tourid={props.match.params.tourid} />)} />
                             <Route path="/" component={Index} />
@@ -30,7 +30,8 @@ export default class App extends React.Component {
     }
     
 };
-class AccessCode extends React.Component {
+
+class RequestAccessCode extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
