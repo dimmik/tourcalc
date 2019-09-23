@@ -4,6 +4,7 @@ import AppState from './appstate.jsx'
 import { BrowserRouter as Router, Route, Switch, Redirect  } from 'react-router-dom';
 import LoginScreen from './login-screen.jsx';
 import AuthenticatedApp from './authenticated-app.jsx'
+import TourUI from './tour-ui.jsx'
 
 export default class App extends React.Component {
     constructor(props) {
@@ -16,8 +17,11 @@ export default class App extends React.Component {
                 <div>
                     <main>
                     <Switch>
-                            <Route path="/access/:scope/:code" render={(props) => (<AccessCode app={this} scope={props.match.params.scope} code={props.match.params.code}/>)} />
-                       <Route path="/" component={Index} />
+                            <Route path="/access/:scope/:code"
+                                render={(props) => (<AccessCode app={this} scope={props.match.params.scope} code={props.match.params.code} />)} />
+                            <Route path="/tour/:tourid"
+                                render={(props) => (<TourUI app={this} tourid={props.match.params.tourid} />)} />
+                            <Route path="/" component={Index} />
                     </Switch>
                     </main>
                     </div>

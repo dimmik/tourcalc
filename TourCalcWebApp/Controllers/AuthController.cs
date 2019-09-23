@@ -11,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Org.BouncyCastle.Security;
 using TCalc.Domain;
+using TCalc.Storage;
 using TourCalcWebApp.Auth;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -24,11 +25,13 @@ namespace TourCalcWebApp.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IConfiguration Configuration;
-        private string dbFilePath => Configuration.GetValue<string>("DatabasePath");//= @"C:\tmp\Tour2.db";
+        private readonly ITourStorage tourStorage;
 
-        public AuthController(IConfiguration config)
+
+        public AuthController(IConfiguration config, ITourStorage storage)
         {
             Configuration = config;
+            tourStorage = storage;
         }
 
         [HttpGet("random/{numb=32}")]
@@ -68,17 +71,19 @@ namespace TourCalcWebApp.Controllers
         [HttpGet("whoami")]
         public IActionResult WhoAmI()
         {
-            var authData = AuthHelper.GetAuthData(User, Configuration);
-            return Ok(authData);
+            var auth = AuthHelper.GetAuthData(User, Configuration);
+            auth.TourIds = tourStorage.GetTours((x) => (x.AccessCodeMD5 != null && auth.AccessCodeMD5 == x.AccessCodeMD5))
+                .Select(t => t.Id).ToList();
+            return Ok(auth);
         }
 
-        private AuthData Authorize(string scope, string key)
+        private AuthData Authorize(string scope, string accessCode)
         {
             AuthData auth = new AuthData();
             if (scope == "admin")
             {
                 // generate for master key
-                string keyProvided = key;
+                string keyProvided = accessCode;
                 string keyFromConfig = Configuration.GetValue<string>("MasterKey");
                 if (keyProvided == keyFromConfig)
                 {
@@ -89,7 +94,7 @@ namespace TourCalcWebApp.Controllers
             else if (scope == "user")
             {
                 // can create tours, but not delete. TODO: think about it
-                string keyProvided = key;
+                string keyProvided = accessCode;
                 string keyFromConfig = Configuration.GetValue<string>("UserKey");
                 if (keyProvided == keyFromConfig)
                 {
@@ -97,18 +102,14 @@ namespace TourCalcWebApp.Controllers
                     auth.IsMaster = false;
                 }
             }
-            else if (scope == "tour")
+            else if (scope == "code")
             {
                 // TODO change to user-related 
                 // Access code
                 // get all tours with given access code
-                using (var db = new LiteDatabase(dbFilePath))
-                {
-                    auth.Type = "AccessCode";
-                    auth.IsMaster = false;
-                    auth.TourId = key;
-                }
-
+                auth.Type = "AccessCode";
+                auth.IsMaster = false;
+                auth.AccessCodeMD5 = AuthHelper.CreateMD5(accessCode);
             }
 
             return auth;

@@ -5,8 +5,8 @@ export default class AppState {
     state = {
         token: null,
         isMaster: null,
-        allowedTourId: null,
-        currentTour:  null,
+        isTourLoaded: null,
+        tour:  null,
         tours: null,
         isAuthLoaded: false,
         error: null,
@@ -55,5 +55,28 @@ export default class AppState {
 
     }
 
-
+    static loadTour(comp, tourid) {
+        return fetch('/api/tour/' + tourid, {
+            method: 'get',
+            headers: new Headers({
+                "Authorization": 'Bearer ' + this.token
+            })
+        })
+            .then((res) => res.json())
+            .then(
+                (result) => {
+                    this.state = {
+                        isTourLoaded: true,
+                        tour: result
+                    };
+                    comp.setState(this.state);
+                },
+                (error) => {
+                    this.state = {
+                        isTourLoaded: true,
+                        error
+                    };
+                    comp.setState(this.state);
+                })
+    }
 }

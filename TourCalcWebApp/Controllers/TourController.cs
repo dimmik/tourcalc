@@ -53,8 +53,8 @@ namespace TourCalcWebApp.Controllers
         }
 
 
-        [HttpPost]
-        public IActionResult AddTour([FromBody]Tour t)
+        [HttpPost("add/{accessCode}")]
+        public IActionResult AddTour([FromBody]Tour t, string accessCode)
         {
             // TODO - authentication!!!
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
@@ -63,6 +63,7 @@ namespace TourCalcWebApp.Controllers
                 return Forbid();
             }
             t.GUID = IdHelper.NewId();
+            t.AccessCodeMD5 = AuthHelper.CreateMD5(accessCode);
             tourStorage.AddTour(t);
             return Ok(t.GUID);
         }
@@ -241,7 +242,7 @@ namespace TourCalcWebApp.Controllers
             if (tour == null) return null;
             if (!authData.IsMaster)
             {
-                if (!(authData.AccessCode == tour.AccessCode))
+                if (!(authData.AccessCodeMD5 == tour.AccessCodeMD5))
                 {
                     return null;
                 }
@@ -252,7 +253,7 @@ namespace TourCalcWebApp.Controllers
         {
             
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
-            return tourStorage.GetTours(x => authData.IsMaster ? true : authData.TourId == x.Id);
+            return tourStorage.GetTours(x => authData.IsMaster ? true : (x.AccessCodeMD5 != null && authData.AccessCodeMD5 == x.AccessCodeMD5));
         }
 
     }

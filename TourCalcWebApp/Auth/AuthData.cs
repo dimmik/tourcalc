@@ -9,7 +9,8 @@ namespace TourCalcWebApp.Auth
     {
         public string Type { get; set; } = "None";
         public bool IsMaster { get; set; } = false; // allow all
-        public string AccessCode { get; set; } = "";
-        public string TourId { get; set; } = "";
+        public string AccessCodeMD5 { get; set; } = "";
+        public List<string> TourIds { get; set; } = new List<string>();
+//        public string TourId { get; set; } = "";
     }
 }
