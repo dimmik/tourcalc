@@ -128,7 +128,9 @@ class TourTable extends React.Component {
                                                                     }
                                                                 }}>Del</button>
                                                             </TableCell>
-                                                            <TableCell align="right">{this.state.tour.persons.find((pp) => pp.guid === p.fromGuid).name}</TableCell>
+                                                            <TableCell align="right">{
+                                                                this.state.tour.persons.filter((pp) => pp.guid === p.fromGuid).map(ppp => ppp.name)
+                                                            }</TableCell>
                                                             <TableCell align="right">
                                                                 {p.amountInCents}
                                                             </TableCell>

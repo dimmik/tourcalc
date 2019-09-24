@@ -17,7 +17,7 @@ export default class SpendingsForm extends React.Component {
         this.tour = props.tour
 
         if (props.spending != null) this.spending = props.spending
-        else this.spending.fromGuid = this.tour.persons[0].guid
+        else this.spending.fromGuid = this.tour.persons.length > 0 ? this.tour.persons[0].guid : ""
     }
     spending = {
         description: "",

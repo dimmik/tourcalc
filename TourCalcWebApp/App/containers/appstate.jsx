@@ -10,7 +10,9 @@ export default class AppState {
         tours: null,
         isAuthLoaded: false,
         error: null,
-        authData: null
+        authData: null,
+        isToursLoaded: false,
+        tours: null
     }
 
     token_name = '__tourcalc_token'
@@ -20,7 +22,7 @@ export default class AppState {
         return fetch(url)
             .then((res) => res.text())
             .then((result) => {
-//                alert('url: ' + url + ' res: ' + JSON.stringify(result, null, 2));
+                //alert('url: ' + url + ' res: ' + JSON.stringify(result, null, 2));
                 //alert('url: ' + url + ' res: ' + result);
                 Cookies.set('__tourcalc_token', result)
             })
@@ -162,5 +164,54 @@ export default class AppState {
                     };
                     comp.setState(this.state);
                 })
+    }
+
+    static loadTours(comp) {
+        return fetch('/api/tour', {
+            method: 'get',
+            headers: new Headers({
+                "Authorization": 'Bearer ' + this.token
+            })
+        })
+            .then(res => res.json())
+            .then(result => {
+                this.state = {
+                    isToursLoaded: true,
+                    tours: result
+                };
+                comp.setState(this.state)
+            }, error => {
+                this.state = {
+                    isToursLoaded: true,
+                    error
+                };
+                comp.setState(this.state)
+            })
+    }
+    static addTour(comp, tname, accessCode) {
+        let b = JSON.stringify({ name: tname }, null, 2)
+        //alert('b: ' + b)
+        return fetch('/api/tour/add/' + accessCode, {
+            method: 'post',
+            headers: new Headers({
+                "Authorization": 'Bearer ' + this.token,
+                "Content-Type": "application/json"
+            }),
+            body: b
+        })
+            .then(res => res.text())
+    }
+    static deleteTour(comp, tourid) {
+        return fetch(
+            '/api/tour/' + tourid, {
+                method: 'DELETE',
+                headers: new Headers({
+                    "Authorization": 'Bearer ' + this.token,
+                    "Content-Type": "application/json"
+                })
+            }
+        )
+            .then((res) => res.text())
+
     }
 }

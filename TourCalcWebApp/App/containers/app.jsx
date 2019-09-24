@@ -21,6 +21,7 @@ export default class App extends React.Component {
                                 render={(props) => (<RequestAccessCode app={this} scope={props.match.params.scope} code={props.match.params.code} />)} />
                             <Route path="/tour/:tourid"
                                 render={(props) => (<TourUI app={this} tourid={props.match.params.tourid} />)} />
+                            <Route path="/login" render={(props) => <LoginScreen app={this}/>} />
                             <Route path="/" component={Index} />
                     </Switch>
                     </main>
@@ -65,11 +66,11 @@ class Index extends React.Component {
         if (!this.state.isAuthLoaded) {
             return (<div>Checking Who you are...</div>)
         } else {
-            if (this.state.authData.type == "None") {
-                return (<div><pre>{JSON.stringify(this.state.authData, null, 2)}</pre><LoginScreen app={this} /></div>)
+            if (this.state.authData.type === "None") {
+                return (<Redirect to="/login"/>)
             } else {
                 return (
-                    <div><pre>{JSON.stringify(this.state.authData, null, 2)}</pre><AuthenticatedApp app={this} authData={this.state.authData} /></div>
+                    <AuthenticatedApp app={this} authData={this.state.authData} />
                 )
             }
         }
