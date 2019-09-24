@@ -97,6 +97,48 @@ export default class AppState {
 
     }
 
+    static addSpending(comp, tourid, spending) {
+        return fetch(
+            '/api/tour/' + tourid + '/spending', {
+                method: 'post',
+                headers: new Headers({
+                    "Authorization": 'Bearer ' + this.token,
+                    "Content-Type": "application/json"
+                }),
+                body: JSON.stringify(spending, null, 2)
+            }
+        )
+            .then((res) => res.text())
+
+    }
+    static editSpending(comp, tourid, spending) {
+        return fetch(
+            '/api/tour/' + tourid + '/spending/' + spending.guid, {
+                method: 'PATCH',
+                headers: new Headers({
+                    "Authorization": 'Bearer ' + this.token,
+                    "Content-Type": "application/json"
+                }),
+                body: JSON.stringify(spending, null, 2)
+            }
+        )
+            .then((res) => res.text())
+
+    }
+    static deleteSpending(comp, tourid, guid) {
+        return fetch(
+            '/api/tour/' + tourid + '/spending/' + guid, {
+                method: 'DELETE',
+                headers: new Headers({
+                    "Authorization": 'Bearer ' + this.token,
+                    "Content-Type": "application/json"
+                })
+            }
+        )
+            .then((res) => res.text())
+
+    }
+
     static loadTour(comp, tourid) {
         return fetch('/api/tour/' + tourid + '/calculated', {
             method: 'get',

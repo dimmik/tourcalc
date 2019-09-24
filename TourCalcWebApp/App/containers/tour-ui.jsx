@@ -11,7 +11,8 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
 
-import PersonForm from './tour-edit.jsx'
+import PersonForm from './tour-person-edit.jsx'
+import SpendingForm from './tour-spending-edit.jsx'
 
 
 
@@ -89,8 +90,16 @@ class TourTable extends React.Component {
                                             <Table stickyHeader>
                                                 <TableHead>
                                                     <TableRow>
-                                                        <TableCell>Reason
-                                                            
+                                                        <TableCell>Description (
+                                                            <SpendingForm
+                                                                tour={this.state.tour}
+                                                                buttonText="Add"
+                                                                actionButtonText="Add Spending"
+                                                                open={false}
+                                                                mode="add"
+                                                                app={this}
+                                                            />)
+                                    
                                                         </TableCell>
                                                         <TableCell align="right">From</TableCell>
                                                         <TableCell align="right">Amount</TableCell>
@@ -103,9 +112,24 @@ class TourTable extends React.Component {
                                                         <TableRow key={p.guid} hover>
                                                             <TableCell component="th" scope="row">
                                                                 {p.description}
+                                                                <SpendingForm
+                                                                    tour={this.state.tour}
+                                                                    buttonText="Edit"
+                                                                    actionButtonText="Edit Spending"
+                                                                    open={false}
+                                                                    mode="edit"
+                                                                    app={this}
+                                                                    spending={p}
+                                                                />
+                                                                <button onClick={() => {
+                                                                    if (window.confirm('Sure to delete spending ' + p.name + '?')) {
+                                                                        AppState.deleteSpending(this, this.props.tourid, p.guid)
+                                                                            .then(() => { AppState.loadTour(this, this.props.tourid); })
+                                                                    }
+                                                                }}>Del</button>
                                                             </TableCell>
                                                             <TableCell align="right">{this.state.tour.persons.find((pp) => pp.guid === p.fromGuid).name}</TableCell>
-                                                            <TableCell align="right">{p.amountInCents / 100}</TableCell>
+                                                            <TableCell align="right">{p.amountInCents}</TableCell>
                                                             <TableCell align="right">{p.toAll ? 'true' : 'false'}</TableCell>
                                                             <TableCell align="right">{p.toGuid.map(
 
@@ -161,9 +185,9 @@ class TourTable extends React.Component {
                                                                 }}>Del</button>
                                                             </TableCell>
                                                             <TableCell align="right">{p.weight}</TableCell>
-                                                            <TableCell align="right">{p.spentInCents / 100}</TableCell>
-                                                            <TableCell align="right">{p.receivedInCents / 100}</TableCell>
-                                                            <TableCell align="right">{(p.receivedInCents - p.spentInCents) / 100}</TableCell>
+                                                            <TableCell align="right">{p.spentInCents}</TableCell>
+                                                            <TableCell align="right">{p.receivedInCents}</TableCell>
+                                                            <TableCell align="right">{(p.receivedInCents - p.spentInCents)}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
