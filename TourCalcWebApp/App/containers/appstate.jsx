@@ -69,6 +69,33 @@ export default class AppState {
             .then((res) => res.text())
 
     }
+    static editPerson(comp, tourid, person) {
+        return fetch(
+            '/api/tour/' + tourid + '/person/' + person.guid, {
+                method: 'PATCH',
+                headers: new Headers({
+                    "Authorization": 'Bearer ' + this.token,
+                    "Content-Type": "application/json"
+                }),
+                body: JSON.stringify(person, null, 2)
+            }
+        )
+            .then((res) => res.text())
+
+    }
+    static deletePerson(comp, tourid, guid) {
+        return fetch(
+            '/api/tour/' + tourid + '/person/' + guid, {
+                method: 'DELETE',
+                headers: new Headers({
+                    "Authorization": 'Bearer ' + this.token,
+                    "Content-Type": "application/json"
+                })
+            }
+        )
+            .then((res) => res.text())
+
+    }
 
     static loadTour(comp, tourid) {
         return fetch('/api/tour/' + tourid + '/calculated', {

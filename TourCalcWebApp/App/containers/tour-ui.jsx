@@ -126,8 +126,14 @@ class TourTable extends React.Component {
                                             <Table stickyHeader>
                                                 <TableHead>
                                                     <TableRow>
-                                                        <TableCell>Name (<PersonForm tourid={this.props.tourid} app={this} open={this.state.dialogPOpen} buttonText="Add" actionButtonText="Add Person"/>)</TableCell>
-                                                        <TableCell align="right">Weight</TableCell>
+                                                        <TableCell>Name (
+                                                            <PersonForm mode="add"
+                                                                tourid={this.props.tourid}
+                                                                open={false}
+                                                                app={this}
+                                                                buttonText="Add" actionButtonText="Add Person" />)
+                                                            </TableCell>
+                                                        <TableCell align="right">Weight %</TableCell>
                                                         <TableCell align="right">Spent</TableCell>
                                                         <TableCell align="right">Received</TableCell>
                                                         <TableCell align="right">Owes</TableCell>
@@ -137,9 +143,24 @@ class TourTable extends React.Component {
                                                     {this.state.tour.persons.map(p => (
                                                         <TableRow key={p.guid} hover>
                                                             <TableCell component="th" scope="row">
-                                                                {p.name}
+                                                                {p.name} 
+                                                                <PersonForm mode="edit"
+                                                                    tourid={this.props.tourid}
+                                                                    open={false}
+                                                                    app={this}
+                                                                    buttonText="Edit" actionButtonText="Save Person"
+                                                                    name={p.name}
+                                                                    weight={p.weight}
+                                                                    guid={p.guid}
+                                                                />
+                                                                <button onClick={() => {
+                                                                    if (window.confirm('Sure to delete ' + p.name + '?')) {
+                                                                        AppState.deletePerson(this, this.props.tourid, p.guid)
+                                                                            .then(() => { AppState.loadTour(this, this.props.tourid); })
+                                                                    }
+                                                                }}>Del</button>
                                                             </TableCell>
-                                                            <TableCell align="right">{p.weight / 100}</TableCell>
+                                                            <TableCell align="right">{p.weight}</TableCell>
                                                             <TableCell align="right">{p.spentInCents / 100}</TableCell>
                                                             <TableCell align="right">{p.receivedInCents / 100}</TableCell>
                                                             <TableCell align="right">{(p.receivedInCents - p.spentInCents) / 100}</TableCell>
