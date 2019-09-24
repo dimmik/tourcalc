@@ -2,12 +2,15 @@
 import ReactDOM from 'react-dom';
 import AppState from './appstate.jsx'
 
-import Paper from '@material-ui/core/Paper';
-import Tabs from '@material-ui/core/Tabs';
-import Tab from '@material-ui/core/Tab';
-import Header from './header/header.jsx';
 import { BrowserRouter as Router, Route, Switch, Link } from 'react-router-dom';
 
+import { makeStyles } from '@material-ui/core/styles';
+import Table from '@material-ui/core/Table';
+import TableBody from '@material-ui/core/TableBody';
+import TableCell from '@material-ui/core/TableCell';
+import TableHead from '@material-ui/core/TableHead';
+import TableRow from '@material-ui/core/TableRow';
+import Paper from '@material-ui/core/Paper';
 
 
 
@@ -38,6 +41,17 @@ export default class TourUI extends React.Component {
         
     }
 }
+/*const useStyles = makeStyles(theme => ({
+    root: {
+        width: '100%',
+        marginTop: theme.spacing(3),
+        overflowX: 'auto',
+    },
+    table: {
+        minWidth: 650,
+    },
+}));
+const classes = useStyles();*/
 
 class TourTable extends React.Component {
     constructor(props) {
@@ -56,17 +70,81 @@ class TourTable extends React.Component {
         if (!this.state.isTourLoaded) {
             return <div>Tour {this.props.tourid} loading...</div>
         } else {
+            
             return (
                 <Router>
                     <div>
+                        <h2>{this.state.tour.name}</h2>
                         <Link to={'/tour/' + this.props.tourid + '/persons'}>Persons</Link>&nbsp;
                         <Link to={'/tour/' + this.props.tourid + '/spendings'}>Spendings</Link>
+                        <span><button onClick={() => { this.setState({ isTourLoaded: false }); AppState.loadTour(this, this.props.tourid); }}>Refresh</button> </span>
                         <main>
                             <Switch>
                                 <Route path={'/tour/' + this.props.tourid + '/spendings'}
-                                    render={(props) => (<div> spendings: <pre>{JSON.stringify(this.state.tour.spendings, null, 2)}</pre></div>)} />
+                                    render={(props) => (
+
+                                        <Paper>
+                                            <Table stickyHeader>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell>Reason (Add)</TableCell>
+                                                        <TableCell align="right">From</TableCell>
+                                                        <TableCell align="right">Amount</TableCell>
+                                                        <TableCell align="right">To all?</TableCell>
+                                                        <TableCell align="right">Recipients</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {this.state.tour.spendings.map(p => (
+                                                        <TableRow key={p.guid} hover>
+                                                            <TableCell component="th" scope="row">
+                                                                {p.description}
+                                                            </TableCell>
+                                                            <TableCell align="right">{this.state.tour.persons.find((pp) => pp.guid === p.fromGuid).name}</TableCell>
+                                                            <TableCell align="right">{p.amountInCents / 100}</TableCell>
+                                                            <TableCell align="right">{p.toAll ? 'true' : 'false'}</TableCell>
+                                                            <TableCell align="right">{p.toGuid.map(
+
+                                                                (id) => this.state.tour.persons.find((pp) => pp.guid === id).name
+
+                                                            ).join(', ')}</TableCell>
+                                                        </TableRow>  
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </Paper>
+
+
+                                    )} />
                                 <Route path={'/tour/' + this.props.tourid}
-                                    render={(props) => (<div> persons: <pre>{JSON.stringify(this.state.tour.persons, null, 2)}</pre></div>)} />
+                                    render={(props) => (
+                                        <Paper>
+                                            <Table stickyHeader>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell>Name (Add)</TableCell>
+                                                        <TableCell align="right">Weight</TableCell>
+                                                        <TableCell align="right">Spent</TableCell>
+                                                        <TableCell align="right">Received</TableCell>
+                                                        <TableCell align="right">Owes</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {this.state.tour.persons.map(p => (
+                                                        <TableRow key={p.guid} hover>
+                                                            <TableCell component="th" scope="row">
+                                                                {p.name}
+                                                            </TableCell>
+                                                            <TableCell align="right">{p.weight / 100}</TableCell>
+                                                            <TableCell align="right">{p.spentInCents / 100}</TableCell>
+                                                            <TableCell align="right">{p.receivedInCents / 100}</TableCell>
+                                                            <TableCell align="right">{(p.receivedInCents - p.spentInCents) / 100}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </Paper>
+                                    )} />
                             </Switch>
                         </main>
                     </div>
