@@ -55,6 +55,21 @@ export default class AppState {
 
     }
 
+    static addPerson(comp, tourid, person) {
+        return fetch(
+            '/api/tour/' + tourid + '/person', {
+                method: 'post',
+                headers: new Headers({
+                    "Authorization": 'Bearer ' + this.token,
+                    "Content-Type": "application/json"
+                }),
+                body: JSON.stringify(person, null, 2)
+            }
+        )
+            .then((res) => res.text())
+
+    }
+
     static loadTour(comp, tourid) {
         return fetch('/api/tour/' + tourid + '/calculated', {
             method: 'get',

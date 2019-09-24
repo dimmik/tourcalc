@@ -4,13 +4,14 @@ import AppState from './appstate.jsx'
 
 import { BrowserRouter as Router, Route, Switch, Link } from 'react-router-dom';
 
-import { makeStyles } from '@material-ui/core/styles';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
+
+import PersonForm from './tour-edit.jsx'
 
 
 
@@ -58,7 +59,8 @@ class TourTable extends React.Component {
         super(props);
         this.state = {
             isTourLoaded: false,
-            tour: null
+            tour: null,
+            dialogPOpen: false
         }
     }
 
@@ -70,7 +72,6 @@ class TourTable extends React.Component {
         if (!this.state.isTourLoaded) {
             return <div>Tour {this.props.tourid} loading...</div>
         } else {
-            
             return (
                 <Router>
                     <div>
@@ -78,6 +79,7 @@ class TourTable extends React.Component {
                         <Link to={'/tour/' + this.props.tourid + '/persons'}>Persons</Link>&nbsp;
                         <Link to={'/tour/' + this.props.tourid + '/spendings'}>Spendings</Link>
                         <span><button onClick={() => { this.setState({ isTourLoaded: false }); AppState.loadTour(this, this.props.tourid); }}>Refresh</button> </span>
+
                         <main>
                             <Switch>
                                 <Route path={'/tour/' + this.props.tourid + '/spendings'}
@@ -87,7 +89,9 @@ class TourTable extends React.Component {
                                             <Table stickyHeader>
                                                 <TableHead>
                                                     <TableRow>
-                                                        <TableCell>Reason (Add)</TableCell>
+                                                        <TableCell>Reason
+                                                            
+                                                        </TableCell>
                                                         <TableCell align="right">From</TableCell>
                                                         <TableCell align="right">Amount</TableCell>
                                                         <TableCell align="right">To all?</TableCell>
@@ -122,7 +126,7 @@ class TourTable extends React.Component {
                                             <Table stickyHeader>
                                                 <TableHead>
                                                     <TableRow>
-                                                        <TableCell>Name (Add)</TableCell>
+                                                        <TableCell>Name (<PersonForm tourid={this.props.tourid} app={this} open={this.state.dialogPOpen} buttonText="Add" actionButtonText="Add Person"/>)</TableCell>
                                                         <TableCell align="right">Weight</TableCell>
                                                         <TableCell align="right">Spent</TableCell>
                                                         <TableCell align="right">Received</TableCell>
