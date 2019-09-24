@@ -13,7 +13,7 @@ import Paper from '@material-ui/core/Paper';
 
 import PersonForm from './tour-person-edit.jsx'
 import SpendingForm from './tour-spending-edit.jsx'
-
+import SpendingsDetail from './person-show-spendings.jsx'
 
 
 export default class TourUI extends React.Component {
@@ -129,7 +129,9 @@ class TourTable extends React.Component {
                                                                 }}>Del</button>
                                                             </TableCell>
                                                             <TableCell align="right">{this.state.tour.persons.find((pp) => pp.guid === p.fromGuid).name}</TableCell>
-                                                            <TableCell align="right">{p.amountInCents}</TableCell>
+                                                            <TableCell align="right">
+                                                                {p.amountInCents}
+                                                            </TableCell>
                                                             <TableCell align="right">{p.toAll ? 'true' : 'false'}</TableCell>
                                                             <TableCell align="right">{p.toGuid.map(
 
@@ -185,8 +187,15 @@ class TourTable extends React.Component {
                                                                 }}>Del</button>
                                                             </TableCell>
                                                             <TableCell align="right">{p.weight}</TableCell>
-                                                            <TableCell align="right">{p.spentInCents}</TableCell>
-                                                            <TableCell align="right">{p.receivedInCents}</TableCell>
+                                                            <TableCell align="right">
+                                                                <SpendingsDetail person={p} spendingInfo={p.spentSendingInfo} showText={p.spentInCents} open={false}
+                                                                    received={false} />
+
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <SpendingsDetail person={p} spendingInfo={p.receivedSendingInfo} showText={p.receivedInCents} open={false}
+                                                                    received={true}/>
+                                                            </TableCell>
                                                             <TableCell align="right">{(p.receivedInCents - p.spentInCents)}</TableCell>
                                                         </TableRow>
                                                     ))}
