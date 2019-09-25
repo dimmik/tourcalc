@@ -21,9 +21,9 @@ export default class TourNameEdit extends React.Component {
     render() {
         return (
             <span>
-                <button onClick={() => this.setState({ dialogOpen: true })}>
+                <span style={{ cursor: 'pointer', fontSize: "xx-small"}} onClick={() => this.setState({ dialogOpen: true })}>
                     {this.props.buttonText}
-                </button>
+                </span>
             <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
                 <DialogTitle id="customized-dialog-title">Change Tour Name</DialogTitle>
                     <DialogContent>

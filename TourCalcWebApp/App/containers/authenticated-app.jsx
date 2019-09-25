@@ -24,26 +24,33 @@ export default class AuthenticatedApp extends React.Component {
         } else {
             return (
                 <div>
-                    Tours {this.props.authData.type === 'Master' ? <TourAdd buttonText="Add" actionButtonText="Add Tour" app={this} open={false}/> : <span/>}
-                    <ol>
-                        {this.state.tours.map( t =>
-                            (
-                                <li key={t.id}><Link to={'/tour/' + t.id}>{t.name}</Link>
-                                    <TourNameEdit tourid={t.id} name={t.name} app={this} open={false} buttonText="Edit name" actionButtonText="Change name"/>
-
-                                    {this.props.authData.type === 'Master' ? (
-                                        <button onClick={() => {
-                                            if (window.confirm('Sure to delete tour ' + t.name + ' (id: ' + t.id + ')?')) {
-                                                AppState.deleteTour(this, t.id)
-                                                    .then(() => { AppState.loadTours(this); })
-                                            }
-                                        }}>Del</button>) : <span />
+                    Tours {
+                        this.props.authData.type === 'Master'
+                            ? <TourAdd buttonText="Add" actionButtonText="Add Tour" app={this} open={false} />
+                            : <span />
+                    }
+                    {
+                        this.state.tours.map((t, idx) => {
+                            return (
+                                <div key={'d' + idx}>
+                                    {
+                                        this.props.authData.type === 'Master' ? (
+                                            <span key={'s' + idx} style={{ cursor: "pointer", borderStyle: 'ridge', fontSize: "xx-small" }} onClick={() => {
+                                                if (window.confirm('Sure to delete tour ' + t.name + ' (id: ' + t.id + ')?')) {
+                                                    AppState.deleteTour(this, t.id)
+                                                        .then(() => { AppState.loadTours(this); })
+                                                }
+                                            }}>X</span>) : <span />
                                     }
-                                    </li>
+                                    &nbsp;
+                                    <u key={'u' + idx}><TourNameEdit key={'te' + idx} tourid={t.id} name={t.name} app={this} open={false} buttonText='Edit' actionButtonText="Change name" /></u>
+                                    &nbsp;&nbsp;
+                                    {idx + 1}.
+                                <Link key={'l'+idx} to={'/tour/' + t.id}>{t.name}</Link>
+                                </div>
                             )
-                        )
-                        }
-                    </ol>
+                        })
+                    }
                 </div>
                 )
         }
