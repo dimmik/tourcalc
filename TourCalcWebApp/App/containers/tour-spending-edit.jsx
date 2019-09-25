@@ -17,13 +17,15 @@ import TextField from '@material-ui/core/TextField';
 export default class SpendingsForm extends React.Component {
     constructor(props) {
         super(props);
-        this.state = {
-            dialogOpen: props.open
-        }
         this.tour = props.tour
-
         if (props.spending != null) this.spending = props.spending
-        else this.spending.fromGuid = this.tour.persons.length > 0 ? this.tour.persons[0].guid : ""
+            else this.spending.fromGuid = this.tour.persons.length > 0 ? this.tour.persons[0].guid : ""
+        this.state = {
+            dialogOpen: props.open,
+            spending:  this.spending
+        }
+
+
     }
     spending = {
         description: "",
@@ -63,8 +65,8 @@ export default class SpendingsForm extends React.Component {
                                     margin="normal"
                                 />
                                 <Select
-                                    value={this.spending.fromGuid}
-                                    onChange={() => { this.spending.fromGuid = event.target.value }}
+                                    value={this.state.spending.fromGuid}
+                                    onChange={(e) => { this.spending.fromGuid = e.target.value; this.setState({ spending: this.spending }) }}
                                 >
                                     {
                                         this.tour.persons.map(p => (<MenuItem value={p.guid} key={p.guid}>{p.name}</MenuItem>))
