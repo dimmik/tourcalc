@@ -40,8 +40,9 @@ export default class TourNameEdit extends React.Component {
                 </DialogContent>
                 <DialogActions>
                         <button color="primary" onClick={() => {
-                                AppState.changeTourName(this.props.app, this.props.tourid, this.name)
-                                .then(this.setState({ dialogOpen: false }))
+                            AppState.changeTourName(this.props.app, this.props.tourid, this.name)
+                                //.then(res => { alert('res: ' + res) }, error => { alert('error: ' + error) })
+                                .then(() => this.setState({ dialogOpen: false }))
                                 .then(() => { AppState.loadTours(this.props.app, this.props.tourid) })
 
                         }}>{this.props.actionButtonText}</button>

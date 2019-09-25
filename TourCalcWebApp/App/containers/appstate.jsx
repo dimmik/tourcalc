@@ -205,7 +205,7 @@ export default class AppState {
         let b = JSON.stringify({ name: tname }, null, 2)
         //alert('b: ' + b)
         return fetch('/api/tour/' + tourid + "/changename", {
-            method: 'patch',
+            method: 'PATCH',
             headers: new Headers({
                 "Authorization": 'Bearer ' + this.token,
                 "Content-Type": "application/json"
@@ -213,6 +213,7 @@ export default class AppState {
             body: b
         })
             .then(res => res.text())
+        
     }
     static deleteTour(comp, tourid) {
         return fetch(

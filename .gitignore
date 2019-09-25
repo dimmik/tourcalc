@@ -6,5 +6,5 @@ TourCalcWebApp/obj/
 TCalcCore/bin/
 TourCalcWebApp/node_modules/
 TourCalcWebApp/wwwroot/assets/
-*.pubxml
-*.user
+**/*.pubxml
+**/*.user
