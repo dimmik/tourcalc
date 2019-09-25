@@ -266,7 +266,7 @@ namespace TourCalcWebApp.Controllers
         {
             
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
-            return tourStorage.GetTours(x => authData.IsMaster ? true : (x.AccessCodeMD5 != null && authData.AccessCodeMD5 == x.AccessCodeMD5));
+            return tourStorage.GetTours(t => authData.IsMaster ? true : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5));
         }
 
     }

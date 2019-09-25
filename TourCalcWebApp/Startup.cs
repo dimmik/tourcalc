@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using System;
+using System.IO;
 using TCalc.Storage;
 using TourCalcWebApp.Auth;
 
@@ -26,7 +27,10 @@ namespace TourCalcWebApp
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            ITourStorage tourStorage = new LiteDbTourStorage(Configuration.GetValue<string>("DatabasePath", "AppData/Tour.db"));
+            var rootFolder = Configuration.GetValue("DatabaseRootFolder", Path.DirectorySeparatorChar == '\\' ? @"d:\home\" : "/home/");
+            var dbPath = $"{rootFolder}{Configuration.GetValue<string>("DatabaseRelativePath", $@"Tour.db")}";
+            Directory.CreateDirectory(Path.GetDirectoryName(dbPath));
+            ITourStorage tourStorage = new LiteDbTourStorage(dbPath);
             services.AddSingleton<ITourStorage>(tourStorage);
 
             SetupReact(services);
