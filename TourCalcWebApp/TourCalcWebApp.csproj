@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="App\containers\app.jsx" />
+    <Content Include="App\containers\app-orig.jsx" />
     <Content Include="App\containers\auth\auth.jsx" />
     <Content Include="App\containers\header\header.jsx" />
     <Content Include="App\containers\tour\choose.jsx" />
@@ -50,6 +50,12 @@
   <ItemGroup>
     <None Include="package-lock.json" />
     <None Include="package.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="wwwroot\assets\bundle.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

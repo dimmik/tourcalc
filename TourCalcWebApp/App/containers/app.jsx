@@ -1,91 +1,82 @@
 ﻿import React from 'react';
 import ReactDOM from 'react-dom';
-import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
-
-import Header from './header/header.jsx';
-import TourPersons from './tour/persons.jsx';
-import TourSpendings from './tour/spendings.jsx';
-import TourChoose from './tour/choose.jsx';
-import Auth from './auth/auth.jsx';
-import { Redirect } from 'react-router-dom'
-import FetchHelper from './tour/helpers.jsx'
+import AppState from './appstate.jsx'
+import { BrowserRouter as Router, Route, Switch, Redirect  } from 'react-router-dom';
+import LoginScreen from './login-screen.jsx';
+import AuthenticatedApp from './authenticated-app.jsx'
+import TourUI from './tour-ui.jsx'
 
 export default class App extends React.Component {
     constructor(props) {
         super(props);
-        this.chooseTour = this.chooseTour.bind(this);
-        this.remount = this.remount.bind(this)
+        this.state = {}
+    }
+    render() {
+        return (
+            <Router>
+                <div>
+                    <main>
+                    <Switch>
+                            <Route path="/access/:scope/:code"
+                                render={(props) => (<RequestAccessCode app={this} scope={props.match.params.scope} code={props.match.params.code} />)} />
+                            <Route path="/tour/:tourid"
+                                render={(props) => (<TourUI app={this} tourid={props.match.params.tourid} />)} />
+                            <Route path="/login" render={(props) => <LoginScreen app={this}/>} />
+                            <Route path="/" component={Index} />
+                    </Switch>
+                    </main>
+                    </div>
+            </Router>
+            )
+    }
+    
+};
+
+class RequestAccessCode extends React.Component {
+    constructor(props) {
+        super(props);
         this.state = {
-            isTourChosen: false,
-            chosenTour: null,
-            error: null,
-            isLoaded: false,
-            tours: []
-        };
+            redirect: false
+        }
     }
-
+    
     componentDidMount() {
-        FetchHelper.fetchTours(this);
-    }
-
-
-    chooseTour(tour) {
-        this.setState({
-            isTourChosen: true,
-            chosenTour: tour
-        })
-    }
-
-    remount() {
-        this.setState({ state: this.state });
+        AppState.login(this.props.app, this.props.scope, this.props.code)
+            .then(() => { this.setState({redirect: true}) })
     }
 
     render() {
-        const { isTourChosen, chosenTour, error, isLoaded, tours } = this.state;
-        if (error) {
-            return <div>Error: {error.message}</div>;
-        } else if (!isLoaded) {
-            return <div>Loading...</div>;
+        if (this.state.redirect) {
+            return <Redirect to="/"/>
         } else {
-            if (this.state.chosenTour == null) {
-                if (tours.length > 0) {
-                    this.state.chosenTour = tours[0]
-                    this.state.isTourChosen = true
-                }
-            }
-            return (
-                <Router>
-                    <div>
-                        <Header tour={this.state.chosenTour} remountAction={this.remount}/>
-                        <main>
-                            <Switch>
-                                <Route path="/spendings/:tourid"
-                                    component={TourSpendings}
-                            />} />
-                                <Route exact path="/spendings"
-                                    render={(props) => <TourSpendings
-                                        tourid={this.state.isTourChosen ? this.state.chosenTour.id : null}
-                                    />} />
-                                <Route path="/auth" component={Auth} />
-                                <Route path="/persons"
-                                    render={(props) => <TourPersons
-                                        tourid={this.state.isTourChosen ? this.state.chosenTour.id : null}
-                                        />} />
-                                <Route path="/choose"
-                                    render={(props) => <TourChoose
-                                        chosenTour={this.state.chosenTour}
-                                        chooseTourAction={this.chooseTour}
-                                    />} />
-                                <Route path="/"
-                                    render={(props) => <Redirect to="/choose" />} />
-                            </Switch>
-                        </main>
-                    </div>
-                </Router>
-            );
+            return <div>Checking Access Code</div>
         }
     }
-};
+}
+class Index extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {}
+    }
+    componentDidMount() {
+        AppState.checkWhoAmI(this);
+    }
+
+    render() {
+        if (!this.state.isAuthLoaded) {
+            return (<div>Checking Who you are...</div>)
+        } else {
+            if (this.state.authData.type === "None") {
+                return (<Redirect to="/login"/>)
+            } else {
+                return (
+                    <AuthenticatedApp app={this} authData={this.state.authData} />
+                )
+            }
+        }
+    }
+
+}
 ReactDOM.render(
     <App />,
     document.getElementById("content")

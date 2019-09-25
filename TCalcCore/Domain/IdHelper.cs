@@ -10,10 +10,11 @@ namespace TCalc.Domain
         {
             //return Guid.NewGuid().ToString();
             long ms = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            long msr = reverse(ms);
-            byte[] bytes = BitConverter.GetBytes(msr);
-            string b64 = Convert.ToBase64String(bytes).TrimEnd(new[] { '=' }).Replace('+', '*').Replace('/', '$')
-                .Substring(0, 9);
+            int msInt = unchecked((int)ms);
+//            long msr = reverse(ms);
+            byte[] bytes = BitConverter.GetBytes(msInt);
+            string b64 = Convert.ToBase64String(bytes).TrimEnd(new[] { '=' }).Replace('+', '*').Replace('/', '$');
+                //.Substring(0, 9);
             return b64;
         }
         private static long reverse(long n)
