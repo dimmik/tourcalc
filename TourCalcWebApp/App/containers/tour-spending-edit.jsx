@@ -7,6 +7,12 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogActions from '@material-ui/core/DialogActions';
 
+import InputLabel from '@material-ui/core/InputLabel';
+import MenuItem from '@material-ui/core/MenuItem';
+import FormHelperText from '@material-ui/core/FormHelperText';
+import FormControl from '@material-ui/core/FormControl';
+import Select from '@material-ui/core/Select';
+import TextField from '@material-ui/core/TextField';
 
 export default class SpendingsForm extends React.Component {
     constructor(props) {
@@ -34,22 +40,37 @@ export default class SpendingsForm extends React.Component {
                 <span style={{ cursor: "pointer" }} onClick={() => this.setState({ dialogOpen: true })}>
                     {this.props.buttonText}
                 </span>
-                <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
-                    <DialogTitle id="customized-dialog-title">Add Spending</DialogTitle>
+                <Dialog fullWidth={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
+                    <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Spending</DialogTitle>
                     <DialogContent>
-                        <form onSubmit={(event) => {}}>
-                            <p>description:</p>
-                            <input
-                                type='text'
-                                onChange={(e) => this.spending.description = event.target.value}
-                                defaultValue={this.spending.description}
-                            />
-                            <p>amount:</p>
-                            <input
-                                type='number'
-                                onChange={(e) => this.spending.amountInCents = event.target.value}
-                                defaultValue={this.spending.amountInCents}
-                            /><br/><br/>
+                        <form onSubmit={(event) => { }}>
+                            <FormControl>
+                                <TextField
+                                    id="description"
+                                    required
+                                    label="Description"
+                                    defaultValue={this.spending.description}
+                                    onChange={(e) => this.spending.description = event.target.value}
+                                    margin="normal"
+                                />
+                                <TextField
+                                    id="amount"
+                                    required
+                                    label="Amount"
+                                    type="number"
+                                    defaultValue={this.spending.amountInCents}
+                                    onChange={(e) => this.spending.amountInCents = event.target.value}
+                                    margin="normal"
+                                />
+                                <Select
+                                    value={this.spending.fromGuid}
+                                    onChange={() => { this.spending.fromGuid = event.target.value }}
+                                >
+                                    {
+                                        this.tour.persons.map(p => (<MenuItem value={p.guid} key={p.guid}>{p.name}</MenuItem>))
+                                    }
+                                </Select>
+                            </FormControl>
                             <label>from:
                              <select
                                     defaultValue={this.spending.fromGuid}

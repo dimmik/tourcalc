@@ -147,7 +147,7 @@ class TourTable extends React.Component {
                                                                 <SpendingForm
                                                                     tour={this.state.tour}
                                                                     buttonText={(idx + 1) + '.' + p.description}
-                                                                    actionButtonText="Edit Spending"
+                                                                    actionButtonText="Save Spending"
                                                                     open={false}
                                                                     mode="edit"
                                                                     app={this}

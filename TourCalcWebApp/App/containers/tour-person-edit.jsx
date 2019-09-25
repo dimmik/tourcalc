@@ -25,27 +25,31 @@ export default class PersonForm extends React.Component {
                 <span style={{ cursor: "pointer"}} onClick={() => this.setState({ dialogOpen: true })}>
                     {this.props.buttonText}
                 </span>
-            <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
-                <DialogTitle id="customized-dialog-title">Add Person</DialogTitle>
+                <Dialog fullWidth={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
+                    <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Person</DialogTitle>
                     <DialogContent>
                         <form onSubmit={(event) => {
                             event.preventDefault();
                             //alert('sending')
                             AppState.addPerson(this.props.app, this.props.tourid, { name: this.name, weight: this.weight })
                                 .then(AppState.loadTour(this.props.app, this.props.tourid))
-                            }}>
-                            <p>name:</p>
+                        }}>
+                            <label>
+                            name:
                             <input
                                 type='text'
                                 onChange={(e) => this.name = event.target.value}
-                                defaultValue={this.name}
-                            />
-                            <p>weight %:</p>
+                                    defaultValue={this.name}
+                                />
+                            </label>
+                            <label>
+                            weight %:
                             <input
                                 type='number'
                                 onChange={(e) => this.weight = event.target.value}
                                 defaultValue={this.weight}
-                            />
+                                />
+                            </label>
                         </form>
                 </DialogContent>
                 <DialogActions>
