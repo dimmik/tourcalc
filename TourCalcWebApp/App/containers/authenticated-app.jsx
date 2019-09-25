@@ -4,6 +4,7 @@ import AppState from './appstate.jsx'
 import Cookies from 'js-cookie';
 import { BrowserRouter as Router, Route, Switch, Link } from 'react-router-dom';
 import TourAdd from './tour-add.jsx'
+import TourNameEdit from './tour-rename.jsx'
 
 export default class AuthenticatedApp extends React.Component {
     constructor(props) {
@@ -23,11 +24,13 @@ export default class AuthenticatedApp extends React.Component {
         } else {
             return (
                 <div>
-                    Tours {this.props.authData.type === 'Master' ? <TourAdd buttonText="Add" actionButtonText="AddTour" app={this} open={false}/> : <span/>}
+                    Tours {this.props.authData.type === 'Master' ? <TourAdd buttonText="Add" actionButtonText="Add Tour" app={this} open={false}/> : <span/>}
                     <ol>
                         {this.state.tours.map( t =>
                             (
                                 <li key={t.id}><Link to={'/tour/' + t.id}>{t.name}</Link>
+                                    <TourNameEdit tourid={t.id} name={t.name} app={this} open={false} buttonText="Edit name" actionButtonText="Change name"/>
+
                                     {this.props.authData.type === 'Master' ? (
                                         <button onClick={() => {
                                             if (window.confirm('Sure to delete tour ' + t.name + ' (id: ' + t.id + ')?')) {

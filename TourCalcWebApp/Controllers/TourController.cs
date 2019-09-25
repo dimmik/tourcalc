@@ -81,6 +81,19 @@ namespace TourCalcWebApp.Controllers
             return Ok(t.GUID);
         }
 
+        [HttpPatch("{tourid}/changename")]
+        public IActionResult UpdateTourName(string tourid, Tour t)
+        {
+            var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
+
+            if (tour == null) return NotFound($"no tour with id {tourid}");
+
+            tour.Name = t.Name;
+            tourStorage.StoreTour(tour);
+
+            return Ok(tour.GUID);
+        }
+
         [HttpDelete("{tourid}")]
         public IActionResult DeleteTour(string tourid)
         {

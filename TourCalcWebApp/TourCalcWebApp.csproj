@@ -52,4 +52,10 @@
     <None Include="package.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="wwwroot\assets\bundle.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
