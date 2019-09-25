@@ -34,7 +34,7 @@ export default class TourUI extends React.Component {
         } else {
             if (!this.state.authData.isMaster
                 && this.state.authData.tourIds.indexOf(this.props.tourid) == -1) { // no such tour for credentials
-                return (<div><pre>{JSON.stringify(this.state.authData, null, 2)}</pre><TourRequestAccessCode app={this} /></div>)
+                return (<TourRequestAccessCode app={this} />)
             } else {
                 return (<TourTable tourid={this.props.tourid} />)
             }
