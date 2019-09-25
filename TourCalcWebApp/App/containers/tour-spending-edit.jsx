@@ -8,11 +8,29 @@ import DialogContent from '@material-ui/core/DialogContent';
 import DialogActions from '@material-ui/core/DialogActions';
 
 import InputLabel from '@material-ui/core/InputLabel';
+import Input from '@material-ui/core/Input';
 import MenuItem from '@material-ui/core/MenuItem';
 import FormHelperText from '@material-ui/core/FormHelperText';
 import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import TextField from '@material-ui/core/TextField';
+import Chip from '@material-ui/core/Chip';
+import Checkbox from '@material-ui/core/Checkbox';
+import ListItemText from '@material-ui/core/ListItemText';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
+import FormGroup from '@material-ui/core/FormGroup';
+
+const ITEM_HEIGHT = 48;
+const ITEM_PADDING_TOP = 8;
+const MenuProps = {
+    PaperProps: {
+        style: {
+            maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
+            width: 250,
+        },
+    },
+};
+
 
 export default class SpendingsForm extends React.Component {
     constructor(props) {
@@ -46,7 +64,7 @@ export default class SpendingsForm extends React.Component {
                     <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Spending</DialogTitle>
                     <DialogContent>
                         <form onSubmit={(event) => { }}>
-                            <FormControl>
+                            <FormGroup>
                                 <TextField
                                     id="description"
                                     required
@@ -64,7 +82,10 @@ export default class SpendingsForm extends React.Component {
                                     onChange={(e) => this.spending.amountInCents = event.target.value}
                                     margin="normal"
                                 />
+                                <br/>
+                                <InputLabel htmlFor="select-from">From</InputLabel>
                                 <Select
+                                input={<Input id="select-from" />}
                                     value={this.state.spending.fromGuid}
                                     onChange={(e) => { this.spending.fromGuid = e.target.value; this.setState({ spending: this.spending }) }}
                                 >
@@ -72,30 +93,50 @@ export default class SpendingsForm extends React.Component {
                                         this.tour.persons.map(p => (<MenuItem value={p.guid} key={p.guid}>{p.name}</MenuItem>))
                                     }
                                 </Select>
-                            </FormControl>
-                            <label>from:
-                             <select
-                                    defaultValue={this.spending.fromGuid}
-                                    onChange={() => { this.spending.fromGuid = event.target.value }}
+                                <br/>
+
+                                <InputLabel htmlFor="select-multiple-checkbox">To</InputLabel>
+                                <Select
+                                    multiple
+                                    style={{
+                                        minWidth: 120,
+                                        maxWidth: 300
+                                    }
+                                    }
+                                    value={this.state.spending.toGuid}
+                                    onChange={(e) => {
+                                        //alert('options ' + JSON.stringify(e.target, null, 2))
+                                        this.spending.toGuid = e.target.value;
+                                        //alert('sp ' + JSON.stringify(this.spending, null, 2))
+                                        this.setState({ spending: this.spending });
+                                    }}
+                                    input={<Input id="select-multiple-checkbox" />}
+                                    renderValue={selected => selected.map(gg => this.tour.persons.find(pp => pp.guid === gg).name).join(', ')}
+                                    MenuProps={MenuProps}
                                 >
-                                    {
-                                        this.tour.persons.map(p => (<option value={p.guid} key={p.guid}>{p.name}</option>))
+                                    {this.tour.persons.map(p => (
+                                        <MenuItem key={p.guid} value={p.guid}>
+                                            <Checkbox checked={this.state.spending.toGuid.indexOf(p.guid) > -1} />
+                                            <ListItemText primary={p.name} />
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            value={true}
+                                            checked={this.state.spending.toAll}
+                                            onChange={(e) => {
+                                                this.spending.toAll = e.target.checked;
+                                                
+                                                this.setState({ spending: this.spending });
+                                            }}
+                                         
+                                        />
                                     }
-                                </select></label>
-                            <br /><br />
-                            <label>to:
-                             <select
-                                    defaultValue={this.spending.toGuid}
-                                    multiple={true}
-                                    onChange={(e) => { this.spending.toGuid = Array.from(e.target.options).filter(o => o.selected).map(o => o.value) }}
-                            >
-                                {
-                                        this.tour.persons.map(p => (<option value={p.guid} key={p.guid}>{p.name}</option>))
-                                    }
-                                </select></label>
-                            <br />toAll: <input type="checkbox" defaultChecked={this.spending.toAll}
-                                onChange={(e) => { this.spending.toAll = e.target.checked }}
-                            />ToAll
+                                    label="To All"
+                                />
+                          </FormGroup>
                             <br />
                         </form>
                     </DialogContent>
