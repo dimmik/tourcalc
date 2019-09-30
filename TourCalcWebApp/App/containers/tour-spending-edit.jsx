@@ -63,9 +63,9 @@ export default class SpendingsForm extends React.Component {
     render() {
         return (
             <span>
-                <Button color='primary' size='medium' variant='outlined' onClick={() => this.setState({ dialogOpen: true })}>
+                <span color='primary' size='medium' variant='outlined' style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => this.setState({ dialogOpen: true })}>
                     {this.props.buttonText}
-                </Button>
+                </span>
                 <Dialog fullScreen={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
                     <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Spending</DialogTitle>
                     <DialogContent>

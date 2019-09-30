@@ -119,15 +119,15 @@ class TourTable extends React.Component {
                                                 <TableHead>
                                                     <TableRow>
                                                         <TableCell>Spending Description 
-                                                            
-                                                            <SpendingForm
+                                                        
+                                                            <Button color='primary' variant='outlined'>[<SpendingForm
                                                                 tour={this.state.tour}
                                                                 buttonText="Add"
                                                                 actionButtonText="Add Spending"
                                                                 open={false}
                                                                 mode="add"
                                                                 app={this}
-                                                            />
+                                                            />]</Button>
                                     
                                                         </TableCell>
                                                         <TableCell align="right">From</TableCell>
@@ -140,17 +140,17 @@ class TourTable extends React.Component {
                                                     {this.state.tour.spendings.map( (p, idx) => (
                                                         <TableRow key={p.guid} hover>
                                                             <TableCell component="th" scope="row">
-                                                            <Button variant='outlined' color='secondary'onClick={() => {
+                                                            <span style={{cursor: 'pointer', borderStyle: 'ridge', fontSize: 'xx-small'}} variant='outlined' color='secondary' onClick={() => {
                                                                     if (window.confirm('Sure to delete spending ' + p.name + '?')) {
                                                                         AppState.deleteSpending(this, this.props.tourid, p.guid)
                                                                             .then(() => { AppState.loadTour(this, this.props.tourid); })
                                                                     }
-                                                                }}>X</Button>
+                                                                }}>X</span>
                                                                 &nbsp;
-                                                                
+                                                                {(idx + 1) + '.'}
                                                                 <SpendingForm
                                                                     tour={this.state.tour}
-                                                                    buttonText={(idx + 1) + '.' + p.description}
+                                                                    buttonText={p.description}
                                                                     actionButtonText="Save Spending"
                                                                     open={false}
                                                                     mode="edit"
@@ -189,11 +189,11 @@ class TourTable extends React.Component {
                                                 <TableHead>
                                                     <TableRow>
                                                         <TableCell>Person Name 
-                                                            <PersonForm mode="add"
+                                                            <Button color='primary' variant='outlined'>[<PersonForm mode="add"
                                                                 tourid={this.props.tourid}
                                                                 open={false}
                                                                 app={this}
-                                                                buttonText="Add" actionButtonText="Add Person" />
+                                                                buttonText="Add" actionButtonText="Add Person" />]</Button>
                                                             </TableCell>
                                                         <TableCell align="right">Weight %</TableCell>
                                                         <TableCell align="right">Spent</TableCell>
@@ -205,18 +205,19 @@ class TourTable extends React.Component {
                                                     {this.state.tour.persons.map( (p, idx) => (
                                                         <TableRow key={p.guid} hover>
                                                             <TableCell component="th" scope="row">
-                                                            <Button variant='outlined' color='secondary' onClick={() => {
+                                                            <span style={{ cursor: 'pointer', borderStyle: 'ridge', fontSize: 'xx-small' }} onClick={() => {
                                                                     if (window.confirm('Sure to delete ' + p.name + '?')) {
                                                                         AppState.deletePerson(this, this.props.tourid, p.guid)
                                                                             .then(() => { AppState.loadTour(this, this.props.tourid); })
                                                                     }
-                                                                }}>X</Button>
+                                                                }}>X</span>
                                                                 &nbsp;
+                                                            {(idx + 1) + '.'}
                                                                 <PersonForm mode="edit"
                                                                     tourid={this.props.tourid}
                                                                     open={false}
                                                                     app={this}
-                                                                    buttonText={(idx + 1) + '.' + p.name} actionButtonText="Save Person"
+                                                                    buttonText={p.name} actionButtonText="Save Person"
                                                                     name={p.name}
                                                                     weight={p.weight}
                                                                     guid={p.guid}
