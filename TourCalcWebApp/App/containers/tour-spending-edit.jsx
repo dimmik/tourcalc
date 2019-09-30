@@ -118,7 +118,9 @@ export default class SpendingsForm extends React.Component {
                                         this.setState({ spending: this.spending });
                                     }}
                                     input={<Input id="select-multiple-checkbox" />}
-                                    renderValue={selected => selected.map(gg => this.tour.persons.find(pp => pp.guid === gg).name).join(', ')}
+                                    renderValue={selected => selected.map(gg => this.tour.persons.find(pp => pp.guid === gg) == null
+                                        ? '$$-' + gg + '-$$'
+                                        : this.tour.persons.find(pp => pp.guid === gg).name).join(', ')}
                                     MenuProps={MenuProps}
                                 >
                                     {this.tour.persons.map(p => (

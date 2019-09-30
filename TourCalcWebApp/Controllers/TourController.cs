@@ -174,6 +174,8 @@ namespace TourCalcWebApp.Controllers
                 if (removedPerson != null)
                 {
                     t.Persons.Remove(removedPerson);
+                    t.Spendings.RemoveAll(s => s.FromGuid == removedPerson.GUID);
+                    t.Spendings.ForEach(s => s.ToGuid.RemoveAll(g => g == removedPerson.GUID));
                     tourStorage.StoreTour(t);
                     return Ok(removedPerson.GUID);
                 }

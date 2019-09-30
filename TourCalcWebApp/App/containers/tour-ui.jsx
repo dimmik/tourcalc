@@ -167,7 +167,9 @@ class TourTable extends React.Component {
                                                         <TableCell align="right"><Checkbox checked={p.toAll} disabled/></TableCell>
                                                         <TableCell align="right" style={{fontSize: "xx-small"}}>{p.toAll ? (<b>n/a</b>) : p.toGuid.map(
 
-                                                                (id) => this.state.tour.persons.find((pp) => pp.guid === id).name
+                                                            (id) => (this.state.tour.persons.find((pp) => pp.guid === id) == null)
+                                                                ? '$$-' + id + '-$$'
+                                                                : this.state.tour.persons.find((pp) => pp.guid === id).name
 
                                                             ).join(', ')}</TableCell>
                                                         </TableRow>  
