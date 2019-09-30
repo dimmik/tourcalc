@@ -14,6 +14,8 @@ import PersonForm from './tour-person-edit.jsx'
 import SpendingForm from './tour-spending-edit.jsx'
 import SpendingsDetail from './person-show-spendings.jsx'
 
+import Checkbox from '@material-ui/core/Checkbox';
+
 import createBrowserHistory from 'history/createBrowserHistory';
 
 import Tabs from '@material-ui/core/Tabs';
@@ -160,8 +162,8 @@ class TourTable extends React.Component {
                                                             <TableCell align="right">
                                                                 {p.amountInCents}
                                                             </TableCell>
-                                                            <TableCell align="right">{p.toAll ? 'true' : 'false'}</TableCell>
-                                                            <TableCell align="right">{p.toGuid.map(
+                                                        <TableCell align="right"><Checkbox checked={p.toAll} disabled/></TableCell>
+                                                        <TableCell align="right" style={{fontSize: "xx-small"}}>{p.toAll ? (<b>n/a</b>) : p.toGuid.map(
 
                                                                 (id) => this.state.tour.persons.find((pp) => pp.guid === id).name
 

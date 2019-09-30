@@ -53,6 +53,11 @@ export default class SpendingsForm extends React.Component {
         toAll: false,
         guid: ""
     }
+    validate() {
+        if (this.state.spending != null && this.state.spending.amountInCents > 0 && this.state.spending.fromGuid != null && (this.spending.toAll || this.spending.toGuid.length > 0))
+            return true;
+        return false;
+    }
 
     render() {
         return (
@@ -60,7 +65,7 @@ export default class SpendingsForm extends React.Component {
                 <span style={{ cursor: "pointer" }} onClick={() => this.setState({ dialogOpen: true })}>
                     {this.props.buttonText}
                 </span>
-                <Dialog fullWidth={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
+                <Dialog fullScreen={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
                     <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Spending</DialogTitle>
                     <DialogContent>
                         <form onSubmit={(event) => { }}>
@@ -69,6 +74,7 @@ export default class SpendingsForm extends React.Component {
                                     id="description"
                                     required
                                     label="Description"
+                                    autoFocus
                                     defaultValue={this.spending.description}
                                     onChange={(e) => this.spending.description = event.target.value}
                                     margin="normal"
@@ -143,13 +149,16 @@ export default class SpendingsForm extends React.Component {
                     <DialogActions>
                         <button color="primary" onClick={() => {
                             //alert('sp: ' + JSON.stringify(this.spending, null, 2))
-                            (this.props.mode === "add"
-                                ? AppState.addSpending(this.props.app, this.tour.id, this.spending)
-                                : AppState.editSpending(this.props.app, this.tour.id, this.spending)
-                            )
-                                .then(this.setState({ dialogOpen: false }))
-                                .then(() => { AppState.loadTour(this.props.app, this.tour.id) })
-                              
+                            if (this.validate()) {
+                                (this.props.mode === "add"
+                                    ? AppState.addSpending(this.props.app, this.tour.id, this.spending)
+                                    : AppState.editSpending(this.props.app, this.tour.id, this.spending)
+                                )
+                                    .then(this.setState({ dialogOpen: false }))
+                                    .then(() => { AppState.loadTour(this.props.app, this.tour.id) })
+                            } else {
+                                alert("not all info is entered correctly");
+                            }
                               
                         }}>{this.props.actionButtonText}</button>
                         <button onClick={() => { this.setState({ dialogOpen: false }) }}>Cancel</button>
