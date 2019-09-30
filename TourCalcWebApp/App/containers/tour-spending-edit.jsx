@@ -19,6 +19,7 @@ import Checkbox from '@material-ui/core/Checkbox';
 import ListItemText from '@material-ui/core/ListItemText';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import FormGroup from '@material-ui/core/FormGroup';
+import Button from '@material-ui/core/Button';
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -62,9 +63,9 @@ export default class SpendingsForm extends React.Component {
     render() {
         return (
             <span>
-                <span style={{ cursor: "pointer" }} onClick={() => this.setState({ dialogOpen: true })}>
+                <Button color='primary' size='medium' variant='outlined' onClick={() => this.setState({ dialogOpen: true })}>
                     {this.props.buttonText}
-                </span>
+                </Button>
                 <Dialog fullScreen={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
                     <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Spending</DialogTitle>
                     <DialogContent>
@@ -147,7 +148,7 @@ export default class SpendingsForm extends React.Component {
                         </form>
                     </DialogContent>
                     <DialogActions>
-                        <button color="primary" onClick={() => {
+                        <Button color="primary" size='large' variant='outlined' onClick={() => {
                             //alert('sp: ' + JSON.stringify(this.spending, null, 2))
                             if (this.validate()) {
                                 (this.props.mode === "add"
@@ -160,8 +161,10 @@ export default class SpendingsForm extends React.Component {
                                 alert("not all info is entered correctly");
                             }
                               
-                        }}>{this.props.actionButtonText}</button>
-                        <button onClick={() => { this.setState({ dialogOpen: false }) }}>Cancel</button>
+                        }}>{this.props.actionButtonText}</Button>
+                        <Button
+                            color="secondary" size='large' variant='outlined' 
+                            onClick={() => { this.setState({ dialogOpen: false }) }}>Cancel</Button>
                     </DialogActions>
                 </Dialog>
             </span>

@@ -19,6 +19,7 @@ import Checkbox from '@material-ui/core/Checkbox';
 import ListItemText from '@material-ui/core/ListItemText';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import FormGroup from '@material-ui/core/FormGroup';
+import Button from '@material-ui/core/Button';
 
 
 export default class PersonForm extends React.Component {
@@ -36,9 +37,9 @@ export default class PersonForm extends React.Component {
     render() {
         return (
             <span>
-                <span style={{ cursor: "pointer"}} onClick={() => this.setState({ dialogOpen: true })}>
+                <Button color='primary' size='medium' variant='outlined' onClick={() => this.setState({ dialogOpen: true })}>
                     {this.props.buttonText}
-                </span>
+                </Button>
                 <Dialog fullScreen={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
                     <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Person</DialogTitle>
                     <DialogContent>
@@ -70,7 +71,9 @@ export default class PersonForm extends React.Component {
                         </form>
                 </DialogContent>
                 <DialogActions>
-                        <button color="primary" onClick={() => {
+                        <Button
+                            color="primary" size='large' variant='outlined' 
+                            onClick={() => {
                             (  this.props.mode === "add"
                                 ? AppState.addPerson(this.props.app, this.props.tourid, { name: this.name, weight: this.weight })
                                 : AppState.editPerson(this.props.app, this.props.tourid, { guid: this.props.guid, name: this.name, weight: this.weight })
@@ -78,8 +81,10 @@ export default class PersonForm extends React.Component {
                                 .then(this.setState({ dialogOpen: false }))
                                 .then(() => { AppState.loadTour(this.props.app, this.props.tourid) })
 
-                        }}>{this.props.actionButtonText}</button>
-                        <button onClick={() => { this.setState({ dialogOpen: false }) }}>Cancel</button>
+                        }}>{this.props.actionButtonText}</Button>
+                        <Button
+                            color="secondary" size='large' variant='outlined' 
+                            onClick={() => { this.setState({ dialogOpen: false }) }}>Cancel</Button>
                 </DialogActions>
             </Dialog>
             </span>
