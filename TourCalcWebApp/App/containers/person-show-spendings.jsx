@@ -47,14 +47,7 @@ export default class SpendingsDetail extends React.Component {
                     <DialogTitle id="customized-dialog-title">Spendings for {this.person.name}</DialogTitle>
                     <DialogContent>
 
-                        <Table stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>From</TableCell>
-                                    <TableCell align="right">Amount</TableCell>
-                                    <TableCell align="right">Why</TableCell>
-                                </TableRow>
-                            </TableHead>
+                        <Table>
                             <TableBody>
                                 {this.spendingInfo.map((si, idx) => {
                                     return this.props.received ? (

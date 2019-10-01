@@ -55,11 +55,12 @@ namespace TourCalcWebApp.Controllers
                 new Claim(ClaimTypes.NameIdentifier, key),
                 new Claim("AuthDataJson", Newtonsoft.Json.JsonConvert.SerializeObject(auth))
             };
+            var tokenValidTimeInMinutes = Configuration.GetValue("TokenValidTimeInMinutes", (180 * 60 * 24));
             var token = new JwtSecurityToken(
                 issuer: "TourCalc",
                 audience: "Users",
                 claims: claims,
-                expires: DateTime.Now.AddMinutes(5 * 60 * 24), // 5 days TODO: configuration
+                expires: DateTime.Now.AddMinutes(tokenValidTimeInMinutes),
                 signingCredentials: new SigningCredentials(
                                        signerKey.GetPrivateKey(),
                                        signerKey.SigningAlgorithm
