@@ -7,6 +7,21 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogActions from '@material-ui/core/DialogActions';
 
+import InputLabel from '@material-ui/core/InputLabel';
+import Input from '@material-ui/core/Input';
+import MenuItem from '@material-ui/core/MenuItem';
+import FormHelperText from '@material-ui/core/FormHelperText';
+import FormControl from '@material-ui/core/FormControl';
+import Select from '@material-ui/core/Select';
+import TextField from '@material-ui/core/TextField';
+import Chip from '@material-ui/core/Chip';
+import Checkbox from '@material-ui/core/Checkbox';
+import ListItemText from '@material-ui/core/ListItemText';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
+import FormGroup from '@material-ui/core/FormGroup';
+import Button from '@material-ui/core/Button';
+
+
 export default class PersonForm extends React.Component {
     constructor(props) {
         super(props);
@@ -22,34 +37,43 @@ export default class PersonForm extends React.Component {
     render() {
         return (
             <span>
-                <span style={{ cursor: "pointer"}} onClick={() => this.setState({ dialogOpen: true })}>
-                    {this.props.buttonText}
+                <span onClick={() => this.setState({ dialogOpen: true })}>
+                    {this.props.children}
                 </span>
-            <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
-                <DialogTitle id="customized-dialog-title">Add Person</DialogTitle>
+                <Dialog fullScreen={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
+                    <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Person</DialogTitle>
                     <DialogContent>
                         <form onSubmit={(event) => {
                             event.preventDefault();
-                            //alert('sending')
-                            AppState.addPerson(this.props.app, this.props.tourid, { name: this.name, weight: this.weight })
-                                .then(AppState.loadTour(this.props.app, this.props.tourid))
-                            }}>
-                            <p>name:</p>
-                            <input
-                                type='text'
-                                onChange={(e) => this.name = event.target.value}
-                                defaultValue={this.name}
-                            />
-                            <p>weight %:</p>
-                            <input
-                                type='number'
-                                onChange={(e) => this.weight = event.target.value}
-                                defaultValue={this.weight}
-                            />
+                        }}>
+                            <FormGroup>
+                                <TextField
+                                    id="name"
+                                    required
+                                    label="Name"
+                                    defaultValue={this.name}
+                                    autoFocus
+                                    onChange={(e) => this.name = event.target.value}
+                                    margin="normal"
+                                />
+                                <TextField
+                                    id="weight"
+                                    required
+                                    label="Weight"
+                                    type="number"
+                                    defaultValue={this.weight}
+                                    onChange={(e) => this.weight = event.target.value}
+                                    margin="normal"
+                                />
+                                <br />
+                            </FormGroup>
+
                         </form>
                 </DialogContent>
                 <DialogActions>
-                        <button color="primary" onClick={() => {
+                        <Button
+                            color="primary" size='large' variant='outlined' 
+                            onClick={() => {
                             (  this.props.mode === "add"
                                 ? AppState.addPerson(this.props.app, this.props.tourid, { name: this.name, weight: this.weight })
                                 : AppState.editPerson(this.props.app, this.props.tourid, { guid: this.props.guid, name: this.name, weight: this.weight })
@@ -57,8 +81,10 @@ export default class PersonForm extends React.Component {
                                 .then(this.setState({ dialogOpen: false }))
                                 .then(() => { AppState.loadTour(this.props.app, this.props.tourid) })
 
-                        }}>{this.props.actionButtonText}</button>
-                        <button onClick={() => { this.setState({ dialogOpen: false }) }}>Cancel</button>
+                        }}>{this.props.actionButtonText}</Button>
+                        <Button
+                            color="secondary" size='large' variant='outlined' 
+                            onClick={() => { this.setState({ dialogOpen: false }) }}>Cancel</Button>
                 </DialogActions>
             </Dialog>
             </span>

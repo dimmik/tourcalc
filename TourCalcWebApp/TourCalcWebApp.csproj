@@ -55,6 +55,7 @@
   <ItemGroup>
     <Content Update="wwwroot\assets\bundle.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
 

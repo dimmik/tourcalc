@@ -15,6 +15,7 @@ export default class AuthenticatedApp extends React.Component {
         }
     }
     componentDidMount() {
+        document.title = "Tourcalc: List of tours"
         AppState.loadTours(this);
     }
 
