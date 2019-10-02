@@ -44,7 +44,7 @@ export default class SpendingsDetail extends React.Component {
                     {this.props.showText}
                 </span>
                 <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
-                    <DialogTitle id="customized-dialog-title">Spendings for {this.person.name}</DialogTitle>
+                    <DialogTitle id="customized-dialog-title">{this.props.received ?  'Received' : 'Spent' } for {this.person.name}</DialogTitle>
                     <DialogContent>
 
                         <Table>

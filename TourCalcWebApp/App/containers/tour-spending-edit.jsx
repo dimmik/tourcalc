@@ -63,8 +63,8 @@ export default class SpendingsForm extends React.Component {
     render() {
         return (
             <span>
-                <span color='primary' size='medium' variant='outlined' style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => this.setState({ dialogOpen: true })}>
-                    {this.props.buttonText}
+                <span onClick={() => this.setState({ dialogOpen: true })}>
+                    {this.props.children}
                 </span>
                 <Dialog fullScreen={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
                     <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Spending</DialogTitle>
@@ -105,9 +105,10 @@ export default class SpendingsForm extends React.Component {
                                 <InputLabel htmlFor="select-multiple-checkbox">To</InputLabel>
                                 <Select
                                     multiple
+                                    variant='outlined'
                                     style={{
                                         minWidth: 120,
-                                        maxWidth: 300
+                                        maxWidth: 600
                                     }
                                     }
                                     value={this.state.spending.toGuid}

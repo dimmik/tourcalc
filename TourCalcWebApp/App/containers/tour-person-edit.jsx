@@ -37,8 +37,8 @@ export default class PersonForm extends React.Component {
     render() {
         return (
             <span>
-                <span color='primary' size='medium' variant='outlined' style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => this.setState({ dialogOpen: true })}>
-                    {this.props.buttonText}
+                <span onClick={() => this.setState({ dialogOpen: true })}>
+                    {this.props.children}
                 </span>
                 <Dialog fullScreen={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
                     <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Person</DialogTitle>

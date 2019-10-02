@@ -120,14 +120,14 @@ class TourTable extends React.Component {
                                                     <TableRow>
                                                         <TableCell>Spending Description 
                                                         
-                                                            <Button color='primary' variant='outlined'>[<SpendingForm
+                                                            <SpendingForm
                                                                 tour={this.state.tour}
                                                                 buttonText="Add"
                                                                 actionButtonText="Add Spending"
                                                                 open={false}
                                                                 mode="add"
-                                                                app={this}
-                                                            />]</Button>
+                                                            app={this}
+                                                        ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
                                     
                                                         </TableCell>
                                                         <TableCell align="right">From</TableCell>
@@ -155,8 +155,8 @@ class TourTable extends React.Component {
                                                                     open={false}
                                                                     mode="edit"
                                                                     app={this}
-                                                                    spending={p}
-                                                                />
+                                                                spending={p}
+                                                            ><span style={{ cursor: 'pointer', textDecoration: 'underline' }}>{p.description}</span></SpendingForm>
                                                             </TableCell>
                                                             <TableCell align="right">{
                                                                 this.state.tour.persons.filter((pp) => pp.guid === p.fromGuid).map(ppp => ppp.name)
@@ -191,11 +191,12 @@ class TourTable extends React.Component {
                                                 <TableHead>
                                                     <TableRow>
                                                         <TableCell>Person Name 
-                                                            <Button color='primary' variant='outlined'>[<PersonForm mode="add"
+                                                            <PersonForm mode="add"
                                                                 tourid={this.props.tourid}
                                                                 open={false}
-                                                                app={this}
-                                                                buttonText="Add" actionButtonText="Add Person" />]</Button>
+                                                            app={this}
+                                                            buttonText="Add" actionButtonText="Add Person" ><Button color='primary' variant='outlined'>Add</Button>
+                                                            </PersonForm>
                                                             </TableCell>
                                                         <TableCell align="right">Weight %</TableCell>
                                                         <TableCell align="right">Spent</TableCell>
@@ -222,8 +223,8 @@ class TourTable extends React.Component {
                                                                     buttonText={p.name} actionButtonText="Save Person"
                                                                     name={p.name}
                                                                     weight={p.weight}
-                                                                    guid={p.guid}
-                                                                />
+                                                                guid={p.guid}
+                                                            ><span style={{ cursor: 'pointer', textDecoration: 'underline' }}>{p.name}</span></PersonForm>
                                                                 
                                                                 
                                                             </TableCell>
