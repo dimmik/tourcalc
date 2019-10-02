@@ -77,6 +77,7 @@ class TourTable extends React.Component {
     }
 
     componentDidMount() {
+        document.title = "Toucalc: Tour loading"
         AppState.loadTour(this, this.props.tourid);
     }
 
@@ -84,6 +85,8 @@ class TourTable extends React.Component {
         if (!this.state.isTourLoaded) {
             return <div>Tour {this.props.tourid} loading...</div>
         } else {
+            document.title = "Tourcalc: " + this.state.tour.name;
+
             return (
                 <Router>
                     <div>

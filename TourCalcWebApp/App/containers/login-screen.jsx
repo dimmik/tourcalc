@@ -15,7 +15,9 @@ export default class LoginScreen extends React.Component {
     }
     scope = "none"
     code = "none"
-
+    componentDidMount() {
+        document.title = "Touclalc: Login"
+    }
     render() {
         if (!this.state.isAuthLoaded) {
             return (
