@@ -56,7 +56,7 @@ export default class SpendingsDetail extends React.Component {
                                             {si.from}
                                         </TableCell>
                                         <TableCell component="th" scope="row">
-                                                {si.receivedAmountInCents} (of {si.totalSpendingAmountInCents})
+                                                {si.receivedAmountInCents} ({(si.receivedAmountInCents * 100 / si.totalSpendingAmountInCents).toFixed(0)}% of {si.totalSpendingAmountInCents})
                                         </TableCell>
                                         <TableCell component="th" scope="row">
                                             {si.spendingDescription}

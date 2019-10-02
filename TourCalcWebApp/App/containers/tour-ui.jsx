@@ -132,7 +132,7 @@ class TourTable extends React.Component {
                                                         </TableCell>
                                                         <TableCell align="right">From</TableCell>
                                                         <TableCell align="right">Amount</TableCell>
-                                                        <TableCell align="right">To all?</TableCell>
+                                                        <TableCell align="right">To all</TableCell>
                                                         <TableCell align="right">Recipients</TableCell>
                                                     </TableRow>
                                                 </TableHead>
