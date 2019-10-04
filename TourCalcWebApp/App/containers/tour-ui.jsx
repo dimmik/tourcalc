@@ -21,6 +21,7 @@ import createBrowserHistory from 'history/createBrowserHistory';
 import Tabs from '@material-ui/core/Tabs';
 import Tab from '@material-ui/core/Tab';
 import Button from '@material-ui/core/Button';
+import Box from '@material-ui/core/Box';
 
 
 const history = createBrowserHistory();
@@ -72,13 +73,24 @@ class TourTable extends React.Component {
             isTourLoaded: false,
             tour: null,
             dialogPOpen: false,
-            currentPage: 'persons'
+            currentPage: 'persons',
+            updateTime: new Date()
         }
     }
 
     componentDidMount() {
         document.title = "Toucalc: Tour loading"
         AppState.loadTour(this, this.props.tourid);
+        this.interval = setInterval(
+            () => {
+                AppState.loadTour(this, this.props.tourid)
+                    .then(this.setState({updateTime: new Date()}))
+            }
+            , (60000 * 3)) // once a 3 min
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.interval);
     }
 
     render() {
@@ -90,6 +102,7 @@ class TourTable extends React.Component {
             return (
                 <Router>
                     <div>
+                        
                         {/*--- Tabs ---*/}
                             <Tabs
                                 value={history.location.pathname === '/' ? '/tour/' + this.props.tourid + '/persons' : history.location.pathname}
@@ -104,14 +117,18 @@ class TourTable extends React.Component {
                                 <Tab label="Spendings" value={'/tour/' + this.props.tourid + '/spendings'}
                                     component={Link} to={'/tour/' + this.props.tourid + '/spendings'}
                             />
-                            <Tab label={'Tour: ' + this.state.tour.name} disabled wrapped={true} value='/xxx' />
                             </Tabs>
                         {/*--- /Tabs ---*/}
+                        <div style={{ fontSize: 'xx-small' }}>{this.state.tour.name} [{
+                            (this.state.updateTime.getHours() + "").padStart(2, '0') + ':' +
+                            (this.state.updateTime.getMinutes() + "").padStart(2, '0') + ':' +
+                            (this.state.updateTime.getSeconds() + "").padStart(2, '0')
+                        }]</div>
 
                         <main>
                             <Switch>
                                 <Route exact path={'/tour/' + this.props.tourid}
-                                    render={(props) => <Redirect to={ '/tour/' + this.props.tourid + '/persons'}/>}
+                                    render={(props) => <Redirect to={'/tour/' + this.props.tourid + '/persons'} />}
                                 />
                                 {/*--- Spendings ---*/}
 
