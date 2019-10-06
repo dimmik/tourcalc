@@ -25,10 +25,14 @@ export default class AuthenticatedApp extends React.Component {
         } else {
             return (
                 <div>
-                    Tours {
+                    Tours [{this.props.authData.type}]{
                         this.props.authData.type === 'Master'
-                            ? <TourAdd buttonText="Add" actionButtonText="Add Tour" app={this} open={false} />
-                            : <span />
+                            ? <TourAdd buttonText="Add" actionButtonText="Add Tour" app={this} open={false} chooseCode={true}/>
+                            : (
+                                this.state.tours.length > 0
+                                    ? <TourAdd buttonText="Add" actionButtonText="Add Tour" app={this} open={false} chooseCode={false}/>
+                                    : <span />
+                            )
                     }
                     {
                         this.state.tours.map((t, idx) => {
@@ -47,11 +51,15 @@ export default class AuthenticatedApp extends React.Component {
                                     <u key={'u' + idx}><TourNameEdit key={'te' + idx} tourid={t.id} name={t.name} app={this} open={false} buttonText='Edit' actionButtonText="Change name" /></u>
                                     &nbsp;&nbsp;
                                     {idx + 1}.
-                                <Link key={'l'+idx} to={'/tour/' + t.id}>{t.name}</Link>
+                                <Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}</Link>&nbsp;&nbsp;
+                                    <button onClick={() => { document.getElementById('TourJsonTextArea').value = JSON.stringify(t, null, 2); }}>JSON</button>
                                 </div>
                             )
                         })
                     }
+                    <hr />
+                    Tour JSON:
+                    <textarea id="TourJsonTextArea" style={{ width: "100%" }} rows="20" defaultValue="Here will be tour JSON"/>
                 </div>
                 )
         }
