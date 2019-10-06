@@ -36,12 +36,14 @@ export default class TourAdd extends React.Component {
                                 onChange={(e) => this.name = event.target.value}
                                 defaultValue={this.name}
                             />
-                            <p>Access Code:</p>
-                            <input
-                                type='text'
-                                onChange={(e) => this.accessCode = event.target.value}
-                                defaultValue={this.accessCode}
-                            />
+                            {this.props.chooseCode ? (
+                                <span><p>Access Code:</p>
+                                <input
+                                    type='text'
+                                    onChange={(e) => this.accessCode = event.target.value}
+                                    defaultValue={this.accessCode}
+                                /></span>) : <span />
+                            }
                         </form>
                 </DialogContent>
                 <DialogActions>

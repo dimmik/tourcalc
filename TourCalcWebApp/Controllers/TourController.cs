@@ -56,14 +56,18 @@ namespace TourCalcWebApp.Controllers
         [HttpPost("add/{accessCode}")]
         public IActionResult AddTour([FromBody]Tour t, string accessCode)
         {
-            // TODO - authentication!!!
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
-            if (!authData.IsMaster)
+            bool allowed = authData.IsMaster;
+            if (!allowed)
+            {
+                allowed = TourStorageUtilities_LoadAllTours().Any();
+            }
+            if (!allowed)
             {
                 return Forbid();
             }
             t.GUID = IdHelper.NewId();
-            t.AccessCodeMD5 = AuthHelper.CreateMD5(accessCode);
+            t.AccessCodeMD5 = authData.IsMaster ? AuthHelper.CreateMD5(accessCode) : authData.AccessCodeMD5;
             tourStorage.AddTour(t);
             return Ok(t.GUID);
         }
@@ -97,6 +101,12 @@ namespace TourCalcWebApp.Controllers
         [HttpDelete("{tourid}")]
         public IActionResult DeleteTour(string tourid)
         {
+            AuthData authData = AuthHelper.GetAuthData(User, Configuration);
+            bool allowed = authData.IsMaster;
+            if (!allowed)
+            {
+                return Forbid("Only admin can delete the tour");
+            }
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             if (tour == null) return NotFound($"no tour with id {tourid}");
 
