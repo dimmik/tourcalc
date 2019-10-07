@@ -153,7 +153,8 @@ export default class AppState {
                 (result) => {
                     this.state = {
                         isTourLoaded: true,
-                        tour: result
+                        tour: result,
+                        updateTime: new Date()
                     };
                     comp.setState(this.state);
                 },
