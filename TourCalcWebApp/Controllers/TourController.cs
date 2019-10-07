@@ -48,7 +48,7 @@ namespace TourCalcWebApp.Controllers
         [HttpGet]
         public IActionResult GetAllTours()
         {
-            var tours = TourStorageUtilities_LoadAllTours();
+            var tours = TourStorageUtilities_LoadAllTours().OrderBy(t => t.DateCreated);
             return Ok(tours.ToArray());
         }
 
@@ -68,6 +68,7 @@ namespace TourCalcWebApp.Controllers
             }
             t.GUID = IdHelper.NewId();
             t.AccessCodeMD5 = authData.IsMaster ? AuthHelper.CreateMD5(accessCode) : authData.AccessCodeMD5;
+            t.DateCreated = DateTime.Now;
             tourStorage.AddTour(t);
             return Ok(t.GUID);
         }
@@ -120,7 +121,7 @@ namespace TourCalcWebApp.Controllers
         {
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
-            if (tour != null) return Ok(tour.Persons);
+            if (tour != null) return Ok(tour.Persons.OrderBy(p => p.DateCreated));
             else return NotFound($"no tour with id {tourid}");
 
         }
@@ -164,6 +165,7 @@ namespace TourCalcWebApp.Controllers
             {
                 var idx = t.Persons.FindIndex(x => x.GUID == personguid);
                 if (idx < 0) return NotFound($"No person with id {personguid} in tour {tourid}");
+                p.DateCreated = t.Persons[idx].DateCreated; // preserve
 
                 t.Persons[idx] = p;
 
@@ -200,7 +202,7 @@ namespace TourCalcWebApp.Controllers
         {
             var t = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
-            if (t != null) return Ok(t.Spendings);
+            if (t != null) return Ok(t.Spendings.OrderBy(sp => sp.DateCreated));
             else return NotFound($"no tour with id {tourid}");
         }
 
@@ -215,6 +217,7 @@ namespace TourCalcWebApp.Controllers
             {
                 var idx = t.Spendings.FindIndex(x => x.GUID == spendingid);
                 if (idx < 0) return NotFound($"No spending with id {spendingid} in tour {tourid}");
+                sp.DateCreated = t.Spendings[idx].DateCreated; // preserve
                 t.Spendings[idx] = sp;
                 tourStorage.StoreTour(t);
             }
@@ -278,7 +281,9 @@ namespace TourCalcWebApp.Controllers
         {
             
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
-            return tourStorage.GetTours(t => authData.IsMaster ? true : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5));
+            return tourStorage.GetTours(t => authData.IsMaster 
+            ? true // get everything
+            : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5));
         }
 
     }

@@ -9,7 +9,6 @@ namespace TCalc.Domain
         public List<Person> Persons { get; set; } = new List<Person>();
         public List<Spending> Spendings { get; set; } = new List<Spending>();
         public string Name { get; set; } = $"Tour of {DateTime.Now.ToLongDateString()}";
-        public DateTime DateCreated { get; set; } = DateTime.Now;
         public string Id { get { return GUID; } set { GUID = value; } }
         public string AccessCodeMD5 { get; set; } = "-";
         public void StripCalculations()

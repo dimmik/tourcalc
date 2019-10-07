@@ -8,3 +8,6 @@ TourCalcWebApp/node_modules/
 TourCalcWebApp/wwwroot/assets/
 **/*.pubxml
 **/*.user
+ConsoleTest/bin/
+ConsoleTest/obj/
+
