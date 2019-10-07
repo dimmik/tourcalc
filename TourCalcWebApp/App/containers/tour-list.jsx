@@ -87,7 +87,7 @@ export default class TourList extends React.Component {
 
                     <hr />
                     Tour JSON:
-                    <textarea id="TourJsonTextArea" style={{ width: "100%" }} rows="20" defaultValue="Here will be tour JSON"/>
+                    <textarea id="TourJsonTextArea" style={{ width: "100%" }} rows="7" defaultValue="Here will be tour JSON"/>
                 </div>
                 )
         }
