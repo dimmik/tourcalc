@@ -21,9 +21,9 @@ export default class TourAdd extends React.Component {
     render() {
         return (
             <span>
-                <button onClick={() => this.setState({ dialogOpen: true })}>
-                    {this.props.buttonText}
-                </button>
+                <span onClick={() => this.setState({ dialogOpen: true })}>
+                    {this.props.children}
+                </span>
             <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
                 <DialogTitle id="customized-dialog-title">Add Tour</DialogTitle>
                     <DialogContent>
