@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import AppState from './appstate.jsx'
 import { BrowserRouter as Router, Route, Switch, Redirect  } from 'react-router-dom';
 import LoginScreen from './login-screen.jsx';
-import AuthenticatedApp from './authenticated-app.jsx'
+import TourList from './tour-list.jsx'
 import TourUI from './tour-ui.jsx'
 
 export default class App extends React.Component {
@@ -70,7 +70,7 @@ class Index extends React.Component {
                 return (<Redirect to="/login"/>)
             } else {
                 return (
-                    <AuthenticatedApp app={this} authData={this.state.authData} />
+                    <TourList app={this} authData={this.state.authData} />
                 )
             }
         }
