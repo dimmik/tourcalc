@@ -145,7 +145,7 @@ namespace TCalc.Logic
             // find ones who owes min (will receive max)
             var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt());
             var debtors   = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt());
-            while (creditors.Any())
+            while (creditors.Any() && debtors.Any())
             {
                 // get first creditor (highest credit)
                 var credit = -creditors.First().Debt();
