@@ -13,17 +13,18 @@ namespace TCalc.Logic
         public TourCalculator(Tour tour)
         {
             // clone
-            this.CurrentTour = Newtonsoft.Json.JsonConvert.DeserializeObject<Tour>(Newtonsoft.Json.JsonConvert.SerializeObject(tour));
+            CurrentTour = Newtonsoft.Json.JsonConvert.DeserializeObject<Tour>(Newtonsoft.Json.JsonConvert.SerializeObject(tour));
             TotalWeight = 0;
             foreach (Person person in CurrentTour.Persons) TotalWeight += person.Weight;
         }
 
 
 
-        private long PersonSpent(Person person)
+        private long PersonSpent(Person person, bool includePlanned = false)
         {
             long res = 0;
-            foreach (Spending spending in CurrentTour.Spendings)
+            person.SpentSendingInfo.Clear();
+            foreach (Spending spending in CurrentTour.Spendings.Where(s => includePlanned || !s.Planned))
             {
                 if (spending.FromGuid == person.GUID)
                 {
@@ -47,10 +48,11 @@ namespace TCalc.Logic
             return res;
         }
 
-        private long PersonReceived(Person person)
+        private long PersonReceived(Person person, bool includePlanned = false)
         {
+            person.ReceivedSendingInfo.Clear();
             double res = 0;
-            foreach (Spending spending in CurrentTour.Spendings)
+            foreach (Spending spending in CurrentTour.Spendings.Where(s => includePlanned || !s.Planned))
             {
                 var amount = 0d;
                 bool isApplicable = false;
@@ -86,15 +88,84 @@ namespace TCalc.Logic
             }
             return (long)Math.Round(res);
         }
-        public Tour Calculate()
+        public Tour Calculate(bool includePlanned = false)
         {
+            if (!CurrentTour.Persons.Any()) return CurrentTour;
             foreach (var p in CurrentTour.Persons)
             {
-                p.ReceivedInCents = PersonReceived(p);
-                p.SpentInCents = PersonSpent(p);
+                p.ReceivedInCents = PersonReceived(p, includePlanned);
+                p.SpentInCents = PersonSpent(p, includePlanned);
             }
+            DealWithRoundErrors();
             return CurrentTour;
         }
 
+        private void DealWithRoundErrors()
+        {
+            // deal with round
+            var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt());
+            var debtors = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt());
+            var sumCredit = -creditors.Sum(c => c.Debt());
+            var sumDebit = debtors.Sum(c => c.Debt());
+            var diff = sumCredit - sumDebit;
+            if (diff < 0)
+            {
+                var p = debtors.First();
+                p.ReceivedInCents += diff; // add to one with most expenses
+                p.ReceivedSendingInfo.Add(new SpendingInfo()
+                {
+                    From = p.GUID,
+                    SpendingDescription = $"Rounding Error - add {-diff} to received",
+                    ReceivedAmountInCents = diff,
+                    IsSpendingToAll = false,
+                    ToNames = new[] { p.Name },
+                    TotalSpendingAmountInCents = diff
+                });
+            }
+            else if (diff > 0)
+            {
+                var p = creditors.First();
+                p.SpentInCents += diff;
+                p.ReceivedSendingInfo.Add(new SpendingInfo()
+                {
+                    From = p.GUID,
+                    SpendingDescription = $"Rounding Error - add {diff} to spent",
+                    ReceivedAmountInCents = -1,
+                    IsSpendingToAll = false,
+                    ToNames = new[] { p.Name },
+                    TotalSpendingAmountInCents = diff
+                });
+
+            }
+        }
+
+        public Tour SuggestCloseSpendings()
+        {
+            Calculate(includePlanned: true);
+            // find ones who owes min (will receive max)
+            var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt());
+            var debtors   = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt());
+            while (creditors.Any())
+            {
+                // get first creditor (highest credit)
+                var credit = -creditors.First().Debt();
+                // find first debtor (highest debt)
+                var highestDebt = debtors.First().Debt();
+                CurrentTour.Spendings.Add(new Spending()
+                {
+                    FromGuid = debtors.First().GUID,
+                    Planned = true,
+                    ToGuid = new[] { creditors.First().GUID }.ToList(),
+                    ToAll = false,
+                    AmountInCents = credit > highestDebt ? highestDebt : credit
+                });
+                // add spending
+                Calculate(includePlanned: true);
+                creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt());
+                debtors = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt());
+            }
+            return CurrentTour;
+        }
     }
+   
 }

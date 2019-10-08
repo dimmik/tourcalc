@@ -16,5 +16,9 @@ namespace TCalc.Domain
             // delete spending lists that might be rather large
             Persons.ForEach(p => { p.ReceivedSendingInfo = new List<SpendingInfo>(); p.SpentSendingInfo = new List<SpendingInfo>(); });
         }
+        public Tour Clone()
+        {
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<Tour>(Newtonsoft.Json.JsonConvert.SerializeObject(this));
+        }
     }
 }

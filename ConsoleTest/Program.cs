@@ -6,12 +6,20 @@ using System.Net.Http.Headers;
 using System.Text;
 using Newtonsoft.Json;
 using TCalc.Domain;
+using TCalc.Logic;
 
 namespace ConsoleTest
 {
     class Program
     {
         static void Main(string[] args)
+        {
+            var tourJson = File.ReadAllText(@"c:\tmp\testtour.json");
+            var tour = JsonConvert.DeserializeObject<Tour>(tourJson);
+            var calc = new TourCalculator(tour);
+            calc.SuggestCloseSpendings();
+        }
+        static void Mainx(string[] args)
         {
             // get token
             var tokenUrl = @"https://localhost:5001/api/auth/token/code/test";

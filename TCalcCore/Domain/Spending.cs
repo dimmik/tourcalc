@@ -11,6 +11,7 @@ namespace TCalc.Domain
         public long AmountInCents { get; set; }
         public bool Weighted { get; set; } = true;
         public bool ToAll { get; set; } = false;
+        public bool Planned { get; set; } = false;
         public string Description { get; set; } = "";
 
         public override string ToString()
