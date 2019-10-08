@@ -12,5 +12,6 @@ namespace TCalc.Domain
         public long Order { get; set; }
         public bool IsChanged { get; set; } = true;
         public bool IsFromJson { get; set; } = false;
+        public DateTime DateCreated { get; set; } = DateTime.Now;
     }
 }
