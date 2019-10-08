@@ -17,7 +17,7 @@ namespace ConsoleTest
             var tourJson = File.ReadAllText(@"c:\tmp\testtour.json");
             var tour = JsonConvert.DeserializeObject<Tour>(tourJson);
             var calc = new TourCalculator(tour);
-            calc.SuggestCloseSpendings();
+            calc.SuggestFinalPayments();
         }
         static void Mainx(string[] args)
         {

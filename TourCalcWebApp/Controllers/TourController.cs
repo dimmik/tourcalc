@@ -41,8 +41,18 @@ namespace TourCalcWebApp.Controllers
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             if (tour == null) return NotFound($"no tour with id {tourid}");
             var calculator = new TourCalculator(tour);
-//            var calculated = calculator.Calculate();
-            var calculated = calculator.SuggestCloseSpendings();
+            var calculated = calculator.Calculate();
+            //            var calculated = calculator.SuggestCloseSpendings();
+            return Ok(calculated);
+        }
+
+        [HttpGet("{tourid}/suggested")]
+        public IActionResult GetTourSuggested(string tourid)
+        {
+            var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
+            if (tour == null) return NotFound($"no tour with id {tourid}");
+            var calculator = new TourCalculator(tour);
+            var calculated = calculator.SuggestFinalPayments();
             return Ok(calculated);
         }
 

@@ -105,48 +105,55 @@ namespace TCalc.Logic
             // deal with round
             var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt());
             var debtors = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt());
+            if (!creditors.Any() && !debtors.Any()) return;
             var sumCredit = -creditors.Sum(c => c.Debt());
             var sumDebit = debtors.Sum(c => c.Debt());
             var diff = sumCredit - sumDebit;
-            if (diff < 0)
+            var highestCredit = - (creditors.FirstOrDefault()?.Debt() ?? 0);
+            var highestDebit = (debtors.FirstOrDefault()?.Debt() ?? 0);
+            if (highestCredit > highestDebit)
             {
-                var p = debtors.First();
-                p.ReceivedInCents += diff; // add to one with most expenses
+                // get creditor and subtract diff
+                var p = creditors.First();
+                p.ReceivedInCents += diff;
                 p.ReceivedSendingInfo.Add(new SpendingInfo()
                 {
                     From = p.GUID,
-                    SpendingDescription = $"Rounding Error - add {-diff} to received",
+                    SpendingDescription = $"Rounding Error - add {-diff} to received of highest creditor",
                     ReceivedAmountInCents = diff,
                     IsSpendingToAll = false,
-                    ToNames = new[] { p.Name },
+                    ToNames = new[] { "System" },
                     TotalSpendingAmountInCents = diff
                 });
-            }
-            else if (diff > 0)
+            } else
             {
-                var p = creditors.First();
-                p.SpentInCents += diff;
+                // get debitor and add diff
+                var p = debtors.First();
+                p.ReceivedInCents += diff;
                 p.ReceivedSendingInfo.Add(new SpendingInfo()
                 {
                     From = p.GUID,
-                    SpendingDescription = $"Rounding Error - add {diff} to spent",
-                    ReceivedAmountInCents = -1,
+                    SpendingDescription = $"Rounding Error - add {diff} to received of highest debtor",
+                    ReceivedAmountInCents = diff,
                     IsSpendingToAll = false,
-                    ToNames = new[] { p.Name },
+                    ToNames = new[] { "System" },
                     TotalSpendingAmountInCents = diff
                 });
 
             }
+
         }
 
-        public Tour SuggestCloseSpendings()
+        public Tour SuggestFinalPayments()
         {
             Calculate(includePlanned: true);
             // find ones who owes min (will receive max)
-            var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt());
-            var debtors   = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt());
+            var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
+            var debtors   = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
+            int maxIterations = 500;
+            int i = 0;
             while (creditors.Any() && debtors.Any())
-            {
+            {                
                 // get first creditor (highest credit)
                 var credit = -creditors.First().Debt();
                 // find first debtor (highest debt)
@@ -157,12 +164,16 @@ namespace TCalc.Logic
                     Planned = true,
                     ToGuid = new[] { creditors.First().GUID }.ToList(),
                     ToAll = false,
-                    AmountInCents = credit > highestDebt ? highestDebt : credit
+                    AmountInCents = credit > highestDebt ? highestDebt : credit,
+                    Description = $"Proposed Final Payment for '{debtors.First()?.Name ?? "n/a"}'",
+                    GUID = Guid.NewGuid().ToString()
                 });
                 // add spending
                 Calculate(includePlanned: true);
-                creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt());
-                debtors = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt());
+                creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
+                debtors = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
+                i++;
+                if (i > maxIterations) throw new Exception("Cannot calculate tour suggestions");
             }
             return CurrentTour;
         }
