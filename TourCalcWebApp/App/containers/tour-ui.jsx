@@ -178,7 +178,8 @@ class TourTable extends React.Component {
                                                                         AppState.deleteSpending(this, this.props.tourid, p.guid)
                                                                             .then(() => { AppState.loadTour(this, this.props.tourid); })
                                                                     }
-                                                                }}>{p.planned ? '' : 'X'}</span>
+                                                                    }}>{p.planned ? '' : 'X'}</span>
+
                                                                 &nbsp;
                                                                 {(idx + 1) + '.'}
                                                                 { (!p.planned) ? 

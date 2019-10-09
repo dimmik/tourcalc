@@ -165,7 +165,7 @@ namespace TCalc.Logic
                     ToGuid = new[] { creditors.First().GUID }.ToList(),
                     ToAll = false,
                     AmountInCents = credit > highestDebt ? highestDebt : credit,
-                    Description = $"Proposed Final Payment for '{debtors.First()?.Name ?? "n/a"}'",
+                    Description = $"'{debtors.First()?.Name ?? "n/a"}' -> '{creditors.First()?.Name ?? "n/a"}'",
                     GUID = Guid.NewGuid().ToString()
                 });
                 // add spending
