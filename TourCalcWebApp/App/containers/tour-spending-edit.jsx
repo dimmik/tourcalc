@@ -147,7 +147,7 @@ export default class SpendingsForm extends React.Component {
                                     label="To All"
                                 />
                           </FormGroup>
-                            <br />
+                            <br  />
                         </form>
                     </DialogContent>
                     <DialogActions>

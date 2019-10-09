@@ -47,7 +47,9 @@ export default class AppState {
                };
                comp.setState(this.state);
            },
-           (error) => {
+            (error) => {
+                alert('Error loading auth info')
+
                this.state = {
                    isAuthLoaded: true,
                    error
@@ -69,6 +71,7 @@ export default class AppState {
             }
         )
             .then((res) => res.text())
+            .then((res) => res, (error) => { alert('Error add person') })
 
     }
     static editPerson(comp, tourid, person) {
@@ -83,6 +86,7 @@ export default class AppState {
             }
         )
             .then((res) => res.text())
+            .then((res) => res, (error) => { alert('Error edit person') })
 
     }
     static deletePerson(comp, tourid, guid) {
@@ -96,6 +100,7 @@ export default class AppState {
             }
         )
             .then((res) => res.text())
+            .then((res) => res, (error) => { alert('Error delete person') })
 
     }
 
@@ -111,6 +116,7 @@ export default class AppState {
             }
         )
             .then((res) => res.text())
+            .then((res) => res, (error) => { alert('Error add add spending') })
 
     }
     static editSpending(comp, tourid, spending) {
@@ -125,6 +131,7 @@ export default class AppState {
             }
         )
             .then((res) => res.text())
+            .then((res) => res, (error) => { alert('Error edit spending') })
 
     }
     static deleteSpending(comp, tourid, guid) {
@@ -138,6 +145,7 @@ export default class AppState {
             }
         )
             .then((res) => res.text())
+            .then((res) => res, (error) => { alert('Error delete spending') })
 
     }
 
@@ -159,7 +167,8 @@ export default class AppState {
                     };
                     comp.setState(this.state);
                 },
-                (error) => {
+            (error) => {
+                    alert('Error loading tour')
                     this.state = {
                         isTourLoaded: true,
                         error
@@ -183,6 +192,7 @@ export default class AppState {
                 };
                 comp.setState(this.state)
             }, error => {
+                alert("error loading tours")
                 this.state = {
                     isToursLoaded: true,
                     error
@@ -202,7 +212,8 @@ export default class AppState {
             body: b
         })
             .then(res => res.text())
-    }
+            .then((res) => res, (error) => { alert('Error add tour') })
+   }
     static changeTourName(comp, tourid, tname) {
         let b = JSON.stringify({ name: tname }, null, 2)
         //alert('b: ' + b)
@@ -215,7 +226,8 @@ export default class AppState {
             body: b
         })
             .then(res => res.text())
-        
+            .then((res) => res, (error) => { alert('Error change tour name') })
+
     }
     static deleteTour(comp, tourid) {
         return fetch(
@@ -228,6 +240,7 @@ export default class AppState {
             }
         )
             .then((res) => res.text())
+            .then((res) => res, (error) => { alert('Error delete tour') })
 
     }
 }

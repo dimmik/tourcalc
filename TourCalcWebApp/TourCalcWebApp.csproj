@@ -9,6 +9,14 @@
   <ItemGroup>
     <Content Remove="package-lock.json" />
     <Content Remove="package.json" />
+    <Content Remove="wwwroot\assets\bundle.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\assets\bundle.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
@@ -29,19 +37,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="wwwroot\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="package-lock.json" />
     <None Include="package.json" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="wwwroot\assets\bundle.js">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
-    </Content>
   </ItemGroup>
 
 </Project>
