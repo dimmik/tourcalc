@@ -118,11 +118,11 @@ namespace TCalc.Logic
                 p.ReceivedInCents += diff;
                 p.ReceivedSendingInfo.Add(new SpendingInfo()
                 {
-                    From = p.GUID,
+                    From = "System",
                     SpendingDescription = $"Rounding Error - add {-diff} to received of highest creditor",
                     ReceivedAmountInCents = diff,
                     IsSpendingToAll = false,
-                    ToNames = new[] { "System" },
+                    ToNames = new[] { p.Name },
                     TotalSpendingAmountInCents = diff
                 });
             } else
@@ -132,11 +132,11 @@ namespace TCalc.Logic
                 p.ReceivedInCents += diff;
                 p.ReceivedSendingInfo.Add(new SpendingInfo()
                 {
-                    From = p.GUID,
+                    From = "System",
                     SpendingDescription = $"Rounding Error - add {diff} to received of highest debtor",
                     ReceivedAmountInCents = diff,
                     IsSpendingToAll = false,
-                    ToNames = new[] { "System" },
+                    ToNames = new[] { p.Name },
                     TotalSpendingAmountInCents = diff
                 });
 
