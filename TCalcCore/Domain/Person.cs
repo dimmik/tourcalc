@@ -16,7 +16,11 @@ namespace TCalc.Domain
 
         public override string ToString()
         {
-            return $"{Name} - {GUID}";
+            return $"{Name} - {GUID} -- {Debt()}";
+        }
+        public long Debt()
+        {
+            return ReceivedInCents - SpentInCents;
         }
     }
     public class SpendingInfo
