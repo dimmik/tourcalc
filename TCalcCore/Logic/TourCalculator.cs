@@ -175,6 +175,7 @@ namespace TCalc.Logic
                 i++;
                 if (i > maxIterations) throw new Exception("Cannot calculate tour suggestions");
             }
+            Calculate(includePlanned: false);
             return CurrentTour;
         }
     }

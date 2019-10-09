@@ -72,6 +72,7 @@ class TourTable extends React.Component {
         this.state = {
             isTourLoaded: false,
             tour: null,
+            showSuggested: false,
             dialogPOpen: false,
             currentPage: 'persons',
             updateTime: new Date()
@@ -148,7 +149,11 @@ class TourTable extends React.Component {
                                                                 mode="add"
                                                             app={this}
                                                         ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
-                                    
+                                                        &nbsp;
+                                                        show suggested <input type='checkbox' defaultChecked={this.state.showSuggested}
+                                                            onClick={() => { this.setState({ showSuggested: !this.state.showSuggested}) }}
+                                                        />
+                            
                                                         </TableCell>
                                                         <TableCell align="right">From</TableCell>
                                                         <TableCell align="right">Amount</TableCell>
@@ -156,27 +161,38 @@ class TourTable extends React.Component {
                                                         <TableCell align="right">Recipients</TableCell>
                                                     </TableRow>
                                                 </TableHead>
-                                                <TableBody>
-                                                    {this.state.tour.spendings.map( (p, idx) => (
-                                                        <TableRow key={p.guid} hover>
+                                            <TableBody>
+                                                {this.state.tour.spendings
+                                                    .filter((sp) => this.state.showSuggested || !sp.planned)
+                                                    .map((p, idx) => (
+                                                        <TableRow key={p.guid} hover
+
+                                                            style={p.planned ? { background: "yellow" } : {}}
+
+                                                        >
                                                             <TableCell component="th" scope="row">
-                                                            <span style={{cursor: 'pointer', borderStyle: 'ridge', fontSize: 'xx-small'}} variant='outlined' color='secondary' onClick={() => {
-                                                                    if (window.confirm('Sure to delete spending ' + p.name + '?')) {
+
+                                                                <span style={{ cursor: 'pointer', borderStyle: p.planned ? 'none' : 'ridge', fontSize: 'xx-small' }}
+                                                                    variant='outlined' color='secondary' onClick={() => {
+                                                                    if (window.confirm('Sure to delete spending ' + p.description + '?')) {
                                                                         AppState.deleteSpending(this, this.props.tourid, p.guid)
                                                                             .then(() => { AppState.loadTour(this, this.props.tourid); })
                                                                     }
-                                                                }}>X</span>
+                                                                }}>{p.planned ? '' : 'X'}</span>
                                                                 &nbsp;
                                                                 {(idx + 1) + '.'}
-                                                                <SpendingForm
-                                                                    tour={this.state.tour}
-                                                                    buttonText={p.description}
-                                                                    actionButtonText="Save Spending"
-                                                                    open={false}
-                                                                    mode="edit"
-                                                                    app={this}
-                                                                spending={p}
-                                                            ><span style={{ cursor: 'pointer', textDecoration: 'underline' }}>{p.description}</span></SpendingForm>
+                                                                { (!p.planned) ? 
+                                                                    <SpendingForm
+                                                                        tour={this.state.tour}
+                                                                        buttonText={p.description}
+                                                                        actionButtonText="Save Spending"
+                                                                        open={false}
+                                                                        mode="edit"
+                                                                        app={this}
+                                                                        spending={p}
+                                                                    ><span style={{ cursor: 'pointer', textDecoration: 'underline' }}>{p.description}</span></SpendingForm>
+                                                                    : <span>{p.description}</span>
+                                                                }
                                                             </TableCell>
                                                             <TableCell align="right">{
                                                                 this.state.tour.persons.filter((pp) => pp.guid === p.fromGuid).map(ppp => ppp.name)
