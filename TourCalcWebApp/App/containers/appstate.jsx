@@ -105,6 +105,7 @@ export default class AppState {
     }
 
     static addSpending(comp, tourid, spending) {
+        spending.planned = false;
         return fetch(
             '/api/tour/' + tourid + '/spending', {
                 method: 'post',
