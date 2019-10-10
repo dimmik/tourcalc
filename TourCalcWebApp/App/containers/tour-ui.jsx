@@ -192,7 +192,21 @@ class TourTable extends React.Component {
                                                                         app={this}
                                                                         spending={p}
                                                                     ><span style={{ cursor: 'pointer', textDecoration: 'underline' }}>{p.description}</span></SpendingForm>
-                                                                    : <span>{p.description}</span>
+                                                                    : <span>{p.description}&nbsp;
+
+
+                                                                        <SpendingForm
+                                                                            tour={this.state.tour}
+                                                                            buttonText="Add"
+                                                                            actionButtonText="Save Spending"
+                                                                            open={false}
+                                                                            mode="add"
+                                                                            app={this}
+                                                                            spending={p}
+                                                                        ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
+
+
+                                                                    </span>
                                                                 }
                                                             </TableCell>
                                                             <TableCell align="right">{
