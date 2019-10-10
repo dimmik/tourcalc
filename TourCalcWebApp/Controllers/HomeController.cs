@@ -29,11 +29,13 @@ namespace TourCalcWebApp.Controllers
             var index = IndexPage;
             try
             {
-                var pathToBundleJs = Configuration.GetValue("PathToBundleJs", @"D:\home\site\wwwroot\wwwroot\assets\bundle.js");
+                var pathToBundleJs = Configuration.GetValue("PathToBundleJs", @"wwwroot\assets\bundle.js");
                 var fileInfo = new FileInfo(pathToBundleJs);
-                var content = System.IO.File.ReadAllText(pathToBundleJs);
-                var md5 = AuthHelper.CreateMD5(content);
-                index = IndexPage.Replace("_md5_", $"{md5}");
+                using (var contentStream = System.IO.File.OpenRead(pathToBundleJs))
+                {
+                    var md5 = AuthHelper.CreateMD5(contentStream);
+                    index = IndexPage.Replace("_md5_", $"{md5}");
+                }
             }
             catch (Exception e)
             {

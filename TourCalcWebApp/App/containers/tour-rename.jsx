@@ -30,7 +30,7 @@ export default class TourNameEdit extends React.Component {
                         <form onSubmit={(event) => {
                             event.preventDefault();
                             }}>
-                            <p>Name:</p>
+                            <p>Tour Name:</p>
                             <input
                                 type='text'
                                 onChange={(e) => this.name = event.target.value}
