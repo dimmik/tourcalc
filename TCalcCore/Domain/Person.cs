@@ -14,6 +14,8 @@ namespace TCalc.Domain
         public List<SpendingInfo> SpentSendingInfo { get; set; } = new List<SpendingInfo>();
         public List<SpendingInfo> ReceivedSendingInfo { get; set; } = new List<SpendingInfo>();
 
+        public string ParentId { get; set; }
+
         public override string ToString()
         {
             return $"{Name} - {GUID} -- {Debt()}";
