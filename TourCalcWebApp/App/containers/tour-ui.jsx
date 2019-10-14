@@ -150,9 +150,9 @@ class TourTable extends React.Component {
                                                             app={this}
                                                         ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
                                                         &nbsp;
-                                                        show suggested <input type='checkbox' defaultChecked={this.state.showSuggested}
-                                                            onClick={() => { this.setState({ showSuggested: !this.state.showSuggested}) }}
-                                                        />
+                                                        <Button color='secondary' variant='outlined' onClick={() => { this.setState({ showSuggested: !this.state.showSuggested }) }}>
+                                                            {this.state.showSuggested ? 'Hide' : 'Show'} suggested
+                                                        </Button>
                             
                                                         </TableCell>
                                                         <TableCell align="right">From</TableCell>
@@ -244,7 +244,8 @@ class TourTable extends React.Component {
                                                         <TableCell>Person Name 
                                                             <PersonForm mode="add"
                                                                 tourid={this.props.tourid}
-                                                                open={false}
+                                                            tour={this.state.tour}
+                                                            open={false}
                                                             app={this}
                                                             buttonText="Add" actionButtonText="Add Person" ><Button color='primary' variant='outlined'>Add</Button>
                                                             </PersonForm>
@@ -267,16 +268,22 @@ class TourTable extends React.Component {
                                                                 }}>X</span>
                                                                 &nbsp;
                                                             {(idx + 1) + '.'}
-                                                                <PersonForm mode="edit"
+                                                            <PersonForm mode="edit"
                                                                     tourid={this.props.tourid}
+                                                                    tour={this.state.tour}
                                                                     open={false}
                                                                     app={this}
                                                                     buttonText={p.name} actionButtonText="Save Person"
-                                                                    name={p.name}
-                                                                    weight={p.weight}
+                                                                person={p}
                                                                 guid={p.guid}
-                                                            ><span style={{ cursor: 'pointer', textDecoration: 'underline' }}>{p.name}</span></PersonForm>
-                                                                
+                                                            ><span style={{ cursor: 'pointer', textDecoration: 'underline' }}>{p.name}
+                                                                    
+                                                                </span></PersonForm>
+                                                            <span style={{ fontSize: 'xx-small' }}>
+                                                            {this.state.tour.persons.find((pp) => pp.guid == p.parentId) == null
+                                                                ? ''
+                                                                : ' → ' + this.state.tour.persons.find((pp) => pp.guid == p.parentId).name}
+                                                             </span>
                                                                 
                                                             </TableCell>
                                                             <TableCell align="right">{p.weight}</TableCell>

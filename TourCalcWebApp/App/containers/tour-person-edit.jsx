@@ -26,14 +26,11 @@ export default class PersonForm extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            dialogOpen: props.open
+            dialogOpen: props.open,
+            person: props.person == null ? { name: "", weight: 100, parentId: "" } : props.person,
+            tour: props.tour
         }
-        if (props.name != null) this.name = props.name
-        if (props.weight != null) this.weight = props.weight
-        //alert('open: ' + props.open)
     }
-    name = ""
-    weight = 100
     render() {
         return (
             <span>
@@ -51,9 +48,9 @@ export default class PersonForm extends React.Component {
                                     id="name"
                                     required
                                     label="Name"
-                                    defaultValue={this.name}
+                                    defaultValue={this.state.person.name}
                                     autoFocus
-                                    onChange={(e) => this.name = event.target.value}
+                                    onChange={(e) => { this.state.person.name = e.target.value; this.setState({ person: this.state.person }) }}
                                     margin="normal"
                                 />
                                 <TextField
@@ -61,10 +58,22 @@ export default class PersonForm extends React.Component {
                                     required
                                     label="Weight"
                                     type="number"
-                                    defaultValue={this.weight}
-                                    onChange={(e) => this.weight = event.target.value}
+                                    defaultValue={this.state.person.weight}
+                                    onChange={(e) => { this.state.person.weight = e.target.value; this.setState({ person: this.state.person }) }}
                                     margin="normal"
                                 />
+                                <br />
+                                <InputLabel htmlFor="select-relative">Paying Relative</InputLabel>
+                                <Select
+                                    input={<Input id="select-relative" />}
+                                    value={this.state.person.parentId == null ? 'none' : this.state.person.parentId}
+                                    onChange={(e) => { this.state.person.parentId = e.target.value; this.setState({ person: this.state.person }) }}
+                                >
+                                    <MenuItem value="none" key='None'>None</MenuItem>
+                                    {
+                                        this.state.tour.persons.map(p => (<MenuItem value={p.guid} key={p.guid}>{p.name}</MenuItem>))
+                                    }
+                                </Select>
                                 <br />
                             </FormGroup>
 
@@ -75,8 +84,8 @@ export default class PersonForm extends React.Component {
                             color="primary" size='large' variant='outlined' 
                             onClick={() => {
                             (  this.props.mode === "add"
-                                ? AppState.addPerson(this.props.app, this.props.tourid, { name: this.name, weight: this.weight })
-                                : AppState.editPerson(this.props.app, this.props.tourid, { guid: this.props.guid, name: this.name, weight: this.weight })
+                                ? AppState.addPerson(this.props.app, this.props.tourid, this.state.person)
+                                : AppState.editPerson(this.props.app, this.props.tourid, this.state.person)
                             )
                                 .then(this.setState({ dialogOpen: false }))
                                 .then(() => { AppState.loadTour(this.props.app, this.props.tourid) })

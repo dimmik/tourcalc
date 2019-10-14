@@ -154,9 +154,11 @@ namespace TCalc.Logic
                 .Where(p => p.Debt() != 0)
                 .Where(
                     p => CurrentTour.Persons.Any(
-                        pp => (pp.GUID == p.ParentId) && string.IsNullOrWhiteSpace(pp.ParentId)
+                        pp => (pp.GUID == p.ParentId)
                      )
-                );
+                ).ToArray();
+            // remove cycles
+            descedants = descedants.Where(p => !descedants.Any(d => d.GUID == p.ParentId)).ToArray();
             // nullify all descendants' debt
             foreach (var d in descedants)
             {
@@ -175,6 +177,7 @@ namespace TCalc.Logic
                 CurrentTour.Spendings.Add(spending);
             }
             // find ones who owes min (will receive max)
+            Calculate(includePlanned: true);
             var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
             var debtors   = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
             int maxIterations = 500;

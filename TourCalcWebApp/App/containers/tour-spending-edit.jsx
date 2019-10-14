@@ -55,7 +55,7 @@ export default class SpendingsForm extends React.Component {
         guid: ""
     }
     validate() {
-        if (this.state.spending != null && this.state.spending.amountInCents > 0 && this.state.spending.fromGuid != null && (this.spending.toAll || this.spending.toGuid.length > 0))
+        if (this.state.spending != null && this.state.spending.amountInCents != 0 && this.state.spending.fromGuid != null && (this.spending.toAll || this.spending.toGuid.length > 0))
             return true;
         return false;
     }
