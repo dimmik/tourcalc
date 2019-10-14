@@ -52,6 +52,8 @@ export default class TourList extends React.Component {
                                                 : <span />
                                         )
                                 }</TableCell>
+                                <TableCell>#
+                                </TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -76,6 +78,28 @@ export default class TourList extends React.Component {
                                             </TableCell>
                                             <TableCell>
                                                 <Button variant='outlined' onClick={() => { document.getElementById('TourJsonTextArea').value = JSON.stringify(t, null, 2); }}>JSON</Button>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button color='secondary' variant='outlined' onClick={
+                                                    () => {
+                                                        //alert('id: ' + t.id + 'tourAccessCode' + ' val: ' + document.getElementById(t.id + 'tourAccessCode').value);
+                                                        if (document.getElementById(t.id + 'tourAccessCode').value != '') {
+                                                            AppState.addTourJson(this, t
+                                                                , document.getElementById(t.id + 'tourAccessCode').value
+                                                                , document.getElementById(t.id + 'tourName').value
+                                                            )
+                                                                .then(() => { AppState.loadTours(this) })
+                                                        } else {
+                                                            alert('Please enter access code')
+                                                        }
+                                                    }
+                                                }>Clone</Button>
+
+                                                    {this.props.authData.type === 'Master' ?
+                                                    <span>Access code:<input type="text" size="4" id={t.id + "tourAccessCode"} /></span>
+                                                    : <span><input type="hidden" id={t.id + "tourAccessCode"} value='none'/></span>
+                                                }
+                                                &nbsp;New tour name: <input type="text" size="16" id={t.id + "tourName"} defaultValue={'Clone ' + t.name} />
                                             </TableCell>
                                   </TableRow>
                                     )

@@ -214,7 +214,24 @@ export default class AppState {
         })
             .then(res => res.text())
             .then((res) => res, (error) => { alert('Error add tour') })
-   }
+    }
+    static addTourJson(comp, tour, accessCode, tname) {
+        if (tname != null) {
+            tour.name = tname
+        }
+        let b = JSON.stringify(tour, null, 2)
+        //alert('b: ' + b)
+        return fetch('/api/tour/add/' + accessCode, {
+            method: 'post',
+            headers: new Headers({
+                "Authorization": 'Bearer ' + this.token,
+                "Content-Type": "application/json"
+            }),
+            body: b
+        })
+            .then(res => res.text())
+            .then((res) => res, (error) => { alert('Error add tour') })
+    }
     static changeTourName(comp, tourid, tname) {
         let b = JSON.stringify({ name: tname }, null, 2)
         //alert('b: ' + b)
