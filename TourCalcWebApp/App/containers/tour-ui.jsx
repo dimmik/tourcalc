@@ -150,8 +150,9 @@ class TourTable extends React.Component {
                                                             app={this}
                                                         ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
                                                         &nbsp;
-                                                        <Button color='secondary' variant='outlined' onClick={() => { this.setState({ showSuggested: !this.state.showSuggested }) }}>
-                                                            {this.state.showSuggested ? 'Hide' : 'Show'} suggested
+                                                        <Button color='secondary' variant='outlined'
+                                                            onClick={() => { this.setState({ showSuggested: !this.state.showSuggested }) }}>
+                                                            {this.state.showSuggested ? 'hide' : 'show'}
                                                         </Button>
                             
                                                         </TableCell>
