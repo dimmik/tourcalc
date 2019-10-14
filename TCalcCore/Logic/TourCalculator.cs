@@ -147,7 +147,37 @@ namespace TCalc.Logic
         public Tour SuggestFinalPayments()
         {
             Calculate(includePlanned: true);
+            // deal with families
+            // first, find all guys with parents
+            var descedants = CurrentTour.Persons
+                .Where(p => !string.IsNullOrWhiteSpace(p.ParentId))
+                .Where(p => p.Debt() != 0)
+                .Where(
+                    p => CurrentTour.Persons.Any(
+                        pp => (pp.GUID == p.ParentId)
+                     )
+                ).ToArray();
+            // remove cycles
+            descedants = descedants.Where(p => !descedants.Any(d => d.GUID == p.ParentId)).ToArray();
+            // nullify all descendants' debt
+            foreach (var d in descedants)
+            {
+                var parent = CurrentTour.Persons.First(p => p.GUID == d.ParentId);
+                var debt = d.Debt();
+                var spending = new Spending()
+                {
+                    Planned = true,
+                    FromGuid = d.GUID,
+                    ToGuid = new[] { parent.GUID }.ToList(),
+                    ToAll = false,
+                    AmountInCents = debt,
+                    GUID = Guid.NewGuid().ToString(),
+                    Description = $"Family '{d.Name}' -> '{parent.Name}'"
+                };
+                CurrentTour.Spendings.Add(spending);
+            }
             // find ones who owes min (will receive max)
+            Calculate(includePlanned: true);
             var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
             var debtors   = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
             int maxIterations = 500;

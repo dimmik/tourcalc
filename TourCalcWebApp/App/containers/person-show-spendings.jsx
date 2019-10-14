@@ -21,13 +21,11 @@ export default class SpendingsDetail extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            dialogOpen: props.open
+            dialogOpen: props.open,
+            spendingInfo: props.spendingInfo,
+            person: props.person
         }
-        this.spendingInfo = props.spendingInfo
-        this.person = props.person
     }
-    spendingInfo = []
-    person = null
     /*{
         from: Person 3,
         receivedAmountInCents: 250,
@@ -40,22 +38,23 @@ export default class SpendingsDetail extends React.Component {
     render() {
         return (
             <span>
-                <span onClick={() => this.setState({ dialogOpen: true })} style={{ cursor: "pointer" }}>
+                <span onClick={() => this.setState({ dialogOpen: true, spendingInfo: this.props.spendingInfo })} style={{ cursor: "pointer" }}>
                     {this.props.showText}
                 </span>
                 <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
-                    <DialogTitle id="customized-dialog-title">{this.props.received ?  'Received' : 'Spent' } for {this.person.name}</DialogTitle>
+                    <DialogTitle id="customized-dialog-title">{this.props.received ?  'Received' : 'Spent' } for {this.state.person.name}</DialogTitle>
                     <DialogContent>
 
                         <Table>
                             <TableBody>
-                                {this.spendingInfo.map((si, idx) => {
+                                {this.state.spendingInfo.map((si, idx) => {
                                     return this.props.received ? (
                                     <TableRow key={idx} hover>
                                         <TableCell component="th" scope="row">
                                             {si.from}
                                         </TableCell>
-                                        <TableCell component="th" scope="row">
+                                            <TableCell component="th" scope="row">
+                                                {/*<!--pre>{JSON.stringify(si, null, 2)}</pre>*/}
                                                 {si.receivedAmountInCents} ({(si.receivedAmountInCents * 100 / si.totalSpendingAmountInCents).toFixed(0)}% of {si.totalSpendingAmountInCents})
                                         </TableCell>
                                         <TableCell component="th" scope="row">
