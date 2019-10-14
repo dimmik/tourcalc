@@ -249,7 +249,8 @@ class TourTable extends React.Component {
                                                             app={this}
                                                             buttonText="Add" actionButtonText="Add Person" ><Button color='primary' variant='outlined'>Add</Button>
                                                             </PersonForm>
-                                                            </TableCell>
+                                                    </TableCell>
+                                                    <TableCell align="right">#</TableCell>
                                                         <TableCell align="right">Weight %</TableCell>
                                                         <TableCell align="right">Spent</TableCell>
                                                         <TableCell align="right">Received</TableCell>
@@ -282,9 +283,26 @@ class TourTable extends React.Component {
                                                             <span style={{ fontSize: 'xx-small' }}>
                                                             {this.state.tour.persons.find((pp) => pp.guid == p.parentId) == null
                                                                 ? ''
-                                                                : ' → ' + this.state.tour.persons.find((pp) => pp.guid == p.parentId).name}
-                                                             </span>
-                                                                
+                                                                : ' > ' + this.state.tour.persons.find((pp) => pp.guid == p.parentId).name}
+                                                            </span>
+                                                        </TableCell>
+                                                            <TableCell align="right">
+                                                            <SpendingForm
+                                                                tour={this.state.tour}
+                                                                buttonText="Add"
+                                                                actionButtonText="Save Spending"
+                                                                open={false}
+                                                                mode="add"
+                                                                app={this}
+                                                                spending={{
+                                                                    description: "",
+                                                                    amountInCents: 0,
+                                                                    fromGuid: p.guid,
+                                                                    toGuid: [],
+                                                                    toAll: false,
+                                                                    guid: ""}}
+                                                            >&nbsp;&nbsp;<span style={{ cursor: 'pointer', borderStyle: 'ridge', fontSize: 'small' }}
+                                                                >Spend</span></SpendingForm>
                                                             </TableCell>
                                                             <TableCell align="right">{p.weight}</TableCell>
                                                             <TableCell align="right">
