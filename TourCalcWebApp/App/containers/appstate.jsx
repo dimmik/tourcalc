@@ -169,7 +169,7 @@ export default class AppState {
                     comp.setState(this.state);
                 },
             (error) => {
-                    alert('Error loading tour')
+                    //alert('Error loading tour')
                     this.state = {
                         isTourLoaded: true,
                         error

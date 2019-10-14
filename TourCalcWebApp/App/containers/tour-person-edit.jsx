@@ -27,7 +27,7 @@ export default class PersonForm extends React.Component {
         super(props);
         this.state = {
             dialogOpen: props.open,
-            person: props.person == null ? { name: "", weight: 100, parentId: "" } : props.person,
+            person: props.person == null ? { name: "", weight: 100, parentId: "" } : JSON.parse(JSON.stringify(props.person)),
             tour: props.tour
         }
     }
