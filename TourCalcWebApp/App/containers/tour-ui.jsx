@@ -120,11 +120,18 @@ class TourTable extends React.Component {
                             />
                         </Tabs>
                         {/*--- /Tabs ---*/}
-                        <div style={{ fontSize: 'xx-small' }}>{this.state.tour.name} [{
+                        <div style={{ fontSize: 'small' }}>
+                            <span
+                                style={{ cursor: 'pointer', textDecoration: 'underline', borderStyle: 'ridge' }}
+                                onClick={
+                                () => { AppState.loadTour(this, this.props.tourid); }
+                            }>Refresh</span>
+                            &nbsp;
+                            {this.state.tour.name} [{
                             (this.state.updateTime.getHours() + "").padStart(2, '0') + ':' +
                             (this.state.updateTime.getMinutes() + "").padStart(2, '0') + ':' +
                             (this.state.updateTime.getSeconds() + "").padStart(2, '0')
-                        }]</div>
+                        }] <a href="/">List</a></div>
 
                         <main>
                             <Switch>
