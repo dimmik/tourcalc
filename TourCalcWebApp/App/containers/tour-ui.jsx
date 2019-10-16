@@ -164,6 +164,7 @@ class TourTable extends React.Component {
                                             </TableHead>
                                             <TableBody>
                                                 {this.state.tour.spendings
+
                                                     .sort((s1, s2) => {
                                                         if (s1.planned && !s2.planned) return -1;
                                                         if (!s1.planned && s2.planned) return 1;
@@ -171,6 +172,7 @@ class TourTable extends React.Component {
                                                         if (s1.dateCreated < s2.dateCreated) return -1;
                                                         return 0;
                                                     })
+
                                                     .filter((sp) => this.state.showSuggested || !sp.planned)
                                                     .map((p, idx) => (
                                                         <TableRow key={p.guid} hover
