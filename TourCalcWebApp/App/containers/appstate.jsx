@@ -15,7 +15,6 @@ export default class AppState {
         tours: null
     }
 
-    token_name = '__tourcalc_token'
 
     static login(comp, scope, code) {
         let url = '/api/auth/token/' + scope + '/' + code;
@@ -24,7 +23,7 @@ export default class AppState {
             .then((result) => {
                 //alert('url: ' + url + ' res: ' + JSON.stringify(result, null, 2));
                 //alert('url: ' + url + ' res: ' + result);
-                Cookies.set('__tourcalc_token', result)
+                Cookies.set('__tourcalc_token', result, { expires: 180 })
             })
             .then((result) => { AppState.checkWhoAmI(comp) })
     }
