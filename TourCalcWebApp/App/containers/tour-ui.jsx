@@ -106,7 +106,7 @@ class TourTable extends React.Component {
 
                         {/*--- Tabs ---*/}
                         <Tabs
-                            value={history.location.pathname === '/' ? '/tour/' + this.props.tourid + '/persons' : history.location.pathname}
+                            value={(history.location.pathname === '/' || !history.location.pathname.startsWith('/tour/' + this.props.tourid)) ? '/tour/' + this.props.tourid + '/persons' : history.location.pathname}
                             indicatorColor="primary"
                             textColor="primary"
                             onChange={(event, v) => { history.push(v); this.setState({ currentPage: v }) }}
