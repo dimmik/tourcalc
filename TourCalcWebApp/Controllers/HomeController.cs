@@ -22,7 +22,10 @@ namespace TourCalcWebApp.Controllers
         {
             Configuration = config;
         }
-
+        /// <summary>
+        /// Index page to host SPA
+        /// </summary>
+        /// <returns>html content</returns>
         [HttpGet]
         public IActionResult Index()
         {
@@ -37,7 +40,7 @@ namespace TourCalcWebApp.Controllers
                     index = IndexPage.Replace("_md5_", $"{md5}");
                 }
             }
-            catch (Exception e)
+            catch (Exception /*e*/)
             {
                 //index = index.Replace("__error__", e.Message);
             }
