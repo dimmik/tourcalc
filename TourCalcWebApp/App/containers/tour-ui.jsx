@@ -271,7 +271,7 @@ class TourTable extends React.Component {
                                                     <TableCell align="right">Weight %</TableCell>
                                                     <TableCell align="right">Spent</TableCell>
                                                     <TableCell align="right">Received</TableCell>
-                                                    <TableCell align="right">Owes</TableCell>
+                                                    <TableCell align="right">Debt</TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
@@ -332,7 +332,14 @@ class TourTable extends React.Component {
                                                             <SpendingsDetail person={p} spendingInfo={p.receivedSendingInfo} showText={p.receivedInCents} open={false}
                                                                 received={true} />
                                                         </TableCell>
-                                                        <TableCell align="right">{(p.receivedInCents - p.spentInCents)}</TableCell>
+                                                        <TableCell align="center" style={{ backgroundColor: (p.receivedInCents - p.spentInCents) <= 0 ? '#EAFAF1' : '#F9EBEA'}}>
+                                                            {
+                                                                (p.receivedInCents - p.spentInCents) <= 0
+                                                                    ? <span style={{ color: "green", fontWeight: "bold" }}>{(p.receivedInCents - p.spentInCents)}</span>
+                                                                    : <span style={{ color: "red", fontWeight: "bold" }}>{(p.receivedInCents - p.spentInCents)}</span>
+                                                                
+                                                            }
+                                                        </TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
