@@ -340,11 +340,11 @@ class TourTable extends React.Component {
                                                             : { backgroundColor: (p.receivedInCents - p.spentInCents) <= 0 ? '#EAFAF1' : '#F9EBEA' }
 
                                                         }>
-                                                            {
-                                                                (p.receivedInCents - p.spentInCents) <= 0
+                                                            {(p.receivedInCents - p.spentInCents) != 0 ?
+                                                                (p.receivedInCents - p.spentInCents) < 0
                                                                     ? <span style={{ color: "green", fontWeight: "bold" }}>{(p.receivedInCents - p.spentInCents)}</span>
                                                                     : <span style={{ color: "red", fontWeight: "bold" }}>{(p.receivedInCents - p.spentInCents)}</span>
-                                                                
+                                                                : <span style={{ color: "black", fontWeight: "bold" }}>{(p.receivedInCents - p.spentInCents)}</span>
                                                             }
                                                         </TableCell>
                                                     </TableRow>
