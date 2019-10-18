@@ -23,6 +23,7 @@ import Tab from '@material-ui/core/Tab';
 import Button from '@material-ui/core/Button';
 import Box from '@material-ui/core/Box';
 
+import { sizing } from '@material-ui/system';
 
 const history = createBrowserHistory();
 
@@ -102,7 +103,7 @@ class TourTable extends React.Component {
 
             return (
                 <Router>
-                    <div>
+                    <div style={{maxWidth: 1080}}>
 
                         {/*--- Tabs ---*/}
                         <Tabs
@@ -186,6 +187,7 @@ class TourTable extends React.Component {
 
                                                             style={p.planned ? { background: "yellow" } : {}}
 
+                                                            selected={idx % 2 == 0 ? true : false}
                                                         >
                                                             <TableCell component="th" scope="row">
 
@@ -276,7 +278,7 @@ class TourTable extends React.Component {
                                             </TableHead>
                                             <TableBody>
                                                 {this.state.tour.persons.map((p, idx) => (
-                                                    <TableRow key={p.guid} hover>
+                                                    <TableRow key={p.guid} hover={true} selected={idx%2==0 ? true : false}>
                                                         <TableCell component="th" scope="row">
                                                             <span style={{ cursor: 'pointer', borderStyle: 'ridge', fontSize: 'xx-small' }} onClick={() => {
                                                                 if (window.confirm('Sure to delete ' + p.name + '?')) {
@@ -319,8 +321,8 @@ class TourTable extends React.Component {
                                                                     toAll: false,
                                                                     guid: ""
                                                                 }}
-                                                            >&nbsp;&nbsp;<span style={{ cursor: 'pointer', borderStyle: 'ridge', fontSize: 'small' }}
-                                                            >Spend</span></SpendingForm>
+                                                            ><Button color='primary' variant='outlined'
+                                                            >Spend</Button></SpendingForm>
                                                         </TableCell>
                                                         <TableCell align="right">{p.weight}</TableCell>
                                                         <TableCell align="right">
@@ -332,7 +334,12 @@ class TourTable extends React.Component {
                                                             <SpendingsDetail person={p} spendingInfo={p.receivedSendingInfo} showText={p.receivedInCents} open={false}
                                                                 received={true} />
                                                         </TableCell>
-                                                        <TableCell align="center" style={{ backgroundColor: (p.receivedInCents - p.spentInCents) <= 0 ? '#EAFAF1' : '#F9EBEA'}}>
+                                                        <TableCell align="center" style={
+                                                            (p.receivedInCents - p.spentInCents) == 0
+                                                            ? {}
+                                                            : { backgroundColor: (p.receivedInCents - p.spentInCents) <= 0 ? '#EAFAF1' : '#F9EBEA' }
+
+                                                        }>
                                                             {
                                                                 (p.receivedInCents - p.spentInCents) <= 0
                                                                     ? <span style={{ color: "green", fontWeight: "bold" }}>{(p.receivedInCents - p.spentInCents)}</span>
