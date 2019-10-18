@@ -91,9 +91,10 @@ namespace TourCalcWebApp.Controllers
         /// If user is not admin, new tour can be added only if there are already tours with given code. 
         /// </summary>
         /// <param name="accessCode">Access code for the tour. Is not taken into account for non-admin user.</param>
+        /// <param name="tourJson">Tour json. There are defaults, so /namefilled would be ok.</param>
         /// <returns>id of newly created tour</returns>
         [HttpPost("add/{accessCode}")]
-        public string AddTour([FromBody]Tour t, string accessCode)
+        public string AddTour([FromBody]Tour tourJson, string accessCode)
         {
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
             bool allowed = authData.IsMaster;
@@ -105,17 +106,17 @@ namespace TourCalcWebApp.Controllers
             {
                 throw HttpException.Forbid("You are not authorized to create tour");
             }
-            t.GUID = IdHelper.NewId();
-            t.AccessCodeMD5 = authData.IsMaster ? AuthHelper.CreateMD5(accessCode) : authData.AccessCodeMD5;
-            t.DateCreated = DateTime.Now;
-            tourStorage.AddTour(t);
-            return t.GUID;
+            tourJson.GUID = IdHelper.NewId();
+            tourJson.AccessCodeMD5 = authData.IsMaster ? AuthHelper.CreateMD5(accessCode) : authData.AccessCodeMD5;
+            tourJson.DateCreated = DateTime.Now;
+            tourStorage.AddTour(tourJson);
+            return tourJson.GUID;
         }
         /// <summary>
         /// Update the tour
         /// </summary>
         /// <param name="tourid">id of the tour</param>
-        /// <param name="tourJson">new tour. Full json.</param>
+        /// <param name="tourJson">updated tour. Full json.</param>
         /// <returns>id of updated tour</returns>
         [HttpPatch("{tourid}")]
         public string UpdateTour(string tourid, Tour tourJson)

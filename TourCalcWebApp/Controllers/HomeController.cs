@@ -40,7 +40,7 @@ namespace TourCalcWebApp.Controllers
                     index = IndexPage.Replace("_md5_", $"{md5}");
                 }
             }
-            catch (Exception e)
+            catch (Exception /*e*/)
             {
                 //index = index.Replace("__error__", e.Message);
             }
