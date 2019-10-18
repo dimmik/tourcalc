@@ -22,7 +22,10 @@ namespace TourCalcWebApp.Controllers
         {
             Configuration = config;
         }
-
+        /// <summary>
+        /// Index page to host SPA
+        /// </summary>
+        /// <returns>html content</returns>
         [HttpGet]
         public IActionResult Index()
         {

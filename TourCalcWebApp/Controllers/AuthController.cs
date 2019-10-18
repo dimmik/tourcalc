@@ -13,6 +13,7 @@ using Org.BouncyCastle.Security;
 using TCalc.Domain;
 using TCalc.Storage;
 using TourCalcWebApp.Auth;
+using TourCalcWebApp.Exceptions;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -35,19 +36,24 @@ namespace TourCalcWebApp.Controllers
         }
 
         /// <summary>
-        /// Returns random number in base64 format, with provided number of bytes
+        /// Random bytes in base64 format.
         /// </summary>
-        /// <param name="numb">Number of bytes</param>
-        [HttpGet("random/{numb=32}")]
-        public string GenerateRandomKey(int numb)
+        /// <param name="lengthInBytes">Number of bytes; defalult 32, max 8192</param>
+        [HttpGet("random/{lengthInBytes=32}")]
+        public string GenerateRandomKey(int lengthInBytes)
         {
             var r = new SecureRandom();
-            if (numb > 8192) numb = 8192;
-            byte[] bytes = new byte[numb];
+            if (lengthInBytes > 8192) lengthInBytes = 8192;
+            byte[] bytes = new byte[lengthInBytes];
             r.NextBytes(bytes);
             return Convert.ToBase64String(bytes);
         }
-
+        /// <summary>
+        /// Authentication token to be used for Bearer authentication
+        /// </summary>
+        /// <param name="scope">Should be 'code' or 'admin'</param>
+        /// <param name="key">code or admin key</param>
+        /// <returns>JWT Token</returns>
         [HttpGet("token/{scope}/{key}")]
         public string GetToken(string scope, string key, [FromServices] IECDsaCryptoKey signerKey)
         {
@@ -73,6 +79,10 @@ namespace TourCalcWebApp.Controllers
             string jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
             return jwtToken;
         }
+        /// <summary>
+        ///Current authorization status
+        /// </summary>
+        /// <returns>Auth Data</returns>
         [HttpGet("whoami")]
         public AuthData WhoAmI()
         {
@@ -94,9 +104,12 @@ namespace TourCalcWebApp.Controllers
                 {
                     auth.Type = "Master";
                     auth.IsMaster = true;
+                } else
+                {
+                    throw HttpException.NotAuthenticated($"Wrong Master Key. Should be '{Guid.NewGuid()}'");
                 }
             }
-            else if (scope == "user")
+            /*else if (scope == "user")
             {
                 // can create tours, but not delete. TODO: think about it
                 string keyProvided = accessCode;
@@ -106,7 +119,7 @@ namespace TourCalcWebApp.Controllers
                     auth.Type = "User";
                     auth.IsMaster = false;
                 }
-            }
+            }*/
             else if (scope == "code")
             {
                 // TODO change to user-related 
@@ -115,6 +128,9 @@ namespace TourCalcWebApp.Controllers
                 auth.Type = "AccessCode";
                 auth.IsMaster = false;
                 auth.AccessCodeMD5 = AuthHelper.CreateMD5(accessCode);
+            } else
+            {
+                throw HttpException.NotAuthenticated("Wrong scope. Please try 'code' or 'admin'. Or 'pigeon', who knows. Maybe 'slippery' will work.");
             }
 
             return auth;

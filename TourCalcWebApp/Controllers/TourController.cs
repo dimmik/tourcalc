@@ -30,37 +30,55 @@ namespace TourCalcWebApp.Controllers
             tourStorage = storage;
         }
         #region Tours
+        /// <summary>
+        /// Tour with given id
+        /// </summary>
+        /// <param name="tourid">id of the tour</param>
+        /// <returns>Tour with given ID</returns>
         [HttpGet("{tourid}")]
         public Tour GetTour(string tourid)
         {
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             if (tour == null)
             {
-                throw new HttpException(404, $"No tour with id={tourid}");
+                throw HttpException.NotFound($"No tour with id={tourid}");
             }
             return tour;
         }
+        /// <summary>
+        /// Calculated (i.e. with persons' spent and persons' received fields filled) tour
+        /// </summary>
+        /// <param name="tourid">id of the tour</param>
+        /// <returns>calculated tour</returns>
         [HttpGet("{tourid}/calculated")]
         public Tour GetTourCalculated(string tourid)
         {
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
-            if (tour == null) throw new HttpException(404, $"no tour with id {tourid}");
+            if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
             var calculator = new TourCalculator(tour);
             var calculated = calculator.Calculate();
-            //            var calculated = calculator.SuggestCloseSpendings();
             return calculated;
         }
 
+        /// <summary>
+        /// Tour calculated AND with suggested spendings to close the tour (i.e. so that each persons' debt equal to zero)
+        /// *This one is used in the SPA*
+        /// </summary>
+        /// <param name="tourid">id of the tour</param>
+        /// <returns>calculated tour with suggestions</returns>
         [HttpGet("{tourid}/suggested")]
         public Tour GetTourSuggested(string tourid)
         {
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
-            if (tour == null) throw new HttpException(404, $"no tour with id {tourid}");
+            if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
             var calculator = new TourCalculator(tour);
             var calculated = calculator.SuggestFinalPayments();
             return calculated;
         }
-
+        /// <summary>
+        /// All tours available for a user
+        /// </summary>
+        /// <returns>List of tours</returns>
         [HttpGet]
         public IEnumerable<Tour> GetAllTours()
         {
@@ -68,7 +86,12 @@ namespace TourCalcWebApp.Controllers
             return tours.ToArray();
         }
 
-
+        /// <summary>
+        /// Add tour with given access code (for admin) or with current access code (for non-admin user)
+        /// If user is not admin, new tour can be added only if there are already tours with given code. 
+        /// </summary>
+        /// <param name="accessCode">Access code for the tour. Is not taken into account for non-admin user.</param>
+        /// <returns>id of newly created tour</returns>
         [HttpPost("add/{accessCode}")]
         public string AddTour([FromBody]Tour t, string accessCode)
         {
@@ -80,7 +103,7 @@ namespace TourCalcWebApp.Controllers
             }
             if (!allowed)
             {
-                throw new HttpException(403, "You are not authorized to create tour");
+                throw HttpException.Forbid("You are not authorized to create tour");
             }
             t.GUID = IdHelper.NewId();
             t.AccessCodeMD5 = authData.IsMaster ? AuthHelper.CreateMD5(accessCode) : authData.AccessCodeMD5;
@@ -88,33 +111,47 @@ namespace TourCalcWebApp.Controllers
             tourStorage.AddTour(t);
             return t.GUID;
         }
-
+        /// <summary>
+        /// Update the tour
+        /// </summary>
+        /// <param name="tourid">id of the tour</param>
+        /// <param name="tourJson">new tour. Full json.</param>
+        /// <returns>id of updated tour</returns>
         [HttpPatch("{tourid}")]
-        public string UpdateTour(string tourid, Tour t)
+        public string UpdateTour(string tourid, Tour tourJson)
         {
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
-            if (tour == null) throw new HttpException(404, $"no tour with id {tourid}");
+            if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
-            t.GUID = tourid;
-            tourStorage.StoreTour(t);
+            tourJson.GUID = tourid;
+            tourStorage.StoreTour(tourJson);
 
-            return t.GUID;
+            return tourJson.GUID;
         }
-
+        /// <summary>
+        /// Update tour's name
+        /// </summary>
+        /// <param name="tourid">id of tour to update</param>
+        /// <param name="tourJson">tour's json. Only /name is used</param>
+        /// <returns>id of updated tour</returns>
         [HttpPatch("{tourid}/changename")]
-        public string UpdateTourName(string tourid, Tour t)
+        public string UpdateTourName(string tourid, Tour tourJson)
         {
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
-            if (tour == null) throw new HttpException(404, $"no tour with id {tourid}");
+            if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
-            tour.Name = t.Name;
+            tour.Name = tourJson.Name;
             tourStorage.StoreTour(tour);
 
             return tour.GUID;
         }
-
+        /// <summary>
+        /// Delete tour
+        /// </summary>
+        /// <param name="tourid">id of tour</param>
+        /// <returns>id of deleted tour</returns>
         [HttpDelete("{tourid}")]
         public string DeleteTour(string tourid)
         {
@@ -122,26 +159,36 @@ namespace TourCalcWebApp.Controllers
             bool allowed = authData.IsMaster;
             if (!allowed)
             {
-                throw new HttpException(403, "Only admin can delete the tour");
+                throw HttpException.Forbid("Only admin can delete the tour");
             }
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
-            if (tour == null) throw new HttpException(404, $"no tour with id {tourid}");
+            if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
             tourStorage.DeleteTour(tourid);
             return tourid;
         }
         #endregion
         #region Persons
+        /// <summary>
+        /// All persons in given tour
+        /// </summary>
+        /// <param name="tourid">tour id</param>
+        /// <returns>list of persons</returns>
         [HttpGet("{tourid}/person")]
         public IEnumerable<Person> GetAllTourPersons(string tourid)
         {
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
 
             if (tour != null) return tour.Persons.OrderBy(p => p.DateCreated);
-            else throw new HttpException(404, $"no tour with id {tourid}");
+            else throw HttpException.NotFound($"no tour with id {tourid}");
 
         }
-
+        /// <summary>
+        /// Given person in given tour
+        /// </summary>
+        /// <param name="tourid">tour id</param>
+        /// <param name="personguid">person GUID</param>
+        /// <returns>the person</returns>
         [HttpGet("{tourid}/person/{personguid}")]
         public Person GetTourPerson(string tourid, string personguid)
         {
@@ -151,11 +198,16 @@ namespace TourCalcWebApp.Controllers
             {
                 var p = tour.Persons.Find(x => x.GUID == personguid);
                 if (p != null) return p;
-                else throw new HttpException(404, $"no person with id {personguid}");
+                else throw HttpException.NotFound($"no person with id {personguid}");
             }
-            else throw new HttpException(404, $"no person with id {tourid}");
+            else throw HttpException.NotFound($"no person with id {tourid}");
         }
-
+        /// <summary>
+        /// Add a person to tour
+        /// </summary>
+        /// <param name="tourid">tour id</param>
+        /// <param name="p">person json. GUID ignored</param>
+        /// <returns>newly created person id</returns>
         [HttpPost("{tourid}/person")]
         public string AddTourPerson(string tourid, Person p)
         {
@@ -170,7 +222,13 @@ namespace TourCalcWebApp.Controllers
             else throw HttpException.NotFound($"no tour with id {tourid}");
             return p.GUID;
         }
-
+        /// <summary>
+        /// Update given person in given tour
+        /// </summary>
+        /// <param name="tourid">tour id</param>
+        /// <param name="personguid">person id</param>
+        /// <param name="p">full person json. GUID ignored</param>
+        /// <returns>updated person id</returns>
         [HttpPatch("{tourid}/person/{personguid}")]
         public string UpdateTourPerson(string tourid, string personguid, Person p)
         {
@@ -190,7 +248,12 @@ namespace TourCalcWebApp.Controllers
             else throw HttpException.NotFound($"cannot update: no tour with id {tourid}");
             return p.GUID;
         }
-
+        /// <summary>
+        /// Delete given person from given tour
+        /// </summary>
+        /// <param name="tourid">tour id</param>
+        /// <param name="personguid">person id</param>
+        /// <returns>id of deleted person</returns>
         [HttpDelete("{tourid}/person/{personguid}")]
         public string DeleteTourPerson(string tourid, string personguid)
         {
@@ -213,6 +276,11 @@ namespace TourCalcWebApp.Controllers
         }
         #endregion
         #region Spendings
+        /// <summary>
+        /// All tour spendings
+        /// </summary>
+        /// <param name="tourid">id of tour</param>
+        /// <returns>spendings</returns>
         [HttpGet("{tourid}/spending")]
         public IEnumerable<Spending> GetAllTourSpendings(string tourid)
         {
@@ -221,7 +289,13 @@ namespace TourCalcWebApp.Controllers
             if (t != null) return t.Spendings.OrderBy(sp => sp.DateCreated);
             else throw HttpException.NotFound($"no tour with id {tourid}");
         }
-
+        /// <summary>
+        /// Update given spending in given tour
+        /// </summary>
+        /// <param name="tourid">id of the tour</param>
+        /// <param name="spendingid">id of the spending</param>
+        /// <param name="sp">full spending JSON. GUID ignored</param>
+        /// <returns>id of updated spending</returns>
         [HttpPatch("{tourid}/spending/{spendingid}")]
         public string UpdateTourSpending(string tourid, string spendingid, Spending sp)
         {
@@ -240,7 +314,12 @@ namespace TourCalcWebApp.Controllers
             else throw HttpException.NotFound($"no tour with id {tourid}");
             return sp.GUID;
         }
-
+        /// <summary>
+        /// Given spending in given tour
+        /// </summary>
+        /// <param name="tourid">tour id</param>
+        /// <param name="spendingid">spending id</param>
+        /// <returns>the spending</returns>
         [HttpGet("{tourid}/spending/{spendingid}")]
         public Spending GetTourSpending(string tourid, string spendingid)
         {
@@ -249,7 +328,12 @@ namespace TourCalcWebApp.Controllers
             if (t != null) return t.Spendings.Find(x => x.GUID == spendingid);
             else throw HttpException.NotFound($"no tour with id {tourid}");
         }
-
+        /// <summary>
+        /// Add spending to the tour
+        /// </summary>
+        /// <param name="tourid">tour id</param>
+        /// <param name="s">Spending JSON</param>
+        /// <returns>id of newly created spending</returns>
         [HttpPost("{tourid}/spending")]
         public string AddTourSpending(string tourid, Spending s)
         {
@@ -263,7 +347,12 @@ namespace TourCalcWebApp.Controllers
             else throw HttpException.NotFound($"no tour with id {tourid}");
             return s.GUID;
         }
-
+        /// <summary>
+        /// Delete given spending from given tour
+        /// </summary>
+        /// <param name="tourid">tour id</param>
+        /// <param name="spendingid">spending id</param>
+        /// <returns>id of deleted spending</returns>
         [HttpDelete("{tourid}/spending/{spendingid}")]
         public string DeleteTourSpending(string tourid, string spendingid)
         {

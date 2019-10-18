@@ -13,6 +13,16 @@ namespace TourCalcWebApp.Exceptions
             return new HttpException(404, msg);
         }
 
+        public static HttpException Forbid(string msg)
+        {
+            return new HttpException(403, msg);
+        }
+
+        public static HttpException NotAuthenticated(string msg)
+        {
+            return new HttpException(401, msg);
+        }
+
         public HttpException(int httpStatusCode)
         {
             this.StatusCode = httpStatusCode;
@@ -23,7 +33,7 @@ namespace TourCalcWebApp.Exceptions
             this.StatusCode = (int)httpStatusCode;
         }
 
-        public HttpException(int httpStatusCode, string message) : base(message)
+        private HttpException(int httpStatusCode, string message) : base(message)
         {
             this.StatusCode = httpStatusCode;
         }
