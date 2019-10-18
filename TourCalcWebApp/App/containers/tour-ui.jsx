@@ -23,6 +23,7 @@ import Tab from '@material-ui/core/Tab';
 import Button from '@material-ui/core/Button';
 import Box from '@material-ui/core/Box';
 
+import { sizing } from '@material-ui/system';
 
 const history = createBrowserHistory();
 
@@ -102,7 +103,7 @@ class TourTable extends React.Component {
 
             return (
                 <Router>
-                    <div>
+                    <div style={{maxWidth: 1080}}>
 
                         {/*--- Tabs ---*/}
                         <Tabs
@@ -186,6 +187,7 @@ class TourTable extends React.Component {
 
                                                             style={p.planned ? { background: "yellow" } : {}}
 
+                                                            selected={idx % 2 == 0 ? true : false}
                                                         >
                                                             <TableCell component="th" scope="row">
 
@@ -233,7 +235,7 @@ class TourTable extends React.Component {
                                                                 {p.amountInCents}
                                                             </TableCell>
                                                             <TableCell align="right"><Checkbox checked={p.toAll} disabled /></TableCell>
-                                                            <TableCell align="right" style={{ fontSize: "xx-small" }}>{p.toAll ? (<b>n/a</b>) : p.toGuid.map(
+                                                            <TableCell align="right" style={{ fontSize: "xx-small" }}>{p.toAll ? (<i style={{ backgroundColor: 'green', color: 'yellow' }}>ALL</i>) : p.toGuid.map(
 
                                                                 (id) => (this.state.tour.persons.find((pp) => pp.guid === id) == null)
                                                                     ? '$$-' + id + '-$$'
@@ -271,12 +273,12 @@ class TourTable extends React.Component {
                                                     <TableCell align="right">Weight %</TableCell>
                                                     <TableCell align="right">Spent</TableCell>
                                                     <TableCell align="right">Received</TableCell>
-                                                    <TableCell align="right">Owes</TableCell>
+                                                    <TableCell align="right">Debt</TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
                                                 {this.state.tour.persons.map((p, idx) => (
-                                                    <TableRow key={p.guid} hover>
+                                                    <TableRow key={p.guid} hover={true} selected={idx%2==0 ? true : false}>
                                                         <TableCell component="th" scope="row">
                                                             <span style={{ cursor: 'pointer', borderStyle: 'ridge', fontSize: 'xx-small' }} onClick={() => {
                                                                 if (window.confirm('Sure to delete ' + p.name + '?')) {
@@ -319,8 +321,8 @@ class TourTable extends React.Component {
                                                                     toAll: false,
                                                                     guid: ""
                                                                 }}
-                                                            >&nbsp;&nbsp;<span style={{ cursor: 'pointer', borderStyle: 'ridge', fontSize: 'small' }}
-                                                            >Spend</span></SpendingForm>
+                                                            ><Button color='primary' variant='outlined'
+                                                            >Spend</Button></SpendingForm>
                                                         </TableCell>
                                                         <TableCell align="right">{p.weight}</TableCell>
                                                         <TableCell align="right">
@@ -332,7 +334,19 @@ class TourTable extends React.Component {
                                                             <SpendingsDetail person={p} spendingInfo={p.receivedSendingInfo} showText={p.receivedInCents} open={false}
                                                                 received={true} />
                                                         </TableCell>
-                                                        <TableCell align="right">{(p.receivedInCents - p.spentInCents)}</TableCell>
+                                                        <TableCell align="center" style={
+                                                            (p.receivedInCents - p.spentInCents) == 0
+                                                            ? {}
+                                                            : { backgroundColor: (p.receivedInCents - p.spentInCents) <= 0 ? '#EAFAF1' : '#F9EBEA' }
+
+                                                        }>
+                                                            {
+                                                                (p.receivedInCents - p.spentInCents) <= 0
+                                                                    ? <span style={{ color: "green", fontWeight: "bold" }}>{(p.receivedInCents - p.spentInCents)}</span>
+                                                                    : <span style={{ color: "red", fontWeight: "bold" }}>{(p.receivedInCents - p.spentInCents)}</span>
+                                                                
+                                                            }
+                                                        </TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
