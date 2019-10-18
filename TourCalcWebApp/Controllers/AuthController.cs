@@ -34,18 +34,22 @@ namespace TourCalcWebApp.Controllers
             tourStorage = storage;
         }
 
+        /// <summary>
+        /// Returns random number in base64 format, with provided number of bytes
+        /// </summary>
+        /// <param name="numb">Number of bytes</param>
         [HttpGet("random/{numb=32}")]
-        public IActionResult GenerateRandomKey(int numb)
+        public string GenerateRandomKey(int numb)
         {
             var r = new SecureRandom();
             if (numb > 8192) numb = 8192;
             byte[] bytes = new byte[numb];
             r.NextBytes(bytes);
-            return Ok(Convert.ToBase64String(bytes));
+            return Convert.ToBase64String(bytes);
         }
 
         [HttpGet("token/{scope}/{key}")]
-        public IActionResult GetToken(string scope, string key, [FromServices] IECDsaCryptoKey signerKey)
+        public string GetToken(string scope, string key, [FromServices] IECDsaCryptoKey signerKey)
         {
             if (key == null) key = "";
             AuthData auth = Authorize(scope, key);
@@ -67,15 +71,15 @@ namespace TourCalcWebApp.Controllers
                                        )
                 );
             string jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
-            return Ok(jwtToken);
+            return jwtToken;
         }
         [HttpGet("whoami")]
-        public IActionResult WhoAmI()
+        public AuthData WhoAmI()
         {
             var auth = AuthHelper.GetAuthData(User, Configuration);
             auth.TourIds = tourStorage.GetTours((x) => (x.AccessCodeMD5 != null && auth.AccessCodeMD5 == x.AccessCodeMD5))
                 .Select(t => t.Id).ToList();
-            return Ok(auth);
+            return auth;
         }
 
         private AuthData Authorize(string scope, string accessCode)

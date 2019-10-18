@@ -10,7 +10,7 @@ using TourCalcWebApp.Auth;
 
 namespace TourCalcWebApp.Controllers
 {
-    [Route("/{*anything}")]
+    [Route("/{*pathToStaticContent}")]
     [Authorize]
     [ApiController]
     [AllowAnonymous]

@@ -13,6 +13,10 @@ using System.IO;
 using TCalc.Storage;
 using TourCalcWebApp.Auth;
 
+using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.Swagger;
+using TourCalcWebApp.Exceptions;
+
 namespace TourCalcWebApp
 {
     public class Startup
@@ -33,6 +37,17 @@ namespace TourCalcWebApp
             ITourStorage tourStorage = new LiteDbTourStorage(dbPath);
             services.AddSingleton<ITourStorage>(tourStorage);
 
+            // Register the Swagger generator, defining 1 or more Swagger documents
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new Info { Title = "Tourcalc API", Version = "v1" });
+                // Set the comments path for the Swagger JSON and UI.
+                var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                c.IncludeXmlComments(xmlPath);
+            });
+
+
             SetupReact(services);
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2)
@@ -42,6 +57,7 @@ namespace TourCalcWebApp
                 });
 
             SetupAuth(services);
+
 
         }
 
@@ -90,7 +106,19 @@ namespace TourCalcWebApp
                 app.UseDeveloperExceptionPage();
                 app.UseWebpackDevMiddleware();
             }
-            
+
+            // Enable middleware to serve generated Swagger as a JSON endpoint.
+            app.UseSwagger();
+
+            // Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.),
+            // specifying the Swagger JSON endpoint.
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
+            });
+
+            app.UseHttpException();
+
             app.UseHttpsRedirection();
             app.UseAuthentication();
             app.UseStaticFiles();
@@ -102,6 +130,14 @@ namespace TourCalcWebApp
 //                routes.MapSpaFallbackRoute("spa-fallback", new { });
             });
 
+        }
+    }
+
+    public static class ApplicationBuilderExtensions
+    {
+        public static IApplicationBuilder UseHttpException(this IApplicationBuilder application)
+        {
+            return application.UseMiddleware<HttpExceptionMiddleware>();
         }
     }
 }
