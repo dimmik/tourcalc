@@ -15,8 +15,6 @@ using TCalc.Storage;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Exceptions;
 
-// For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-
 namespace TourCalcWebApp.Controllers
 {
     [Route("api/[controller]")]
@@ -53,6 +51,7 @@ namespace TourCalcWebApp.Controllers
         /// </summary>
         /// <param name="scope">Should be 'code' or 'admin'</param>
         /// <param name="key">code or admin key</param>
+        /// <param name="signerKey">ECDSA crypto service</param>
         /// <returns>JWT Token</returns>
         [HttpGet("token/{scope}/{key}")]
         public string GetToken(string scope, string key, [FromServices] IECDsaCryptoKey signerKey)
@@ -106,7 +105,7 @@ namespace TourCalcWebApp.Controllers
                     auth.IsMaster = true;
                 } else
                 {
-                    throw HttpException.NotAuthenticated($"Wrong Master Key. Should be '{Guid.NewGuid()}'");
+                    throw HttpException.NotAuthenticated($"Wrong Master Key");
                 }
             }
             /*else if (scope == "user")

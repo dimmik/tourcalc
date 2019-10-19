@@ -16,6 +16,11 @@ using TourCalcWebApp.Auth;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.Swagger;
 using TourCalcWebApp.Exceptions;
+using Swashbuckle.AspNetCore.SwaggerGen;
+using Microsoft.AspNetCore.Authorization;
+using System.Collections.Generic;
+using System.Linq;
+using Swashbuckle.AspNetCore.Filters;
 
 namespace TourCalcWebApp
 {
@@ -41,6 +46,18 @@ namespace TourCalcWebApp
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new Info { Title = "Tourcalc API", Version = "v1" });
+                // https://stackoverflow.com/questions/43447688/setting-up-swagger-asp-net-core-using-the-authorization-headers-bearer
+                c.AddSecurityDefinition("Bearer",
+                        new ApiKeyScheme
+                        {
+                            In = "header",
+                            Description = "Please enter into field the word 'Bearer' following by space and JWT",
+                            Name = "Authorization",
+                            Type = "apiKey"
+                        });
+                c.AddSecurityRequirement(new Dictionary<string, IEnumerable<string>> {
+                    { "Bearer", Enumerable.Empty<string>() },
+                });
                 // Set the comments path for the Swagger JSON and UI.
                 var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
