@@ -46,6 +46,7 @@ namespace TourCalcWebApp
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new Info { Title = "Tourcalc API", Version = "v1" });
+                // https://stackoverflow.com/questions/43447688/setting-up-swagger-asp-net-core-using-the-authorization-headers-bearer
                 c.AddSecurityDefinition("Bearer",
                         new ApiKeyScheme
                         {
