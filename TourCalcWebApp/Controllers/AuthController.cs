@@ -105,7 +105,7 @@ namespace TourCalcWebApp.Controllers
                     auth.IsMaster = true;
                 } else
                 {
-                    throw HttpException.NotAuthenticated($"Wrong Master Key. Should be '{Guid.NewGuid()}'");
+                    throw HttpException.NotAuthenticated($"Wrong Master Key");
                 }
             }
             /*else if (scope == "user")
