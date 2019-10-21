@@ -109,31 +109,17 @@ namespace TCalc.Logic
             var sumCredit = -creditors.Sum(c => c.Debt());
             var sumDebit = debtors.Sum(c => c.Debt());
             var diff = sumCredit - sumDebit;
-            var highestCredit = - (creditors.FirstOrDefault()?.Debt() ?? 0);
-            var highestDebit = (debtors.FirstOrDefault()?.Debt() ?? 0);
-            if (highestCredit > highestDebit)
+            // find one that will go to 0 with this diff
+            var zeroedPerson = CurrentTour.Persons.Where(p => p.Debt() + diff == 0);
+            if (zeroedPerson.Any())
             {
-                // get creditor and subtract diff
-                var p = creditors.First();
+                // get zeroed and add diff
+                var p = zeroedPerson.First();
                 p.ReceivedInCents += diff;
                 p.ReceivedSendingInfo.Add(new SpendingInfo()
                 {
                     From = "System",
-                    SpendingDescription = $"Rounding Error - add {-diff} to received of highest creditor",
-                    ReceivedAmountInCents = diff,
-                    IsSpendingToAll = false,
-                    ToNames = new[] { p.Name },
-                    TotalSpendingAmountInCents = diff
-                });
-            } else
-            {
-                // get debitor and add diff
-                var p = debtors.First();
-                p.ReceivedInCents += diff;
-                p.ReceivedSendingInfo.Add(new SpendingInfo()
-                {
-                    From = "System",
-                    SpendingDescription = $"Rounding Error - add {diff} to received of highest debtor",
+                    SpendingDescription = $"Rounding Error - add {diff} to received of one who get to zero",
                     ReceivedAmountInCents = diff,
                     IsSpendingToAll = false,
                     ToNames = new[] { p.Name },
@@ -141,7 +127,42 @@ namespace TCalc.Logic
                 });
 
             }
+            else
+            {
+                var highestCredit = -(creditors.FirstOrDefault()?.Debt() ?? 0);
+                var highestDebit = (debtors.FirstOrDefault()?.Debt() ?? 0);
+                if (highestCredit > highestDebit)
+                {
+                    // get creditor and subtract diff
+                    var p = creditors.First();
+                    p.ReceivedInCents += diff;
+                    p.ReceivedSendingInfo.Add(new SpendingInfo()
+                    {
+                        From = "System",
+                        SpendingDescription = $"Rounding Error - add {-diff} to received of highest creditor",
+                        ReceivedAmountInCents = diff,
+                        IsSpendingToAll = false,
+                        ToNames = new[] { p.Name },
+                        TotalSpendingAmountInCents = diff
+                    });
+                }
+                else
+                {
+                    // get debitor and add diff
+                    var p = debtors.First();
+                    p.ReceivedInCents += diff;
+                    p.ReceivedSendingInfo.Add(new SpendingInfo()
+                    {
+                        From = "System",
+                        SpendingDescription = $"Rounding Error - add {diff} to received of highest debtor",
+                        ReceivedAmountInCents = diff,
+                        IsSpendingToAll = false,
+                        ToNames = new[] { p.Name },
+                        TotalSpendingAmountInCents = diff
+                    });
 
+                }
+            }
         }
 
         public Tour SuggestFinalPayments()
