@@ -98,13 +98,19 @@ namespace TourCalcWebApp.Controllers
         {
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
             bool allowed = authData.IsMaster;
-            if (!allowed)
+            var forbidMessage = "Only admin can create first tour for a code";
+            if (!allowed) // not master
             {
-                allowed = TourStorageUtilities_LoadAllTours().Any();
+                var tours = TourStorageUtilities_LoadAllTours();
+                var maxCountOfToursPerCode = Configuration.GetValue<int>("MaxCountOfToursPerCode", -1);
+                bool noTours = !tours.Any();
+                bool maxToursReached = !(maxCountOfToursPerCode == -1 || tours.Count() < maxCountOfToursPerCode);
+                allowed = !noTours && !maxToursReached;
+                if (maxToursReached) forbidMessage = $"You can create up to {maxCountOfToursPerCode} tours per code. To add more you should be admin";
             }
             if (!allowed)
             {
-                throw HttpException.Forbid("You are not authorized to create tour");
+                throw HttpException.Forbid(forbidMessage);
             }
             tourJson.GUID = IdHelper.NewId();
             tourJson.AccessCodeMD5 = authData.IsMaster ? AuthHelper.CreateMD5(accessCode) : authData.AccessCodeMD5;
@@ -158,9 +164,19 @@ namespace TourCalcWebApp.Controllers
         {
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
             bool allowed = authData.IsMaster;
+            var forbidMsg = "Only admin can delete last tour for a code";
             if (!allowed)
             {
-                throw HttpException.Forbid("Only admin can delete the tour");
+                var tours = TourStorageUtilities_LoadAllTours();
+                var cnt = tours.Count();
+                if (cnt > 1) // cannot delete last tour, otherwise can
+                {
+                    allowed = true;
+                }
+            }
+            if (!allowed)
+            {
+                throw HttpException.Forbid(forbidMsg);
             }
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
