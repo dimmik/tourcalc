@@ -211,8 +211,11 @@ export default class AppState {
             }),
             body: b
         })
-            .then(res => res.text())
-            .then((res) => res, (error) => { alert('Error add tour') })
+            .then((res) => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.text()
+            })
+            .then((res) => res, (error) => { alert('Not added: ' + error) })
     }
     static addTourJson(comp, tour, accessCode, tname) {
         if (tname != null) {
@@ -228,8 +231,13 @@ export default class AppState {
             }),
             body: b
         })
-            .then(res => res.text())
-            .then((res) => res, (error) => { alert('Error add tour') })
+            .then(res => {
+
+                if (res.status != 200) throw new Error(res.statusText)
+                    return res.text()
+                }
+            )
+            .then((res) => res, (error) => { alert('Not added: ' + error) })
     }
     static changeTourName(comp, tourid, tname) {
         let b = JSON.stringify({ name: tname }, null, 2)
