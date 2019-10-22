@@ -106,7 +106,7 @@ namespace TourCalcWebApp.Controllers
                 bool noTours = !tours.Any();
                 bool maxToursReached = !(maxCountOfToursPerCode == -1 || tours.Count() < maxCountOfToursPerCode);
                 allowed = !noTours && !maxToursReached;
-                if (maxToursReached) forbidMessage = $"You can create up to {maxCountOfToursPerCode} tours per code. To add more you should be admin";
+                if (maxToursReached) forbidMessage = $"You can create up to {maxCountOfToursPerCode} tours per code. To add more please ask administrator";
             }
             if (!allowed)
             {
