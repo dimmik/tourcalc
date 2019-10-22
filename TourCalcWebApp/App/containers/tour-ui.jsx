@@ -128,11 +128,22 @@ class TourTable extends React.Component {
                                 () => { AppState.loadTour(this, this.props.tourid); }
                             }>Refresh</span>
                             &nbsp;
-                            {this.state.tour.name} [{
+                            {this.state.tour.name} [
+                        {((1 -
+                                this.state.tour.persons.filter(p => (p.receivedInCents - p.spentInCents) > 0).length * 1.0 /
+                                this.state.tour.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length)
+                                * 100).toFixed(0)
+                            }%&nbsp;
+
+                        {
                             (this.state.updateTime.getHours() + "").padStart(2, '0') + ':' +
                             (this.state.updateTime.getMinutes() + "").padStart(2, '0') + ':' +
                             (this.state.updateTime.getSeconds() + "").padStart(2, '0')
-                        }] <a href="/">List</a></div>
+                            }]
+
+                            
+
+                            <a href="/">List</a></div>
 
                         <main>
                             <Switch>
