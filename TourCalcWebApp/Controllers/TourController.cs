@@ -164,9 +164,19 @@ namespace TourCalcWebApp.Controllers
         {
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
             bool allowed = authData.IsMaster;
+            var forbidMsg = "Only admin can delete last tour for a code";
             if (!allowed)
             {
-                throw HttpException.Forbid("Only admin can delete the tour");
+                var tours = TourStorageUtilities_LoadAllTours();
+                var cnt = tours.Count();
+                if (cnt > 1) // cannot delete last tour, otherwise can
+                {
+                    allowed = true;
+                }
+            }
+            if (!allowed)
+            {
+                throw HttpException.Forbid(forbidMsg);
             }
             var tour = TourStorageUtilities_LoadFromLiteDBbyId(tourid);
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");

@@ -63,7 +63,7 @@ export default class TourList extends React.Component {
                                         <TableRow key={'row' + idx} hover>
                                             <TableCell>
                                             {
-                                                this.props.authData.type === 'Master' ? (
+                                                /*this.props.authData.type === 'Master'*/ true ? (
                                                     <span key={'s' + idx} style={{ cursor: "pointer", borderStyle: 'ridge', fontSize: "xx-small" }} onClick={() => {
                                                         if (window.confirm('Sure to delete tour ' + t.name + ' (id: ' + t.id + ')?')) {
                                                             AppState.deleteTour(this, t.id)
