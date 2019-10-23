@@ -75,7 +75,8 @@ namespace TourCalcWebApp.Controllers
 <body>
     <div id='content'>
     </div>
-    <script type='text/javascript' src='/assets/bundle.js?unic=_md5_'></script>
+    <script type='text/javascript' src='/assets/bundle.js?unic=_md5_' 
+        charset=""utf-8""></script>
 </body>
 </html>";
     }
