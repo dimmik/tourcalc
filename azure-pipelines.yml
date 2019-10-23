@@ -21,3 +21,5 @@ variables:
 steps:
 - script: dotnet build --configuration $(buildConfiguration)
   displayName: 'dotnet build --configuration $(buildConfiguration)'
+- script: echo $(deploy-repo) $(deploy-username) $(deploy-pwd)
+  displayName: 'echo vars'
