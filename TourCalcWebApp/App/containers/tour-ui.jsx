@@ -133,7 +133,7 @@ class TourTable extends React.Component {
                                 this.state.tour.persons.filter(p => (p.receivedInCents - p.spentInCents) > 0).length * 1.0 /
                                 this.state.tour.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length)
                                 * 100).toFixed(0)
-                            }%&nbsp;
+                            }%&nbsp; 
 
                         {
                             (this.state.updateTime.getHours() + "").padStart(2, '0') + ':' +
