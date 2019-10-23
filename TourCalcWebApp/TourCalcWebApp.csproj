@@ -47,7 +47,7 @@
   </ItemGroup>
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="if $(ConfigurationName) == Release  npm run buildProd" />
+    <Exec Condition="$(Configuration) == 'Release'" Command="npm run buildProd" />
   </Target>
   
 </Project>
