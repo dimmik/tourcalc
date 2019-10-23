@@ -77,7 +77,7 @@ export default class TourList extends React.Component {
                                             </TableCell>
                                             <TableCell>
                                                 {idx + 1}.<Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}
-                                                </Link>&nbsp; 
+                                                </Link>&nbsp;
                                                 [{((1 -
                                                     t.persons.filter(p => (p.receivedInCents - p.spentInCents) > 0).length * 1.0 /
                                                     t.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length)
