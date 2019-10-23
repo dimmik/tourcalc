@@ -19,7 +19,7 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
-- script: echo 'dotnet build --configuration $(buildConfiguration)'
+- script: dotnet build --configuration $(buildConfiguration)
   displayName: 'dotnet build --configuration $(buildConfiguration)'
-- script: git clone https://$(deploy-username):$(deploy-pwd)@$(deploy-repo)
-  displayName: 'clone deployment repo'
+#- script: git clone https://$(deploy-username):$(deploy-pwd)@$(deploy-repo)
+#  displayName: 'clone deployment repo'
