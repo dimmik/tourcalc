@@ -10,6 +10,8 @@ import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
+import TableFooter from '@material-ui/core/TableFooter';
+import TablePagination from '@material-ui/core/TablePagination';
 import TableRow from '@material-ui/core/TableRow';
 import Button from '@material-ui/core/Button';
 
@@ -71,10 +73,16 @@ export default class TourList extends React.Component {
                                                         }
                                                     }}>X</span>) : <span />
                                                 }
-                                                <u key={'u' + idx}><TourNameEdit key={'te' + idx} tourid={t.id} name={t.name} app={this} open={false} buttonText='Edit' actionButtonText="Change name" /></u>
+                                                <u key={'u' + idx}><TourNameEdit key={'te' + idx} tourid={t.id} name={t.name} app={this} open={false} buttonText='Rename' actionButtonText="Change name" /></u>
                                             </TableCell>
                                             <TableCell>
-                                                {idx + 1}.<Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}</Link>
+                                                {idx + 1}.<Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}
+                                                </Link>&nbsp;
+                                                [{((1 -
+                                                    t.persons.filter(p => (p.receivedInCents - p.spentInCents) > 0).length * 1.0 /
+                                                    t.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length)
+                                                    * 100).toFixed(0)
+                                                }%]
                                             </TableCell>
                                             <TableCell>
                                                 <Button variant='outlined' onClick={() => { document.getElementById('TourJsonTextArea').value = JSON.stringify(t, null, 2); }}>JSON</Button>
@@ -107,6 +115,7 @@ export default class TourList extends React.Component {
                             }
 
                         </TableBody>
+                        {/* TODO: implement paging: https://material-ui.com/ru/components/tables/ */}
                     </Table>
 
                     <hr />

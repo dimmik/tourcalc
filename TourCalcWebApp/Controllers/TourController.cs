@@ -80,10 +80,22 @@ namespace TourCalcWebApp.Controllers
         /// </summary>
         /// <returns>List of tours</returns>
         [HttpGet]
-        public IEnumerable<Tour> GetAllTours()
+        public IEnumerable<Tour> GetAllTours([FromQuery] int from = 0, [FromQuery] int count = 50)
         {
-            var tours = TourStorageUtilities_LoadAllTours().OrderBy(t => t.DateCreated);
-            return tours.ToArray();
+            var tours = TourStorageUtilities_LoadAllTours(from, count).OrderBy(t => t.DateCreated);
+            return tours;
+        }
+
+        /// <summary>
+        /// All tours available for a user
+        /// </summary>
+        /// <returns>List of tours</returns>
+        [HttpGet("all/suggested")]
+        public IEnumerable<Tour> GetAllToursSuggested([FromQuery] int from = 0, [FromQuery] int count = 50)
+        {
+            var tours = GetAllTours(from, count);
+            var ts = tours.Select(t => new TourCalculator(t).SuggestFinalPayments());
+            return ts;
         }
 
         /// <summary>
@@ -399,13 +411,17 @@ namespace TourCalcWebApp.Controllers
             }
             return tour;
         }
-        private IEnumerable<Tour> TourStorageUtilities_LoadAllTours()
+        private IEnumerable<Tour> TourStorageUtilities_LoadAllTours(int from = 0, int count = 50)
         {
             
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
-            return tourStorage.GetTours(t => authData.IsMaster 
-            ? true // get everything
-            : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5));
+            var tours = tourStorage.GetTours(t => authData.IsMaster
+                ? true // get everything
+                : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5)
+                ,from
+                ,count
+                );
+            return tours;
         }
 
     }

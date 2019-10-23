@@ -177,8 +177,11 @@ export default class AppState {
                 })
     }
 
-    static loadTours(comp) {
-        return fetch('/api/tour', {
+    static loadTours(comp, from, count) {
+        if (from == null) from = 0;
+        if (count == null) count = 50;
+        let url = '/api/tour/all/suggested?from='+from+'&count='+count;
+        return fetch(url, {
             method: 'get',
             headers: new Headers({
                 "Authorization": 'Bearer ' + this.token
