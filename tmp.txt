@@ -1,1 +1,1 @@
-should not run build when commit to master
+no build!
