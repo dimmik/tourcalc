@@ -109,7 +109,7 @@ export default class TourList extends React.Component {
                             }
 
                         </TableBody>
-                        {/*https://material-ui.com/ru/components/tables/*/}
+                        {/* TODO: implement paging: https://material-ui.com/ru/components/tables/ */}
                     </Table>
 
                     <hr />

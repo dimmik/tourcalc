@@ -30,9 +30,9 @@ namespace TCalc.Storage
             return LiteDBTourStorageUtilities.LoadFromLiteDBbyId(dbPath, tourid);
         }
 
-        public IEnumerable<Tour> GetTours(Expression<Func<Tour, bool>> predicate = null)
+        public IEnumerable<Tour> GetTours(Expression<Func<Tour, bool>> predicate, int from, int count)
         {
-            return LiteDBTourStorageUtilities.LoadAllToursFromDb(dbPath, predicate);
+            return LiteDBTourStorageUtilities.LoadAllToursFromDb(dbPath, predicate, from, count);
         }
 
         public void StoreTour(Tour tour)

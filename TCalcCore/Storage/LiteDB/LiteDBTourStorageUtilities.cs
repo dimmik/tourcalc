@@ -13,7 +13,7 @@ namespace TCalc.Storage.LiteDB
     public static class LiteDBTourStorageUtilities
     {
 
-        public static IEnumerable<Tour> LoadAllToursFromDb(string path, Expression<Func<Tour, bool>> predicate = null)
+        public static IEnumerable<Tour> LoadAllToursFromDb(string path, Expression<Func<Tour, bool>> predicate, int from, int count)
         {
             if (predicate == null)
             {
@@ -21,7 +21,7 @@ namespace TCalc.Storage.LiteDB
             }
             using (var db = new LiteDatabase(path))
             {
-                return db.GetCollection<Tour>("Tour").Find(predicate);
+                return db.GetCollection<Tour>("Tour").Find(predicate).Skip(from).Take(count);
             }
         }
         public static void DeleteTour(string path, string tourid)
