@@ -76,7 +76,13 @@ export default class TourList extends React.Component {
                                                 <u key={'u' + idx}><TourNameEdit key={'te' + idx} tourid={t.id} name={t.name} app={this} open={false} buttonText='Rename' actionButtonText="Change name" /></u>
                                             </TableCell>
                                             <TableCell>
-                                                {idx + 1}.<Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}</Link>
+                                                {idx + 1}.<Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}
+                                                </Link>&nbsp;
+                                                [{((1 -
+                                                    t.persons.filter(p => (p.receivedInCents - p.spentInCents) > 0).length * 1.0 /
+                                                    t.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length)
+                                                    * 100).toFixed(0)
+                                                }%]
                                             </TableCell>
                                             <TableCell>
                                                 <Button variant='outlined' onClick={() => { document.getElementById('TourJsonTextArea').value = JSON.stringify(t, null, 2); }}>JSON</Button>
