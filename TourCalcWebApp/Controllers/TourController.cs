@@ -78,6 +78,8 @@ namespace TourCalcWebApp.Controllers
         /// <summary>
         /// All tours available for a user
         /// </summary>
+        /// <param name="from">Default 0</param>
+        /// <param name="count">Number of tours to return, default 50</param>
         /// <returns>List of tours</returns>
         [HttpGet]
         public IEnumerable<Tour> GetAllTours([FromQuery] int from = 0, [FromQuery] int count = 50)
@@ -87,9 +89,11 @@ namespace TourCalcWebApp.Controllers
         }
 
         /// <summary>
-        /// All tours available for a user
+        /// All tours available for a user, with suggested payments calculated
         /// </summary>
-        /// <returns>List of tours</returns>
+        /// <param name="from">Default 0</param>
+        /// <param name="count">Number of tours to return, default 50</param>
+        /// <returns>List of tours, all with calculated suggestions</returns>
         [HttpGet("all/suggested")]
         public IEnumerable<Tour> GetAllToursSuggested([FromQuery] int from = 0, [FromQuery] int count = 50)
         {
