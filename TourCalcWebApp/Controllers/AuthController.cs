@@ -41,7 +41,7 @@ namespace TourCalcWebApp.Controllers
         public string GenerateRandomKey(int lengthInBytes)
         {
             var r = new SecureRandom();
-            if (lengthInBytes > 8192) lengthInBytes = 8192;
+            if (lengthInBytes > 8192) throw HttpException.Forbid($"Length should be up to 8192 bytes. You specified {lengthInBytes}");
             byte[] bytes = new byte[lengthInBytes];
             r.NextBytes(bytes);
             return Convert.ToBase64String(bytes);
