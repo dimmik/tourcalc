@@ -120,8 +120,11 @@ namespace TourCalcWebApp
         {
             if (env.IsDevelopment())
             {
-                app.UseDeveloperExceptionPage();
                 app.UseWebpackDevMiddleware();
+            }
+            if (env.IsDevelopment() || Configuration.GetValue<bool>("UseDeveloperExceptionPage", false))
+            {
+                app.UseDeveloperExceptionPage();
             }
 
             // Enable middleware to serve generated Swagger as a JSON endpoint.
