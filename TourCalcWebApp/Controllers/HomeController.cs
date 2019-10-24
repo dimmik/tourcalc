@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -39,6 +40,8 @@ namespace TourCalcWebApp.Controllers
                     var md5 = AuthHelper.CreateMD5(contentStream);
                     index = IndexPage.Replace("_md5_", $"{md5}");
                 }
+                var ver = Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
+                index = IndexPage.Replace("_ver_", $"{ver}");
             }
             catch (Exception /*e*/)
             {
@@ -69,8 +72,8 @@ namespace TourCalcWebApp.Controllers
 <meta name='msapplication-TileColor' content='#ffffff'>
 <meta name='msapplication-TileImage' content='/ms-icon-144x144.png'>
 <meta name='theme-color' content='#ffffff'>
-
-    <title>Tourcalc</title>
+<!-- Version: _ver_ -->
+    <title>Tourcalc (v _ver_)</title>
 </head>
 <body>
     <div id='content'>
