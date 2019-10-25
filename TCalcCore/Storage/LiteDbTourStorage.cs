@@ -30,14 +30,20 @@ namespace TCalc.Storage
             return LiteDBTourStorageUtilities.LoadFromLiteDBbyId(dbPath, tourid);
         }
 
-        public IEnumerable<Tour> GetTours(Expression<Func<Tour, bool>> predicate, int from, int count)
+        public IEnumerable<Tour> GetTours(Expression<Func<Tour, bool>> predicate, bool includeVersions, int from, int count)
         {
-            return LiteDBTourStorageUtilities.LoadAllToursFromDb(dbPath, predicate, from, count);
+            //return LiteDBTourStorageUtilities.LoadAllToursFromDb(dbPath, predicate, true, from, count);
+            return LiteDBTourStorageUtilities.LoadAllToursFromDb(dbPath, predicate, includeVersions, from, count);
         }
 
-        public void StoreTour(Tour tour)
+        public IEnumerable<Tour> GetTourVersions(Expression<Func<Tour, bool>> predicate, string tourId, int from, int count)
         {
-            tour.StoreToLiteDB(dbPath);
+            return LiteDBTourStorageUtilities.LoadTourVersionsFromDb(dbPath, predicate, tourId, from, count);
+        }
+
+        public void StoreTour(Tour tour, bool version)
+        {
+            tour.StoreToLiteDB(path: dbPath, keepVersion: version);
         }
     }
 }

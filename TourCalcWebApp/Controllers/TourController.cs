@@ -23,11 +23,13 @@ namespace TourCalcWebApp.Controllers
 
         private readonly IConfiguration Configuration;
         private readonly ITourStorage tourStorage;
+        private readonly bool doTourVersioning;
 
         public TourController(IConfiguration config, ITourStorage storage)
         {
             Configuration = config;
             tourStorage = storage;
+            doTourVersioning = Configuration.GetValue<bool>("TourVersioning", true);
         }
         #region Tours
         /// <summary>
@@ -148,7 +150,7 @@ namespace TourCalcWebApp.Controllers
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
             tourJson.GUID = tourid;
-            tourStorage.StoreTour(tourJson);
+            tourStorage.StoreTour(tourJson, doTourVersioning);
 
             return tourJson.GUID;
         }
@@ -166,7 +168,7 @@ namespace TourCalcWebApp.Controllers
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
             tour.Name = tourJson.Name;
-            tourStorage.StoreTour(tour);
+            tourStorage.StoreTour(tour, doTourVersioning);
 
             return tour.GUID;
         }
@@ -250,7 +252,7 @@ namespace TourCalcWebApp.Controllers
             {
                 p.GUID = IdHelper.NewId();
                 tour.Persons.Add(p);
-                tourStorage.StoreTour(tour);
+                tourStorage.StoreTour(tour, doTourVersioning);
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
             return p.GUID;
@@ -276,7 +278,7 @@ namespace TourCalcWebApp.Controllers
 
                 t.Persons[idx] = p;
 
-                tourStorage.StoreTour(t);
+                tourStorage.StoreTour(t, doTourVersioning);
             }
             else throw HttpException.NotFound($"cannot update: no tour with id {tourid}");
             return p.GUID;
@@ -300,7 +302,7 @@ namespace TourCalcWebApp.Controllers
                     t.Persons.Remove(removedPerson);
                     t.Spendings.RemoveAll(s => s.FromGuid == removedPerson.GUID);
                     t.Spendings.ForEach(s => s.ToGuid.RemoveAll(g => g == removedPerson.GUID));
-                    tourStorage.StoreTour(t);
+                    tourStorage.StoreTour(t, doTourVersioning);
                     return removedPerson.GUID;
                 }
                 else throw HttpException.NotFound($"cannot delete: no person with id {personguid}");
@@ -342,7 +344,7 @@ namespace TourCalcWebApp.Controllers
                 if (idx < 0) throw HttpException.NotFound($"No spending with id {spendingid} in tour {tourid}");
                 sp.DateCreated = t.Spendings[idx].DateCreated; // preserve
                 t.Spendings[idx] = sp;
-                tourStorage.StoreTour(t);
+                tourStorage.StoreTour(t, doTourVersioning);
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
             return sp.GUID;
@@ -375,7 +377,7 @@ namespace TourCalcWebApp.Controllers
             {
                 s.GUID = IdHelper.NewId();
                 t.Spendings.Add(s);
-                tourStorage.StoreTour(t);
+                tourStorage.StoreTour(t, doTourVersioning);
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
             return s.GUID;
@@ -395,7 +397,7 @@ namespace TourCalcWebApp.Controllers
             {
                 var removedSpending = t.Spendings.SingleOrDefault(x => x.GUID == spendingid);
                 if (removedSpending != null) t.Spendings.Remove(removedSpending);
-                tourStorage.StoreTour(t);
+                tourStorage.StoreTour(t, doTourVersioning);
                 return spendingid;
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
@@ -422,6 +424,7 @@ namespace TourCalcWebApp.Controllers
             var tours = tourStorage.GetTours(t => authData.IsMaster
                 ? true // get everything
                 : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5)
+                ,Configuration.GetValue("ReturnVersionsInAllTours", false)
                 ,from
                 ,count
                 );
