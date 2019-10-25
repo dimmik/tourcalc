@@ -16,7 +16,7 @@ export default class TourAdd extends React.Component {
     }
 
     name = ""
-    accessCode = "temp"
+    accessCode = "باحوس"
 
     render() {
         return (
