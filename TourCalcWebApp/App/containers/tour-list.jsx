@@ -78,11 +78,12 @@ export default class TourList extends React.Component {
                                             <TableCell>
                                                 {idx + 1}.<Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}
                                                 </Link>&nbsp;
-                                                [{t.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length > 0 ? ((1 -
+                                                [p: <b>{t.persons.length}</b> s: <b>{t.spendings.length}</b> closure:
+                                                <b>{t.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length > 0 ? ((1 -
                                                     t.persons.filter(p => (p.receivedInCents - p.spentInCents) > 0).length * 1.0 /
                                                     t.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length)
                                                     * 100).toFixed(0) : 0
-                                                }%]
+                                                }%</b>]
                                             </TableCell>
                                             <TableCell>
                                                 <Button variant='outlined' onClick={() => { document.getElementById('TourJsonTextArea').value = JSON.stringify(t, null, 2); }}>JSON</Button>
