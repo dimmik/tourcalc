@@ -36,12 +36,24 @@ namespace TourCalcWebApp
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            var rootFolder = Configuration.GetValue("DatabaseRootFolder", Path.DirectorySeparatorChar == '\\' ? @"d:\home\" : "/home/");
-            var dbPath = $"{rootFolder}{Configuration.GetValue<string>("DatabaseRelativePath", $@"Tour.db")}";
-            Directory.CreateDirectory(Path.GetDirectoryName(dbPath));
-            ITourStorage tourStorage = new LiteDbTourStorage(dbPath);
-            services.AddSingleton<ITourStorage>(tourStorage);
+            SetupLightDB(services);
+            SetupSwaggerDocs(services);
 
+            SetupReact(services);
+
+            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2)
+                .AddJsonOptions(options =>
+                {
+                    options.SerializerSettings.Formatting = Formatting.Indented;
+                });
+
+            SetupAuth(services);
+
+
+        }
+
+        private static void SetupSwaggerDocs(IServiceCollection services)
+        {
             // Register the Swagger generator, defining 1 or more Swagger documents
             services.AddSwaggerGen(c =>
             {
@@ -63,19 +75,18 @@ namespace TourCalcWebApp
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 c.IncludeXmlComments(xmlPath);
             });
+        }
 
+        private void SetupLightDB(IServiceCollection services)
+        {
+            var rootFolder = Configuration.GetValue("DatabaseRootFolder", Path.DirectorySeparatorChar == '\\' ? @"d:\home\" : "/home/");
+            var dbPath = $"{rootFolder}{Configuration.GetValue<string>("DatabaseRelativePath", $@"Tour.db")}";
+            Directory.CreateDirectory(Path.GetDirectoryName(dbPath));
+            bool createVersions = Configuration.GetValue("TourVersioning", true);
+            bool isVersionEditable = Configuration.GetValue("TourVersionEditable", false);
+            ITourStorage tourStorage = new LiteDbTourStorage(dbPath, createVersions, isVersionEditable);
 
-            SetupReact(services);
-
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2)
-                .AddJsonOptions(options =>
-                {
-                    options.SerializerSettings.Formatting = Formatting.Indented;
-                });
-
-            SetupAuth(services);
-
-
+            services.AddSingleton<ITourStorage>(tourStorage);
         }
 
         private static void SetupReact(IServiceCollection services)
