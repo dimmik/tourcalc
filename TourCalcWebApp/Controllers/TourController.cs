@@ -158,7 +158,7 @@ namespace TourCalcWebApp.Controllers
         /// Update tour's name
         /// </summary>
         /// <param name="tourid">id of tour to update</param>
-        /// <param name="tourJson">tour's json. Only /name is used</param>
+        /// <param name="tourJson">tour's json. Only /name and /AccessCodeMD5 (if provided) is used</param>
         /// <returns>id of updated tour</returns>
         [HttpPatch("{tourid}/changename")]
         public string UpdateTourName(string tourid, Tour tourJson)
@@ -168,6 +168,14 @@ namespace TourCalcWebApp.Controllers
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
             tour.Name = tourJson.Name;
+            if (!string.IsNullOrWhiteSpace(tourJson.AccessCodeMD5))
+            {
+                AuthData authData = AuthHelper.GetAuthData(User, Configuration);
+                if (authData.IsMaster)
+                {
+                    tour.AccessCodeMD5 = AuthHelper.CreateMD5(tourJson.AccessCodeMD5);
+                }
+            }
             tourStorage.StoreTour(tour, doTourVersioning);
 
             return tour.GUID;
@@ -421,9 +429,10 @@ namespace TourCalcWebApp.Controllers
         {
             
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
-            var tours = tourStorage.GetTours(t => authData.IsMaster
-                ? true // get everything
-                : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5)
+            var tours = tourStorage.GetTours(
+                t => authData.IsMaster
+                        ? true // get everything
+                        : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5)
                 ,Configuration.GetValue("ReturnVersionsInAllTours", false)
                 ,from
                 ,count

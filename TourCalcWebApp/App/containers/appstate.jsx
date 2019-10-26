@@ -242,8 +242,8 @@ export default class AppState {
             )
             .then((res) => res, (error) => { alert('Not added: ' + error) })
     }
-    static changeTourName(comp, tourid, tname) {
-        let b = JSON.stringify({ name: tname }, null, 2)
+    static changeTourName(comp, tourid, tname, tcode) {
+        let b = JSON.stringify({ name: tname, AccessCodeMD5: tcode }, null, 2)
         //alert('b: ' + b)
         return fetch('/api/tour/' + tourid + "/changename", {
             method: 'PATCH',

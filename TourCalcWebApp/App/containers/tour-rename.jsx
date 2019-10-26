@@ -17,6 +17,7 @@ export default class TourNameEdit extends React.Component {
     }
 
     name = ""
+    code = ""
 
     render() {
         return (
@@ -36,14 +37,21 @@ export default class TourNameEdit extends React.Component {
                                 onChange={(e) => this.name = event.target.value}
                                 defaultValue={this.name}
                             />
+                            {this.props.authData.type === 'Master' ? (
+                                <span><p>Tour Code:</p>
+                                <input
+                                    type='text'
+                                    onChange={(e) => this.code = event.target.value}
+                                    defaultValue=""
+                                /></span>) : <span />}
                         </form>
                 </DialogContent>
                 <DialogActions>
                         <button color="primary" onClick={() => {
-                            AppState.changeTourName(this.props.app, this.props.tourid, this.name)
+                            AppState.changeTourName(this.props.app, this.props.tourid, this.name, this.code)
                                 //.then(res => { alert('res: ' + res) }, error => { alert('error: ' + error) })
                                 .then(() => this.setState({ dialogOpen: false }))
-                                .then(() => { AppState.loadTours(this.props.app, this.props.tourid) })
+                                .then(() => { AppState.loadTours(this.props.app) })
 
                         }}>{this.props.actionButtonText}</button>
                         <button onClick={() => { this.setState({ dialogOpen: false }) }}>Cancel</button>
