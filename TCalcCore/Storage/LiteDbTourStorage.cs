@@ -47,7 +47,7 @@ namespace TCalc.Storage
 
         public void StoreTour(Tour tour)
         {
-            if (tour.IsVersion && !IsVersionEditable) throw new TourStorageException("Cannot edit versions");
+            if (tour.IsVersion && !IsVersionEditable) throw new TourStorageException("Versions are not editable");
             tour.StoreToLiteDB(path: dbPath, keepVersion: CreateVersions);
         }
     }
