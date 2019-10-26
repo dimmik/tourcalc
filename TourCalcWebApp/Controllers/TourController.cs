@@ -23,13 +23,11 @@ namespace TourCalcWebApp.Controllers
 
         private readonly IConfiguration Configuration;
         private readonly ITourStorage tourStorage;
-        private readonly bool doTourVersioning;
 
         public TourController(IConfiguration config, ITourStorage storage)
         {
             Configuration = config;
             tourStorage = storage;
-            doTourVersioning = Configuration.GetValue<bool>("TourVersioning", true);
         }
         #region Tours
         /// <summary>
@@ -150,7 +148,7 @@ namespace TourCalcWebApp.Controllers
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
             tourJson.GUID = tourid;
-            tourStorage.StoreTour(tourJson, doTourVersioning);
+            TourStorage_StoreTour(tourJson);
 
             return tourJson.GUID;
         }
@@ -176,7 +174,7 @@ namespace TourCalcWebApp.Controllers
                     tour.AccessCodeMD5 = AuthHelper.CreateMD5(tourJson.AccessCodeMD5);
                 }
             }
-            tourStorage.StoreTour(tour, doTourVersioning);
+            TourStorage_StoreTour(tour);
 
             return tour.GUID;
         }
@@ -260,7 +258,7 @@ namespace TourCalcWebApp.Controllers
             {
                 p.GUID = IdHelper.NewId();
                 tour.Persons.Add(p);
-                tourStorage.StoreTour(tour, doTourVersioning);
+                TourStorage_StoreTour(tour);
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
             return p.GUID;
@@ -286,7 +284,7 @@ namespace TourCalcWebApp.Controllers
 
                 t.Persons[idx] = p;
 
-                tourStorage.StoreTour(t, doTourVersioning);
+                TourStorage_StoreTour(t);
             }
             else throw HttpException.NotFound($"cannot update: no tour with id {tourid}");
             return p.GUID;
@@ -310,7 +308,7 @@ namespace TourCalcWebApp.Controllers
                     t.Persons.Remove(removedPerson);
                     t.Spendings.RemoveAll(s => s.FromGuid == removedPerson.GUID);
                     t.Spendings.ForEach(s => s.ToGuid.RemoveAll(g => g == removedPerson.GUID));
-                    tourStorage.StoreTour(t, doTourVersioning);
+                    TourStorage_StoreTour(t);
                     return removedPerson.GUID;
                 }
                 else throw HttpException.NotFound($"cannot delete: no person with id {personguid}");
@@ -352,7 +350,7 @@ namespace TourCalcWebApp.Controllers
                 if (idx < 0) throw HttpException.NotFound($"No spending with id {spendingid} in tour {tourid}");
                 sp.DateCreated = t.Spendings[idx].DateCreated; // preserve
                 t.Spendings[idx] = sp;
-                tourStorage.StoreTour(t, doTourVersioning);
+                TourStorage_StoreTour(t);
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
             return sp.GUID;
@@ -385,11 +383,23 @@ namespace TourCalcWebApp.Controllers
             {
                 s.GUID = IdHelper.NewId();
                 t.Spendings.Add(s);
-                tourStorage.StoreTour(t, doTourVersioning);
+                TourStorage_StoreTour(t);
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
             return s.GUID;
         }
+
+        private void TourStorage_StoreTour(Tour tour)
+        {
+            try
+            {
+                tourStorage.StoreTour(tour);
+            } catch (TourStorageException e)
+            {
+                throw HttpException.Forbid(e.Message);
+            }
+        }
+
         /// <summary>
         /// Delete given spending from given tour
         /// </summary>
@@ -405,7 +415,7 @@ namespace TourCalcWebApp.Controllers
             {
                 var removedSpending = t.Spendings.SingleOrDefault(x => x.GUID == spendingid);
                 if (removedSpending != null) t.Spendings.Remove(removedSpending);
-                tourStorage.StoreTour(t, doTourVersioning);
+                TourStorage_StoreTour(t);
                 return spendingid;
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");

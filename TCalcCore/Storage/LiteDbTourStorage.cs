@@ -9,10 +9,14 @@ namespace TCalc.Storage
 {
     public class LiteDbTourStorage : ITourStorage
     {
+        private readonly bool CreateVersions = false;
+        private readonly bool IsVersionEditable = false;
         private readonly string dbPath;
-        public LiteDbTourStorage(string path)
+        public LiteDbTourStorage(string path, bool createVersions, bool isVersionEditable)
         {
             dbPath = path;
+            CreateVersions = createVersions;
+            IsVersionEditable = isVersionEditable;
         }
 
         public void AddTour(Tour tour)
@@ -41,9 +45,14 @@ namespace TCalc.Storage
             return LiteDBTourStorageUtilities.LoadTourVersionsFromDb(dbPath, predicate, tourId, from, count);
         }
 
-        public void StoreTour(Tour tour, bool version)
+        public void StoreTour(Tour tour)
         {
-            tour.StoreToLiteDB(path: dbPath, keepVersion: version);
+            if (tour.IsVersion && !IsVersionEditable) throw new TourStorageException("Cannot edit versions");
+            tour.StoreToLiteDB(path: dbPath, keepVersion: CreateVersions);
         }
+    }
+    public class TourStorageException : Exception
+    {
+        public TourStorageException(string msg) : base(msg) { }
     }
 }
