@@ -73,13 +73,17 @@ export default class TourList extends React.Component {
                                                         }
                                                     }}>X</span>) : <span />
                                                 }
-                                                <u key={'u' + idx}><TourNameEdit key={'te' + idx} tourid={t.id} name={t.name} app={this} open={false} buttonText='Rename' actionButtonText="Change name" /></u>
+                                                <u key={'u' + idx}>
+                                                    <TourNameEdit key={'te' + idx} tourid={t.id}
+                                                        name={t.name} app={this}
+                                                        open={false}
+                                                        authData={this.props.authData}
+                                                        buttonText='Rename' actionButtonText="Change name" /></u>
                                             </TableCell>
                                             <TableCell>
                                                 {idx + 1}.<Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}
                                                 </Link>&nbsp;
-                                                [p: <b>{t.persons.length}</b> s: <b>{t.spendings.length}</b> closure:
-                                                <b>{t.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length > 0 ? ((1 -
+                                                [<b>{t.persons.length}</b>;<b>{t.spendings.length}</b>;<b>{t.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length > 0 ? ((1 -
                                                     t.persons.filter(p => (p.receivedInCents - p.spentInCents) > 0).length * 1.0 /
                                                     t.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length)
                                                     * 100).toFixed(0) : 0

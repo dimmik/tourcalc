@@ -11,7 +11,7 @@ namespace TCalc.Domain
         public List<Spending> Spendings { get; set; } = new List<Spending>();
         public string Name { get; set; } = $"Tour of {DateTime.Now.ToLongDateString()}";
         public string Id { get { return GUID; } set { GUID = value; } }
-        public string AccessCodeMD5 { get; set; } = "-";
+        public string AccessCodeMD5 { get; set; } = "";
         public bool IsVersion { get; set; } = false;
         public DateTime DateVersioned { get; set; } = DateTime.Now;
         public string VersionFor_Id { get; set; } = "";
