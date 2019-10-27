@@ -24,6 +24,7 @@ import Button from '@material-ui/core/Button';
 import Box from '@material-ui/core/Box';
 
 import { sizing } from '@material-ui/system';
+import ChooseTourVersion from './tour-versions.jsx'
 
 const history = createBrowserHistory();
 
@@ -144,8 +145,8 @@ class TourTable extends React.Component {
 
                             
 
-                            <a href="/">List</a>
-                            [VersionsPlaceholder]
+                            <a href="/">List</a>&nbsp;&nbsp;
+                            <ChooseTourVersion tour={this.state.tour} />
                         </div>
 
                         <main>

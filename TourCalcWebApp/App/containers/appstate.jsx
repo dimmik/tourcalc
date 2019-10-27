@@ -202,6 +202,36 @@ export default class AppState {
                 })
     }
 
+    static loadTourVersions(comp, tourid, from, count) {
+        if (from == null) from = 0;
+        if (count == null) count = 50;
+        let url = '/api/tour/'+tourid+'/versions?from=' + from + '&count=' + count;
+        return fetch(url, {
+            method: 'get',
+            headers: new Headers({
+                "Authorization": 'Bearer ' + this.token
+            })
+        })
+            .then(res => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.json()
+            })
+            .then(result => {
+                this.state = {
+                    isToursLoaded: true,
+                    tours: result
+                };
+                comp.setState(this.state)
+            }, error => {
+                alert("error loading tours " + error)
+                this.state = {
+                    isToursLoaded: true,
+                    error
+                };
+                comp.setState(this.state)
+            })
+    }
+
     static loadTours(comp, from, count) {
         if (from == null) from = 0;
         if (count == null) count = 50;

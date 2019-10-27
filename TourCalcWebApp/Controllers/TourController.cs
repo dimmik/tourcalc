@@ -79,7 +79,7 @@ namespace TourCalcWebApp.Controllers
                 , from
                 , count
                 , out var totalCount
-                ).OrderBy(t => t.DateCreated);
+                ).OrderBy(t => t.DateVersioned).Reverse();
             return new TourList()
             {
                 Tours = tours,
