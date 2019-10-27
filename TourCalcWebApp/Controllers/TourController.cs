@@ -61,6 +61,36 @@ namespace TourCalcWebApp.Controllers
         }
 
         /// <summary>
+        /// Versions of the tour
+        /// </summary>
+        /// <param name="tourid">id of the tour</param>
+        /// <param name="from">Default 0</param>
+        /// <param name="count">Number of tours to return, default 50</param>
+        /// <returns>calculated tour</returns>
+        [HttpGet("{tourid}/versions")]
+        public TourList GetTourVersions(string tourid, [FromQuery] int from = 0, [FromQuery] int count = 50)
+        {
+            AuthData authData = AuthHelper.GetAuthData(User, Configuration);
+            var tours = tourStorage.GetTourVersions(
+                t => authData.IsMaster
+                        ? true // get everything
+                        : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5)
+                , tourid
+                , from
+                , count
+                , out var totalCount
+                ).OrderBy(t => t.DateCreated);
+            return new TourList()
+            {
+                Tours = tours,
+                From = from,
+                RequestedCount = count,
+                Count = tours.Count(),
+                TotalCount = totalCount
+            };
+        }
+
+        /// <summary>
         /// Tour calculated AND with suggested spendings to close the tour (i.e. so that each persons' debt equal to zero)
         /// *This one is used in the SPA*
         /// </summary>
@@ -82,9 +112,9 @@ namespace TourCalcWebApp.Controllers
         /// <param name="count">Number of tours to return, default 50</param>
         /// <returns>List of tours</returns>
         [HttpGet]
-        public IEnumerable<Tour> GetAllTours([FromQuery] int from = 0, [FromQuery] int count = 50)
+        public TourList GetAllTours([FromQuery] int from = 0, [FromQuery] int count = 50)
         {
-            var tours = TourStorageUtilities_LoadAllTours(from, count).OrderBy(t => t.DateCreated);
+            var tours = TourStorageUtilities_LoadAllTours(from, count);
             return tours;
         }
 
@@ -95,11 +125,12 @@ namespace TourCalcWebApp.Controllers
         /// <param name="count">Number of tours to return, default 50</param>
         /// <returns>List of tours, all with calculated suggestions</returns>
         [HttpGet("all/suggested")]
-        public IEnumerable<Tour> GetAllToursSuggested([FromQuery] int from = 0, [FromQuery] int count = 50)
+        public TourList GetAllToursSuggested([FromQuery] int from = 0, [FromQuery] int count = 50)
         {
             var tours = GetAllTours(from, count);
-            var ts = tours.Select(t => new TourCalculator(t).SuggestFinalPayments());
-            return ts;
+            var ts = tours.Tours.Select(t => new TourCalculator(t).SuggestFinalPayments());
+            tours.Tours = ts;
+            return tours;
         }
 
         /// <summary>
@@ -119,8 +150,8 @@ namespace TourCalcWebApp.Controllers
             {
                 var tours = TourStorageUtilities_LoadAllTours();
                 var maxCountOfToursPerCode = Configuration.GetValue<int>("MaxCountOfToursPerCode", -1);
-                bool noTours = !tours.Any();
-                bool maxToursReached = !(maxCountOfToursPerCode == -1 || tours.Count() < maxCountOfToursPerCode);
+                bool noTours = !tours.Tours.Any();
+                bool maxToursReached = !(maxCountOfToursPerCode == -1 || tours.Tours.Count() < maxCountOfToursPerCode);
                 allowed = !noTours && !maxToursReached;
                 if (maxToursReached) forbidMessage = $"You can create up to {maxCountOfToursPerCode} tours per code. To add more please ask administrator";
             }
@@ -192,7 +223,7 @@ namespace TourCalcWebApp.Controllers
             if (!allowed)
             {
                 var tours = TourStorageUtilities_LoadAllTours();
-                var cnt = tours.Count();
+                var cnt = tours.Tours.Count();
                 if (cnt > 1) // cannot delete last tour, otherwise can
                 {
                     allowed = true;
@@ -435,7 +466,7 @@ namespace TourCalcWebApp.Controllers
             }
             return tour;
         }
-        private IEnumerable<Tour> TourStorageUtilities_LoadAllTours(int from = 0, int count = 50)
+        private TourList TourStorageUtilities_LoadAllTours(int from = 0, int count = 50)
         {
             
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
@@ -446,9 +477,25 @@ namespace TourCalcWebApp.Controllers
                 ,Configuration.GetValue("ReturnVersionsInAllTours", false)
                 ,from
                 ,count
-                );
-            return tours;
+                , out var totalCount
+                ).OrderBy(t => t.DateCreated);
+            return new TourList()
+            {
+                Tours = tours,
+                From = from,
+                RequestedCount = count,
+                Count = tours.Count(),
+                TotalCount = totalCount
+            };
         }
 
+    }
+    public class TourList
+    {
+        public IEnumerable<Tour> Tours { get; set; }
+        public int TotalCount { get; set; }
+        public int From { get; set; }
+        public int Count { get; set; }
+        public int RequestedCount { get; set; }
     }
 }

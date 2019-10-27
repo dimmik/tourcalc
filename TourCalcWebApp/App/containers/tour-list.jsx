@@ -47,7 +47,7 @@ export default class TourList extends React.Component {
                                             <Button color='primary' variant='outlined'>Add Tour</Button>
                                         </TourAdd>
                                         : (
-                                            this.state.tours.length > 0
+                                            this.state.tours.tours.length > 0
                                                 ? <TourAdd buttonText="Add" actionButtonText="Add Tour" app={this} open={false} chooseCode={false}>
                                                     <Button color='primary' variant='outlined'>Add Tour</Button>
                                                 </TourAdd>
@@ -60,7 +60,7 @@ export default class TourList extends React.Component {
                         </TableHead>
                         <TableBody>
                             {
-                                this.state.tours.map((t, idx) => {
+                                this.state.tours.tours.map((t, idx) => {
                                     return (
                                         <TableRow key={'row' + idx} hover>
                                             <TableCell>

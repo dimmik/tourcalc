@@ -17,7 +17,8 @@ namespace TCalc.Storage.LiteDB
             string path, 
             Expression<Func<Tour, bool>> predicate 
             , bool includeHistorical
-            , int from, int count)
+            , int from, int count
+            , out int totalCount)
         {
             if (predicate == null)
             {
@@ -25,14 +26,17 @@ namespace TCalc.Storage.LiteDB
             }
             using (var db = new LiteDatabase(path))
             {
-                var tours = db.GetCollection<Tour>("Tour").Find(predicate)
-                    .Where(t => includeHistorical ? true : !t.IsVersion)
+                var q = db.GetCollection<Tour>("Tour").Find(predicate)
+                    .Where(t => includeHistorical ? true : !t.IsVersion);
+                totalCount = q.Count();
+                var tours = q
                     .Skip(from).Take(count);
-                return tours;
+                return tours.ToArray();
             }
         }
 
-        public static IEnumerable<Tour> LoadTourVersionsFromDb(string path, Expression<Func<Tour, bool>> predicate, string tourId, int from, int count)
+        public static IEnumerable<Tour> LoadTourVersionsFromDb(string path, Expression<Func<Tour, bool>> predicate
+            , string tourId, int from, int count, out int totalCount)
         {
             if (predicate == null)
             {
@@ -40,10 +44,12 @@ namespace TCalc.Storage.LiteDB
             }
             using (var db = new LiteDatabase(path))
             {
-                var tours = db.GetCollection<Tour>("Tour").Find(predicate)
-                    .Where(t => t.VersionFor_Id == tourId)
+                var q = db.GetCollection<Tour>("Tour").Find(predicate)
+                    .Where(t => t.VersionFor_Id == tourId);
+                totalCount = q.Count();
+                var tours = q
                     .Skip(from).Take(count);
-                return tours;
+                return tours.ToArray();
             }
         }
 
