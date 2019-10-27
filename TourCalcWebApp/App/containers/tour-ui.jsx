@@ -24,6 +24,7 @@ import Button from '@material-ui/core/Button';
 import Box from '@material-ui/core/Box';
 
 import { sizing } from '@material-ui/system';
+import ChooseTourVersion from './tour-versions.jsx'
 
 const history = createBrowserHistory();
 
@@ -144,7 +145,9 @@ class TourTable extends React.Component {
 
                             
 
-                            <a href="/">List</a></div>
+                            <a href="/">List</a>&nbsp;&nbsp;
+                            <ChooseTourVersion tour={this.state.tour} />
+                        </div>
 
                         <main>
                             <Switch>
@@ -160,15 +163,16 @@ class TourTable extends React.Component {
                                             <TableHead>
                                                 <TableRow>
                                                     <TableCell>Spending Description
-                                                   
+                                                   { this.state.tour.isVersion ? <span/> :
                                                             <SpendingForm
-                                                            tour={this.state.tour}
-                                                            buttonText="Add"
-                                                            actionButtonText="Add Spending"
-                                                            open={false}
-                                                            mode="add"
-                                                            app={this}
-                                                        ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
+                                                                tour={this.state.tour}
+                                                                buttonText="Add"
+                                                                actionButtonText="Add Spending"
+                                                                open={false}
+                                                                mode="add"
+                                                                app={this}
+                                                            ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
+                                                        }
                                                         &nbsp;
                                                         <Button color='secondary' variant='outlined'
                                                             onClick={() => { this.setState({ showSuggested: !this.state.showSuggested }) }}>
@@ -225,17 +229,17 @@ class TourTable extends React.Component {
                                                                     ><span style={{ cursor: 'pointer', textDecoration: 'underline' }}>{p.description}</span></SpendingForm>
                                                                     : <span>{p.description}&nbsp;
 
-
-                                                                        <SpendingForm
-                                                                            tour={this.state.tour}
-                                                                            buttonText="Add"
-                                                                            actionButtonText="Save Spending"
-                                                                            open={false}
-                                                                            mode="add"
-                                                                            app={this}
-                                                                            spending={p}
-                                                                        ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
-
+                                                                        {this.state.tour.isVersion ? <span /> :
+                                                                            <SpendingForm
+                                                                                tour={this.state.tour}
+                                                                                buttonText="Add"
+                                                                                actionButtonText="Save Spending"
+                                                                                open={false}
+                                                                                mode="add"
+                                                                                app={this}
+                                                                                spending={p}
+                                                                            ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
+                                                                        }
 
                                                                     </span>
                                                                 }
@@ -273,13 +277,15 @@ class TourTable extends React.Component {
                                             <TableHead>
                                                 <TableRow>
                                                     <TableCell>Person Name
+                                                        {this.state.tour.isVersion ? <span /> :
                                                             <PersonForm mode="add"
-                                                            tourid={this.props.tourid}
-                                                            tour={this.state.tour}
-                                                            open={false}
-                                                            app={this}
-                                                            buttonText="Add" actionButtonText="Add Person" ><Button color='primary' variant='outlined'>Add</Button>
-                                                        </PersonForm>
+                                                                tourid={this.props.tourid}
+                                                                tour={this.state.tour}
+                                                                open={false}
+                                                                app={this}
+                                                                buttonText="Add" actionButtonText="Add Person" ><Button color='primary' variant='outlined'>Add</Button>
+                                                            </PersonForm>
+                                                        }
                                                     </TableCell>
                                                     <TableCell align="right">#</TableCell>
                                                     <TableCell align="right">Weight %</TableCell>
@@ -318,23 +324,25 @@ class TourTable extends React.Component {
                                                             </span>
                                                         </TableCell>
                                                         <TableCell align="right">
-                                                            <SpendingForm
-                                                                tour={this.state.tour}
-                                                                buttonText="Add"
-                                                                actionButtonText="Save Spending"
-                                                                open={false}
-                                                                mode="add"
-                                                                app={this}
-                                                                spending={{
-                                                                    description: "",
-                                                                    amountInCents: 0,
-                                                                    fromGuid: p.guid,
-                                                                    toGuid: [],
-                                                                    toAll: false,
-                                                                    guid: ""
-                                                                }}
-                                                            ><Button color='primary' variant='outlined'
-                                                            >Spend</Button></SpendingForm>
+                                                            {this.state.tour.isVersion ? <span /> :
+                                                                <SpendingForm
+                                                                    tour={this.state.tour}
+                                                                    buttonText="Add"
+                                                                    actionButtonText="Save Spending"
+                                                                    open={false}
+                                                                    mode="add"
+                                                                    app={this}
+                                                                    spending={{
+                                                                        description: "",
+                                                                        amountInCents: 0,
+                                                                        fromGuid: p.guid,
+                                                                        toGuid: [],
+                                                                        toAll: false,
+                                                                        guid: ""
+                                                                    }}
+                                                                ><Button color='primary' variant='outlined'
+                                                                >Spend</Button></SpendingForm>
+                                                            }
                                                         </TableCell>
                                                         <TableCell align="right">{p.weight}</TableCell>
                                                         <TableCell align="right">

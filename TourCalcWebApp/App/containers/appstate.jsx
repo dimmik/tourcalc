@@ -19,7 +19,10 @@ export default class AppState {
     static login(comp, scope, code) {
         let url = '/api/auth/token/' + scope + '/' + code;
         return fetch(url)
-            .then((res) => res.text())
+            .then((res) => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.text()
+            })
             .then((result) => {
                 //alert('url: ' + url + ' res: ' + JSON.stringify(result, null, 2));
                 //alert('url: ' + url + ' res: ' + result);
@@ -37,7 +40,10 @@ export default class AppState {
                 "Authorization": 'Bearer ' + this.token
             })
         })
-        .then((res) => res.json())
+            .then((res) => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.json()
+            })
         .then(
            (result) => {
                this.state = {
@@ -47,7 +53,7 @@ export default class AppState {
                comp.setState(this.state);
            },
             (error) => {
-                alert('Error loading auth info')
+                alert('Error loading auth info ' + error)
 
                this.state = {
                    isAuthLoaded: true,
@@ -69,8 +75,11 @@ export default class AppState {
                 body: JSON.stringify(person, null, 2)
             }
         )
-            .then((res) => res.text())
-            .then((res) => res, (error) => { alert('Error add person') })
+            .then((res) => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.text()
+            })
+            .then((res) => res, (error) => { alert('Error add person ' + error) })
 
     }
     static editPerson(comp, tourid, person) {
@@ -84,7 +93,10 @@ export default class AppState {
                 body: JSON.stringify(person, null, 2)
             }
         )
-            .then((res) => res.text())
+            .then((res) => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.text()
+            })
             .then((res) => res, (error) => { alert('Error edit person') })
 
     }
@@ -98,8 +110,11 @@ export default class AppState {
                 })
             }
         )
-            .then((res) => res.text())
-            .then((res) => res, (error) => { alert('Error delete person') })
+            .then((res) => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.text()
+            })
+            .then((res) => res, (error) => { alert('Error delete person '+ error) })
 
     }
 
@@ -115,8 +130,12 @@ export default class AppState {
                 body: JSON.stringify(spending, null, 2)
             }
         )
-            .then((res) => res.text())
-            .then((res) => res, (error) => { alert('Error add add spending') })
+            .then((res) => {
+
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.text()
+            })
+            .then((res) => res, (error) => { alert('Error add add spending ' + error) })
 
     }
     static editSpending(comp, tourid, spending) {
@@ -130,8 +149,11 @@ export default class AppState {
                 body: JSON.stringify(spending, null, 2)
             }
         )
-            .then((res) => res.text())
-            .then((res) => res, (error) => { alert('Error edit spending') })
+            .then((res) => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.text()
+            })
+            .then((res) => res, (error) => { alert('Error edit spending ' + error) })
 
     }
     static deleteSpending(comp, tourid, guid) {
@@ -144,8 +166,11 @@ export default class AppState {
                 })
             }
         )
-            .then((res) => res.text())
-            .then((res) => res, (error) => { alert('Error delete spending') })
+            .then((res) => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.text()
+            })
+            .then((res) => res, (error) => { alert('Error delete spending ' + error) })
 
     }
 
@@ -177,6 +202,36 @@ export default class AppState {
                 })
     }
 
+    static loadTourVersions(comp, tourid, from, count) {
+        if (from == null) from = 0;
+        if (count == null) count = 50;
+        let url = '/api/tour/'+tourid+'/versions?from=' + from + '&count=' + count;
+        return fetch(url, {
+            method: 'get',
+            headers: new Headers({
+                "Authorization": 'Bearer ' + this.token
+            })
+        })
+            .then(res => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.json()
+            })
+            .then(result => {
+                this.state = {
+                    isToursLoaded: true,
+                    tours: result
+                };
+                comp.setState(this.state)
+            }, error => {
+                alert("error loading tours " + error)
+                this.state = {
+                    isToursLoaded: true,
+                    error
+                };
+                comp.setState(this.state)
+            })
+    }
+
     static loadTours(comp, from, count) {
         if (from == null) from = 0;
         if (count == null) count = 50;
@@ -187,7 +242,10 @@ export default class AppState {
                 "Authorization": 'Bearer ' + this.token
             })
         })
-            .then(res => res.json())
+            .then(res => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.json()
+            })
             .then(result => {
                 this.state = {
                     isToursLoaded: true,
@@ -195,7 +253,7 @@ export default class AppState {
                 };
                 comp.setState(this.state)
             }, error => {
-                alert("error loading tours")
+                alert("error loading tours " + error)
                 this.state = {
                     isToursLoaded: true,
                     error
@@ -253,8 +311,11 @@ export default class AppState {
             }),
             body: b
         })
-            .then(res => res.text())
-            .then((res) => res, (error) => { alert('Error change tour name') })
+            .then(res => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.text()
+            })
+            .then((res) => res, (error) => { alert('Error change tour name ' + error) })
 
     }
     static deleteTour(comp, tourid) {
