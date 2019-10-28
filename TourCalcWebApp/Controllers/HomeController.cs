@@ -38,10 +38,10 @@ namespace TourCalcWebApp.Controllers
                 using (var contentStream = System.IO.File.OpenRead(pathToBundleJs))
                 {
                     var md5 = AuthHelper.CreateMD5(contentStream);
-                    index = IndexPage.Replace("_md5_", $"{md5}");
+                    index = index.Replace("_md5_", $"{md5}");
                 }
                 var ver = Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
-                index = IndexPage.Replace("_ver_", $"{ver}");
+                index = index.Replace("_ver_", $"{ver}");
             }
             catch (Exception /*e*/)
             {
