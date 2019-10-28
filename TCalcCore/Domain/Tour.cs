@@ -15,6 +15,8 @@ namespace TCalc.Domain
         public bool IsVersion { get; set; } = false;
         public DateTime DateVersioned { get; set; } = DateTime.Now;
         public string VersionFor_Id { get; set; } = "";
+        public string VersionComment { get; set; } = "";
+        public string InternalVersionComment = null;
         public void StripCalculations()
         {
             // delete spending lists that might be rather large
