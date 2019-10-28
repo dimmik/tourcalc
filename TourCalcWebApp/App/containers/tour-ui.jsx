@@ -129,6 +129,8 @@ class TourTable extends React.Component {
                                 () => { AppState.loadTour(this, this.props.tourid); }
                             }>Refresh</span>
                             &nbsp;
+                            {this.state.tour.isVersion ? <b>(ver {this.state.tour.dateVersioned}: before {this.state.tour.versionComment})&nbsp;</b> : ''}
+
                             {this.state.tour.name} [
                                 {
                                 this.state.tour.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length > 0

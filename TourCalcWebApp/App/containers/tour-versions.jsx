@@ -17,7 +17,7 @@ export default class ChooseTourVersion extends React.Component {
     }
     componentWillReceiveProps(props) {
         //alert('rprops')
-        this.setState({ isToursLoaded: false, tour: props.tour });
+        this.setState({ tour: props.tour });
         AppState.loadTourVersions(this, this.props.tour.id, 0, 2000);
     }
     componentDidMount() {
@@ -33,7 +33,16 @@ export default class ChooseTourVersion extends React.Component {
                 > <option key="none" value="none">Versions</option>
                     {
                         this.state.tours.tours.map((t) => {
-                            return <option value={'/tour/' + t.id + '/persons'} key={t.id}>{t.name}</option>
+                            return <option value={'/tour/' + t.id + '/persons'} key={t.id}>
+
+                                {
+                                    (new Date(t.dateVersioned).getFullYear() + "") + '-' +
+                                    (new Date(t.dateVersioned).getMonth() + 1 + "").padStart(2, '0') + '-' +
+                                    (new Date(t.dateVersioned).getDate() + "").padStart(2, '0')
+                                    + ' before ' + t.versionComment
+                                }
+                                
+                            </option>
                         }
                         )
                     }
@@ -41,7 +50,18 @@ export default class ChooseTourVersion extends React.Component {
                 </span>
             )
         } else {
-            return <a href={'/tour/' + this.props.tour.versionFor_Id + '/persons'}>Back to current</a>
+            return (
+                <span>
+                    <a href={'/tour/' + this.props.tour.versionFor_Id + '/persons'}>Back to current</a>
+                    <button onClick={() => {
+                        if (window.confirm('Are you sure to revert to this version?')) {
+                            AppState.restoreTourVersion(this, this.props.tour.versionFor_Id, this.props.tour)
+                            .then(() => { window.location = '/tour/' + this.props.tour.versionFor_Id + '/persons' })
+                        }
+                                }
+                        }>Revert to this</button>
+                </span>
+            )
         }
     }
 }

@@ -74,7 +74,14 @@ namespace TCalc.Storage.LiteDB
                 hTour.IsVersion = true;
                 hTour.DateVersioned = DateTime.Now;
                 hTour.VersionFor_Id = tour.Id;
-                hTour.Name = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} {tour.Name}";
+                hTour.VersionComment = tour.InternalVersionComment ?? new Func<string>(() => {
+                    if (hTour.Persons.Count() > tour.Persons.Count) return "Person deleted";
+                    if (hTour.Persons.Count() < tour.Persons.Count) return "Person added";
+                    if (hTour.Spendings.Count() < tour.Spendings.Count) return "Spending added";
+                    if (hTour.Spendings.Count() > tour.Spendings.Count) return "Spending deleted";
+                    return "Text or nums changed";
+                    })();
+                //hTour.Name = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} {tour.Name}";
                 UpsertTour(hTour, path);
             }
             UpsertTour(tour, path);

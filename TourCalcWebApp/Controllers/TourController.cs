@@ -179,6 +179,7 @@ namespace TourCalcWebApp.Controllers
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
             tourJson.GUID = tourid;
+            tourJson.InternalVersionComment = "Tour Replased";
             TourStorage_StoreTour(tourJson);
 
             return tourJson.GUID;
