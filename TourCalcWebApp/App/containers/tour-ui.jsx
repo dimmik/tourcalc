@@ -122,6 +122,9 @@ class TourTable extends React.Component {
                             />
                         </Tabs>
                         {/*--- /Tabs ---*/}
+
+
+                        {/* TODO move to an expandable component */}
                         <div style={{ fontSize: 'small' }}>
                             <span
                                 style={{ cursor: 'pointer', textDecoration: 'underline', borderStyle: 'ridge' }}
@@ -150,6 +153,8 @@ class TourTable extends React.Component {
                             <a href="/">List</a>&nbsp;&nbsp;
                             <ChooseTourVersion tour={this.state.tour} />
                         </div>
+                        {/* /TODO move to a component */}
+
 
                         <main>
                             <Switch>
