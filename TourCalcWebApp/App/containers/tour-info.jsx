@@ -73,18 +73,24 @@ export default class TourInfo extends React.Component {
                         : (
                             <div>
                                 <Dialog fullScreen={false} aria-labelledby="customized-dialog-title" open={this.state.expanded}>
-                                    <DialogTitle id="customized-dialog-title"><b>{this.state.tour.name}</b> Details</DialogTitle>
-                                    <DialogContent>
-                                            <a href="/">All Tours</a><br/>
-                                            <ChooseTourVersion tour={this.state.tour} />
+                                    <DialogTitle id="customized-dialog-title">Tour<b>'{this.state.tour.name}'</b></DialogTitle>
+                                            <DialogContent>
+                                                <Grid container direction="column" spacing={2}>
+                                                    <Grid item>
+                                                        <a href="/">All Tours</a><br />
+                                                    </Grid>
+                                                    <Grid item>
+                                                        <ChooseTourVersion tour={this.state.tour} />
+                                                    </Grid>
+                                                </Grid>
                                     </DialogContent>
                                     <DialogActions>
                                         <Button
-                                            color="primary" size='large' variant='outlined'
+                                            color="secondary" size='large' variant='outlined'
                                             onClick={() => {
                                                 this.setState({ expanded: false })
                                             }
-                                            }>OK</Button>
+                                            }>Close</Button>
                                     </DialogActions>
                                 </Dialog>
                             

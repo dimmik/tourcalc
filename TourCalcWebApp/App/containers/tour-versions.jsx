@@ -13,12 +13,13 @@ export default class ChooseTourVersion extends React.Component {
         this.state = {
             tours: null,
             isToursLoaded: false,
-            tour: null
+            tour: null,
+            redirecting: false
         }
     }
     componentWillReceiveProps(props) {
         //alert('rprops')
-        this.setState({ tour: props.tour });
+        this.setState({ tour: props.tour, redirecting: false });
         AppState.loadTourVersions(this, this.props.tour.id, 0, 2000);
     }
     componentDidMount() {
@@ -27,10 +28,11 @@ export default class ChooseTourVersion extends React.Component {
     }
     render() {
         if (!this.props.tour.isVersion) {
-            if (!this.state.isToursLoaded) return <span>Loading versions</span>
+            if (!this.state.isToursLoaded) return <span>Loading versions ...</span>
+            if (this.state.redirecting) return <span>Redirecting to version ...</span>
             return (
                 <span><select defaultValue="none"
-                    onChange={(e) => { window.location.href = e.target.value }}
+                    onChange={(e) => { this.setState({redirecting: true }); window.location.href = e.target.value }}
                 > <option key="none" value="none">Versions</option>
                     {
                         this.state.tours.tours.map((t) => {
