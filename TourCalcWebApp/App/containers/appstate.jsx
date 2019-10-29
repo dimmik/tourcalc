@@ -334,7 +334,7 @@ export default class AppState {
                 if (res.status != 200) throw new Error(res.statusText)
                 return res.text()
             })
-            .then((res) => res, (error) => { alert('Error change tour name ' + error) })
+            .then((res) => res, (error) => { alert('Error reverting tour ' + error) })
 
     }
     static deleteTour(comp, tourid) {

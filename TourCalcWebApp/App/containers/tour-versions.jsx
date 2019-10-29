@@ -3,8 +3,15 @@ import ReactDOM from 'react-dom';
 import AppState from './appstate.jsx'
 import Button from '@material-ui/core/Button';
 
+import Table from '@material-ui/core/Table';
+import TableBody from '@material-ui/core/TableBody';
+import TableCell from '@material-ui/core/TableCell';
+import TableHead from '@material-ui/core/TableHead';
+import TableFooter from '@material-ui/core/TableFooter';
+import TablePagination from '@material-ui/core/TablePagination';
+import TableRow from '@material-ui/core/TableRow';
 
-import { BrowserRouter as Router, Route, Switch, Redirect, withRouter } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Switch, Redirect, Link, withRouter } from 'react-router-dom';
 
 
 export default class ChooseTourVersion extends React.Component {
@@ -17,43 +24,92 @@ export default class ChooseTourVersion extends React.Component {
             redirecting: false
         }
     }
+    page = 0;
+    rowsPerPage = 5
     componentWillReceiveProps(props) {
         //alert('rprops')
         this.setState({ tour: props.tour, redirecting: false });
-        AppState.loadTourVersions(this, this.props.tour.id, 0, 2000);
+        this.loadTours();
     }
+
     componentDidMount() {
         //alert('ddd')
-        AppState.loadTourVersions(this, this.props.tour.id, 0, 2000);
+        this.loadTours();
+    }
+    loadTours() {
+        AppState.loadTourVersions(this, this.props.tour.id, this.page * this.rowsPerPage, this.rowsPerPage);
     }
     render() {
         if (!this.props.tour.isVersion) {
             if (!this.state.isToursLoaded) return <span>Loading versions ...</span>
             if (this.state.redirecting) return <span>Redirecting to version ...</span>
             return (
-                <span><select defaultValue="none"
-                    onChange={(e) => { this.setState({redirecting: true }); window.location.href = e.target.value }}
-                > <option key="none" value="none">Versions</option>
-                    {
-                        this.state.tours.tours.map((t) => {
-                            return <option value={'/tour/' + t.id + '/persons'} key={t.id}>
+                <span>
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>
+                                    Version
+                                </TableCell>
+                                <TableCell>
+                                    When
+                                </TableCell>
+                                <TableCell>
+                                    Why
+                                </TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {this.state.tours.tours.map((t, idx) => { 
+                                return (<TableRow key={t.id}>
+                                    <TableCell>
+                                        <b>{(this.state.tours.totalCount - ((idx) + (this.page * this.rowsPerPage)))}</b>
+                                    </TableCell>
+                                    <TableCell>
+                                        {
+                                             
+                                            (new Date(t.dateVersioned).getFullYear() + "") + '-' +
+                                            (new Date(t.dateVersioned).getMonth() + 1 + "").padStart(2, '0') + '-' +
+                                            (new Date(t.dateVersioned).getDate() + "").padStart(2, '0') + ' ' +
 
-                                {
-                                    (new Date(t.dateVersioned).getFullYear() + "") + '-' +
-                                    (new Date(t.dateVersioned).getMonth() + 1 + "").padStart(2, '0') + '-' +
-                                    (new Date(t.dateVersioned).getDate() + "").padStart(2, '0') + ' ' +
-
-                                    (new Date(t.dateVersioned).getHours() + "").padStart(2, '0') + ':' +
-                                    (new Date(t.dateVersioned).getMinutes() + "").padStart(2, '0') + ':' +
-                                    (new Date(t.dateVersioned).getSeconds() + "").padStart(2, '0')
-                                    + ' before ' + t.versionComment
+                                            (new Date(t.dateVersioned).getHours() + "").padStart(2, '0') + ':' +
+                                            (new Date(t.dateVersioned).getMinutes() + "").padStart(2, '0') + ':' +
+                                            (new Date(t.dateVersioned).getSeconds() + "").padStart(2, '0')
+                                        }
+                                    </TableCell>
+                                    <TableCell>
+                                        <a href={ '/tour/' + t.id + '/persons' }>
+                                            {
+                                                'Before ' + t.versionComment
+                                            }
+                                        </a>
+                                    </TableCell>
+                                </TableRow>)
+                            })
                                 }
-                                
-                            </option>
-                        }
-                        )
-                    }
-                </select>
+                        </TableBody>
+                        <TableFooter>
+                            <TableRow>
+                                <TablePagination count={this.state.tours.totalCount}
+                                    onChangePage={
+                                        (e, p) => {
+                                            //alert('p:' + p);
+                                            this.page = p;
+                                            this.loadTours()
+                                        }
+                                    }
+                                    onChangeRowsPerPage={(e) => {
+                                        //alert('r:' + e.target.value)
+                                        this.rowsPerPage = e.target.value;
+                                        this.page = 0
+                                        this.loadTours()
+                                    }}
+                                    page={this.page} rowsPerPage={this.rowsPerPage}
+                                    rowsPerPageOptions={[5, 10, 25]}
+                                />
+                            </TableRow>
+                        </TableFooter>
+                    </Table>
                 </span>
             )
         } else {

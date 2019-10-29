@@ -27,7 +27,8 @@ namespace TCalc.Storage.LiteDB
             using (var db = new LiteDatabase(path))
             {
                 var q = db.GetCollection<Tour>("Tour").Find(predicate)
-                    .Where(t => includeHistorical ? true : !t.IsVersion);
+                    .Where(t => includeHistorical ? true : !t.IsVersion)
+                    .OrderBy(t => t.DateCreated).Reverse();
                 totalCount = q.Count();
                 var tours = q
                     .Skip(from).Take(count);
@@ -45,7 +46,8 @@ namespace TCalc.Storage.LiteDB
             using (var db = new LiteDatabase(path))
             {
                 var q = db.GetCollection<Tour>("Tour").Find(predicate)
-                    .Where(t => t.IsVersion && t.VersionFor_Id == tourId);
+                    .Where(t => t.IsVersion && t.VersionFor_Id == tourId)
+                    .OrderBy(t => t.DateVersioned).Reverse();
                 totalCount = q.Count();
                 var tours = q
                     .Skip(from).Take(count);

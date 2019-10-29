@@ -79,7 +79,7 @@ namespace TourCalcWebApp.Controllers
                 , from
                 , count
                 , out var totalCount
-                ).OrderBy(t => t.DateVersioned).Reverse();
+                );
             return new TourList()
             {
                 Tours = tours,
@@ -179,7 +179,7 @@ namespace TourCalcWebApp.Controllers
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
             tourJson.GUID = tourid;
-            tourJson.InternalVersionComment = "Tour Replased";
+            tourJson.InternalVersionComment = $"Tour Restored to {tourJson.DateVersioned.ToString("yyyy-MM-dd HH:mm:ss")}";
             TourStorage_StoreTour(tourJson);
 
             return tourJson.GUID;
@@ -479,7 +479,7 @@ namespace TourCalcWebApp.Controllers
                 ,from
                 ,count
                 , out var totalCount
-                ).OrderBy(t => t.DateCreated);
+                );
             return new TourList()
             {
                 Tours = tours,
