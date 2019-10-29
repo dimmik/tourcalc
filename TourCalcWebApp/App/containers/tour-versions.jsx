@@ -70,18 +70,13 @@ export default class ChooseTourVersion extends React.Component {
 
                     <Button
                         color="primary" size='small' variant='outlined'
-                        onClick={() => { window.location = '/tour/' + this.props.tour.versionFor_Id + '/persons' }}>
-                        Back to current tour
-                    </Button>&nbsp;&nbsp;
-                    <Button
-                        color="secondary" size='small' variant='outlined'
                         onClick={() => {
                         if (window.confirm('Are you sure to revert to this version?')) {
                             AppState.restoreTourVersion(this, this.props.tour.versionFor_Id, this.props.tour)
                             .then(() => { window.location = '/tour/' + this.props.tour.versionFor_Id + '/persons' })
                         }
                                 }
-                        }>Revert to this</Button>
+                        }>Revert to this version</Button>
                 </span>
             )
         }
