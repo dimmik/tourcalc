@@ -125,37 +125,7 @@ class TourTable extends React.Component {
                         {/*--- /Tabs ---*/}
 
 
-                        {/* TODO move to an expandable component 
-                        <div style={{ fontSize: 'small' }}>
-                            <span
-                                style={{ cursor: 'pointer', textDecoration: 'underline', borderStyle: 'ridge' }}
-                                onClick={
-                                () => { AppState.loadTour(this, this.props.tourid); }
-                            }>Refresh</span>
-                            &nbsp;
-                            {this.state.tour.isVersion ? <b>(ver {this.state.tour.dateVersioned}: before {this.state.tour.versionComment})&nbsp;</b> : ''}
-
-                            {this.state.tour.name} [
-                                {
-                                this.state.tour.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length > 0
-                                    ? ((1 - this.state.tour.persons.filter(p => (p.receivedInCents - p.spentInCents) > 0).length * 1.0 /
-                                        this.state.tour.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length) * 100)
-                                        .toFixed(0) : 0
-                                }%&nbsp; 
-    
-                        {
-                            (this.state.updateTime.getHours() + "").padStart(2, '0') + ':' +
-                            (this.state.updateTime.getMinutes() + "").padStart(2, '0') + ':' +
-                            (this.state.updateTime.getSeconds() + "").padStart(2, '0')
-                            }]
-
-                            
-
-                            <a href="/">List</a>&nbsp;&nbsp;
-                            <ChooseTourVersion tour={this.state.tour} />
-                        </div>
-                         /TODO move to a component */}
-                        <TourInfo tour={this.state.tour} app={this} updateTime={this.state.updateTime} />
+                        {<TourInfo tour={this.state.tour} app={this} updateTime={this.state.updateTime} />}
 
                         <main>
                             <Switch>
