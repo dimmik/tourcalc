@@ -125,7 +125,7 @@ class TourTable extends React.Component {
                         {/*--- /Tabs ---*/}
 
 
-                        {<TourInfo tour={this.state.tour} app={this} updateTime={this.state.updateTime} />}
+                        &nbsp;<TourInfo tour={this.state.tour} app={this} updateTime={this.state.updateTime} />
 
                         <main>
                             <Switch>
