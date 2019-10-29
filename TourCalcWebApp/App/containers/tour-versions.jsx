@@ -41,7 +41,11 @@ export default class ChooseTourVersion extends React.Component {
                                 {
                                     (new Date(t.dateVersioned).getFullYear() + "") + '-' +
                                     (new Date(t.dateVersioned).getMonth() + 1 + "").padStart(2, '0') + '-' +
-                                    (new Date(t.dateVersioned).getDate() + "").padStart(2, '0')
+                                    (new Date(t.dateVersioned).getDate() + "").padStart(2, '0') + ' ' +
+
+                                    (new Date(t.dateVersioned).getHours() + "").padStart(2, '0') + ':' +
+                                    (new Date(t.dateVersioned).getMinutes() + "").padStart(2, '0') + ':' +
+                                    (new Date(t.dateVersioned).getSeconds() + "").padStart(2, '0')
                                     + ' before ' + t.versionComment
                                 }
                                 

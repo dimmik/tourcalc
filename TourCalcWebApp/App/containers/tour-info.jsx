@@ -68,7 +68,9 @@ export default class TourInfo extends React.Component {
                     !this.state.expanded
                         ? <ButtonGroup variant="outlined" size="small" aria-label="small contained button group">
                                     <Button color="primary" onClick={() => { this.setState({ expanded: true }) }}>More</Button>
-                                    {this.state.tour.isVersion ? <Button color="secondary" onClick={() => { window.location = '/tour/' + this.props.tour.versionFor_Id + '/persons' }}>Back to tour</Button> : ''}
+                                    {this.state.tour.isVersion
+                                        ? <Button color="secondary" onClick={() => { window.location = '/tour/' + this.props.tour.versionFor_Id + '/persons' }}>Back to tour</Button>
+                                        : <Button color="secondary" onClick={() => { window.location = '/' }}>Tour List</Button>}
                         </ButtonGroup>
                         : (
                             <div>
@@ -76,9 +78,6 @@ export default class TourInfo extends React.Component {
                                     <DialogTitle id="customized-dialog-title">Tour<b>'{this.state.tour.name}'</b></DialogTitle>
                                             <DialogContent>
                                                 <Grid container direction="column" spacing={2}>
-                                                    <Grid item>
-                                                        <a href="/">All Tours</a><br />
-                                                    </Grid>
                                                     <Grid item>
                                                         <ChooseTourVersion tour={this.state.tour} />
                                                     </Grid>
