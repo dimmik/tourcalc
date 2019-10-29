@@ -23,6 +23,8 @@ import ListItemText from '@material-ui/core/ListItemText';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import FormGroup from '@material-ui/core/FormGroup';
 import Button from '@material-ui/core/Button';
+import ButtonGroup from '@material-ui/core/ButtonGroup';
+import Grid from '@material-ui/core/Grid';
 
 
 
@@ -44,6 +46,8 @@ export default class TourInfo extends React.Component {
 
         return (
             <div style={{ fontSize: 'small' }}>
+                <Grid container spacing={1} alignContent="center" alignItems="center">
+                    <Grid item>
                 {this.state.tour.isVersion ? <b style={{color: "red"}}>(V)</b> : ''}
                 {this.state.tour.name} [
                                 {
@@ -57,19 +61,22 @@ export default class TourInfo extends React.Component {
                     (this.state.updateTime.getHours() + "").padStart(2, '0') + ':' +
                     (this.state.updateTime.getMinutes() + "").padStart(2, '0') + ':' +
                     (this.state.updateTime.getSeconds() + "").padStart(2, '0')
-                }]
+                        }]
+                </Grid>
+                    <Grid item>
                 {
                     !this.state.expanded
-                        ? <span style={{ cursor: "pointer" }} onClick={() => { this.setState({ expanded: true }) }}>&nbsp;<i><u>More...</u></i></span>
+                        ? <ButtonGroup variant="outlined" size="small" aria-label="small contained button group">
+                                    <Button color="primary" onClick={() => { this.setState({ expanded: true }) }}>More</Button>
+                                    {this.state.tour.isVersion ? <Button color="secondary" onClick={() => { window.location = '/tour/' + this.props.tour.versionFor_Id + '/persons' }}>Back to tour</Button> : ''}
+                        </ButtonGroup>
                         : (
                             <div>
                                 <Dialog fullScreen={false} aria-labelledby="customized-dialog-title" open={this.state.expanded}>
                                     <DialogTitle id="customized-dialog-title"><b>{this.state.tour.name}</b> Details</DialogTitle>
                                     <DialogContent>
-                                        <ul>
-                                            <li><a href="/">All Tours</a></li>
-                                            <li><ChooseTourVersion tour={this.state.tour} /></li>
-                                        </ul>
+                                            <a href="/">All Tours</a><br/>
+                                            <ChooseTourVersion tour={this.state.tour} />
                                     </DialogContent>
                                     <DialogActions>
                                         <Button
@@ -83,9 +90,9 @@ export default class TourInfo extends React.Component {
                             
                             </div>
                           )
-                }
-               
-
+                        }
+                    </Grid>
+                </Grid>
             </div>
             )
 
