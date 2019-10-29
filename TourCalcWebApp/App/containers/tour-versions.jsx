@@ -45,7 +45,7 @@ export default class ChooseTourVersion extends React.Component {
             if (this.state.redirecting) return <span>Redirecting to version ...</span>
             return (
                 <span>
-                    <Table>
+                    <Table stickyHeader>
                         <TableHead>
                             <TableRow>
                                 <TableCell>
@@ -55,7 +55,7 @@ export default class ChooseTourVersion extends React.Component {
                                     When
                                 </TableCell>
                                 <TableCell>
-                                    Why
+                                    What
                                 </TableCell>
                             </TableRow>
                         </TableHead>
