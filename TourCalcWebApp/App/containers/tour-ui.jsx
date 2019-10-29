@@ -24,7 +24,8 @@ import Button from '@material-ui/core/Button';
 import Box from '@material-ui/core/Box';
 
 import { sizing } from '@material-ui/system';
-import ChooseTourVersion from './tour-versions.jsx'
+
+import TourInfo from './tour-info.jsx'
 
 const history = createBrowserHistory();
 
@@ -124,7 +125,7 @@ class TourTable extends React.Component {
                         {/*--- /Tabs ---*/}
 
 
-                        {/* TODO move to an expandable component */}
+                        {/* TODO move to an expandable component 
                         <div style={{ fontSize: 'small' }}>
                             <span
                                 style={{ cursor: 'pointer', textDecoration: 'underline', borderStyle: 'ridge' }}
@@ -153,8 +154,8 @@ class TourTable extends React.Component {
                             <a href="/">List</a>&nbsp;&nbsp;
                             <ChooseTourVersion tour={this.state.tour} />
                         </div>
-                        {/* /TODO move to a component */}
-
+                         /TODO move to a component */}
+                        <TourInfo tour={this.state.tour} app={this} updateTime={this.state.updateTime} />
 
                         <main>
                             <Switch>
