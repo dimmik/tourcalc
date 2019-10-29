@@ -22,13 +22,20 @@ export default class TourList extends React.Component {
         this.state = {
             isToursLoaded: false,
             tours: null
+
         }
     }
+    page = 0
+    rowsPerPage = 5
+
     componentDidMount() {
         document.title = "Tourcalc: List of tours"
-        AppState.loadTours(this);
+        this.loadTours()
     }
-
+    loadTours() {
+        return AppState.loadTours(this, this.page * this.rowsPerPage, this.rowsPerPage);
+    }
+    
     render() {
         if (!this.state.isToursLoaded) {
             return <div>Loading Tours ...</div>
@@ -81,7 +88,7 @@ export default class TourList extends React.Component {
                                                         buttonText='Rename' actionButtonText="Change name" /></u>
                                             </TableCell>
                                             <TableCell>
-                                                {idx + 1}.<Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}
+                                                {(idx + 1) + (this.page * this.rowsPerPage)}.<Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}
                                                 </Link>&nbsp;
                                                 [<b>{t.persons.length}</b>;<b>{t.spendings.length}</b>;<b>{t.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length > 0 ? ((1 -
                                                     t.persons.filter(p => (p.receivedInCents - p.spentInCents) > 0).length * 1.0 /
@@ -118,9 +125,28 @@ export default class TourList extends React.Component {
                                     )
                                 })
                             }
-
                         </TableBody>
-                        {/* TODO: implement paging: https://material-ui.com/ru/components/tables/ */}
+                            <TableFooter>
+                                <TableRow>
+                                <TablePagination count={this.state.tours.totalCount}
+                                    onChangePage={
+                                        (e, p) => {
+                                            //alert('p:' + p);
+                                            this.page = p;
+                                            this.loadTours()
+                                        }
+                                    }
+                                    onChangeRowsPerPage={(e) => {
+                                        //alert('r:' + e.target.value)
+                                        this.rowsPerPage = e.target.value;
+                                        this.page = 0
+                                        this.loadTours()
+                                    }}
+                                    page={this.page} rowsPerPage={this.rowsPerPage}
+                                    rowsPerPageOptions={[5, 10, 25]}
+                                />
+                                </TableRow>
+                            </TableFooter>
                     </Table>
 
                     <hr />
