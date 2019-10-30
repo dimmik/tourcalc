@@ -11,7 +11,8 @@ export default class TourNameEdit extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            dialogOpen: props.open
+            dialogOpen: props.open,
+            tourid: props.tourid
         }
         this.name = props.name
     }
@@ -21,7 +22,7 @@ export default class TourNameEdit extends React.Component {
 
     render() {
         return (
-            <span>
+            <span key={this.state.tourid}>
                 <span style={{ cursor: 'pointer', fontSize: "xx-small"}} onClick={() => this.setState({ dialogOpen: true })}>
                     {this.props.buttonText}
                 </span>

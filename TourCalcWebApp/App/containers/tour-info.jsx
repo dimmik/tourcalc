@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import AppState from './appstate.jsx'
 import ChooseTourVersion from './tour-versions.jsx'
 
-import { BrowserRouter as Router, Route, Switch, Redirect, withRouter } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Switch, Redirect, withRouter, Link } from 'react-router-dom';
 
 import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
@@ -48,7 +48,7 @@ export default class TourInfo extends React.Component {
             <div style={{ fontSize: 'small' }}>
                 <Grid container spacing={1} alignContent="center" alignItems="center">
                     <Grid item>
-                {this.state.tour.isVersion ? <b style={{color: "red"}}>(V)</b> : ''}
+                {this.state.tour.isVersion ? <b style={{color: "red"}}>(V) </b> : ''}
                 {this.state.tour.name} [
                                 {
                     this.state.tour.persons.filter(p => (p.receivedInCents - p.spentInCents) >= 0).length > 0
@@ -64,19 +64,30 @@ export default class TourInfo extends React.Component {
                         }]
                 </Grid>
                     <Grid item>
-                {
-                    !this.state.expanded
-                        ? <ButtonGroup variant="outlined" size="small" aria-label="small contained button group">
-                                    <Button color="primary" onClick={() => { this.setState({ expanded: true }) }}>More</Button>
+                        {
+                            !this.state.expanded
+                                ? <ButtonGroup variant="outlined" size="small" aria-label="small contained button group">
+
+                                    <Button color="primary" onClick={() => { this.setState({ expanded: true }) }}>
+                                        {this.state.tour.isVersion ? 'Version Info' : 'History'}
+                                        </Button>
+                                    
+
+
                                     {this.state.tour.isVersion
-                                        ? <Button color="secondary"  onClick={() => { window.location = '/tour/' + this.props.tour.versionFor_Id + '/persons' }}>Back to tour</Button>
-                                        : <Button color="secondary" onClick={() => { window.location = '/' }}>Tour List</Button>}
+                                        ? <Button color="secondary" onClick={() => { AppState.refreshMainApp(); }}>
+                                            <Link to={'/tour/' + this.props.tour.versionFor_Id + '/persons'}
+                                                style={{ textDecoration: 'none' }}>Back to Tour</Link>
+                                          </Button>
+                                        : <Button color="secondary" onClick={() => { AppState.refreshMainApp(); }}>
+                                            <Link to='/' style={{ textDecoration: 'none' }}>Tour List</Link>
+                                          </Button>}
                         </ButtonGroup>
                         : (
                             <div>
                                         <Dialog fullScreen={true} aria-labelledby="customized-dialog-title" open={this.state.expanded}
                                             onClose={() => { this.setState({expanded: false}) }}>
-                                    <DialogTitle id="customized-dialog-title">Tour<b>'{this.state.tour.name}'</b></DialogTitle>
+                                    <DialogTitle id="customized-dialog-title">Tour <b>'{this.state.tour.name}'</b></DialogTitle>
                                             <DialogContent>
                                                 <Grid container direction="column" spacing={2}>
                                                     <Grid item>

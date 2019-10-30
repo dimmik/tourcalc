@@ -49,7 +49,7 @@ export default class TourList extends React.Component {
                             <TableRow>
                                 <TableCell>Tours
                                 </TableCell>
-                                <TableCell>Mode: {this.props.authData.type}
+                                <TableCell onClick={() => { /*alert('will refresh'); AppState.refreshMainApp();*/ }}>Mode: {this.props.authData.type}
                                     {this.props.authData.type === 'Master'
                                         ? <div>
                                             <input type="text" defaultValue={this.code} onChange={(e) => { this.code = e.target.value }} />
@@ -79,14 +79,14 @@ export default class TourList extends React.Component {
                             {
                                 this.state.tours.tours.map((t, idx) => {
                                     return (
-                                        <TableRow key={'row' + idx} hover>
+                                        <TableRow key={'row' + t.id} hover>
                                             <TableCell>
                                             {
                                                 /*this.props.authData.type === 'Master'*/ true ? (
                                                     <span key={'s' + idx} style={{ cursor: "pointer", borderStyle: 'ridge', fontSize: "xx-small" }} onClick={() => {
                                                         if (window.confirm('Sure to delete tour ' + t.name + ' (id: ' + t.id + ')?')) {
                                                             AppState.deleteTour(this, t.id)
-                                                                .then(() => { AppState.loadTours(this); })
+                                                                .then(() => { this.loadTours() })
                                                         }
                                                     }}>X</span>) : <span />
                                                 }

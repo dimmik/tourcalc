@@ -9,11 +9,18 @@ import TourUI from './tour-ui.jsx'
 export default class App extends React.Component {
     constructor(props) {
         super(props);
-        this.state = {}
+        this.state = {
+            key: 0
+        }
     }
+    componentDidMount() {
+        //alert('app mounted');
+        AppState.setMainApp(this);
+    }
+    
     render() {
         return (
-            <Router>
+            <Router key={this.state.key}>
                 <div>
                     <main>
                     <Switch>

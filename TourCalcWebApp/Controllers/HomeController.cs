@@ -47,6 +47,7 @@ namespace TourCalcWebApp.Controllers
             {
                 //index = index.Replace("__error__", e.Message);
             }
+            index = index.Replace("_now_", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             //index = index.Replace("__the_path__", Environment.CurrentDirectory);
             return Content(index, "text/html");
         }
@@ -79,7 +80,7 @@ namespace TourCalcWebApp.Controllers
     <div id='content'>
     </div>
 <br/>
-<span style='font-size: xx-small'>v_ver_</span>
+<span style='font-size: xx-small'>v_ver_ [_now_]</span>
     <script type='text/javascript' src='/assets/bundle.js?unic=_md5_' 
         charset=""utf-8""></script>
 </body>
