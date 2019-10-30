@@ -80,11 +80,11 @@ export default class ChooseTourVersion extends React.Component {
                                             }
                                         </TableCell>
                                         <TableCell>
-                                            <a href={'/tour/' + t.id + '/persons'}>
+                                            <Link to={'/tour/' + t.id + '/persons'} onClick={() => { AppState.refreshMainApp() }}>
                                                 {
                                                     'Before ' + t.versionComment
                                                 }
-                                            </a>
+                                            </Link>
                                         </TableCell>
                                     </TableRow>)
                                 })

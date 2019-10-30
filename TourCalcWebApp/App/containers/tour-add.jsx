@@ -50,7 +50,7 @@ export default class TourAdd extends React.Component {
                         <button color="primary" onClick={() => {
                                 AppState.addTour(this.props.app, this.name, this.accessCode)
                                 .then(this.setState({ dialogOpen: false }))
-                                .then(() => { AppState.loadTours(this.props.app, this.props.tourid) })
+                                .then(() => { this.props.app.loadTours() })
 
                         }}>{this.props.actionButtonText}</button>
                         <button onClick={() => { this.setState({ dialogOpen: false }) }}>Cancel</button>

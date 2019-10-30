@@ -15,6 +15,16 @@ export default class AppState {
         tours: null
     }
 
+    static setMainApp(app) {
+        this.mainApp = app;
+    }
+    static refreshMainApp() {
+        if (this.mainApp != null) {
+            let k = (this.mainApp.state.key + 1)
+            //alert('k: ' + k);
+            this.mainApp.setState({ key: k });
+        }
+    }
 
     static login(comp, scope, code) {
         let url = '/api/auth/token/' + scope + '/' + code;
