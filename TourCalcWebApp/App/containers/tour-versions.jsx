@@ -45,6 +45,7 @@ export default class ChooseTourVersion extends React.Component {
             if (this.state.redirecting) return <span>Redirecting to version ...</span>
             return (
                 <span>
+                    History:
                     <Table>
                         <TableHead>
                             <TableRow>
