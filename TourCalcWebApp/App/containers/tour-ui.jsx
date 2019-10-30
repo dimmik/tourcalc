@@ -105,7 +105,7 @@ class TourTable extends React.Component {
 
             return (
                 <Router>
-                    <div style={{border: "4px double black"}}>
+                    <div style={{}}>
 
                         {/*--- Tabs ---*/}
                         <Tabs
