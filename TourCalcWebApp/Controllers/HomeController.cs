@@ -30,7 +30,7 @@ namespace TourCalcWebApp.Controllers
         [HttpGet]
         public IActionResult Index()
         {
-            var index = IndexPage;
+            var index = System.IO.File.ReadAllText(Configuration.GetValue("PathToIndexTpl", @"IndexTpl.html"));//IndexPage;
             try
             {
                 var pathToBundleJs = Configuration.GetValue("PathToBundleJs", @"wwwroot\assets\bundle.js");
@@ -54,7 +54,7 @@ namespace TourCalcWebApp.Controllers
         const string IndexPage = @"<!DOCTYPE html>
 <html>
 <head>
-    <!--meta name='viewport' content='width=device-width' /-->
+    <meta name='viewport' content='width=device-width' />
 
 <link rel='apple-touch-icon' sizes='57x57' href='/apple-icon-57x57.png'>
 <link rel='apple-touch-icon' sizes='60x60' href='/apple-icon-60x60.png'>
