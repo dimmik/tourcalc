@@ -112,9 +112,9 @@ namespace TourCalcWebApp.Controllers
         /// <param name="count">Number of tours to return, default 50</param>
         /// <returns>List of tours</returns>
         [HttpGet]
-        public TourList GetAllTours([FromQuery] int from = 0, [FromQuery] int count = 50)
+        public TourList GetAllTours([FromQuery] int from = 0, [FromQuery] int count = 50, [FromQuery] string code = "")
         {
-            var tours = TourStorageUtilities_LoadAllTours(from, count);
+            var tours = TourStorageUtilities_LoadAllTours(from, count, code);
             return tours;
         }
 
@@ -125,9 +125,9 @@ namespace TourCalcWebApp.Controllers
         /// <param name="count">Number of tours to return, default 50</param>
         /// <returns>List of tours, all with calculated suggestions</returns>
         [HttpGet("all/suggested")]
-        public TourList GetAllToursSuggested([FromQuery] int from = 0, [FromQuery] int count = 50)
+        public TourList GetAllToursSuggested([FromQuery] int from = 0, [FromQuery] int count = 50, [FromQuery] string code = "")
         {
-            var tours = GetAllTours(from, count);
+            var tours = GetAllTours(from, count, code);
             var ts = tours.Tours.Select(t => new TourCalculator(t).SuggestFinalPayments());
             tours.Tours = ts;
             return tours;
@@ -467,13 +467,14 @@ namespace TourCalcWebApp.Controllers
             }
             return tour;
         }
-        private TourList TourStorageUtilities_LoadAllTours(int from = 0, int count = 50)
+        private TourList TourStorageUtilities_LoadAllTours(int from = 0, int count = 50, string code = "")
         {
             
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
+
             var tours = tourStorage.GetTours(
                 t => authData.IsMaster
-                        ? true // get everything
+                        ? true && (string.IsNullOrWhiteSpace(code) ? true : AuthHelper.CreateMD5(code) == t.AccessCodeMD5) // get everything or for given code
                         : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5)
                 ,Configuration.GetValue("ReturnVersionsInAllTours", false)
                 ,from

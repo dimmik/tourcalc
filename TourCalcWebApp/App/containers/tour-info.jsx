@@ -69,7 +69,7 @@ export default class TourInfo extends React.Component {
                         ? <ButtonGroup variant="outlined" size="small" aria-label="small contained button group">
                                     <Button color="primary" onClick={() => { this.setState({ expanded: true }) }}>More</Button>
                                     {this.state.tour.isVersion
-                                        ? <Button color="secondary" onClick={() => { window.location = '/tour/' + this.props.tour.versionFor_Id + '/persons' }}>Back to tour</Button>
+                                        ? <Button color="secondary"  onClick={() => { window.location = '/tour/' + this.props.tour.versionFor_Id + '/persons' }}>Back to tour</Button>
                                         : <Button color="secondary" onClick={() => { window.location = '/' }}>Tour List</Button>}
                         </ButtonGroup>
                         : (

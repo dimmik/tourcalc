@@ -28,12 +28,14 @@ export default class TourList extends React.Component {
     page = 0
     rowsPerPage = 5
 
+    code = ""
+
     componentDidMount() {
         document.title = "Tourcalc: List of tours"
         this.loadTours()
     }
     loadTours() {
-        return AppState.loadTours(this, this.page * this.rowsPerPage, this.rowsPerPage);
+        return AppState.loadTours(this, this.page * this.rowsPerPage, this.rowsPerPage, this.code);
     }
     
     render() {
@@ -47,7 +49,15 @@ export default class TourList extends React.Component {
                             <TableRow>
                                 <TableCell>Tours
                                 </TableCell>
-                                <TableCell>Mode: {this.props.authData.type}</TableCell>
+                                <TableCell>Mode: {this.props.authData.type}
+                                    {this.props.authData.type === 'Master'
+                                        ? <div>
+                                            <input type="text" defaultValue={this.code} onChange={(e) => { this.code = e.target.value }} />
+                                            <Button variant="outlined" onClick={() => { this.loadTours() }}>Filter by code</Button>
+                                        </div>
+                                        : ''
+                                     }
+                                </TableCell>
                                 <TableCell>{
                                     this.props.authData.type === 'Master'
                                         ? <TourAdd buttonText="Add" actionButtonText="Add Tour" app={this} open={false} chooseCode={true}>
@@ -108,7 +118,9 @@ export default class TourList extends React.Component {
                                                                 , document.getElementById(t.id + 'tourAccessCode').value
                                                                 , document.getElementById(t.id + 'tourName').value
                                                             )
-                                                                .then(() => { AppState.loadTours(this) })
+                                                                .then(() => {
+                                                                    this.loadTours()
+                                                                })
                                                         } else {
                                                             alert('Please enter access code')
                                                         }
