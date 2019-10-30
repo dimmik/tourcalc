@@ -85,7 +85,7 @@ export default class TourInfo extends React.Component {
                         </ButtonGroup>
                         : (
                             <div>
-                                        <Dialog fullScreen={true} aria-labelledby="customized-dialog-title" open={this.state.expanded}
+                                        <Dialog fullScreen={false} aria-labelledby="customized-dialog-title" open={this.state.expanded}
                                             onClose={() => { this.setState({expanded: false}) }}>
                                     <DialogTitle id="customized-dialog-title">Tour <b>'{this.state.tour.name}'</b></DialogTitle>
                                             <DialogContent>
