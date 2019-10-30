@@ -15,6 +15,7 @@ import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import TextField from '@material-ui/core/TextField';
 import Chip from '@material-ui/core/Chip';
+import Switch from '@material-ui/core/Switch';
 import Checkbox from '@material-ui/core/Checkbox';
 import ListItemText from '@material-ui/core/ListItemText';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
@@ -133,7 +134,7 @@ export default class SpendingsForm extends React.Component {
                                 </Select>
                                 <FormControlLabel
                                     control={
-                                        <Checkbox
+                                        <Switch
                                             value={true}
                                             checked={this.state.spending.toAll}
                                             onChange={(e) => {
