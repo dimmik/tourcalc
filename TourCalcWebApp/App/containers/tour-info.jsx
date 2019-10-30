@@ -47,7 +47,7 @@ export default class TourInfo extends React.Component {
 
         return (
             <div style={{ fontSize: 'small' }}>
-                <Grid container spacing={1} alignContent="center" alignItems="center">
+                <Grid container spacing={1} alignContent="center" alignItems="center" wrap="nowrap">
                     <Grid item>
                 {this.state.tour.isVersion ? <b style={{color: "red"}}>(V) </b> : ''}
                 {this.state.tour.name} [
