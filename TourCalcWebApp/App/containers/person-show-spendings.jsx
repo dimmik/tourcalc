@@ -41,7 +41,7 @@ export default class SpendingsDetail extends React.Component {
                 <span onClick={() => this.setState({ dialogOpen: true, spendingInfo: this.props.spendingInfo })} style={{ cursor: "pointer" }}>
                     {this.props.showText}
                 </span>
-                <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
+                <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen} onClose={() => { this.setState({ dialogOpen: false }) }}>
                     <DialogTitle id="customized-dialog-title">{this.props.received ?  'Received' : 'Spent' } for {this.state.person.name}</DialogTitle>
                     <DialogContent>
 

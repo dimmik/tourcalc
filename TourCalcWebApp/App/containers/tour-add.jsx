@@ -24,7 +24,7 @@ export default class TourAdd extends React.Component {
                 <span onClick={() => this.setState({ dialogOpen: true })}>
                     {this.props.children}
                 </span>
-            <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen}>
+                <Dialog aria-labelledby="customized-dialog-title" open={this.state.dialogOpen} onClose={() => { this.setState({ dialogOpen: false }) }}>
                 <DialogTitle id="customized-dialog-title">Add Tour</DialogTitle>
                     <DialogContent>
                         <form onSubmit={(event) => {
