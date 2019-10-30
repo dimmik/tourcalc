@@ -34,7 +34,8 @@ export default class TourInfo extends React.Component {
         this.state = {
             tour: props.tour,
             updateTime: props.updateTime,
-            expanded: false
+            expanded: false,
+            showButtons: false
         }
     }
     componentWillReceiveProps(props) {
@@ -60,55 +61,58 @@ export default class TourInfo extends React.Component {
                         {
                     (this.state.updateTime.getHours() + "").padStart(2, '0') + ':' +
                     (this.state.updateTime.getMinutes() + "").padStart(2, '0') + ':' +
-                    (this.state.updateTime.getSeconds() + "").padStart(2, '0')
-                        }]
-                </Grid>
-                    <Grid item>
-                        {
-                            !this.state.expanded
-                                ? <ButtonGroup variant="outlined" size="small" aria-label="small contained button group">
-
-                                    <Button color="primary" onClick={() => { this.setState({ expanded: true }) }}>
-                                        {this.state.tour.isVersion ? 'Version Info' : 'History'}
-                                        </Button>
-                                    
-
-
-                                    {this.state.tour.isVersion
-                                        ? <Button color="secondary" onClick={() => { AppState.refreshMainApp(); }}>
-                                            <Link to={'/tour/' + this.props.tour.versionFor_Id + '/persons'}
-                                                style={{ textDecoration: 'none' }}>Back to Tour</Link>
-                                          </Button>
-                                        : <Button color="secondary" onClick={() => { AppState.refreshMainApp(); }}>
-                                            <Link to='/' style={{ textDecoration: 'none' }}>Tour List</Link>
-                                          </Button>}
-                        </ButtonGroup>
-                        : (
-                            <div>
-                                        <Dialog fullScreen={false} aria-labelledby="customized-dialog-title" open={this.state.expanded}
-                                            onClose={() => { this.setState({expanded: false}) }}>
-                                    <DialogTitle id="customized-dialog-title">Tour <b>'{this.state.tour.name}'</b></DialogTitle>
-                                            <DialogContent>
-                                                <Grid container direction="column" spacing={2}>
-                                                    <Grid item>
-                                                        <ChooseTourVersion tour={this.state.tour} />
-                                                    </Grid>
-                                                </Grid>
-                                    </DialogContent>
-                                    <DialogActions>
-                                        <Button
-                                            color="secondary" size='large' variant='outlined'
-                                            onClick={() => {
-                                                this.setState({ expanded: false })
-                                            }
-                                            }>Close</Button>
-                                    </DialogActions>
-                                </Dialog>
-                            
-                            </div>
-                          )
-                        }
+                            (this.state.updateTime.getSeconds() + "").padStart(2, '0')
+                        }] <b style={{ cursor: "pointer", color:"green" }} onClick={() => { this.setState({ showButtons: !this.state.showButtons }) }}>{this.state.showButtons ? 'less' : 'more'}</b>
                     </Grid>
+                    {   this.state.showButtons ?
+                        <Grid item>
+                            {
+                                !this.state.expanded
+                                    ? <ButtonGroup variant="outlined" size="small" aria-label="small contained button group">
+
+                                        <Button color="primary" onClick={() => { this.setState({ expanded: true }) }}>
+                                            {this.state.tour.isVersion ? 'Version Info' : 'History'}
+                                        </Button>
+
+
+
+                                        {this.state.tour.isVersion
+                                            ? <Button color="secondary" onClick={() => { AppState.refreshMainApp(); }}>
+                                                <Link to={'/tour/' + this.props.tour.versionFor_Id + '/persons'}
+                                                    style={{ textDecoration: 'none' }}>Back to Tour</Link>
+                                            </Button>
+                                            : <Button color="secondary" onClick={() => { AppState.refreshMainApp(); }}>
+                                                <Link to='/' style={{ textDecoration: 'none' }}>Tour List</Link>
+                                            </Button>}
+                                    </ButtonGroup>
+                                    : (
+                                        <div>
+                                            <Dialog fullScreen={false} aria-labelledby="customized-dialog-title" open={this.state.expanded}
+                                                onClose={() => { this.setState({ expanded: false }) }}>
+                                                <DialogTitle id="customized-dialog-title">Tour <b>'{this.state.tour.name}'</b></DialogTitle>
+                                                <DialogContent>
+                                                    <Grid container direction="column" spacing={2}>
+                                                        <Grid item>
+                                                            <ChooseTourVersion tour={this.state.tour} />
+                                                        </Grid>
+                                                    </Grid>
+                                                </DialogContent>
+                                                <DialogActions>
+                                                    <Button
+                                                        color="secondary" size='large' variant='outlined'
+                                                        onClick={() => {
+                                                            this.setState({ expanded: false })
+                                                        }
+                                                        }>Close</Button>
+                                                </DialogActions>
+                                            </Dialog>
+
+                                        </div>
+                                    )
+                            }
+                        </Grid>
+                        : ''
+                    }
                 </Grid>
             </div>
             )
