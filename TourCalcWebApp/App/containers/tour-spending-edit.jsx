@@ -67,7 +67,7 @@ export default class SpendingsForm extends React.Component {
                 <span onClick={() => this.setState({ dialogOpen: true })}>
                     {this.props.children}
                 </span>
-                <Dialog fullScreen={true} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen} onClose={() => { this.setState({ dialogOpen: false }) }}>
+                <Dialog fullScreen={false} aria-labelledby="customized-dialog-title" open={this.state.dialogOpen} onClose={() => { this.setState({ dialogOpen: false }) }}>
                     <DialogTitle id="customized-dialog-title">{this.props.mode == 'edit' ? 'Edit' : 'Add'} Spending</DialogTitle>
                     <DialogContent>
                         <form onSubmit={(event) => { }}>
