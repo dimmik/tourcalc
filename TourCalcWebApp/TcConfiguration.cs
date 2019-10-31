@@ -25,7 +25,7 @@ namespace TourCalcWebApp
         }
         public T GetValue<T>(string name, T defVal)
         {
-            var val = Configuration.GetValue<T>(name);
+            bool isThereValue = Configuration.AsEnumerable().Any(x => x.Key == name);
             var rv = new RequestedConfigValue()
             {
                 IsDefaultProvided = true,
@@ -34,10 +34,14 @@ namespace TourCalcWebApp
                 IsDefaultUsed = false,
                 CalledFrom = GetStackTrace()
             };
-            if (val == null)
+            T val;
+            if (!isThereValue)
             {
                 rv.IsDefaultUsed = true;
                 val = defVal;
+            } else
+            {
+                val = Configuration.GetValue<T>(name);
             }
             RequestedValues[name] = rv;
             return val;
