@@ -61,7 +61,7 @@ namespace TourCalcWebApp.Controllers
 
             var claims = new Claim[]
             {
-                new Claim(ClaimTypes.NameIdentifier, key),
+                new Claim(ClaimTypes.NameIdentifier, scope),
                 new Claim("AuthDataJson", Newtonsoft.Json.JsonConvert.SerializeObject(auth))
             };
             var tokenValidTimeInMinutes = Configuration.GetValue("TokenValidTimeInMinutes", (180 * 60 * 24));
