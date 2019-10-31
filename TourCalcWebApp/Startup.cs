@@ -28,14 +28,15 @@ namespace TourCalcWebApp
     {
         public Startup(IConfiguration configuration)
         {
-            Configuration = configuration;
+            Configuration = new TcConfiguration(configuration);
         }
 
-        public IConfiguration Configuration { get; }
+        public ITcConfiguration Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddSingleton<ITcConfiguration>(Configuration);
             SetupLightDB(services);
             SetupSwaggerDocs(services);
 

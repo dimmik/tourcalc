@@ -23,11 +23,11 @@ namespace TourCalcWebApp.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        private readonly IConfiguration Configuration;
+        private readonly ITcConfiguration Configuration;
         private readonly ITourStorage tourStorage;
 
 
-        public AuthController(IConfiguration config, ITourStorage storage)
+        public AuthController(ITcConfiguration config, ITourStorage storage)
         {
             Configuration = config;
             tourStorage = storage;
@@ -91,6 +91,14 @@ namespace TourCalcWebApp.Controllers
                 ? tours.Select(t => t.Id).ToList()
                 : new string[0].ToList();
             return auth;
+        }
+
+        [HttpGet("config_values")]
+        public Dictionary<string, RequestedConfigValue> GetConfigValues()
+        {
+            var auth = AuthHelper.GetAuthData(User, Configuration);
+            if (!auth.IsMaster) throw HttpException.Forbid("You are not admin");
+            return (Configuration as TcConfiguration)?.RequestedValues ?? new Dictionary<string, RequestedConfigValue>();
         }
 
         private AuthData Authorize(string scope, string accessCode)

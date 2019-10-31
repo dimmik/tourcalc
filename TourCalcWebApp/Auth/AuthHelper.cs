@@ -12,7 +12,7 @@ namespace TourCalcWebApp.Auth
 {
     public static class AuthHelper
     {
-        public static AuthData GetAuthData(ClaimsPrincipal User, IConfiguration config)
+        public static AuthData GetAuthData(ClaimsPrincipal User, ITcConfiguration config)
         {
             var claimsIdentity = User.Identity as ClaimsIdentity;
             var authDataJson = claimsIdentity.FindFirst("AuthDataJson")?.Value;
