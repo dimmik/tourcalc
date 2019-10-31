@@ -14,6 +14,8 @@ import TableFooter from '@material-ui/core/TableFooter';
 import TablePagination from '@material-ui/core/TablePagination';
 import TableRow from '@material-ui/core/TableRow';
 import Button from '@material-ui/core/Button';
+import Grid from '@material-ui/core/Grid';
+import TextField from '@material-ui/core/TextField';
 
 
 export default class TourList extends React.Component {
@@ -71,7 +73,7 @@ export default class TourList extends React.Component {
                                                 : <span />
                                         )
                                 }</TableCell>
-                                <TableCell>#
+                                <TableCell>Clone
                                 </TableCell>
                             </TableRow>
                         </TableHead>
@@ -110,10 +112,16 @@ export default class TourList extends React.Component {
                                                 <Button variant='outlined' onClick={() => { document.getElementById('TourJsonTextArea').value = JSON.stringify(t, null, 2); }}>JSON</Button>
                                             </TableCell>
                                             <TableCell>
-                                                <Button color='secondary' variant='outlined' onClick={
+
+                                                {this.props.authData.type === 'Master' ?
+                                                    <TextField type="text" id={t.id + "tourAccessCode"} label="Access code" required />
+                                                    : <input type="hidden" id={t.id + "tourAccessCode"} value='none'/>
+                                                }
+                                                <TextField type="text" id={t.id + "tourName"} label="New tour name" required />
+                                                <Button color='secondary' variant='outlined' size="small" onClick={
                                                     () => {
                                                         //alert('id: ' + t.id + 'tourAccessCode' + ' val: ' + document.getElementById(t.id + 'tourAccessCode').value);
-                                                        if (document.getElementById(t.id + 'tourAccessCode').value != '') {
+                                                        if (document.getElementById(t.id + 'tourAccessCode').value != '' && document.getElementById(t.id + 'tourName').value) {
                                                             AppState.addTourJson(this, t
                                                                 , document.getElementById(t.id + 'tourAccessCode').value
                                                                 , document.getElementById(t.id + 'tourName').value
@@ -122,16 +130,11 @@ export default class TourList extends React.Component {
                                                                     this.loadTours()
                                                                 })
                                                         } else {
-                                                            alert('Please enter access code')
+                                                            alert('Please enter access code and tour name')
                                                         }
                                                     }
                                                 }>Clone</Button>
 
-                                                    {this.props.authData.type === 'Master' ?
-                                                    <span>Access code:<input type="text" size="4" id={t.id + "tourAccessCode"} /></span>
-                                                    : <span><input type="hidden" id={t.id + "tourAccessCode"} value='none'/></span>
-                                                }
-                                                &nbsp;New tour name: <input type="text" size="16" id={t.id + "tourName"} defaultValue={'Clone ' + t.name} />
                                             </TableCell>
                                   </TableRow>
                                     )
