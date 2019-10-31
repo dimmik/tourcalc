@@ -21,10 +21,10 @@ namespace TourCalcWebApp.Controllers
     public class TourController : ControllerBase
     {
 
-        private readonly IConfiguration Configuration;
+        private readonly ITcConfiguration Configuration;
         private readonly ITourStorage tourStorage;
 
-        public TourController(IConfiguration config, ITourStorage storage)
+        public TourController(ITcConfiguration config, ITourStorage storage)
         {
             Configuration = config;
             tourStorage = storage;
