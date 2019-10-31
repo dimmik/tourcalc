@@ -93,6 +93,14 @@ namespace TourCalcWebApp.Controllers
             return auth;
         }
 
+        [HttpGet("config_values")]
+        public Dictionary<string, RequestedConfigValue> GetConfigValues()
+        {
+            var auth = AuthHelper.GetAuthData(User, Configuration);
+            if (!auth.IsMaster) throw HttpException.Forbid("You are not admin");
+            return (Configuration as TcConfiguration)?.RequestedValues ?? new Dictionary<string, RequestedConfigValue>();
+        }
+
         private AuthData Authorize(string scope, string accessCode)
         {
             AuthData auth = new AuthData();
