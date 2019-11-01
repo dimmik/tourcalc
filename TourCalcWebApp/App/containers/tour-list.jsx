@@ -28,7 +28,7 @@ export default class TourList extends React.Component {
         }
     }
     page = 0
-    rowsPerPage = 5
+    rowsPerPage = 15
 
     code = ""
 
