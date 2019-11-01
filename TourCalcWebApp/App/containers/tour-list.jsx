@@ -158,7 +158,7 @@ export default class TourList extends React.Component {
                                         this.loadTours()
                                     }}
                                     page={this.page} rowsPerPage={this.rowsPerPage}
-                                    rowsPerPageOptions={[5, 10, 25]}
+                                    rowsPerPageOptions={[3, 7, 15, 25, 50]}
                                 />
                                 </TableRow>
                             </TableFooter>
