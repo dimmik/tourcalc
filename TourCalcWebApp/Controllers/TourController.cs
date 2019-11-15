@@ -110,6 +110,7 @@ namespace TourCalcWebApp.Controllers
         /// </summary>
         /// <param name="from">Default 0</param>
         /// <param name="count">Number of tours to return, default 50</param>
+        /// <param name="code">(valid for admin only) code to filter on</param>
         /// <returns>List of tours</returns>
         [HttpGet]
         public TourList GetAllTours([FromQuery] int from = 0, [FromQuery] int count = 50, [FromQuery] string code = "")
@@ -123,6 +124,7 @@ namespace TourCalcWebApp.Controllers
         /// </summary>
         /// <param name="from">Default 0</param>
         /// <param name="count">Number of tours to return, default 50</param>
+        /// <param name="code">(valid for admin only) code to filter on</param>
         /// <returns>List of tours, all with calculated suggestions</returns>
         [HttpGet("all/suggested")]
         public TourList GetAllToursSuggested([FromQuery] int from = 0, [FromQuery] int count = 50, [FromQuery] string code = "")
