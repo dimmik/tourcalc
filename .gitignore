@@ -11,3 +11,5 @@ TourCalcWebApp/wwwroot/assets/
 ConsoleTest/bin/
 ConsoleTest/obj/
 
+TourCalcBlazor/obj/
+TourCalcBlazor/bin/
