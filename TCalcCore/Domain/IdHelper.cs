@@ -6,16 +6,17 @@ namespace TCalc.Domain
 {
     public static class IdHelper
     {
+        private static readonly Random rand = new Random();
         public static string NewId()
         {
             //return Guid.NewGuid().ToString();
-            long ms = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            long ms = DateTimeOffset.Now.ToUnixTimeMilliseconds() * 100 + rand.Next(0, 99);
             int msInt = unchecked((int)ms);
 //            long msr = reverse(ms);
             byte[] bytes = BitConverter.GetBytes(msInt);
-            string b64 = Convert.ToBase64String(bytes).TrimEnd(new[] { '=' }).Replace('+', '*').Replace('/', '$');
+            string result = Convert.ToBase64String(bytes).TrimEnd(new[] { '=' }).Replace('+', '*').Replace('/', '$');
                 //.Substring(0, 9);
-            return b64;
+            return result;
         }
         private static long reverse(long n)
         {
