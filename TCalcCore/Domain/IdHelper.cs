@@ -6,20 +6,16 @@ namespace TCalc.Domain
 {
     public static class IdHelper
     {
-        private static Random rand = new Random();
+        private static readonly Random rand = new Random();
         public static string NewId()
         {
-            //return Guid.NewGuid().ToString();
             long ms = DateTimeOffset.Now.ToUnixTimeMilliseconds() * 100 + rand.Next(0, 100);
             int msInt = unchecked((int)ms);
-//            long msr = reverse(ms);
             byte[] bytes = BitConverter.GetBytes(msInt);
-            // string b64 = Convert.ToBase64String(bytes).TrimEnd(new[] { '=' }).Replace('+', '*').Replace('/', '$');
-            string b64 = Base32Encoding.ToString(bytes).ToLower().TrimEnd(new[] { '=' }).Replace('+', '*').Replace('/', '$');
-            //.Substring(0, 9);
-            return b64;
+            string result = Base32Encoding.ToString(bytes).ToLower().TrimEnd(new[] { '=' }).Replace('+', '*').Replace('/', '$');
+            return result;
         }
-        private static long reverse(long n)
+        private static long Reverse(long n)
         {
             long reverse = 0, rem;
             while (n != 0)
@@ -45,12 +41,12 @@ namespace TCalc.Domain
             byte[] returnArray = new byte[byteCount];
 
             byte curByte = 0, bitsRemaining = 8;
-            int mask = 0, arrayIndex = 0;
+            int arrayIndex = 0;
 
             foreach (char c in input)
             {
                 int cValue = CharToValue(c);
-
+                int mask;
                 if (bitsRemaining > 5)
                 {
                     mask = cValue << (bitsRemaining - 5);
