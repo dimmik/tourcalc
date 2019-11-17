@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -12,15 +10,11 @@ using System;
 using System.IO;
 using TCalc.Storage;
 using TourCalcWebApp.Auth;
-
-using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.Swagger;
 using TourCalcWebApp.Exceptions;
-using Swashbuckle.AspNetCore.SwaggerGen;
-using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic;
 using System.Linq;
-using Swashbuckle.AspNetCore.Filters;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 
 namespace TourCalcWebApp
 {
@@ -41,6 +35,19 @@ namespace TourCalcWebApp
             SetupSwaggerDocs(services);
 
             SetupReact(services);
+            // CORS
+
+            //Add Cors support to the service
+
+            var policy = new CorsPolicy();
+
+            policy.Headers.Add("*");
+            policy.Methods.Add("*");
+            policy.Origins.Add("*");
+            policy.SupportsCredentials = true;
+            services.AddCors(
+                x => x.AddDefaultPolicy(policy)
+            );
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2)
                 .AddJsonOptions(options =>
@@ -49,6 +56,7 @@ namespace TourCalcWebApp
                 });
 
             SetupAuth(services);
+
 
 
         }
@@ -154,6 +162,9 @@ namespace TourCalcWebApp
             app.UseHttpsRedirection();
             app.UseAuthentication();
             app.UseStaticFiles();
+
+            //Use the new policy globally
+            app.UseCors("mypolicy");
 
             app.UseMvc(routes => {
                 routes.MapRoute(
