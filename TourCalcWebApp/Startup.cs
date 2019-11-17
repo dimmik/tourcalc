@@ -46,7 +46,7 @@ namespace TourCalcWebApp
             policy.Origins.Add("*");
             policy.SupportsCredentials = true;
             services.AddCors(
-                x => x.AddDefaultPolicy(policy)
+                x => { x.AddDefaultPolicy(policy); x.AddPolicy("mypolicy", policy); }
             );
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2)
