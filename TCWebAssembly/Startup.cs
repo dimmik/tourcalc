@@ -1,5 +1,7 @@
+using Blazor.Extensions.Storage;
 using Microsoft.AspNetCore.Components.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 using TCWebAssembly.Data;
 
 namespace TCWebAssembly
@@ -8,8 +10,9 @@ namespace TCWebAssembly
     {
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddSingleton(new TourCalcDataService("https://tourcalc.azurewebsites.net"));
-
+            services.AddStorage();
+            services.AddSingleton<BackendUrl>(new BackendUrl { url = "https://tourcalc.azurewebsites.net" });
+            services.AddSingleton<TourCalcDataService>();
         }
 
         public void Configure(IComponentsApplicationBuilder app)

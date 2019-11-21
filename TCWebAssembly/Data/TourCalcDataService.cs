@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json;
+﻿using Blazor.Extensions.Storage;
+using Microsoft.AspNetCore.Components;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,18 +10,31 @@ using TCalc.Domain;
 
 namespace TCWebAssembly.Data
 {
+    public class BackendUrl
+    {
+        public string url { get; set; }
+    }
     public class TourCalcDataService
     {
         private readonly string BackendUrl;
-        private string Token = "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9" +
-            ".eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImFkbWluIiwiQXV0aERhdGFKc29uIjoie1wiVHlwZ" +
-            "VwiOlwiTWFzdGVyXCIsXCJJc01hc3RlclwiOnRydWUsXCJBY2Nlc3NDb2RlTUQ1XCI6XCJcIixcIlRvdXJJZHNcIjpbXX0iLCJleHAiOjE1ODgxNTYxMjksImlzcyI6IlRvdXJDYWx" +
-            "jIiwiYXVkIjoiVXNlcnMifQ.HPKvlwBFDW6fx3egBOimbB7lnzUthoCAi2ebtoe2G_B7So6H_6BT2tePD98Kueasv68WaG9empSEUaJ6e1XAJA";//= null;
-        public TourCalcDataService(string url)
+        private string Token = null;
+        private readonly object tokengetlock = new object();
+        public async Task InitToken()
         {
-            BackendUrl = url;
+            if (Token == null)
+            {
+                Token = await LocalStorage.GetItem<string>("__tc_token");
+            }
         }
-        public bool IsAuthorized => (Token != null);
+        public TourCalcDataService(BackendUrl bu, LocalStorage st)
+        {
+            BackendUrl = bu.url;
+            LocalStorage = st;
+        }
+        
+        protected LocalStorage LocalStorage { get; set; }
+
+        public bool IsAuthorized => Token != null;
         public async Task Login(string scope, string code)
         {
             using (var client = GetHttpClient())
@@ -28,6 +43,7 @@ namespace TCWebAssembly.Data
                 var response = await client.GetAsync(url);
                 Token = await response.Content.ReadAsStringAsync();
             }
+            await LocalStorage.SetItem<string>("__tc_token", Token);
         }
         private HttpClient GetHttpClient()
         {
