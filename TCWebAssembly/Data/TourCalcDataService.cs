@@ -17,14 +17,16 @@ namespace TCWebAssembly.Data
     public class TourCalcDataService
     {
         private readonly string BackendUrl;
+        public bool Initialized = false;
         private string Token = null;
         private readonly object tokengetlock = new object();
-        public async Task InitToken()
+        public async Task Init()
         {
             if (Token == null)
             {
                 Token = await LocalStorage.GetItem<string>("__tc_token");
             }
+            Initialized = true;
         }
         public TourCalcDataService(BackendUrl bu, LocalStorage st)
         {

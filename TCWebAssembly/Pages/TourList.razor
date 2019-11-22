@@ -6,67 +6,71 @@
 @inject TourCalcDataService TcService
 
 <h1>List of Tours</h1>
-
-@if (TcService.IsAuthorized)
-{
-@if (tlist == null)
-{
-    <p><em>Tours Loading...</em></p>
-}
-else
-{
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Temp. (C)</th>
-                <th>Temp. (F)</th>
-                <th>Summary</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var tour in tlist.Tours)
+@if (!TcService.Initialized){
+    <p><em>Service Initializing</em></p>
+} else {
+            @if (TcService.IsAuthorized)
             {
-                <tr>
-                    <td><NavLink href="@{"tour/" + tour.GUID}">@tour.Name</NavLink>  </td>
-                    <td>@tour.Spendings.Where(s => s.Planned).Count()</td>
-                    <td>.</td>
-                    <td>.</td>
-                </tr>
-                        }
-        </tbody>
-    </table>
-                        }
-                        } else
+            @if (tlist == null)
+            {
+                <p><em>Tours Loading...</em></p>
+            }
+            else
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Temp. (C)</th>
+                            <th>Temp. (F)</th>
+                            <th>Summary</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tour in tlist.Tours)
                         {
-                            if (!isLoggingIn)
-                            {
-<p>
-    <em>Login</em>
-    <EditForm Model="@loginModel" OnValidSubmit="@OnLogin">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
+                            <tr>
+                                <td><NavLink href="@{"tour/" + tour.GUID}">@tour.Name</NavLink>  </td>
+                                <td>@tour.Spendings.Where(s => s.Planned).Count()</td>
+                                <td>.</td>
+                                <td>.</td>
+                            </tr>
+                                    }
+                    </tbody>
+                </table>
+                                    }
+                                    } else
+                                    {
+                                        if (!isLoggingIn)
+                                        {
+            <p>
+                <em>Login</em>
+                <EditForm Model="@loginModel" OnValidSubmit="@OnLogin">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
 
-        <InputText id="scope" @bind-Value="loginModel.Scope" />
-        <InputText id="code" @bind-Value="loginModel.Code" />
+                    <InputText id="scope" @bind-Value="loginModel.Scope" />
+                    <InputText id="code" @bind-Value="loginModel.Code" />
 
-        <button type="submit">Submit</button>
-    </EditForm>
+                    <button type="submit">Submit</button>
+                </EditForm>
 
 
-</p>
-                            }
-                            else
-                            {
-                                <p>Logging in... @{isa();} now</p>
-                            }
-                        }
-
+            </p>
+                                        }
+                                        else
+                                        {
+                                            <p>Logging in... @{isa();} now</p>
+                                        }
+                                    }
+}
 @code {
     TCalc.Domain.TourList tlist;
+    bool initialized = false;
     protected override async Task OnInitializedAsync()
     {
-        await TcService.InitToken();
+        await TcService.Init();
+        StateHasChanged();
         await LoadTours();
     }
     private string isa()
