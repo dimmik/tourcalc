@@ -14,7 +14,7 @@ RUN dotnet build "TCWebAssembly.csproj" -c Release -o /app
 FROM build AS publish
 RUN dotnet publish "TCWebAssembly.csproj" -c Release -o /app
 
-WORKDIR /app
+WORKDIR /app/TCWebAssembly
 RUN ls -la 
 RUN apt-get update
 RUN apt-get install zip unzip
