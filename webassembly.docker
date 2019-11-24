@@ -18,7 +18,7 @@ WORKDIR /app/TCWebAssembly
 RUN ls -la 
 RUN apt-get update
 RUN apt-get install zip unzip
-RUN zip -r dist.zip dist
+RUN zip -r /app/dist.zip dist
 
 FROM base AS final
 WORKDIR /app
