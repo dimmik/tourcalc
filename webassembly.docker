@@ -13,10 +13,10 @@ RUN dotnet build "TCWebAssembly.csproj" -c Release -o /app
 
 FROM build AS publish
 RUN dotnet publish "TCWebAssembly.csproj" -c Release -o /app
-RUN ls -la
+RUN ls -la wwwroot/
 RUN apt-get update
 RUN apt-get install zip unzip
-RUN zip -r dist.zip -i ./dist
+RUN zip -r dist.zip ./wwwroot/dist
 
 FROM base AS final
 WORKDIR /app
