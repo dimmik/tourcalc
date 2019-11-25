@@ -161,7 +161,11 @@ namespace TourCalcWebApp
 
             app.UseHttpsRedirection();
             app.UseAuthentication();
-            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                ServeUnknownFileTypes = true
+                
+            });
 
             //Use the new policy globally
             app.UseCors("mypolicy");

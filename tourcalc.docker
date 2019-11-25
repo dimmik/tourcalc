@@ -35,14 +35,14 @@ RUN npm --version
 FROM buildtc as publishtc
 RUN dotnet publish "TourCalcWebApp.csproj" -c Release -o /app
 COPY --from=publishwa /tcwaui /app/wwwroot/tcwaui
-RUN apt-get update
-RUN apt-get install zip unzip
-WORKDIR /app
-RUN zip -9 -r /app.zip *
+#RUN apt-get update
+#RUN apt-get install zip unzip
+#WORKDIR /app
+#RUN zip -9 -r /app.zip *
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publishtc /app .
-COPY --from=publishtc /app.zip /app.zip
+#COPY --from=publishtc /app.zip /app.zip
 RUN ls -R /app
 ENTRYPOINT ["dotnet", "TCWebAssembly.dll"]

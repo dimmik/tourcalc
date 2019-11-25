@@ -3,7 +3,11 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <RazorLangVersion>3.0</RazorLangVersion>
-  </PropertyGroup>
+	<RestoreAdditionalProjectSources>
+      https://dotnet.myget.org/F/dotnet-core/api/v3/index.json;
+      https://dotnet.myget.org/f/blazor-dev/api/v3/index.json;
+    </RestoreAdditionalProjectSources>  
+	</PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Blazor.Extensions.Storage" Version="1.0.0" />
