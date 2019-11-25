@@ -1,0 +1,43 @@
+FROM mcr.microsoft.com/dotnet/core/aspnet:2.2 AS base
+WORKDIR /app
+EXPOSE 80
+EXPOSE 443
+
+FROM mcr.microsoft.com/dotnet/core/sdk:3.1 AS buildwa
+WORKDIR /src
+COPY ["TCWebAssembly/TCWebAssembly.csproj", "TCWebAssembly/"]
+RUN dotnet restore "TCWebAssembly/TCWebAssembly.csproj"
+COPY . .
+WORKDIR "/src/TCWebAssembly"
+#RUN dotnet build "TCWebAssembly.csproj" -c Release -o /app -v m
+
+FROM buildwa AS publishwa
+RUN dotnet publish "TCWebAssembly.csproj" -c Release -o /app -v m
+WORKDIR /app/TCWebAssembly
+RUN ls -la 
+#RUN apt-get update
+#RUN apt-get install zip unzip
+RUN cp -R dist /tcwaui
+RUN ls -la /tcwaui
+
+FROM mcr.microsoft.com/dotnet/core/sdk:2.2 AS buildtc
+WORKDIR /src
+COPY ["TourCalcWebApp/TourCalcWebApp.csproj", "TourCalcWebApp/"]
+RUN dotnet restore "TourCalcWebApp/TourCalcWebApp.csproj"
+COPY . .
+WORKDIR "/src/TourCalcWebApp"
+RUN apt-get update -y
+RUN curl -sL https://deb.nodesource.com/setup_10.x | bash --debug
+RUN apt-get install nodejs -yq
+RUN npm --version
+#RUN dotnet build "TourCalcWebApp.csproj" -c Release -o /app
+
+FROM buildtc as publishtc
+RUN dotnet publish "TourCalcWebApp.csproj" -c Release -o /app
+COPY --from=publishwa /tcwaui /app/wwwroot/tcwaui
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publishtc /app .
+RUN ls -R /app
+ENTRYPOINT ["dotnet", "TCWebAssembly.dll"]
