@@ -1,0 +1,2 @@
+C# (omnisharp and others) -- https://marketplace.visualstudio.com/items?itemName=ms-vscode.csharp
+vscode-solution-explorer -- https://marketplace.visualstudio.com/items?itemName=fernandoescolar.vscode-solution-explorer&ssr=false
