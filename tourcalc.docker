@@ -37,7 +37,8 @@ RUN dotnet publish "TourCalcWebApp.csproj" -c Release -o /app
 COPY --from=publishwa /tcwaui /app/wwwroot/tcwaui
 RUN apt-get update
 RUN apt-get install zip unzip
-RUN zip -r /app.zip /app
+WORKDIR /app
+RUN zip -9 -r /app.zip *
 
 FROM base AS final
 WORKDIR /app
