@@ -1,3 +1,5 @@
+ARG BUILD_VER=default
+
 FROM mcr.microsoft.com/dotnet/core/aspnet:2.2 AS base
 WORKDIR /app
 EXPOSE 80
@@ -33,7 +35,8 @@ RUN npm --version
 #RUN dotnet build "TourCalcWebApp.csproj" -c Release -o /app
 
 FROM buildtc as publishtc
-RUN dotnet publish "TourCalcWebApp.csproj" -c Release -o /app
+
+RUN dotnet publish "TourCalcWebApp.csproj" -c Release -o /app --version-suffix ${BUILD_VER} 
 COPY --from=publishwa /tcwaui /app/wwwroot/tcwaui
 #RUN apt-get update
 #RUN apt-get install zip unzip
