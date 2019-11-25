@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29509.3
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -7,8 +7,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TourCalcWebApp", "TourCalcWebApp\TourCalcWebApp.csproj", "{2F69913E-BEEA-4E88-B462-31FBEE87BBEC}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleTest", "ConsoleTest\ConsoleTest.csproj", "{13351684-06B9-4731-BE9B-CBBDE60A1F47}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TourCalcBlazor", "TourCalcBlazor\TourCalcBlazor.csproj", "{2C67E54C-A76E-4B04-8331-224BC6C0431A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TCWebAssembly", "TCWebAssembly\TCWebAssembly.csproj", "{0DA5B8D2-7BBB-4C07-9E1A-D53CCD877F26}"
 EndProject
@@ -30,10 +28,6 @@ Global
 		{13351684-06B9-4731-BE9B-CBBDE60A1F47}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{13351684-06B9-4731-BE9B-CBBDE60A1F47}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{13351684-06B9-4731-BE9B-CBBDE60A1F47}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2C67E54C-A76E-4B04-8331-224BC6C0431A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2C67E54C-A76E-4B04-8331-224BC6C0431A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2C67E54C-A76E-4B04-8331-224BC6C0431A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2C67E54C-A76E-4B04-8331-224BC6C0431A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0DA5B8D2-7BBB-4C07-9E1A-D53CCD877F26}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0DA5B8D2-7BBB-4C07-9E1A-D53CCD877F26}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0DA5B8D2-7BBB-4C07-9E1A-D53CCD877F26}.Release|Any CPU.ActiveCfg = Release|Any CPU
