@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Text;
 using TCalc.Domain;
-using TCalc.Storage.LiteDB;
 
-namespace TCalc.Storage
+namespace TCalc.Storage.LiteDB
 {
     public class LiteDbTourStorage : ITourStorage
     {

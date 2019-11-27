@@ -15,6 +15,8 @@ using TourCalcWebApp.Exceptions;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using TCalc.Storage.LiteDB;
+using TCalc.Storage.MongoDB;
 
 namespace TourCalcWebApp
 {
@@ -31,7 +33,8 @@ namespace TourCalcWebApp
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddSingleton<ITcConfiguration>(Configuration);
-            SetupLightDB(services);
+            //SetupLightDB(services);
+            services.AddSingleton<ITourStorage>(new MongoDbTourStorage());
             SetupSwaggerDocs(services);
 
             SetupReact(services);

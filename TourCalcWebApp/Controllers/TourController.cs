@@ -11,6 +11,8 @@ using System.Security.Claims;
 using TCalc.Logic;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Exceptions;
+using TCalc.Storage.LiteDB;
+using System.Linq.Expressions;
 
 namespace TourCalcWebApp.Controllers
 {
@@ -473,11 +475,23 @@ namespace TourCalcWebApp.Controllers
         {
             
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
-
+            Expression<Func<Tour, bool>> predicate;
+            var cmd5 = AuthHelper.CreateMD5(code);
+            if (authData.IsMaster)
+            {
+                if (string.IsNullOrWhiteSpace(code))
+                {
+                    predicate = t => true;
+                } else
+                {
+                    predicate = (t) => cmd5 == t.AccessCodeMD5;
+                }
+            } else
+            {
+                predicate = t => (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5);
+            }
             var tours = tourStorage.GetTours(
-                t => authData.IsMaster
-                        ? true && (string.IsNullOrWhiteSpace(code) ? true : AuthHelper.CreateMD5(code) == t.AccessCodeMD5) // get everything or for given code
-                        : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5)
+                predicate
                 ,Configuration.GetValue("ReturnVersionsInAllTours", false)
                 ,from
                 ,count
