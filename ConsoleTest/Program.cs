@@ -6,8 +6,6 @@ using System.Net.Http.Headers;
 using System.Text;
 using Newtonsoft.Json;
 using TCalc.Domain;
-using TCalc.Logic;
-using TCalc.Storage.MongoDB;
 
 namespace ConsoleTest
 {
@@ -15,8 +13,8 @@ namespace ConsoleTest
     {
         static void Main(string[] args)
         {
-            var mdb = new MongoDbTourStorage();
-            mdb.AddTour(new Tour());
+            //var mdb = new MongoDbTourStorage();
+            //mdb.AddTour(new Tour());
         }
         static void Mainx(string[] args)
         {

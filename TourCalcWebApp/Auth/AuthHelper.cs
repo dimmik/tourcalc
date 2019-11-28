@@ -29,6 +29,11 @@ namespace TourCalcWebApp.Auth
                     : new AuthData(); // default no-access
             }
 
+            if (string.IsNullOrWhiteSpace(authData.AccessCodeMD5))
+            {
+                authData.AccessCodeMD5 = "WrongMd5";
+            }
+
             return authData;
         }
         public static string CreateMD5(string input)
