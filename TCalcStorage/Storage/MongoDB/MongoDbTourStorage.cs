@@ -4,6 +4,8 @@ using System.Linq.Expressions;
 using System.Text;
 using MongoDB.Driver;
 using TCalc.Domain;
+using System.Linq;
+using System.Web;
 
 namespace TCalc.Storage.MongoDB
 {
@@ -11,9 +13,12 @@ namespace TCalc.Storage.MongoDB
     {
         private readonly MongoClient client;
 
-        public MongoDbTourStorage()
+        public MongoDbTourStorage(string url, string username, string password)
         {
-            client = new MongoClient("mongodb+srv://mongo:aAdmin001@dimmik-mongo-4su6a.azure.mongodb.net?retryWrites=true&w=majority");
+//            client = new MongoClient($"mongodb+srv://mongo:aAdmin001@dimmik-mongo-4su6a.azure.mongodb.net");
+            client = new MongoClient($"mongodb+srv://{HttpUtility.UrlEncode(username)}:{HttpUtility.UrlEncode(password)}@{url}?connect=replicaSet");
+            //check connectivity
+            GetTour("none");
         }
 
         public void AddTour(Tour tour)
@@ -42,9 +47,21 @@ namespace TCalc.Storage.MongoDB
         {
             var db = client.GetDatabase("tour");
             var coll = db.GetCollection<Tour>("Tours");
-            var allTours = coll.Find(predicate).SortByDescending(t => t.DateCreated);
-            totalCount = (int)allTours.CountDocuments();
-            var tours = allTours.Skip(from).Limit(count).ToList();
+            Expression<Func<Tour, bool>> isVersion;
+            if (includeVersions)
+            {
+                isVersion = t => true;
+            } else
+            {
+                isVersion = t => !t.IsVersion;
+            }
+            var allTours = coll
+                .AsQueryable()
+                .Where(isVersion)
+                .Where(predicate)
+                .OrderByDescending(t => t.DateCreated);
+            totalCount = (int)allTours.Count();
+            var tours = allTours.Skip(from).Take(count).ToList();
             return tours;
         }
 
@@ -53,12 +70,14 @@ namespace TCalc.Storage.MongoDB
             var db = client.GetDatabase("tour");
             var coll = db.GetCollection<Tour>("Tours");
             Expression<Func<Tour, bool>> vpr = (t) => (t.IsVersion && t.VersionFor_Id == tourId);
-            predicate = predicate.Update(vpr, new[] { Expression.Parameter(typeof(Boolean)) });
 
-            var allVersions = coll.Find(predicate)
-                    .SortByDescending(t => t.DateVersioned);
-            totalCount = (int)allVersions.CountDocuments();
-            var versions = allVersions.Skip(from).Limit(count).ToList();
+            var allVersions = coll.AsQueryable<Tour>()
+                .Where(predicate)
+                .Where(vpr)
+                .OrderByDescending(t => t.DateVersioned);
+
+            totalCount = (int)allVersions.Count();
+            var versions = allVersions.Skip(from).Take(count).ToList();
             return versions;
         }
 

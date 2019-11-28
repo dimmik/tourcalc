@@ -3,19 +3,16 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Text;
 using TCalc.Domain;
+using TCalc.Storage;
 
-namespace TCalc.Storage.LiteDB
+namespace TCalcStorage.Storage.LiteDB
 {
     public class LiteDbTourStorage : ITourStorage
     {
-        private readonly bool CreateVersions = false;
-        private readonly bool IsVersionEditable = false;
         private readonly string dbPath;
-        public LiteDbTourStorage(string path, bool createVersions, bool isVersionEditable)
+        public LiteDbTourStorage(string path)
         {
             dbPath = path;
-            CreateVersions = createVersions;
-            IsVersionEditable = isVersionEditable;
         }
 
         public void AddTour(Tour tour)
@@ -47,12 +44,7 @@ namespace TCalc.Storage.LiteDB
 
         public void StoreTour(Tour tour)
         {
-            if (tour.IsVersion && !IsVersionEditable) throw new TourStorageException("Versions are not editable");
-            tour.StoreToLiteDB(path: dbPath, keepVersion: CreateVersions);
+            tour.StoreToLiteDB(path: dbPath);
         }
-    }
-    public class TourStorageException : Exception
-    {
-        public TourStorageException(string msg) : base(msg) { }
     }
 }

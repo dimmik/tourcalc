@@ -15,8 +15,9 @@ using TourCalcWebApp.Exceptions;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Cors.Infrastructure;
-using TCalc.Storage.LiteDB;
 using TCalc.Storage.MongoDB;
+using TCalcStorage.Storage.LiteDB;
+using TourCalcWebApp.Storage;
 
 namespace TourCalcWebApp
 {
@@ -34,7 +35,7 @@ namespace TourCalcWebApp
         {
             services.AddSingleton<ITcConfiguration>(Configuration);
             //SetupLightDB(services);
-            services.AddSingleton<ITourStorage>(new MongoDbTourStorage());
+            services.AddSingleton<ITourStorage, TourCalcStorage>();
             SetupSwaggerDocs(services);
 
             SetupReact(services);
@@ -89,7 +90,7 @@ namespace TourCalcWebApp
             });
         }
 
-        private void SetupLightDB(IServiceCollection services)
+        /*private void SetupLightDB(IServiceCollection services)
         {
             var rootFolder = Configuration.GetValue("DatabaseRootFolder", Path.DirectorySeparatorChar == '\\' ? @"d:\home\" : "/home/");
             var dbPath = $"{rootFolder}{Configuration.GetValue<string>("DatabaseRelativePath", $@"Tour.db")}";
@@ -99,7 +100,7 @@ namespace TourCalcWebApp
             ITourStorage tourStorage = new LiteDbTourStorage(dbPath, createVersions, isVersionEditable);
 
             services.AddSingleton<ITourStorage>(tourStorage);
-        }
+        }*/
 
         private static void SetupReact(IServiceCollection services)
         {
