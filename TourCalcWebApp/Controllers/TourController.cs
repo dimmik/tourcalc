@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using TCalc.Domain;
 using TCalc.Storage;
-using LiteDB;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 using TCalc.Logic;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Exceptions;
+using System.Linq.Expressions;
+using TCalcStorage.Storage.LiteDB;
 
 namespace TourCalcWebApp.Controllers
 {
@@ -71,10 +70,16 @@ namespace TourCalcWebApp.Controllers
         public TourList GetTourVersions(string tourid, [FromQuery] int from = 0, [FromQuery] int count = 50)
         {
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
+            Expression<Func<Tour, bool>> predicate;
+            if (authData.IsMaster)
+            {
+                predicate = t => true;
+            } else
+            {
+                predicate = t => (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5);
+            }
             var tours = tourStorage.GetTourVersions(
-                t => authData.IsMaster
-                        ? true // get everything
-                        : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5)
+                predicate
                 , tourid
                 , from
                 , count
@@ -425,13 +430,7 @@ namespace TourCalcWebApp.Controllers
 
         private void TourStorage_StoreTour(Tour tour)
         {
-            try
-            {
-                tourStorage.StoreTour(tour);
-            } catch (TourStorageException e)
-            {
-                throw HttpException.Forbid(e.Message);
-            }
+             tourStorage.StoreTour(tour);
         }
 
         /// <summary>
@@ -473,11 +472,23 @@ namespace TourCalcWebApp.Controllers
         {
             
             AuthData authData = AuthHelper.GetAuthData(User, Configuration);
-
+            Expression<Func<Tour, bool>> predicate;
+            var cmd5 = AuthHelper.CreateMD5(code);
+            if (authData.IsMaster)
+            {
+                if (string.IsNullOrWhiteSpace(code))
+                {
+                    predicate = t => true;
+                } else
+                {
+                    predicate = (t) => cmd5 == t.AccessCodeMD5;
+                }
+            } else
+            {
+                predicate = t => (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5);
+            }
             var tours = tourStorage.GetTours(
-                t => authData.IsMaster
-                        ? true && (string.IsNullOrWhiteSpace(code) ? true : AuthHelper.CreateMD5(code) == t.AccessCodeMD5) // get everything or for given code
-                        : (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5)
+                predicate
                 ,Configuration.GetValue("ReturnVersionsInAllTours", false)
                 ,from
                 ,count

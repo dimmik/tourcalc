@@ -7,6 +7,7 @@ using System.Text;
 using Newtonsoft.Json;
 using TCalc.Domain;
 using TCalc.Logic;
+using TCalc.Storage.MongoDB;
 
 namespace ConsoleTest
 {
@@ -14,10 +15,8 @@ namespace ConsoleTest
     {
         static void Main(string[] args)
         {
-            var tourJson = File.ReadAllText(@"c:\tmp\testtour.json");
-            var tour = JsonConvert.DeserializeObject<Tour>(tourJson);
-            var calc = new TourCalculator(tour);
-            calc.SuggestFinalPayments();
+            var mdb = new MongoDbTourStorage();
+            mdb.AddTour(new Tour());
         }
         static void Mainx(string[] args)
         {

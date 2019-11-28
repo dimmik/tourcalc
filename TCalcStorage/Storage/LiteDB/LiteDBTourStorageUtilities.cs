@@ -8,7 +8,7 @@ using TCalc.Domain;
 using LiteDB;
 using System.Linq.Expressions;
 
-namespace TCalc.Storage.LiteDB
+namespace TCalcStorage.Storage.LiteDB
 {
     public static class LiteDBTourStorageUtilities
     {
@@ -66,26 +66,8 @@ namespace TCalc.Storage.LiteDB
 
 
         // Using one .db file for each Tour (one collection per tour)
-        public static void StoreToLiteDB (this Tour tour, string path, bool keepVersion)
+        public static void StoreToLiteDB (this Tour tour, string path)
         {
-            tour.StripCalculations();
-            if (keepVersion && !tour.IsVersion) // do not version version
-            {
-                var hTour = LoadFromLiteDBbyId(path, tour.Id);
-                hTour.Id = Guid.NewGuid().ToString();
-                hTour.IsVersion = true;
-                hTour.DateVersioned = DateTime.Now;
-                hTour.VersionFor_Id = tour.Id;
-                hTour.VersionComment = tour.InternalVersionComment ?? new Func<string>(() => {
-                    if (hTour.Persons.Count() > tour.Persons.Count) return $"P '{ hTour.Persons.Except(tour.Persons).Last()?.Name ?? "--" }' deleted";
-                    if (hTour.Persons.Count() < tour.Persons.Count) return $"P '{ tour.Persons.Last()?.Name ?? "--" }' added";
-                    if (hTour.Spendings.Count() < tour.Spendings.Count) return $"S '{tour.Spendings.Last()?.Description ?? "--" }' added";
-                    if (hTour.Spendings.Count() > tour.Spendings.Count) return $"S '{hTour.Spendings.Except(tour.Spendings).Last()?.Description ?? "--" }' deleted";
-                    return "Names or numbers changed";
-                    })();
-                //hTour.Name = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} {tour.Name}";
-                UpsertTour(hTour, path);
-            }
             UpsertTour(tour, path);
         }
 
