@@ -167,6 +167,18 @@ export default class TourList extends React.Component {
                     <hr />
                     Tour JSON:
                     <textarea id="TourJsonTextArea" style={{ width: "100%" }} rows="7" defaultValue="Here will be tour JSON"/>
+                    <Button color='secondary' variant='outlined' size="small" onClick={
+                                                    () => {
+                                                        //alert('id: ' + t.id + 'tourAccessCode' + ' val: ' + document.getElementById(t.id + 'tourAccessCode').value);
+                                                            AppState.addTourJson(this, JSON.parse(document.getElementById('TourJsonTextArea').value)
+                                                                , 'մուտքի_կոդ'
+                                                                , 'New Tour'
+                                                            )
+                                                                .then(() => {
+                                                                    this.loadTours()
+                                                                })
+                                                    }
+                                                }>Create</Button>
                 </div>
                 )
         }
