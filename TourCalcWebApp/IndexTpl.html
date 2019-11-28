@@ -20,7 +20,7 @@
 <meta name='msapplication-TileColor' content='#ffffff'>
 <meta name='msapplication-TileImage' content='/ms-icon-144x144.png'>
 <meta name='theme-color' content='#ffffff'>
-<!-- Version: _ver_ -->
+<!-- Version: #{Build.BuildNumber}# -->
 <!--style>
 @media screen and (min-width: 960px) {
   body { background-color: green; }
@@ -34,13 +34,13 @@
   body { background-color: yellow; }
 }
 </style-->
-    <title>Tourcalc (v _ver_)</title>
+    <title>Tourcalc (v #{Build.BuildNumber}#)</title>
 </head>
 <body width="100%">
     <div id='content'>
     </div>
 <br/>
-<span style='font-size: xx-small'>ver: #{Build.BuildNumber}# ( #{Build.SourceBranch}# "#{Build.SourceVersionMessage}#" )  <!--[_now_] built: #{Build.SourceBranch}#:#{Build.SourceVersion}#:#{Build.Reason}#--></span>
+<span style='font-size: xx-small'>v-#{Build.BuildNumber}# ( #{Build.SourceBranch}# "#{Build.SourceVersionMessage}#" )  <!--[_now_] built: #{Build.SourceBranch}#:#{Build.SourceVersion}#:#{Build.Reason}#--></span>
     <script type='text/javascript' src='/assets/bundle.js?unic=_md5_' 
         charset="utf-8"></script>
 </body>
