@@ -40,8 +40,8 @@ namespace TourCalcWebApp.Controllers
                     var md5 = AuthHelper.CreateMD5(contentStream);
                     index = index.Replace("_md5_", $"{md5}");
                 }
-                var ver = Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
-                index = index.Replace("_ver_", $"{ver}");
+                //var ver = Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
+                //index = index.Replace("_ver_", $"{ver}");
             }
             catch (Exception /*e*/)
             {
