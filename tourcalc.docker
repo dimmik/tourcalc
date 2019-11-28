@@ -44,6 +44,6 @@ COPY --from=publishwa /tcwaui /app/wwwroot/tcwaui
 FROM base AS final
 WORKDIR /app
 COPY --from=publishtc /app .
-RUN chmod -R a+w /app
+#RUN chmod -R a+w /app
 RUN ls -Rla /app
 ENTRYPOINT ["dotnet", "TCWebAssembly.dll"]
