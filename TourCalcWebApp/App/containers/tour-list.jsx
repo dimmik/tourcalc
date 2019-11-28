@@ -51,7 +51,7 @@ export default class TourList extends React.Component {
                             <TableRow>
                                 <TableCell>Tours
                                 </TableCell>
-                                <TableCell onClick={() => { /*alert('will refresh'); AppState.refreshMainApp();*/ }}>Mode: {this.props.authData.type}
+                                <TableCell onClick={() => { /*alert('will refresh'); AppState.refreshMainApp();*/ }}>Mode: {this.props.authData.type}&nbsp;<Link to="/login">change</Link>
                                     {this.props.authData.type === 'Master'
                                         ? <div>
                                             <input type="text" defaultValue={this.code} onChange={(e) => { this.code = e.target.value }} />

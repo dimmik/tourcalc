@@ -48,7 +48,14 @@ export default class TourUI extends React.Component {
         } else {
             if (!this.state.authData.isMaster
                 && this.state.authData.tourIds.indexOf(this.props.tourid) == -1) { // no such tour for credentials
-                return (<TourRequestAccessCode app={this} />)
+                //return (<TourRequestAccessCode app={this} />)
+                //alert("authdata: " + JSON.stringify(this.state.authData));
+                if (this.state.authData.type == "AccessCode") { // just wrong access code, or tour is in another code
+                    return <Redirect to="/" />
+                } else {
+                    return (<TourRequestAccessCode app={this} />)
+                }
+
             } else {
                 return (<TourTable tourid={this.props.tourid} />)
             }
@@ -101,6 +108,11 @@ class TourTable extends React.Component {
         if (!this.state.isTourLoaded) {
             return <div>Tour {this.props.tourid} loading...</div>
         } else {
+
+            if (this.state.tour == null) { // loaded, but null (no such tour)
+                return <Redirect to="/"/>
+            }
+
             document.title = "Tourcalc: " + this.state.tour.name;
 
             return (

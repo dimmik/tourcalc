@@ -46,6 +46,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TCalcCore\TCalcCore.csproj" />
+    <ProjectReference Include="..\TCalcStorage\TCalcStorage.csproj" />
   </ItemGroup>
 
   <ItemGroup>
