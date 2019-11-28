@@ -37,6 +37,10 @@ export default class AppState {
                 //alert('url: ' + url + ' res: ' + JSON.stringify(result, null, 2));
                 //alert('url: ' + url + ' res: ' + result);
                 Cookies.set('__tourcalc_token', result, { expires: 180 })
+                
+            },
+            (error) => {
+                alert("Cannot login: " + error);
             })
             .then((result) => { AppState.checkWhoAmI(comp) })
     }
