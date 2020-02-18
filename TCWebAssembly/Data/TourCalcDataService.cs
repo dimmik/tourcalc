@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using TCalc.Domain;
+using TCalc.Logic;
 
 namespace TCWebAssembly.Data
 {
@@ -18,13 +19,19 @@ namespace TCWebAssembly.Data
     {
         private readonly string BackendUrl;
         public bool Initialized = false;
+        const string TokenStorageKey = "__tc_token";
         private string Token = null;
-        private readonly object tokengetlock = new object();
+        private readonly object TokenGetlock = new object();
+
+        private TourList TourList;
+        private Tour CurrentTour;
+
+
         public async Task Init()
         {
             if (Token == null)
             {
-                Token = await LocalStorage.GetItem<string>("__tc_token");
+                Token = await LocalStorage.GetItem<string>(TokenStorageKey);
             }
             Initialized = true;
         }
@@ -45,7 +52,7 @@ namespace TCWebAssembly.Data
                 var response = await client.GetAsync(url);
                 Token = await response.Content.ReadAsStringAsync();
             }
-            await LocalStorage.SetItem<string>("__tc_token", Token);
+            await LocalStorage.SetItem<string>(TokenStorageKey, Token);
         }
         private HttpClient GetHttpClient()
         {
@@ -54,7 +61,7 @@ namespace TCWebAssembly.Data
             c.DefaultRequestHeaders.Add("Authorization", $"Bearer {Token}");
             return c;
         }
-        public async Task<TourList> GetTourList()
+        private async Task RefreshTours()
         {
             using (var client = GetHttpClient())
             {
@@ -62,8 +69,40 @@ namespace TCWebAssembly.Data
                 var response = await client.GetAsync(url);
                 var json = await response.Content.ReadAsStringAsync();
                 var tours = JsonConvert.DeserializeObject<TourList>(json);
-                return tours;
+                TourList = tours;
             }
+
+        }
+        public async Task<TourList> GetTourList(bool refresh = false)
+        {
+            if (TourList == null || refresh)
+            {
+                await RefreshTours();
+            }
+            var ts = TourList.Tours.Select(t => new TourCalculator(t).SuggestFinalPayments());
+            TourList.Tours = ts;
+            return TourList;
+        }
+        
+        private async Task RefreshTour(string id)
+        {
+            using (var client = GetHttpClient())
+            {
+                var url = $"{BackendUrl}/api/tour/{id}";
+                var response = await client.GetAsync(url);
+                var json = await response.Content.ReadAsStringAsync();
+                var tour = JsonConvert.DeserializeObject<Tour>(json);
+                CurrentTour = tour;
+            }
+
+        }
+        public async Task<Tour> GetTour(string id, bool refresh = false)
+        {
+            if (CurrentTour == null || CurrentTour.Id != id || refresh)
+            {
+                await RefreshTour(id);
+            }
+            return CurrentTour;
         }
     }
 }

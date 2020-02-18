@@ -11,7 +11,7 @@
 } else {
             @if (TcService.IsAuthorized)
             {
-            @if (tlist == null)
+            @if (isTourListLoading)
             {
                 <p><em>Tours Loading...</em></p>
             }
@@ -31,7 +31,7 @@
                         {
                             <tr>
                                 <td><NavLink href="@{"tour/" + tour.GUID}">@tour.Name</NavLink>  </td>
-                                <td>@tour.Spendings.Where(s => s.Planned).Count()</td>
+                                <td>planned: @tour.Spendings.Where(s => s.Planned).Count()</td>
                                 <td>.</td>
                                 <td>.</td>
                             </tr>
@@ -66,6 +66,7 @@
 }
 @code {
     TCalc.Domain.TourList tlist;
+    bool isTourListLoading = true;
     //bool initialized = false;
     protected override async Task OnInitializedAsync()
     {
@@ -79,10 +80,8 @@
     }
     protected async Task LoadTours()
     {
-        var tl = await TcService.GetTourList();
-        var ts = tl.Tours.Select(t => new TourCalculator(t).SuggestFinalPayments());
-        tl.Tours = ts;
-        tlist = tl;
+        tlist = await TcService.GetTourList();
+        isTourListLoading = false;
         StateHasChanged();
     }
 
