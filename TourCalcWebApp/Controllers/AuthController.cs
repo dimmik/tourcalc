@@ -26,11 +26,20 @@ namespace TourCalcWebApp.Controllers
         private readonly ITcConfiguration Configuration;
         private readonly ITourStorage tourStorage;
 
+        private readonly static DateTime InstanceCreated = DateTime.UtcNow;
 
         public AuthController(ITcConfiguration config, ITourStorage storage)
         {
             Configuration = config;
             tourStorage = storage;
+        }
+
+        [HttpGet("checkInstance")]
+        public string CheckInstance()
+        {
+            var now = DateTime.UtcNow;
+            return $"inst: {InstanceCreated} now: {now} diff: {(now - InstanceCreated).TotalSeconds} s";
+
         }
 
         /// <summary>
