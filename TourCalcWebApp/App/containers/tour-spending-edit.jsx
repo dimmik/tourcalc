@@ -47,6 +47,18 @@ export default class SpendingsForm extends React.Component {
 
 
     }
+
+    componentWillReceiveProps(props) {
+        this.tour = props.tour
+        if (props.spending != null) this.spending = JSON.parse(JSON.stringify(props.spending))
+        else this.spending.fromGuid = this.tour.persons.length > 0 ? this.tour.persons[0].guid : ""
+        this.setState ({
+            dialogOpen: props.open,
+            spending: this.spending
+        })
+    }
+
+
     spending = {
         description: "",
         amountInCents: 0,

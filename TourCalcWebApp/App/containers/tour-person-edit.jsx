@@ -31,6 +31,14 @@ export default class PersonForm extends React.Component {
             tour: props.tour
         }
     }
+    componentWillReceiveProps(props) {
+        this.setState({
+            dialogOpen: props.open,
+            person: props.person == null ? { name: "", weight: 100, parentId: "" } : JSON.parse(JSON.stringify(props.person)),
+            tour: props.tour
+        });
+    }
+
     render() {
         return (
             <span>
