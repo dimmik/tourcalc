@@ -26,6 +26,8 @@ export default class App extends React.Component {
                     <Switch>
                             <Route path="/access/:scope/:code"
                                 render={(props) => (<RequestAccessCode app={this} scope={props.match.params.scope} code={props.match.params.code} />)} />
+                            <Route path="/goto/:code/:tourid"
+                                render={(props) => (<RequestAccessCode app={this} scope="code" code={props.match.params.code} tourid={props.match.params.tourid}/>)} />
                             <Route path="/tour/:tourid"
                                 render={(props) => (<TourUI app={this} tourid={props.match.params.tourid} />)} />
                             <Route path="/login" render={(props) => <LoginScreen app={this}/>} />
@@ -53,8 +55,13 @@ class RequestAccessCode extends React.Component {
     }
 
     render() {
+        //alert("tid: " + this.props.tourid);
         if (this.state.redirect) {
-            return <Redirect to="/"/>
+            if (this.props.tourid != null) {
+                return <Redirect to={"/tour/" + this.props.tourid} />
+            } else {
+                return <Redirect to="/" />
+            }
         } else {
             return <div>Checking Access Code</div>
         }
