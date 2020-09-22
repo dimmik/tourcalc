@@ -420,6 +420,10 @@ namespace TourCalcWebApp.Controllers
             var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
             if (t != null)
             {
+                if (t.Spendings.Contains(s))
+                {
+                    t.Spendings.Remove(s);
+                }
                 s.GUID = IdHelper.NewId();
                 t.Spendings.Add(s);
                 TourStorage_StoreTour(t);

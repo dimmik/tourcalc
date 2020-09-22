@@ -48,7 +48,7 @@ namespace TourCalcWebApp.Storage
 
         public void AddTour(Tour tour)
         {
-            tour.StripCalculations();
+            tour.PrepareForStoring();
             provider.AddTour(tour);
         }
 
@@ -76,7 +76,7 @@ namespace TourCalcWebApp.Storage
         {
             if (tour.IsVersion && !Configuration.GetValue("TourVersionEditable", false)) throw HttpException.Forbid("Versions are not editable");
 
-            tour.StripCalculations();
+            tour.PrepareForStoring();
 
             if (Configuration.GetValue("TourVersioning", true) && !tour.IsVersion) // do not version version
             {

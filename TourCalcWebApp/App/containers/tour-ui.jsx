@@ -182,6 +182,11 @@ class TourTable extends React.Component {
                                                     .sort((s1, s2) => {
                                                         if (s1.planned && !s2.planned) return -1;
                                                         if (!s1.planned && s2.planned) return 1;
+                                                        if (s1.planned && s2.planned) {
+                                                            if (s1.amountInCents > s2.amountInCents) return -1;
+                                                            if (s1.amountInCents < s2.amountInCents) return 1;
+                                                            return 0;
+                                                        }
                                                         if (s1.dateCreated > s2.dateCreated) return 1;
                                                         if (s1.dateCreated < s2.dateCreated) return -1;
                                                         return 0;
@@ -191,7 +196,7 @@ class TourTable extends React.Component {
                                                     .map((p, idx) => (
                                                         <TableRow key={p.guid} hover
 
-                                                            style={p.planned ? { background: "yellow" } : {}}
+                                                            style={p.planned ? (p.description.startsWith('Family') ? { background: "cyan" } : { background: "yellow" }) : { }}
 
                                                             selected={idx % 2 == 0 ? true : false}
                                                         >

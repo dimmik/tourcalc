@@ -86,7 +86,7 @@ namespace TCalcStorage.Storage.LiteDB
 
         public static void NewLiteDB (this Tour tour, string path)
         {
-            tour.StripCalculations();
+            tour.PrepareForStoring();
             using (var db = new LiteDatabase(path))
             {
                 var col = db.GetCollection<Tour>("Tour");

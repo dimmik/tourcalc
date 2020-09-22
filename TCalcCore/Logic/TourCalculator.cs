@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using TCalc.Domain;
 using System.Linq;
+using System.Data.SqlTypes;
 
 namespace TCalc.Logic
 {
@@ -167,8 +168,81 @@ namespace TCalc.Logic
 
         public Tour SuggestFinalPayments()
         {
+            SuggestFamilies();
+            SuggestCrossPayment();
+            // calculate without planned to show on UI
+            Calculate(includePlanned: false);
+            return CurrentTour;
+        }
+
+        private void SuggestCrossPayment()
+        {
+            // find ones who owes min (will receive max)
             Calculate(includePlanned: true);
-            // deal with families
+            var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
+            var debtors = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
+            int maxIterations = 500;
+            int i = 0;
+            while (creditors.Any() && debtors.Any())
+            {
+                // get first creditor (highest credit)
+                var credit = -creditors.First().Debt();
+                // find first debtor (highest debt)
+                var highestDebt = debtors.First().Debt();
+                CurrentTour.Spendings.Add(new Spending()
+                {
+                    FromGuid = debtors.First().GUID,
+                    Planned = true,
+                    ToGuid = new[] { creditors.First().GUID }.ToList(),
+                    ToAll = false,
+                    AmountInCents = credit > highestDebt ? highestDebt : credit,
+                    Description = $"X '{debtors.First()?.Name ?? "n/a"}' -> '{creditors.First()?.Name ?? "n/a"}'",
+                    GUID = Guid.NewGuid().ToString()
+                });
+                // add spending
+                Calculate(includePlanned: true);
+                creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
+                debtors = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
+                i++;
+                if (i > maxIterations) throw new Exception("Cannot calculate tour suggestions");
+            }
+            //RemoveRedundant();
+
+        }
+
+        private void RemoveRedundant()
+        {
+            // remove double-sided: a -> B X && B -> a X
+            // can appear because of storing the calculations
+            var planned = CurrentTour.Spendings.Where(s => s.Planned).ToArray();
+            List<Spending> toRemove = new List<Spending>();
+            for (int j = 0; j < planned.Length; j++)
+            {
+                var p = planned[j];
+                for (int k = j + 1; k < planned.Length; k++)
+                {
+                    var pp = planned[k];
+                    if (Redundant(p, pp))
+                    {
+                        CurrentTour.Spendings.Remove(p);
+                        CurrentTour.Spendings.Remove(pp);
+                    }
+                }
+            }
+        }
+
+        private bool Redundant(Spending p, Spending pp)
+        {
+            if (p.AmountInCents != pp.AmountInCents) return false;
+            if (p.ToGuid.Count != 1 || pp.ToGuid.Count != 1) return false;
+            if (p.FromGuid != pp.ToGuid.First()) return false;
+            if (pp.FromGuid != p.ToGuid.First()) return false;
+            return true;
+        }
+
+        private void SuggestFamilies()
+        {
+            Calculate(includePlanned: true);
             // first, find all guys with parents
             var descedants = CurrentTour.Persons
                 .Where(p => !string.IsNullOrWhiteSpace(p.ParentId))
@@ -197,37 +271,6 @@ namespace TCalc.Logic
                 };
                 CurrentTour.Spendings.Add(spending);
             }
-            // find ones who owes min (will receive max)
-            Calculate(includePlanned: true);
-            var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
-            var debtors   = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
-            int maxIterations = 500;
-            int i = 0;
-            while (creditors.Any() && debtors.Any())
-            {                
-                // get first creditor (highest credit)
-                var credit = -creditors.First().Debt();
-                // find first debtor (highest debt)
-                var highestDebt = debtors.First().Debt();
-                CurrentTour.Spendings.Add(new Spending()
-                {
-                    FromGuid = debtors.First().GUID,
-                    Planned = true,
-                    ToGuid = new[] { creditors.First().GUID }.ToList(),
-                    ToAll = false,
-                    AmountInCents = credit > highestDebt ? highestDebt : credit,
-                    Description = $"X '{debtors.First()?.Name ?? "n/a"}' -> '{creditors.First()?.Name ?? "n/a"}'",
-                    GUID = Guid.NewGuid().ToString()
-                });
-                // add spending
-                Calculate(includePlanned: true);
-                creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
-                debtors = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
-                i++;
-                if (i > maxIterations) throw new Exception("Cannot calculate tour suggestions");
-            }
-            Calculate(includePlanned: false);
-            return CurrentTour;
         }
     }
    

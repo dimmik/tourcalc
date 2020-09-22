@@ -16,7 +16,7 @@ namespace TCalc.Domain
 
         public override string ToString()
         {
-            return $"{AmountInCents} toAll: {ToAll}";
+            return $"{AmountInCents} toAll: {ToAll} planned: {Planned}";
         }
     }
 }
