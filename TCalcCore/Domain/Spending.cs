@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace TCalc.Domain
@@ -17,6 +18,25 @@ namespace TCalc.Domain
         public override string ToString()
         {
             return $"{AmountInCents} toAll: {ToAll} planned: {Planned}";
+        }
+    }
+    public static class SpendingHelpers
+    {
+        public static bool IsReturningSameVolumeAs(this Spending p, Spending pp)
+        {
+            if (p.AmountInCents != pp.AmountInCents) return false;
+            if (p.ToGuid.Count != 1 || pp.ToGuid.Count != 1) return false;
+            if (p.FromGuid != pp.ToGuid.First()) return false;
+            if (pp.FromGuid != p.ToGuid.First()) return false;
+            return true;
+        }
+        public static bool IsAlmostTheSame(this Spending p, Spending pp)
+        {
+            if (p.AmountInCents != pp.AmountInCents) return false;
+            if (p.ToGuid.Count != 1 || pp.ToGuid.Count != 1) return false;
+            if (p.FromGuid != pp.FromGuid) return false;
+            if (pp.ToGuid.First() != p.ToGuid.First()) return false;
+            return true;
         }
     }
 }

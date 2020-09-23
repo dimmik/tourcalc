@@ -222,7 +222,7 @@ namespace TCalc.Logic
                 for (int k = j + 1; k < planned.Length; k++)
                 {
                     var pp = planned[k];
-                    if (Redundant(p, pp))
+                    if (p.IsReturningSameVolumeAs(pp))
                     {
                         CurrentTour.Spendings.Remove(p);
                         CurrentTour.Spendings.Remove(pp);
@@ -231,14 +231,7 @@ namespace TCalc.Logic
             }
         }
 
-        private bool Redundant(Spending p, Spending pp)
-        {
-            if (p.AmountInCents != pp.AmountInCents) return false;
-            if (p.ToGuid.Count != 1 || pp.ToGuid.Count != 1) return false;
-            if (p.FromGuid != pp.ToGuid.First()) return false;
-            if (pp.FromGuid != p.ToGuid.First()) return false;
-            return true;
-        }
+        
 
         private void SuggestFamilies()
         {

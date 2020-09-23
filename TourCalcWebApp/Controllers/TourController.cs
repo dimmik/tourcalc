@@ -424,6 +424,11 @@ namespace TourCalcWebApp.Controllers
                 {
                     t.Spendings.Remove(s);
                 }
+                var plannedAndTheSame = t.Spendings.Where(ss => ss.Planned && ss.IsAlmostTheSame(s)).ToList();
+                if (plannedAndTheSame.Any())
+                {
+                    plannedAndTheSame.ForEach(pp => t.Spendings.Remove(pp));
+                }
                 s.GUID = IdHelper.NewId();
                 t.Spendings.Add(s);
                 TourStorage_StoreTour(t);
