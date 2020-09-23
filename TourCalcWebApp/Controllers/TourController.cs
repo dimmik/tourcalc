@@ -430,6 +430,7 @@ namespace TourCalcWebApp.Controllers
                     plannedAndTheSame.ForEach(pp => t.Spendings.Remove(pp));
                 }
                 s.GUID = IdHelper.NewId();
+                s.DateCreated = DateTime.UtcNow;
                 t.Spendings.Add(s);
                 TourStorage_StoreTour(t);
             }
