@@ -9,5 +9,6 @@ namespace TourCalcWebApp.TgBot
     public interface IBotService
     {
         TelegramBotClient Client { get; }
+        bool IsTokenValid(string token);
     }
 }

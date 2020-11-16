@@ -26,9 +26,10 @@ namespace TourCalcWebApp.Controllers
             Log = logger;
         }
         // /api/tgbot/update
-        [HttpPost("update")]
-        public async Task<IActionResult> Update([FromBody] Update update)
+        [HttpPost("update/{token}")]
+        public async Task<IActionResult> Update([FromBody] Update update, [FromRoute]string token)
         {
+            if (!botService.IsTokenValid(token)) return NotFound("Cannot find the bot service");
             if (update.Type != UpdateType.Message)
                 return Ok();
             var message = update.Message;
@@ -36,10 +37,10 @@ namespace TourCalcWebApp.Controllers
             Log.LogInformation("Received Message from {0}", message.Chat.Id);
             if (message.Type == MessageType.Text)
             {
-                await botService.Client.SendTextMessageAsync(message.Chat.Id, $"Received {message.Text}");
+                await botService.Client.SendTextMessageAsync(message.Chat.Id, $"Received (t) {message.Text}");
             } else
             {
-                await botService.Client.SendTextMessageAsync(message.Chat.Id, $"Received non-text message");
+                await botService.Client.SendTextMessageAsync(message.Chat.Id, $"Received (t) non-text message");
             }
             return Ok();
         }

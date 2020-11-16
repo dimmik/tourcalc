@@ -9,9 +9,16 @@ namespace TourCalcWebApp.TgBot
     public class BotService : IBotService
     {
         public TelegramBotClient Client { get; private set;  }
+        private string Token;
         public BotService(string token)
         {
             Client = new TelegramBotClient(token);
+            Token = token;
+        }
+
+        public bool IsTokenValid(string token)
+        {
+            return Token == token;
         }
     }
 }
