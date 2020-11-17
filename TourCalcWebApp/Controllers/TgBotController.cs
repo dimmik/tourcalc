@@ -54,7 +54,7 @@ namespace TourCalcWebApp.Controllers
         private async Task ProcesMessage(Message message)
         {
             var tourBotSvc = new TourBotService(TourStorage, message.Chat, message.From);
-            string[] entities = message.EntityValues?.ToArray() ?? message.Text.Split(" ").Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+            string[] entities = message.Text.Split(" ").Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
             if (entities.Length < 1)
             {
                 await botService.Client.SendTextMessageAsync(message.Chat.Id, "Hmm. Something strange happened.");

@@ -61,7 +61,7 @@ namespace TourCalcWebApp.TgBot
                     Metadata = guid,
                     AccessCodeMD5 = guid.CreateMD5()
                 };
-                TourStorage.StoreTour(tour);
+                TourStorage.AddTour(tour);
             }
             return tour;
         }
@@ -109,28 +109,29 @@ namespace TourCalcWebApp.TgBot
         {
             var tour = GetOrCreateTour();
             var personId = $"{FromUser.Id}";
+            var name = string.Join(" ", args);
             var username =
                 string.IsNullOrWhiteSpace(FromUser.LastName) && string.IsNullOrWhiteSpace(FromUser.FirstName)
-                ? $"({FromUser.Id})" + (args.Length > 0 ? args[0] : "")
+                ? $"({FromUser.Id})" + name
                 : $"{FromUser.FirstName} {FromUser.LastName}";
             if (tour.Persons.Any(p => p.GUID == personId))
             {
                 var person = tour.Persons.Where(p => p.GUID == personId).First();
-                if (args.Length > 0 && !string.IsNullOrWhiteSpace(args[0]))
+                if (!string.IsNullOrWhiteSpace(name))
                 {
-                    person.Name = $"Tg {args[0]}";
+                    person.Name = $"Tg {name}";
                 }
                 TourStorage.StoreTour(tour);
-                return $"{username}, You are already in the tour. I renamed you ({person.Name})";
+                return $"{username}, You are already in the tour. Name {person.Name}";
             }
             var pp = new Person()
             {
                 GUID = $"{FromUser.Id}",
                 Name = $"Tg {username}"
             };
-            if (args.Length > 0 && !string.IsNullOrWhiteSpace(args[0]))
+            if (!string.IsNullOrWhiteSpace(name))
             {
-                pp.Name = $"Tg {args[0]}";
+                pp.Name = $"Tg {name}";
             }
             tour.Persons.Add(pp);
             TourStorage.StoreTour(tour);
@@ -139,16 +140,18 @@ namespace TourCalcWebApp.TgBot
 
         private string AddNew(string[] args)
         {
-            var tour = GetOrCreateTour(args.Length > 0 ? args[0] : null);
+            var str = string.Join(" ", args);
+            var tour = GetOrCreateTour(str);
             return $"Tour is here: {tour.Name}";
         }
 
         private string Rename(string[] args)
         {
-            var tour = GetOrCreateTour(args.Length > 0 ? args[0] : null);
-            if (args.Length > 0 && !string.IsNullOrWhiteSpace(args[0]))
+            var str = string.Join(" ", args);
+            var tour = GetOrCreateTour(str);
+            if (!string.IsNullOrWhiteSpace(str))
             {
-                tour.Name = args[0];
+                tour.Name = str;
             }
             TourStorage.StoreTour(tour);
             return $"Tour renamed: {tour.Name}";
