@@ -36,7 +36,7 @@ namespace TourCalcWebApp.Auth
 
             return authData;
         }
-        public static string CreateMD5(string input)
+        public static string CreateMD5(this string input)
         {
             if (input == null) input = "";
             // Use input string to calculate MD5 hash
