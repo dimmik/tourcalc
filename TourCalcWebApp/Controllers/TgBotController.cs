@@ -30,27 +30,40 @@ namespace TourCalcWebApp.Controllers
         }
         // /api/tgbot/update
         [HttpPost("update/{token}")]
-        public async Task<IActionResult> Update([FromBody] Update update, [FromRoute]string token)
+        public async Task<IActionResult> Update([FromBody] Update update, [FromRoute] string token)
         {
             if (!botService.IsTokenValid(token)) return NotFound("Cannot find the bot service");
+
             if (update.Type != UpdateType.Message)
             {
                 // do nothing
                 return Ok();
             }
-            var message = update.Message;
+            try
+            {
+                await ProcesMessage(update.Message);
+            }
+            catch (Exception e)
+            {
+                await botService.Client.SendTextMessageAsync(update.Message.Chat.Id, $"err: {e.Message} {e.StackTrace}");
+            }
+            return Ok();
+        }
+
+        private async Task ProcesMessage(Message message)
+        {
             var tourBotSvc = new TourBotService(TourStorage, message.Chat, message.From);
             var entities = message.EntityValues.ToArray();
             if (entities.Length < 1)
             {
                 await botService.Client.SendTextMessageAsync(message.Chat.Id, "Hmm. Something strange happened.");
-            } else
+            }
+            else
             {
                 var cmd = entities[0];
                 var resp = tourBotSvc.Perform(cmd, entities.Skip(1).ToArray());
                 await botService.Client.SendTextMessageAsync(message.Chat.Id, resp);
             }
-            return Ok();
         }
     }
 
