@@ -40,6 +40,11 @@ namespace TourCalcWebApp.Controllers
                 // do nothing
                 return Ok();
             }
+            if (update.Message.Chat.Type != ChatType.Group)
+            {
+                await botService.Client.SendTextMessageAsync(update.Message.Chat.Id, $"I work only in groups, sorry");
+                return Ok();
+            }
             try
             {
                 await ProcesMessage(update.Message);
@@ -62,7 +67,7 @@ namespace TourCalcWebApp.Controllers
             else
             {
                 var cmd = entities[0];
-                var resp = tourBotSvc.Perform(cmd, entities.Skip(1).ToArray());
+                var resp = tourBotSvc.Perform(cmd, message.Text.Substring(cmd.Length).Trim());
                 await botService.Client.SendTextMessageAsync(message.Chat.Id, resp);
             }
         }
