@@ -16,7 +16,7 @@ namespace ConsoleTest
         static void Main(string[] args)
         {
             
-            botClient = new TelegramBotClient("");
+            botClient = new TelegramBotClient("837732971:AAGSZXh9WcoyvmuuI8b2DzsHsxMV_1dlZBk");
 
             var me = botClient.GetMeAsync().Result;
             Console.WriteLine(
