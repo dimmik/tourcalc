@@ -58,6 +58,10 @@ namespace TourCalcWebApp.Controllers
 
         private async Task ProcesMessage(Message message)
         {
+            if (message.Text == null)
+            {
+                return;
+            }
             var tourBotSvc = new TourBotService(TourStorage, message.Chat, message.From);
             string[] entities = message.Text.Split(" ").Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
             if (entities.Length < 1)
