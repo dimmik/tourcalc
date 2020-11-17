@@ -126,6 +126,7 @@ namespace TourCalcWebApp.TgBot
             AddMe("");
             var spending = new Spending()
             {
+                GUID = $"{Guid.NewGuid()}",
                 FromGuid = $"{FromUser.Id}",
                 AmountInCents = amount,
                 ToAll = true,
