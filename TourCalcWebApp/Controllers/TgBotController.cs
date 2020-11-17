@@ -26,6 +26,7 @@ namespace TourCalcWebApp.Controllers
             Configuration = config;
             botService = bs;
             Log = logger;
+            TourStorage = storage;
         }
         // /api/tgbot/update
         [HttpPost("update/{token}")]
