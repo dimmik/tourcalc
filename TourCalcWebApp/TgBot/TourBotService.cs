@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TCalc.Domain;
 using TCalc.Logic;
@@ -25,6 +26,11 @@ namespace TourCalcWebApp.TgBot
 
         public string Perform(string command, string rest)
         {
+            // handle commands like /show@tourcalc_bot
+            if (command.Contains("@"))
+            {
+                command = command.Substring(0, command.IndexOf('@'));
+            }
             switch (command)
             {
                 case "/rename": 
@@ -43,9 +49,25 @@ namespace TourCalcWebApp.TgBot
                     return Summary();
                 case "/debt": // my own debt
                     return Debt();
+                case "/help": 
+                    return Help();
                 default:
                     return UnknownCommand(command);
             }
+        }
+
+        private string Help()
+        {
+            return @"/new - initialize tour for the group
+/rename {newname} - rename a tour
+/addme {displayname, optional} - add yourself to a tour
+/spend {description with amount} - add spending
+/people - list people in the tour
+/summary - people with debt
+/debt - who you should pay to
+/weblink - link to the tour in web
+/help - this page
+";
         }
 
         private Tour GetOrCreateTour(string name = "")
@@ -121,26 +143,70 @@ namespace TourCalcWebApp.TgBot
 
         private string Spend(string content)
         {
-            var tour = GetOrCreateTour();
-            (int amount, string comment) = GetAmountFromString(content);
             AddMe("");
-            var spending = new Spending()
+            var tour = GetOrCreateTour();
+            (int amount, string comment, bool ok) = GetAmountFromString(content);
+            if (ok)
             {
-                GUID = $"{Guid.NewGuid()}",
-                FromGuid = $"{FromUser.Id}",
-                AmountInCents = amount,
-                ToAll = true,
-                Description = comment
-            };
-            tour.Spendings.Add(spending);
-            TourStorage.StoreTour(tour);
-            return $"Added spending from {tour.Persons.Where(p => p.GUID == $"{FromUser.Id}").First().Name} to all: {amount}";
+                var spending = new Spending()
+                {
+                    GUID = $"{Guid.NewGuid()}",
+                    FromGuid = $"{FromUser.Id}",
+                    AmountInCents = amount,
+                    ToAll = true,
+                    Description = comment
+                };
+                tour.Spendings.Add(spending);
+                TourStorage.StoreTour(tour);
+                return $"Added spending from '{tour.Persons.Where(p => p.GUID == $"{FromUser.Id}").First().Name}' to all: {amount} ({comment})";
+            } else
+            {
+                return $"Cant understand how many has been spent in '{content}'";
+            }
         }
         // TODO
-        private (int amount, string comment) GetAmountFromString(string content)
+        private (int amount, string comment, bool ok) GetAmountFromString(string content)
         {
+            content = content.Trim();
             // TODO calculate
-            return (1000, content);
+            string pattern;
+            try
+            {
+                // starts with number
+                pattern = @"^([0-9]+)\s+(.+)$";
+                Regex r = new Regex(pattern);
+                if (r.IsMatch(content))
+                {
+                    var match = r.Match(content);
+                    var amount = int.Parse(match.Groups[1].Value);
+                    var desc = match.Groups[2].Value;
+                    return (amount, desc, true);
+                }
+                // ends with number
+                pattern = @"^(.+)\s+([0-9]+)$";
+                r = new Regex(pattern);
+                if (r.IsMatch(content))
+                {
+                    var match = r.Match(content);
+                    var desc = match.Groups[1].Value;
+                    var amount = int.Parse(match.Groups[2].Value);
+                    return (amount, desc, true);
+                }
+                // the only number in string
+                pattern = @"^[^0-9]+\s+([0-9]+)\s+[^0-9]+$";
+                r = new Regex(pattern);
+                if (r.IsMatch(content))
+                {
+                    var match = r.Match(content);
+                    var desc = match.Groups[0].Value;
+                    var amount = int.Parse(match.Groups[1].Value);
+                    return (amount, desc, true);
+                }
+                return (0, content, false);
+            } catch
+            {
+                return (0, content, false);
+            }
         }
 
         private string AddMe(string name)
@@ -159,7 +225,7 @@ namespace TourCalcWebApp.TgBot
                     person.Name = $"Tg {name}";
                     TourStorage.StoreTour(tour);
                 }
-                return $"{username}, You are already in the tour. Name {person.Name}";
+                return $"{username}, You are already in the tour. Name now '{person.Name}'";
             }
             var pp = new Person()
             {
