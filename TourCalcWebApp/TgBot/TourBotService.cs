@@ -80,13 +80,18 @@ namespace TourCalcWebApp.TgBot
                 tour = new Tour()
                 {
                     Id = tourid,
-                    Name = string.IsNullOrWhiteSpace(name) ? $"Telegram Tour for {Chat.Title}" : name,
+                    Name = string.IsNullOrWhiteSpace(name) ? $"Telegram Tour for {Chat.Title}" : TourName(name),
                     Metadata = guid,
                     AccessCodeMD5 = guid.CreateMD5()
                 };
                 TourStorage.AddTour(tour);
             }
             return tour;
+        }
+
+        private string TourName(string name)
+        {
+            return $"TG {name}";
         }
 
         private string GenerateId(long id)
@@ -114,7 +119,7 @@ namespace TourCalcWebApp.TgBot
                 .Select(s =>
                     $"from {tour.Persons.Where(p => p.GUID == s.FromGuid).First().Name} to {tour.Persons.Where(p => p.GUID == s.ToGuid.First()).First().Name} pay {s.AmountInCents}"
                     );
-            return $"Tour '{calculated.Name}' payments from {FromUser.FirstName} {FromUser.LastName}\r\n" +
+            return $"Tour '{calculated.Name}' payments from '{FromUser.FirstName} {FromUser.LastName}'\r\n" +
                 $"{(suggestions.Any() ?  string.Join("\r\n", suggestions) : $"Nothing to pay, {FromUser.FirstName} {FromUser.LastName}")}";
         }
 
@@ -123,7 +128,7 @@ namespace TourCalcWebApp.TgBot
             var tour = GetOrCreateTour();
             var calculator = new TourCalculator(tour);
             var calculated = calculator.Calculate(includePlanned: false);
-            return $"Tour '{calculated.Name}\r\n" +
+            return $"Tour '{calculated.Name}'\r\n" +
                 $"{string.Join("\r\n", calculated.Persons.Select(p => $"{p.Name} ({p.Weight}) debt: {p.ReceivedInCents - p.SpentInCents}"))}";
         }
 
@@ -244,7 +249,7 @@ namespace TourCalcWebApp.TgBot
         private string AddNew(string name)
         {
             var tour = GetOrCreateTour(name);
-            return $"Tour is here: {tour.Name}";
+            return $"Tour is here: '{tour.Name}'";
         }
 
         private string Rename(string name)
@@ -252,10 +257,10 @@ namespace TourCalcWebApp.TgBot
             var tour = GetOrCreateTour(name);
             if (!string.IsNullOrWhiteSpace(name))
             {
-                tour.Name = name;
+                tour.Name = TourName(name);
             }
             TourStorage.StoreTour(tour);
-            return $"Tour renamed: {tour.Name}";
+            return $"Tour renamed: '{tour.Name}'";
         }
     }
 }
