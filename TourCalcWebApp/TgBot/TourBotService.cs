@@ -49,6 +49,8 @@ namespace TourCalcWebApp.TgBot
                     return Summary();
                 case "/debt": // my own debt
                     return Debt();
+                case "/credit": // црщ ырщгдв зфн ещ ьу
+                    return Credit();
                 case "/help": 
                     return Help();
                 default:
@@ -65,6 +67,7 @@ namespace TourCalcWebApp.TgBot
 /people - list people in the tour
 /summary - people with debt
 /debt - who you should pay to
+/credit - who should pay to me
 /weblink - link to the tour in web
 /help - this page
 ";
@@ -104,6 +107,25 @@ namespace TourCalcWebApp.TgBot
             return $"Unknown command {command}";
         }
 
+        private string Credit()
+        {
+            var tour = GetOrCreateTour();
+            if (!tour.Persons.Any(p => p.GUID == $"{FromUser.Id}"))
+            {
+                return $"{FromUser.FirstName} {FromUser.LastName}, you are not in tour";
+            }
+            var calculator = new TourCalculator(tour);
+            var calculated = calculator.Calculate(includePlanned: true);
+            var suggestions = calculated.Spendings
+                .Where(s => s.Planned)
+                .Where(s => s.ToGuid[0] == $"{FromUser.Id}")
+                .Select(s =>
+                    $"from '{tour.Persons.Where(p => p.GUID == s.FromGuid).First().Name}' to '{tour.Persons.Where(p => p.GUID == s.ToGuid.First()).First().Name}' pay {s.AmountInCents}"
+                    );
+            return $"Tour '{calculated.Name}' payments to '{FromUser.FirstName} {FromUser.LastName}'\r\n" +
+                $"{(suggestions.Any() ? string.Join("\r\n", suggestions) : $"Nobody will pay you, {FromUser.FirstName} {FromUser.LastName}")}";
+        }
+
         private string Debt()
         {
             var tour = GetOrCreateTour();
@@ -117,7 +139,7 @@ namespace TourCalcWebApp.TgBot
                 .Where(s => s.Planned)
                 .Where(s => s.FromGuid == $"{FromUser.Id}")
                 .Select(s =>
-                    $"from {tour.Persons.Where(p => p.GUID == s.FromGuid).First().Name} to {tour.Persons.Where(p => p.GUID == s.ToGuid.First()).First().Name} pay {s.AmountInCents}"
+                    $"from '{tour.Persons.Where(p => p.GUID == s.FromGuid).First().Name}' to '{tour.Persons.Where(p => p.GUID == s.ToGuid.First()).First().Name}' pay {s.AmountInCents}"
                     );
             return $"Tour '{calculated.Name}' payments from '{FromUser.FirstName} {FromUser.LastName}'\r\n" +
                 $"{(suggestions.Any() ?  string.Join("\r\n", suggestions) : $"Nothing to pay, {FromUser.FirstName} {FromUser.LastName}")}";
