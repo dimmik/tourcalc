@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Cors.Infrastructure;
 using TCalc.Storage.MongoDB;
 using TCalcStorage.Storage.LiteDB;
 using TourCalcWebApp.Storage;
+using TourCalcWebApp.TgBot;
 
 namespace TourCalcWebApp
 {
@@ -33,6 +34,10 @@ namespace TourCalcWebApp
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+
+            var tgToken = Configuration.GetValue<string>("TelegramBotToken");
+            services.AddSingleton<IBotService>(new BotService(tgToken));
+
             services.AddSingleton<ITcConfiguration>(Configuration);
             //SetupLightDB(services);
             services.AddSingleton<ITourStorage, TourCalcStorage>();
