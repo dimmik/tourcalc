@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using TCalc.Domain;
 using TCalc.Logic;
@@ -23,8 +24,8 @@ namespace TourCalcWebApp.TgBot
             Chat = chat;
             FromUser = user;
         }
-
-        public string Perform(string command, string rest)
+        static Random r = new Random();
+        public void Perform(string command, string rest, Action<string> action)
         {
             // handle commands like /show@tourcalc_bot
             if (command.Contains("@"))
@@ -34,27 +35,49 @@ namespace TourCalcWebApp.TgBot
             switch (command)
             {
                 case "/rename": 
-                    return Rename(rest);
+                    action(Rename(rest));
+                    break;
                 case "/new":
-                    return AddNew(rest);
+                    action(AddNew(rest));
+                    break;
                 case "/addme":
-                    return AddMe(rest);
+                    action(AddMe(rest));
+                    break;
                 case "/spend":
-                    return Spend(rest);
+                    action(Spend(rest));
+                    break;
                 case "/weblink":
-                    return WebLink();
+                    action(WebLink());
+                    break;
                 case "/people":
-                    return People();
+                    action(People());
+                    break;
                 case "/summary": // users and debt
-                    return Summary();
+                    action(Summary());
+                    break;
                 case "/debt": // my own debt
-                    return Debt();
+                    action(Debt());
+                    break;
                 case "/credit": // црщ ырщгдв зфн ещ ьу
-                    return Credit();
-                case "/help": 
-                    return Help();
+                    action(Credit());
+                    break;
+                case "/help":
+                    action(Help());
+                    break;
+                case "/laugh":
+                    action("ха");
+                    Thread.Sleep(r.Next(300, 5000));
+                    action("Эээ");
+                    Thread.Sleep(r.Next(300, 5000));
+                    action("А-а-а. Хаха");
+                    Thread.Sleep(r.Next(300, 5000));
+                    action("ХАХАХАХАХА");
+                    Thread.Sleep(r.Next(300, 5000));
+                    action("ААААА! Муа ха ха! LOL! АХАХАХА!!!");
+                    break;
                 default:
-                    return UnknownCommand(command);
+                    action(UnknownCommand(command));
+                    break;
             }
         }
 

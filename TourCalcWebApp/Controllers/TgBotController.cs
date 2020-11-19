@@ -71,8 +71,12 @@ namespace TourCalcWebApp.Controllers
             else
             {
                 var cmd = entities[0];
-                var resp = tourBotSvc.Perform(cmd, message.Text.Substring(cmd.Length).Trim());
-                await botService.Client.SendTextMessageAsync(message.Chat.Id, resp);
+                var rest = message.Text.Substring(cmd.Length).Trim();
+                tourBotSvc.Perform(cmd, rest, async (msg) => { 
+                    await botService.Client.SendTextMessageAsync(message.Chat.Id, msg); 
+                    });
+                
+                //var cmds = await botService.Client.GetMyCommandsAsync();
             }
         }
     }
