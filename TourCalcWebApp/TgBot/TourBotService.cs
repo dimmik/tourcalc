@@ -181,11 +181,11 @@ namespace TourCalcWebApp.TgBot
                     FromGuid = $"{FromUser.Id}",
                     AmountInCents = amount,
                     ToAll = true,
-                    Description = comment
+                    Description = content //comment
                 };
                 tour.Spendings.Add(spending);
                 TourStorage.StoreTour(tour);
-                return $"Added spending from '{tour.Persons.Where(p => p.GUID == $"{FromUser.Id}").First().Name}' to all: {amount} ({comment})";
+                return $"Added spending from '{tour.Persons.Where(p => p.GUID == $"{FromUser.Id}").First().Name}' to all: {amount} ('{content}')";
             } else
             {
                 return $"Cant understand how many has been spent in '{content}'";
@@ -199,34 +199,35 @@ namespace TourCalcWebApp.TgBot
             string pattern;
             try
             {
+                var numPart = "([0-9][0-9.,]*)";
                 // starts with number
-                pattern = @"^([0-9]+)\s+(.+)$";
+                pattern = $@"^{numPart}\s+(.+)$";
                 Regex r = new Regex(pattern);
                 if (r.IsMatch(content))
                 {
                     var match = r.Match(content);
-                    var amount = int.Parse(match.Groups[1].Value);
+                    var amount = GetIntegerFromString(match.Groups[1].Value);
                     var desc = match.Groups[2].Value;
                     return (amount, desc, true);
                 }
                 // ends with number
-                pattern = @"^(.+)\s+([0-9]+)$";
+                pattern = $@"^(.+)\s+{numPart}$";
                 r = new Regex(pattern);
                 if (r.IsMatch(content))
                 {
                     var match = r.Match(content);
                     var desc = match.Groups[1].Value;
-                    var amount = int.Parse(match.Groups[2].Value);
+                    var amount = GetIntegerFromString(match.Groups[2].Value);
                     return (amount, desc, true);
                 }
                 // the only number in string
-                pattern = @"^[^0-9]+\s+([0-9]+)\s+[^0-9]+$";
+                pattern = $@"^[^0-9]*\s*{numPart}\s*[^0-9]*$";
                 r = new Regex(pattern);
                 if (r.IsMatch(content))
                 {
                     var match = r.Match(content);
                     var desc = match.Groups[0].Value;
-                    var amount = int.Parse(match.Groups[1].Value);
+                    var amount = GetIntegerFromString(match.Groups[1].Value);
                     return (amount, desc, true);
                 }
                 return (0, content, false);
@@ -234,6 +235,13 @@ namespace TourCalcWebApp.TgBot
             {
                 return (0, content, false);
             }
+        }
+
+        private static int GetIntegerFromString(string val)
+        {
+            if (val.IndexOf(',') != -1) val = val.Substring(0, val.IndexOf(','));
+            if (val.IndexOf('.') != -1) val = val.Substring(0, val.IndexOf('.'));
+            return int.Parse(val);
         }
 
         private string AddMe(string name)
