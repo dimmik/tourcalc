@@ -65,19 +65,32 @@ namespace TourCalcWebApp.TgBot
                     action(Help());
                     break;
                 case "/laugh":
-                    action("ха");
-                    Thread.Sleep(r.Next(300, 5000));
-                    action("Эээ");
-                    Thread.Sleep(r.Next(300, 5000));
-                    action("А-а-а. Хаха");
-                    Thread.Sleep(r.Next(300, 5000));
-                    action("ХАХАХАХАХА");
-                    Thread.Sleep(r.Next(300, 5000));
-                    action("ААААА! Муа ха ха! LOL! АХАХАХА!!!");
+                    Laugh(action);
                     break;
                 default:
                     action(UnknownCommand(command));
                     break;
+            }
+        }
+
+        private static void Laugh(Action<string> action)
+        {
+            var phrases = new[] {
+                "ха" ,
+                "Эээ" ,
+                "А-а-а. Хаха" , 
+                "ХАХАХАХАХА" , 
+                "ААААА! Муа ха ха! LOL! АХАХАХА!!!" , 
+                "Хихи", 
+                "Ну ваще! Ухаха.", 
+                "Непонятно, но пусть ха."
+            };
+            foreach (var txt in 
+                phrases.OrderBy(p => Guid.NewGuid()).Take(r.Next(2, phrases.Length)) // shuffle
+                ) 
+            {
+                action(txt);
+                Thread.Sleep(r.Next(300, 5000));
             }
         }
 
