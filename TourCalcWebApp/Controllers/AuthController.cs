@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.Linq;
@@ -47,13 +48,14 @@ namespace TourCalcWebApp.Controllers
         [HttpGet("longr/{delayInSec}/{numberOfIterations}")]
         public async Task<IActionResult> LongRunning(int delayInSec, int numberOfIterations)
         {
+            Stopwatch ssw = Stopwatch.StartNew();
             Response.StatusCode = 200;
             Response.ContentType = "text/plain";
             using (var sw = new StreamWriter(Response.Body))
             {
                 for (int i = 0; i < numberOfIterations; i++)
                 {
-                    await sw.WriteAsync($"{i}. Now it is {DateTime.Now:yyyy-MM-dd HH:mm:ss}\r\n").ConfigureAwait(false);
+                    await sw.WriteAsync($"{i:000} / {numberOfIterations}. Now it is {DateTime.Now:yyyy-MM-dd HH:mm:ss} [wait {delayInSec}s] {ssw.Elapsed}\r\n").ConfigureAwait(false);
                     await sw.FlushAsync().ConfigureAwait(false);
                     await Task.Delay(delayInSec * 1000);
                 }
