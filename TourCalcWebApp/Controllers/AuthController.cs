@@ -53,8 +53,8 @@ namespace TourCalcWebApp.Controllers
             {
                 for (int i = 0; i < numberOfIterations; i++)
                 {
-                    sw.Write($"{i}. Now it is {DateTime.Now:yyyy-MM-dd HH:mm:ss}\r\n");
-                    sw.Flush();
+                    await sw.WriteAsync($"{i}. Now it is {DateTime.Now:yyyy-MM-dd HH:mm:ss}\r\n").ConfigureAwait(false);
+                    await sw.FlushAsync().ConfigureAwait(false);
                     await Task.Delay(delayInSec * 1000);
                 }
             }
