@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
+using System.IO;
 using System.Linq;
 using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 using LiteDB;
 using Microsoft.AspNetCore.Authorization;
@@ -40,6 +42,23 @@ namespace TourCalcWebApp.Controllers
             var now = DateTime.UtcNow;
             return $"inst: {InstanceCreated} now: {now} diff: {(now - InstanceCreated).TotalSeconds} s";
 
+        }
+
+        [HttpGet("longr/{delayInSec}/{numberOfIterations}")]
+        public async Task<IActionResult> LongRunning(int delayInSec, int numberOfIterations)
+        {
+            Response.StatusCode = 200;
+            Response.ContentType = "text/plain";
+            using (var sw = new StreamWriter(Response.Body))
+            {
+                for (int i = 0; i < numberOfIterations; i++)
+                {
+                    sw.Write($"{i}. Now it is {DateTime.Now:yyyy-MM-dd HH:mm:ss}\r\n");
+                    sw.Flush();
+                    await Task.Delay(delayInSec * 1000);
+                }
+            }
+            return new EmptyResult();
         }
 
         /// <summary>
