@@ -32,7 +32,7 @@ namespace TourCalcWebApp.Utils
                     respReady = true;
                 }
                 );
-            while (!respReady || timer.Elapsed > (timeout != null ? timeout.Value : TimeSpan.MaxValue))
+            while (!respReady && timer.Elapsed < (timeout != null ? timeout.Value : TimeSpan.MaxValue))
             {
                 await sw.WriteAsync($"\r\n").ConfigureAwait(false);
                 await sw.FlushAsync().ConfigureAwait(false);

@@ -61,7 +61,7 @@ namespace TourCalcWebApp.Controllers
                     string finish = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
                     return JsonConvert.SerializeObject(new { start = start, finish = finish }); }, 
                 statusCode: 200,
-                timeout: TimeSpan.FromMinutes(600)
+                timeout: TimeSpan.FromHours(2)
                 ).ConfigureAwait(false);
             return new EmptyResult();
         }
