@@ -12,11 +12,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using Org.BouncyCastle.Security;
 using TCalc.Domain;
 using TCalc.Storage;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Exceptions;
+using TourCalcWebApp.Utils;
 
 namespace TourCalcWebApp.Controllers
 {
@@ -49,19 +51,22 @@ namespace TourCalcWebApp.Controllers
         public async Task<IActionResult> LongRunning(int delayInSec, int numberOfIterations)
         {
             Stopwatch ssw = Stopwatch.StartNew();
-            Response.StatusCode = 200;
-            Response.ContentType = "text/plain";
-            using (var sw = new StreamWriter(Response.Body))
-            {
-                for (int i = 0; i < numberOfIterations; i++)
-                {
-                    await sw.WriteAsync($"{i:000} / {numberOfIterations}. Now it is {DateTime.Now:yyyy-MM-dd HH:mm:ss} [wait {delayInSec}s] {ssw.Elapsed}\r\n").ConfigureAwait(false);
-                    await sw.FlushAsync().ConfigureAwait(false);
-                    await Task.Delay(delayInSec * 1000);
-                }
-            }
+            var r = Response;
+            await r.SendResponseWithKeepalive(
+                delayInSec: delayInSec, 
+                contentType: "application/json",  
+                howToGetResult: () => {
+                    string start = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+                    Task.Delay(delayInSec * numberOfIterations * 1000).Wait();
+                    string finish = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+                    return JsonConvert.SerializeObject(new { start = start, finish = finish }); }, 
+                statusCode: 200,
+                timeout: TimeSpan.FromMinutes(600)
+                ).ConfigureAwait(false);
             return new EmptyResult();
         }
+
+        
 
         /// <summary>
         /// Random bytes in base64 format.
