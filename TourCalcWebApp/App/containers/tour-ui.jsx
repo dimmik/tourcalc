@@ -183,6 +183,8 @@ class TourTable extends React.Component {
                                                         if (s1.planned && !s2.planned) return -1;
                                                         if (!s1.planned && s2.planned) return 1;
                                                         if (s1.planned && s2.planned) {
+                                                            if (s1.description.startsWith('Family') && !s2.description.startsWith('Family')) return -1;
+                                                            if (!s1.description.startsWith('Family') && s2.description.startsWith('Family')) return 1;
                                                             if (s1.amountInCents > s2.amountInCents) return -1;
                                                             if (s1.amountInCents < s2.amountInCents) return 1;
                                                             return 0;
