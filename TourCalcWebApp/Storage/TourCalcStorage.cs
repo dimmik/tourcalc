@@ -80,22 +80,24 @@ namespace TourCalcWebApp.Storage
 
             if (Configuration.GetValue("TourVersioning", true) && !tour.IsVersion) // do not version version
             {
-                var hTour = GetTour(tour.Id);
-                if (hTour != null)
+                var tourVersion = GetTour(tour.Id);
+                if (tourVersion != null)
                 {
-                    hTour.Id = Guid.NewGuid().ToString();
-                    hTour.IsVersion = true;
-                    hTour.DateVersioned = DateTime.Now;
-                    hTour.VersionFor_Id = tour.Id;
-                    hTour.VersionComment = tour.InternalVersionComment ?? new Func<string>(() =>
+                    tourVersion.Id = Guid.NewGuid().ToString();
+                    tourVersion.IsVersion = true;
+                    tourVersion.DateVersioned = DateTime.Now;
+                    tourVersion.VersionFor_Id = tour.Id;
+                    tourVersion.VersionComment = tour.InternalVersionComment ?? new Func<string>(() =>
                     {
-                        if (hTour.Persons.Count() > tour.Persons.Count) return $"P '{ hTour.Persons.Except(tour.Persons).Last()?.Name ?? "--" }' deleted";
-                        if (hTour.Persons.Count() < tour.Persons.Count) return $"P '{ tour.Persons.Last()?.Name ?? "--" }' added";
-                        if (hTour.Spendings.Count() < tour.Spendings.Count) return $"S '{tour.Spendings.Last()?.Description ?? "--" }' added";
-                        if (hTour.Spendings.Count() > tour.Spendings.Count) return $"S '{hTour.Spendings.Except(tour.Spendings).Last()?.Description ?? "--" }' deleted";
+                        if (tourVersion.Persons.Count() > tour.Persons.Count) return $"P '{ tourVersion.Persons.Except(tour.Persons).Last()?.Name ?? "--" }' deleted";
+                        if (tourVersion.Persons.Count() < tour.Persons.Count) return $"P '{ tour.Persons.Last()?.Name ?? "--" }' added";
+                        var vSpendings = tourVersion.Spendings.Where(s => !s.Planned);
+                        var tSpendings = tour.Spendings.Where(s => !s.Planned);
+                        if (vSpendings.Count() < tSpendings.Count()) return $"S '{tSpendings.Last()?.Description ?? "--" }' added";
+                        if (vSpendings.Count() > tSpendings.Count()) return $"S '{vSpendings.Except(tSpendings).Last()?.Description ?? "--" }' deleted";
                         return "Names or numbers changed";
                     })();
-                    UpsertTour(hTour);
+                    UpsertTour(tourVersion);
                 }
             }
             UpsertTour(tour);
