@@ -223,7 +223,21 @@ class TourTable extends React.Component {
                                                                         mode="edit"
                                                                         app={this}
                                                                         spending={p}
-                                                                    ><span style={{ cursor: 'pointer', textDecoration: 'underline' }}>{p.description}</span></SpendingForm>
+                                                                    >
+                                                                        <span style={{ cursor: 'pointer', textDecoration: 'underline' }}>
+                                                                            {p.description}</span><br/>
+                                                                        <span style={{ fontSize: 'xx-small' }}>[
+
+                                                                            {
+                                                                                new Intl.DateTimeFormat("ru-RU", {
+                                                                                    year: 'numeric', month: 'numeric', day: 'numeric',
+                                                                                    hour: 'numeric', minute: 'numeric', second: 'numeric',
+                                                                                    hour12: false
+                                                                                }).format(Date.parse(p.dateCreated))
+                                                                            }
+
+                                                                            ]</span>
+                                                                    </SpendingForm>
                                                                     : <span>{p.description}&nbsp;
 
                                                                         {this.state.tour.isVersion ? <span /> :
