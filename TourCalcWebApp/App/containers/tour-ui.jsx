@@ -306,7 +306,23 @@ class TourTable extends React.Component {
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {this.state.tour.persons.map((p, idx) => (
+                                                {this.state.tour.persons
+
+                                                    .sort((p1, p2) => {
+                                                        var n1 = (this.state.tour.persons.find((pp) => pp.guid == p1.parentId) == null
+                                                            ? ''
+                                                            : this.state.tour.persons.find((pp) => pp.guid == p1.parentId).name)
+                                                                + p1.name;
+                                                        var n2 = (this.state.tour.persons.find((pp) => pp.guid == p2.parentId) == null
+                                                            ? ''
+                                                            : this.state.tour.persons.find((pp) => pp.guid == p2.parentId).name)
+                                                                + p2.name;
+                                                        if (n1 > n2) return 1;
+                                                        if (n1 < n2) return -1;
+                                                        return 0;
+                                                    })
+
+                                                    .map((p, idx) => (
                                                     <TableRow key={p.guid} hover={true} selected={idx%2==0 ? true : false}>
                                                         <TableCell component="th" scope="row">
                                                             <span style={{ cursor: 'pointer', borderStyle: 'ridge', fontSize: 'xx-small' }} onClick={() => {
