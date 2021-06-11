@@ -5,20 +5,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-using Newtonsoft.Json;
 using System;
 using System.IO;
 using TCalc.Storage;
 using TourCalcWebApp.Auth;
-using Swashbuckle.AspNetCore.Swagger;
 using TourCalcWebApp.Exceptions;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.AspNetCore.Cors.Infrastructure;
-using TCalc.Storage.MongoDB;
-using TCalcStorage.Storage.LiteDB;
 using TourCalcWebApp.Storage;
 using TourCalcWebApp.TgBot;
+using Microsoft.OpenApi.Models;
 
 namespace TourCalcWebApp
 {
@@ -58,10 +54,10 @@ namespace TourCalcWebApp
                 x => { x.AddDefaultPolicy(policy); x.AddPolicy("mypolicy", policy); }
             );
 
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2)
+            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Latest)
                 .AddJsonOptions(options =>
                 {
-                    options.SerializerSettings.Formatting = Formatting.Indented;
+                    options.JsonSerializerOptions.WriteIndented = true;
                 });
 
             SetupAuth(services);
@@ -75,19 +71,26 @@ namespace TourCalcWebApp
             // Register the Swagger generator, defining 1 or more Swagger documents
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new Info { Title = "Tourcalc API", Version = "v1" });
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Tourcalc API", Version = "v1" });
                 // https://stackoverflow.com/questions/43447688/setting-up-swagger-asp-net-core-using-the-authorization-headers-bearer
                 c.AddSecurityDefinition("Bearer",
-                        new ApiKeyScheme
+                        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
                         {
-                            In = "header",
+                            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
                             Description = "Please enter into field the word 'Bearer' following by space and JWT",
                             Name = "Authorization",
-                            Type = "apiKey"
+                            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey
                         });
-                c.AddSecurityRequirement(new Dictionary<string, IEnumerable<string>> {
-                    { "Bearer", Enumerable.Empty<string>() },
-                });
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement() { 
+                    { new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                        {
+                            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                            Description = "Please enter into field the word 'Bearer' following by space and JWT",
+                            Name = "Authorization",
+                            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey
+                        }, new List<string>() } }
+
+                    );
                 // Set the comments path for the Swagger JSON and UI.
                 var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
@@ -143,12 +146,16 @@ namespace TourCalcWebApp
                         ClockSkew = TimeSpan.FromSeconds(5)
                     };
                 });
+            // MvcOptions.EnableEndpointRouting = false;
+            services.AddMvc(options => { options.EnableEndpointRouting = false; });
+        
         }
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
             if (env.IsDevelopment())
             {
+               // Microsoft.Extensions.Logging.Console.
                 app.UseWebpackDevMiddleware();
             }
             if (env.IsDevelopment() || Configuration.GetValue<bool>("UseDeveloperExceptionPage", false))
