@@ -43,16 +43,19 @@ namespace TourCalcWebApp
             // CORS
 
             //Add Cors support to the service
-
-            /*var policy = new CorsPolicy();
-
-            policy.Headers.Add("*");
-            policy.Methods.Add("*");
-            policy.Origins.Add("*");
-            policy.SupportsCredentials = true;
             services.AddCors(
-                x => { x.AddDefaultPolicy(policy); x.AddPolicy("mypolicy", policy); }
-            );*/
+                options => {
+                    options.AddPolicy("mypolicy",
+                        builder => builder
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials()
+                        //.AllowAnyOrigin()
+                        .SetIsOriginAllowed(hostName => true));
+//                    options.AddDefaultPolicy(policy); 
+//                    options.AddPolicy("mypolicy", policy);
+                    }
+            );
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Latest)
                 .AddJsonOptions(options =>
