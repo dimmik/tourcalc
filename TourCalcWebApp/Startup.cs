@@ -50,10 +50,12 @@ namespace TourCalcWebApp
                         .AllowAnyMethod()
                         .AllowAnyHeader()
                         .AllowCredentials()
-                        //.AllowAnyOrigin()
                         .SetIsOriginAllowed(hostName => true));
-//                    options.AddDefaultPolicy(policy); 
-//                    options.AddPolicy("mypolicy", policy);
+                    options.AddDefaultPolicy(builder => builder
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials()
+                        .SetIsOriginAllowed(hostName => true)); 
                     }
             );
 
