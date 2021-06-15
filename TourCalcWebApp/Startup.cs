@@ -44,7 +44,7 @@ namespace TourCalcWebApp
 
             //Add Cors support to the service
 
-            var policy = new CorsPolicy();
+            /*var policy = new CorsPolicy();
 
             policy.Headers.Add("*");
             policy.Methods.Add("*");
@@ -52,7 +52,7 @@ namespace TourCalcWebApp
             policy.SupportsCredentials = true;
             services.AddCors(
                 x => { x.AddDefaultPolicy(policy); x.AddPolicy("mypolicy", policy); }
-            );
+            );*/
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Latest)
                 .AddJsonOptions(options =>
