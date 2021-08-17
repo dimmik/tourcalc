@@ -39,7 +39,10 @@ export default class SpendingsForm extends React.Component {
         super(props);
         this.tour = props.tour
         if (props.spending != null) this.spending = JSON.parse(JSON.stringify(props.spending))
-            else this.spending.fromGuid = this.tour.persons.length > 0 ? this.tour.persons[0].guid : ""
+        else {
+            this.spending.fromGuid = this.tour.persons.length > 0 ? this.tour.persons[0].guid : ""
+            this.spending.type = "Common"
+        }
         this.state = {
             dialogOpen: props.open,
             spending:  this.spending
@@ -56,6 +59,7 @@ export default class SpendingsForm extends React.Component {
         else { // adding
             this.spending.description = ""
             this.spending.amountInCents = 0;
+            this.spending.type = "Common";
             this.spending.fromGuid = this.spending.fromGuid == null ? (this.tour.persons.length > 0 ? this.tour.persons[0].guid : "") : this.spending.fromGuid
         }
         this.setState ({
@@ -167,7 +171,6 @@ export default class SpendingsForm extends React.Component {
                                 <TextField
                                     id="type"
                                     label="Type"
-                                    autoFocus
                                     defaultValue={this.spending.type}
                                     onChange={(e) => this.spending.type = event.target.value}
                                     margin="normal"
