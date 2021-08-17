@@ -49,7 +49,12 @@ export default class SpendingsDetail extends React.Component {
                             <TableBody>
                                 {this.state.spendingInfo.map((si, idx) => {
                                     return this.props.received ? (
-                                    <TableRow key={idx} hover>
+                                        <TableRow key={idx} hover style={{
+                                            backgroundColor:
+                                                si.isSpendingToAll ? "white" :
+                                                    (si.receivedAmountInCents == si.totalSpendingAmountInCents ? "LemonChiffon"
+                                                        : "LightGray")
+                                        }}>
                                         <TableCell component="th" scope="row">
                                             {si.from}
                                         </TableCell>

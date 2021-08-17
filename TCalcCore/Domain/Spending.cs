@@ -14,6 +14,7 @@ namespace TCalc.Domain
         public bool ToAll { get; set; } = false;
         public bool Planned { get; set; } = false;
         public string Description { get; set; } = "";
+        public string Type { get; set; } = "Common";
 
         public override string ToString()
         {

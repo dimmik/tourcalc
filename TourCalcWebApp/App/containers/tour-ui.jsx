@@ -236,7 +236,7 @@ class TourTable extends React.Component {
                                                                                 }).format(Date.parse(p.dateCreated))
                                                                             }
 
-                                                                            ]</span>
+                                                                            ]  <b>{p.type}</b> </span>
                                                                     </SpendingForm>
                                                                     : <span>{p.description}&nbsp;
 

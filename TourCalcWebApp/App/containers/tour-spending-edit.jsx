@@ -157,13 +157,20 @@ export default class SpendingsForm extends React.Component {
                                             checked={this.state.spending.toAll}
                                             onChange={(e) => {
                                                 this.spending.toAll = e.target.checked;
-                                                
                                                 this.setState({ spending: this.spending });
                                             }}
                                          
                                         />
                                     }
                                     label="To All"
+                                />
+                                <TextField
+                                    id="type"
+                                    label="Type"
+                                    autoFocus
+                                    defaultValue={this.spending.type}
+                                    onChange={(e) => this.spending.type = event.target.value}
+                                    margin="normal"
                                 />
                           </FormGroup>
                             <br  />
