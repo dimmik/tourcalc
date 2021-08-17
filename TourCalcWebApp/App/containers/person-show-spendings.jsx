@@ -25,7 +25,22 @@ export default class SpendingsDetail extends React.Component {
             spendingInfo: props.spendingInfo,
             person: props.person
         }
+        //alert("props received: " + props.received);
+        var alertX = true;
+        if (props.received) {
+            props.spendingInfo.forEach(
+                si => {
+                    if (si.type != null && si.type != "") {
+                        if (this.summary[si.type] == null) this.summary[si.type] = 0;
+                        this.summary[si.type] += si.receivedAmountInCents;
+                    }
+                    this.total += si.receivedAmountInCents;
+                }
+            );
+        }
     }
+    summary = {}
+    total = 0;
     /*{
         from: Person 3,
         receivedAmountInCents: 250,
@@ -47,12 +62,34 @@ export default class SpendingsDetail extends React.Component {
 
                         <Table>
                             <TableBody>
+                                {this.props.received ? (
+                                <TableRow key={-1} hover>
+                                    <TableCell component="th" scope="row" colSpan={3}>
+                                            <b>SUMMARY:</b><br/>
+                                            {Object.keys(this.summary).sort(
+                                                (k1, k2) => {
+                                                    return -(this.summary[k1] > this.summary[k2] ? 1 : (this.summary[k1] < this.summary[k2] ? -1 : 0))
+                                                }
+                                            ).map(key => (
+                                                <span key={"summary-" + key}>{key} : <b>{this.summary[key]}</b>
+                                                    ({(this.summary[key] * 100 / this.total).toFixed(0)}%)<br /></span>
+                                                ))}
+
+                                    </TableCell>
+                                    </TableRow>
+                                ) 
+                                    : (<TableRow key={-1} hover>
+                                        <TableCell component="th" scope="row" colSpan={3}>
+                                            &nbsp;
+                                        </TableCell>
+                                    </TableRow>) 
+                                        }
                                 {this.state.spendingInfo.map((si, idx) => {
                                     return this.props.received ? (
                                         <TableRow key={idx} hover style={{
                                             backgroundColor:
                                                 si.isSpendingToAll ? "white" :
-                                                    (si.receivedAmountInCents == si.totalSpendingAmountInCents ? "LemonChiffon"
+                                                    (si.toNames.length == 1 ? "LemonChiffon"
                                                         : "LightGray")
                                         }}>
                                         <TableCell component="th" scope="row">
@@ -68,12 +105,17 @@ export default class SpendingsDetail extends React.Component {
                                         </TableRow>
                                     ) :
                                         (
-                                            <TableRow key={idx} hover>
+                                            <TableRow key={idx} hover style={{
+                                                backgroundColor:
+                                                    si.isSpendingToAll ? "white" :
+                                                        (si.toNames.length == 1 ? "LemonChiffon"
+                                                            : "LightGray")
+                                            }}>
                                                 <TableCell component="th" scope="row">
                                                     {si.from}
                                                 </TableCell>
                                                 <TableCell component="th" scope="row">
-                                                    {si.totalSpendingAmountInCents}
+                                                    {si.totalSpendingAmountInCents} <span style={{ fontSize: 'xx-small' }}>({si.isSpendingToAll ? "all" : (si.toNames.length == 1 ? "pers" : "part")})</span>
                                         </TableCell>
                                                 <TableCell component="th" scope="row">
                                                     {si.spendingDescription}
