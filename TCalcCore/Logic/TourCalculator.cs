@@ -37,6 +37,7 @@ namespace TCalc.Logic
                         From = person.Name,
                         IsSpendingToAll = spending.ToAll,
                         SpendingDescription = string.IsNullOrWhiteSpace(spending.Description) ? "no description" : spending.Description,
+                        Type = spending.Type,
                         ToNames = spending.ToAll 
                             ? new string[] { } 
                             : spending.ToGuid
@@ -79,6 +80,7 @@ namespace TCalc.Logic
                         From = CurrentTour.Persons.FirstOrDefault(p => p.GUID == spending.FromGuid)?.Name ?? "n/a",
                         IsSpendingToAll = spending.ToAll,
                         SpendingDescription = string.IsNullOrWhiteSpace(spending.Description) ? "no description" : spending.Description,
+                        Type = spending.Type,
                         ToNames = spending.ToAll
                             ? new string[] { }
                             : spending.ToGuid

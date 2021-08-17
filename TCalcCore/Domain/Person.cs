@@ -33,5 +33,6 @@ namespace TCalc.Domain
         public string SpendingDescription { get; set; }
         public bool IsSpendingToAll { get; set; }
         public string[] ToNames { get; set; }
+        public string Type { get; set; } = "";
     }
 }
