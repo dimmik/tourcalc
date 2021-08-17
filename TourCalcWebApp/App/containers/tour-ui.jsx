@@ -248,7 +248,11 @@ class TourTable extends React.Component {
                                                                                 open={false}
                                                                                 mode="add"
                                                                                 app={this}
-                                                                                spending={p}
+                                                                                spending={(() => {
+                                                                                    var pp = JSON.parse(JSON.stringify(p))
+                                                                                    pp.type = ""; // so it'll not show in summary
+                                                                                    return pp;
+                                                                                })()}
                                                                             ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
                                                                         }
 

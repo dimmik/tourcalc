@@ -33,8 +33,8 @@ export default class SpendingsDetail extends React.Component {
                     if (si.type != null && si.type != "") {
                         if (this.summary[si.type] == null) this.summary[si.type] = 0;
                         this.summary[si.type] += si.receivedAmountInCents;
+                        this.total += si.receivedAmountInCents;
                     }
-                    this.total += si.receivedAmountInCents;
                 }
             );
         }
