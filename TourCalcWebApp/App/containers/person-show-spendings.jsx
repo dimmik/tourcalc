@@ -117,7 +117,7 @@ export default class SpendingsDetail extends React.Component {
                                                     {si.totalSpendingAmountInCents} <span style={{ fontSize: 'xx-small' }}>({si.isSpendingToAll ? "all" : (si.toNames.length == 1 ? "pers" : "part")})</span>
                                         </TableCell>
                                                 <TableCell component="th" scope="row">
-                                                    {si.spendingDescription}
+                                                    (<span style={{ fontSize: "xx-small" }}><b><i>{si.type}</i></b></span>) {si.spendingDescription}
                                                 </TableCell>
                                             </TableRow>
 
