@@ -71,8 +71,7 @@ export default class SpendingsDetail extends React.Component {
                                                     return -(this.summary[k1] > this.summary[k2] ? 1 : (this.summary[k1] < this.summary[k2] ? -1 : 0))
                                                 }
                                             ).map(key => (
-                                                <span key={"summary-" + key}>{key} : <b>{this.summary[key]}</b>
-                                                    ({(this.summary[key] * 100 / this.total).toFixed(0)}%)<br /></span>
+                                                <span key={"summary-" + key}>{key}: <b>{this.summary[key]}</b> ({(this.summary[key] * 100 / this.total).toFixed(0)}%)<br /></span>
                                                 ))}
 
                                     </TableCell>
@@ -97,10 +96,10 @@ export default class SpendingsDetail extends React.Component {
                                         </TableCell>
                                             <TableCell component="th" scope="row">
                                                 {/*<!--pre>{JSON.stringify(si, null, 2)}</pre>*/}
-                                                {si.receivedAmountInCents} ({(si.receivedAmountInCents * 100 / si.totalSpendingAmountInCents).toFixed(0)}% of {si.totalSpendingAmountInCents})
+                                                {si.receivedAmountInCents} <span style={{ fontSize: "xx-small" }}>({(si.receivedAmountInCents * 100 / si.totalSpendingAmountInCents).toFixed(0)}% of {si.totalSpendingAmountInCents})</span>
                                         </TableCell>
-                                        <TableCell component="th" scope="row">
-                                            {si.spendingDescription}
+                                            <TableCell component="th" scope="row">
+                                                (<span style={{ fontSize: "xx-small" }}><b><i>{si.type}</i></b></span>) {si.spendingDescription} 
                                         </TableCell>
                                         </TableRow>
                                     ) :
