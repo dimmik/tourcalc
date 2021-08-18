@@ -104,6 +104,24 @@ class TourTable extends React.Component {
         clearInterval(this.interval);
     }
 
+    getSpendingsSummary(sp) {
+        var ss = {};
+        ss.total = 0;
+        ss.cats = {};
+        sp.filter(s => s.type != null && s.type != "").forEach(s => {
+            ss.total += s.amountInCents
+            if (ss.cats[s.type] == null) ss.cats[s.type] = 0;
+            ss.cats[s.type] += s.amountInCents;
+        })
+        ss.sortedSummary = Object.keys(ss.cats).sort(
+                (k1, k2) => {
+                    return -(ss.cats[k1] > ss.cats[k2] ? 1 : (ss.cats[k1] < ss.cats[k2] ? -1 : 0))
+                }
+        ).map((key) => { return { 'cat': key, 'amount': ss.cats[key] } });
+        
+        return ss;
+    }
+
     render() {
         if (!this.state.isTourLoaded) {
             return <div>Tour {this.props.tourid} loading...</div>
@@ -114,6 +132,7 @@ class TourTable extends React.Component {
             }
 
             document.title = "Tourcalc: " + this.state.tour.name;
+            this.spSummary = this.getSpendingsSummary(this.state.tour.spendings.filter(s => !s.planned))
 
             return (
                 <Router>
@@ -275,6 +294,18 @@ class TourTable extends React.Component {
                                                             ).join(', ')}</TableCell>
                                                         </TableRow>
                                                     ))}
+                                                <TableRow>
+                                                    <TableCell colSpan={5}>
+                                                        <b>Summary:</b> <br />
+                                                        <p>TOTAL: <b>{this.spSummary.total }</b></p>
+                                                        {
+                                                            this.spSummary
+                                                                .sortedSummary.map((cat, idx) => (
+                                                                    <span key={"tsummary-" + idx}>{cat.cat}: <b>{cat.amount}</b> ({(cat.amount * 100 / this.spSummary.total).toFixed(0)}%)<br /></span>
+                                                                        ))
+                                                        }
+                                                    </TableCell>
+                                                </TableRow>
                                             </TableBody>
                                         </Table>
 
