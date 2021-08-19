@@ -66,8 +66,8 @@ export default class SpendingsDetail extends React.Component {
                         <Table>
                             <TableBody>
                                 {this.props.received ? (
-                                <TableRow key={-1} hover>
-                                    <TableCell component="th" scope="row" colSpan={2}>
+                                    <TableRow key={-1} hover>
+                                        <TableCell component="th" scope="row" colSpan={2}>
                                             <b>SUMMARY:</b><br/>
                                             {Object.keys(this.summary).sort(
                                                 (k1, k2) => {
@@ -78,7 +78,7 @@ export default class SpendingsDetail extends React.Component {
                                                 ))}
 
                                     </TableCell>
-                                        <TableCell component="th" scope="row" colSpan={1}>
+                                        <TableCell component="th" scope="row" colSpan={1} style={{ margin: 0, padding: 0 }}>
                                             <Chart
                                                 width={'300px'}
                                                 height={'200px'}
