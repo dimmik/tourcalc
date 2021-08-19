@@ -298,13 +298,33 @@ class TourTable extends React.Component {
                                                 <TableRow>
                                                     <TableCell colSpan={2}>
                                                         <b>Summary:</b> <br />
-                                                        <p>TOTAL: <b>{this.spSummary.total }</b></p>
-                                                        {
-                                                            this.spSummary
-                                                                .sortedSummary.map((cat, idx) => (
-                                                                    <span key={"tsummary-" + idx}><nobr>{cat.cat}: <b>{cat.amount}</b> ({(cat.amount * 100 / this.spSummary.total).toFixed(0)}%)</nobr><br /></span>
-                                                                        ))
-                                                        }
+                                                        <p>TOTAL: <b>{this.spSummary.total}</b></p>
+
+                                                        <Chart
+                                                            width={'100%'}
+                                                            height={'100%'}
+                                                            chartType="Table"
+                                                            loader={<div>Loading Chart</div>}
+                                                            options={{
+                                                                showRowNumber: false,
+                                                            }}
+                                                            data={
+                                                                [
+                                                                    [{ type: 'string', label: 'Категория' },
+                                                                    { type: 'number', label: 'Сумма' },
+                                                                    { type: 'string', label: 'Процент' },
+                                                                    ]
+                                                                ]
+                                                                    .concat(
+                                                                        this.spSummary
+                                                                            .sortedSummary.map((cat, idx) => [cat.cat, { v: cat.amount }, (cat.amount * 100 / this.spSummary.total).toFixed(2) + "%"])
+
+                                                                    )
+
+                                                            }
+                                                            rootProps={{ 'data-testid': '1' }}
+                                                        />
+                                                        
                                                     </TableCell>
                                                     <TableCell colSpan={3}>
                                                         <Chart
