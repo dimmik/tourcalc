@@ -3,6 +3,8 @@ import AppState from './appstate.jsx'
 
 import { BrowserRouter as Router, Route, Switch, Link, Redirect } from 'react-router-dom';
 
+import Chart from "react-google-charts";
+
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -28,7 +30,6 @@ import { sizing } from '@material-ui/system';
 import TourInfo from './tour-info.jsx'
 
 const history = createBrowserHistory();
-
 
 export default class TourUI extends React.Component {
     constructor(props) {
@@ -295,15 +296,37 @@ class TourTable extends React.Component {
                                                         </TableRow>
                                                     ))}
                                                 <TableRow>
-                                                    <TableCell colSpan={5}>
+                                                    <TableCell colSpan={2}>
                                                         <b>Summary:</b> <br />
                                                         <p>TOTAL: <b>{this.spSummary.total }</b></p>
                                                         {
                                                             this.spSummary
                                                                 .sortedSummary.map((cat, idx) => (
-                                                                    <span key={"tsummary-" + idx}>{cat.cat}: <b>{cat.amount}</b> ({(cat.amount * 100 / this.spSummary.total).toFixed(0)}%)<br /></span>
+                                                                    <span key={"tsummary-" + idx}><nobr>{cat.cat}: <b>{cat.amount}</b> ({(cat.amount * 100 / this.spSummary.total).toFixed(0)}%)</nobr><br /></span>
                                                                         ))
                                                         }
+                                                    </TableCell>
+                                                    <TableCell colSpan={3}>
+                                                        <Chart
+                                                            width={'500px'}
+                                                            height={'300px'}
+                                                            chartType="PieChart"
+                                                            loader={<div>Loading Chart</div>}
+                                                            options={{
+                                                                chartArea: { width: '100%', height: '80%' },
+                                                            }}
+                                                            data={
+                                                                [['Category', 'Amount']]
+                                                                    .concat(
+                                                                    this.spSummary
+                                                                        .sortedSummary.map((cat, idx) => {
+                                                                            return [cat.cat, cat.amount]
+                                                                        })
+                                                                    )
+
+                                                            }
+                                                            rootProps={{ 'data-testid': '1' }}
+                                                        />
                                                     </TableCell>
                                                 </TableRow>
                                             </TableBody>

@@ -16,6 +16,9 @@ import Paper from '@material-ui/core/Paper';
 
 import Button from '@material-ui/core/Button';
 
+import Chart from "react-google-charts";
+
+
 
 export default class SpendingsDetail extends React.Component {
     constructor(props) {
@@ -64,16 +67,40 @@ export default class SpendingsDetail extends React.Component {
                             <TableBody>
                                 {this.props.received ? (
                                 <TableRow key={-1} hover>
-                                    <TableCell component="th" scope="row" colSpan={3}>
+                                    <TableCell component="th" scope="row" colSpan={2}>
                                             <b>SUMMARY:</b><br/>
                                             {Object.keys(this.summary).sort(
                                                 (k1, k2) => {
                                                     return -(this.summary[k1] > this.summary[k2] ? 1 : (this.summary[k1] < this.summary[k2] ? -1 : 0))
                                                 }
                                             ).map(key => (
-                                                <span key={"summary-" + key}>{key}: <b>{this.summary[key]}</b> ({(this.summary[key] * 100 / this.total).toFixed(0)}%)<br /></span>
+                                                <span key={"summary-" + key}><nobr>{key}: <b>{this.summary[key]}</b> ({(this.summary[key] * 100 / this.total).toFixed(0)}%)</nobr><br /></span>
                                                 ))}
 
+                                    </TableCell>
+                                        <TableCell component="th" scope="row" colSpan={1}>
+                                            <Chart
+                                                width={'300px'}
+                                                height={'200px'}
+                                                chartType="PieChart"
+                                                loader={<div>Loading Chart</div>}
+                                                options={{
+                                                    chartArea: { width: '100%', height: '80%' },
+                                                }}
+                                                data={
+                                                    [['Category', 'Amount']]
+                                                        .concat(
+                                                            Object.keys(this.summary).sort(
+                                                                (k1, k2) => {
+                                                                    return -(this.summary[k1] > this.summary[k2] ? 1 : (this.summary[k1] < this.summary[k2] ? -1 : 0))
+                                                                }
+                                                            ).map(key => [key, this.summary[key]])
+                                                            
+                                                        )
+
+                                                }
+                                                rootProps={{ 'data-testid': '1' }}
+                                            />
                                     </TableCell>
                                     </TableRow>
                                 ) 
