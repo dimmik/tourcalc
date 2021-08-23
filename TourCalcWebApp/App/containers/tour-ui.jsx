@@ -192,6 +192,39 @@ class TourTable extends React.Component {
                                         <Table stickyHeader>
                                             <TableHead>
                                                 <TableRow>
+                                                    <TableCell colSpan={5} align="center">
+                                                        Category Filter:
+                                                        <Select
+                                                            multiple
+                                                            variant='filled'
+                                                            style={{
+                                                                minWidth: 120,
+                                                                maxWidth: 600
+                                                            }
+                                                            }
+                                                            value={this.state.filterByCat}
+                                                            onChange={(e) => {
+                                                                this.setState({ filterByCat: e.target.value.includes("_RESET_ALL") ? [] : e.target.value });
+                                                            }}
+                                                            input={<Input id="select-multiple-checkbox" />}
+
+                                                            renderValue={selected => selected.length > 0 ? selected.join(', ') : 'Choose...'}
+                                                            MenuProps={MenuProps}
+                                                        >
+                                                            <MenuItem key="_RESET_ALL" value="_RESET_ALL">
+                                                                <ListItemText primary="Reset" />
+                                                            </MenuItem>
+                                                            {this.spSummary
+                                                                .sortedSummary.map(s => (
+                                                                    <MenuItem key={s.cat} value={s.cat}>
+                                                                        <Checkbox checked={this.state.filterByCat.includes(s.cat)} />
+                                                                        <ListItemText primary={s.cat} />
+                                                                    </MenuItem>
+                                                                ))}
+                                                        </Select>
+                                                    </TableCell>
+                                                </TableRow>
+                                                <TableRow>
                                                     <TableCell>Spending Description
                                                    { this.state.tour.isVersion ? <span/> :
                                                             <SpendingForm
@@ -215,38 +248,10 @@ class TourTable extends React.Component {
                                                     <TableCell align="right">Amount</TableCell>
                                                     <TableCell align="right">To all</TableCell>
                                                     <TableCell align="right">Recipients
-                                                        <br />Cat Filter:
-                                                        <Select
-                                                            multiple
-                                                            variant='filled'
-                                                            style={{
-                                                                minWidth: 120,
-                                                                maxWidth: 600
-                                                            }
-                                                            }
-                                                            value={this.state.filterByCat}
-                                                            onChange={(e) => {
-                                                                this.setState({ filterByCat: e.target.value.includes("_RESET_ALL") ? [] : e.target.value });
-                                                            }}
-                                                            input={<Input id="select-multiple-checkbox"/>}
-                                                            
-                                                            renderValue={selected => selected.length > 0 ? selected.join(', ') : 'Choose...'}
-                                                            MenuProps={MenuProps}
-                                                        >
-                                                            <MenuItem key="_RESET_ALL" value="_RESET_ALL">
-                                                                <Checkbox checked={false} />
-                                                                <ListItemText primary="Reset" />
-                                                            </MenuItem>
-                                                            {this.spSummary
-                                                                .sortedSummary.map(s => (
-                                                                    <MenuItem key={s.cat} value={s.cat}>
-                                                                        <Checkbox checked={this.state.filterByCat.includes(s.cat)} />
-                                                                        <ListItemText primary={s.cat} />
-                                                                    </MenuItem>
-                                                                ))}
-                                                        </Select>
+                                                        
                                                         </TableCell>
                                                 </TableRow>
+
                                             </TableHead>
                                             <TableBody>
                                                 {this.state.tour.spendings
