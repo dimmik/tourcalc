@@ -297,6 +297,7 @@ namespace TourCalcWebApp.Controllers
             {
                 p.GUID = IdHelper.NewId();
                 tour.Persons.Add(p);
+                tour.Spendings.RemoveAll(s => s.Planned);
                 TourStorage_StoreTour(tour);
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
@@ -323,6 +324,8 @@ namespace TourCalcWebApp.Controllers
 
                 t.Persons[idx] = p;
 
+                t.Spendings.RemoveAll(s => s.Planned);
+
                 TourStorage_StoreTour(t);
             }
             else throw HttpException.NotFound($"cannot update: no tour with id {tourid}");
@@ -346,6 +349,7 @@ namespace TourCalcWebApp.Controllers
                 {
                     t.Persons.Remove(removedPerson);
                     t.Spendings.RemoveAll(s => s.FromGuid == removedPerson.GUID);
+                    t.Spendings.RemoveAll(s => s.Planned);
                     t.Spendings.ForEach(s => s.ToGuid.RemoveAll(g => g == removedPerson.GUID));
                     TourStorage_StoreTour(t);
                     return removedPerson.GUID;
