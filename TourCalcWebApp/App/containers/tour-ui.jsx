@@ -12,6 +12,13 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
 
+import InputLabel from '@material-ui/core/InputLabel';
+import Input from '@material-ui/core/Input';
+import ListItemText from '@material-ui/core/ListItemText';
+import MenuItem from '@material-ui/core/MenuItem';
+import Select from '@material-ui/core/Select';
+
+
 import PersonForm from './tour-person-edit.jsx'
 import SpendingForm from './tour-spending-edit.jsx'
 import SpendingsDetail from './person-show-spendings.jsx'
@@ -30,6 +37,18 @@ import { sizing } from '@material-ui/system';
 import TourInfo from './tour-info.jsx'
 
 const history = createBrowserHistory();
+
+const ITEM_HEIGHT = 48;
+const ITEM_PADDING_TOP = 8;
+const MenuProps = {
+    PaperProps: {
+        style: {
+            maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
+            width: 250,
+        },
+    },
+};
+
 
 export default class TourUI extends React.Component {
     constructor(props) {
@@ -86,7 +105,8 @@ class TourTable extends React.Component {
             showSuggested: false,
             dialogPOpen: false,
             currentPage: 'persons',
-            updateTime: new Date()
+            updateTime: new Date(),
+            filterByCat: []
         }
     }
 
@@ -189,11 +209,43 @@ class TourTable extends React.Component {
                                                             S: {this.state.showSuggested ? 'hide' : 'show'}
                                                         </Button>
 
+                                                        
                                                     </TableCell>
                                                     <TableCell align="right">From</TableCell>
                                                     <TableCell align="right">Amount</TableCell>
                                                     <TableCell align="right">To all</TableCell>
-                                                    <TableCell align="right">Recipients</TableCell>
+                                                    <TableCell align="right">Recipients
+                                                        <br />Cat Filter:
+                                                        <Select
+                                                            multiple
+                                                            variant='filled'
+                                                            style={{
+                                                                minWidth: 120,
+                                                                maxWidth: 600
+                                                            }
+                                                            }
+                                                            value={this.state.filterByCat}
+                                                            onChange={(e) => {
+                                                                this.setState({ filterByCat: e.target.value.includes("_RESET_ALL") ? [] : e.target.value });
+                                                            }}
+                                                            input={<Input id="select-multiple-checkbox"/>}
+                                                            
+                                                            renderValue={selected => selected.length > 0 ? selected.join(', ') : 'Choose...'}
+                                                            MenuProps={MenuProps}
+                                                        >
+                                                            <MenuItem key="_RESET_ALL" value="_RESET_ALL">
+                                                                <Checkbox checked={false} />
+                                                                <ListItemText primary="Reset" />
+                                                            </MenuItem>
+                                                            {this.spSummary
+                                                                .sortedSummary.map(s => (
+                                                                    <MenuItem key={s.cat} value={s.cat}>
+                                                                        <Checkbox checked={this.state.filterByCat.includes(s.cat)} />
+                                                                        <ListItemText primary={s.cat} />
+                                                                    </MenuItem>
+                                                                ))}
+                                                        </Select>
+                                                        </TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
@@ -214,7 +266,10 @@ class TourTable extends React.Component {
                                                         return 0;
                                                     })
 
-                                                    .filter((sp) => this.state.showSuggested || !sp.planned)
+                                                    .filter((sp) =>
+                                                        (this.state.showSuggested || !sp.planned)
+                                                        && (sp.planned || (this.state.filterByCat.length == 0 || this.state.filterByCat.includes(sp.type)))
+                                                    )
                                                     .map((p, idx) => (
                                                         <TableRow key={p.guid} hover
 
