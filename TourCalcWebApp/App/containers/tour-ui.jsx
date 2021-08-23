@@ -12,6 +12,7 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
 
+import TextField from '@material-ui/core/TextField';
 import InputLabel from '@material-ui/core/InputLabel';
 import Input from '@material-ui/core/Input';
 import ListItemText from '@material-ui/core/ListItemText';
@@ -192,21 +193,20 @@ class TourTable extends React.Component {
                                         <Table stickyHeader>
                                             <TableHead>
                                                 <TableRow>
-                                                    <TableCell colSpan={5} align="center">
-                                                        Category Filter:
+                                                    <TableCell colSpan={5} align="left">
                                                         <Select
                                                             multiple
                                                             variant='filled'
                                                             style={{
-                                                                minWidth: 120,
-                                                                maxWidth: 600
+                                                                minWidth: 200,
+                                                                maxWidth: 900
                                                             }
                                                             }
                                                             value={this.state.filterByCat}
                                                             onChange={(e) => {
                                                                 this.setState({ filterByCat: e.target.value.includes("_RESET_ALL") ? [] : e.target.value });
                                                             }}
-                                                            input={<Input id="select-multiple-checkbox" />}
+                                                            input={<TextField id="select-multiple-checkbox" label="Category Filter"/>}
 
                                                             renderValue={selected => selected.length > 0 ? selected.join(', ') : 'Choose...'}
                                                             MenuProps={MenuProps}
