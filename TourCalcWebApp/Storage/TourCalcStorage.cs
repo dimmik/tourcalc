@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 using TCalc.Domain;
 using TCalc.Storage;
 using TCalc.Storage.MongoDB;
+using TCalcStorage.Storage;
 using TCalcStorage.Storage.LiteDB;
 using TourCalcWebApp.Exceptions;
 
@@ -34,13 +36,29 @@ namespace TourCalcWebApp.Storage
                 var dbPath = $"{rootFolder}{Configuration.GetValue<string>("DatabaseRelativePath", $@"Tour.db")}";
                 Directory.CreateDirectory(Path.GetDirectoryName(dbPath));
                 provider = new LiteDbTourStorage(dbPath);
-            } else if (providerType.ToLower() == "MongoDb".ToLower())
+            }
+            else if (providerType.ToLower() == "MongoDb".ToLower())
             {
                 var url = Configuration.GetValue<string>("MongoDbUrl");
                 var username = Configuration.GetValue<string>("MongoDbUsername");
                 var password = Configuration.GetValue<string>("MongoDbPassword");
                 provider = new MongoDbTourStorage(url, username, password);
-            } else
+            }
+            else if (providerType.ToLower() == "InMemory".ToLower())
+            {
+                var fileName = Configuration.GetValue("InMemoryFileName", "inmemory-tours.json");
+                List<Tour> tours = null;
+                try {
+                    var json = File.ReadAllText(fileName);
+                    tours = JsonConvert.DeserializeObject<List<Tour>>(json);
+                } catch
+                {
+
+                }
+                
+                provider = new InMemoryTourStorage(tours);
+            }
+            else
             {
                 throw new ArgumentException($"Incorrect provider: {providerType}");
             }
