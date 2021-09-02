@@ -278,7 +278,12 @@ class TourTable extends React.Component {
                                                     .map((p, idx) => (
                                                         <TableRow key={p.guid} hover
 
-                                                            style={p.planned ? (p.description.startsWith('Family') ? { background: "cyan" } : { background: "yellow" }) : { }}
+                                                            style={
+
+                                                                p.planned
+                                                                    ?
+                                                                    (p.description.startsWith('Family') ? { background: "cyan" } : { background: "yellow" })
+                                                                    : (p.toGuid.length == 1 ? { background: "SeaShell"} : {})}
 
                                                             selected={idx % 2 == 0 ? true : false}
                                                         >
