@@ -282,8 +282,9 @@ class TourTable extends React.Component {
 
                                                                 p.planned
                                                                     ?
-                                                                    (p.description.startsWith('Family') ? { background: "cyan" } : { background: "yellow" })
-                                                                    : (p.toGuid.length == 1 ? { background: "SeaShell"} : {})}
+                                                                    /*planned*/(p.description.startsWith('Family') ? { background: "cyan" } : { background: "yellow" })
+                                                                    :
+                                                                    /*not planned, real spending*/(p.toGuid.length == 1 ? { background: "#FFFCF3" } : {})}
 
                                                             selected={idx % 2 == 0 ? true : false}
                                                         >
