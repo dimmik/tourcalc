@@ -38,7 +38,7 @@ namespace TourCalcWebApp.Controllers
             if (code != secretCode) return "wrong code";
             Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup");
             // wait xxx min
-            var delay = Configuration.GetValue("WaketimePreDelayInMin", 5);
+            var delay = Configuration.GetValue("WaketimePreDelayInMin", 1);
             Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup waiting {delay} mins");
             await Task.Delay(TimeSpan.FromMinutes(delay));
             // call wakeup url (in background)
@@ -46,7 +46,7 @@ namespace TourCalcWebApp.Controllers
             Logger.LogInformation($"{DateTimeOffset.Now}: call {url}");
             Task t = client.GetAsync(url);
             // wait another yyy min
-            delay = Configuration.GetValue("WaketimePostDelayInMin", 3);
+            delay = Configuration.GetValue("WaketimePostDelayInMin", 1);
             Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup waiting {delay} mins");
             await Task.Delay(TimeSpan.FromMinutes(delay));
             Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup call task delay status {t.Status}");
