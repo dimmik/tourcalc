@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -36,7 +35,7 @@ namespace TourCalcWebApp.Controllers
         {
             var secretCode = Configuration.GetValue("WakeupCode", "secCode");
             if (code != secretCode) return "wrong code";
-            startupInfo.LastWakeup = DateTimeOffset.Now.ToOffset(TimeSpan.FromHours(3));
+            startupInfo.Wakeup();
             Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup");
             // wait xxx min
             var delay = Configuration.GetValue("WaketimePreDelayInMin", 1);
@@ -54,10 +53,5 @@ namespace TourCalcWebApp.Controllers
 
             return "ok";
         }
-    }
-    public class StartupInfo
-    {
-        public DateTimeOffset StartTime { get; set; } = DateTimeOffset.Now.ToOffset(TimeSpan.FromHours(3));
-        public DateTimeOffset LastWakeup { get; set; } = DateTimeOffset.Now.ToOffset(TimeSpan.FromHours(3));
     }
 }
