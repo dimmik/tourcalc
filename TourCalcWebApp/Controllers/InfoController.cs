@@ -26,9 +26,9 @@ namespace TourCalcWebApp.Controllers
         }
 
         [HttpGet("start")]
-        public DateTimeOffset GetStartupTime()
+        public StartupInfo GetStartupTime()
         {
-            return startupInfo.StartTime.ToOffset(TimeSpan.FromHours(3));
+            return startupInfo;
         }
         private static HttpClient client = new() { Timeout = TimeSpan.FromMinutes(10) };
         [HttpGet("wakeup/{code}")]
@@ -36,6 +36,7 @@ namespace TourCalcWebApp.Controllers
         {
             var secretCode = Configuration.GetValue("WakeupCode", "secCode");
             if (code != secretCode) return "wrong code";
+            startupInfo.LastWakeup = DateTimeOffset.Now.ToOffset(TimeSpan.FromHours(3));
             Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup");
             // wait xxx min
             var delay = Configuration.GetValue("WaketimePreDelayInMin", 1);
@@ -56,6 +57,7 @@ namespace TourCalcWebApp.Controllers
     }
     public class StartupInfo
     {
-        public readonly DateTimeOffset StartTime = DateTimeOffset.Now;
+        public readonly DateTimeOffset StartTime = DateTimeOffset.Now.ToOffset(TimeSpan.FromHours(3));
+        public DateTimeOffset LastWakeup = DateTimeOffset.Now.ToOffset(TimeSpan.FromHours(3));
     }
 }
