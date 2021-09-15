@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Cors.Infrastructure;
 using TourCalcWebApp.Storage;
 using TourCalcWebApp.TgBot;
 using Microsoft.OpenApi.Models;
+using TourCalcWebApp.Controllers;
 
 namespace TourCalcWebApp
 {
@@ -67,6 +68,7 @@ namespace TourCalcWebApp
 
             SetupAuth(services);
 
+            services.AddSingleton(new StartupInfo());
 
 
         }
