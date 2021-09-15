@@ -16,11 +16,15 @@ using TourCalcWebApp.Storage;
 using TourCalcWebApp.TgBot;
 using Microsoft.OpenApi.Models;
 using TourCalcWebApp.Controllers;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace TourCalcWebApp
 {
     public class Startup
     {
+        private Task WakeupServiceThread;
+
         public Startup(IConfiguration configuration)
         {
             Configuration = new TcConfiguration(configuration);
@@ -70,7 +74,29 @@ namespace TourCalcWebApp
 
             services.AddSingleton(new StartupInfo());
 
+            WakeupThread();
 
+        }
+        private void WakeupThread()
+        {
+            try
+            {
+                // wakeup thread
+                if (Configuration.GetValue("DoWakeup", false))
+                {
+                    var url = Configuration.GetValue<string>("WakeupUrl");
+                    HttpClient client = new()
+                    {
+                        Timeout = TimeSpan.FromMinutes(10)
+                    };
+                    WakeupServiceThread = client.GetAsync(url);
+                    Console.WriteLine($"thread status: {WakeupServiceThread.Status}");
+                }
+            }
+            catch
+            {
+                // well ...
+            }
         }
 
         private static void SetupSwaggerDocs(IServiceCollection services)
