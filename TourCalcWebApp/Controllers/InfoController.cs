@@ -1,9 +1,7 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -29,29 +27,32 @@ namespace TourCalcWebApp.Controllers
         {
             return startupInfo;
         }
-        private static HttpClient client = new() { Timeout = TimeSpan.FromMinutes(10) };
+        private static readonly HttpClient client = new() { Timeout = TimeSpan.FromMinutes(10) };
         [HttpGet("wakeup/{code}")]
         public async Task<string> Wakeup([FromRoute] string code)
         {
             var secretCode = Configuration.GetValue("WakeupCode", "secCode");
             if (code != secretCode) return "wrong code";
-            startupInfo.Wakeup();
-            Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup");
-            // wait xxx min
-            var delay = Configuration.GetValue("WaketimePreDelayInMin", 1);
-            Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup waiting {delay} mins");
-            await Task.Delay(TimeSpan.FromMinutes(delay));
-            // call wakeup url (in background)
-            var url = Configuration.GetValue<string>("WakeupUrl");
-            Logger.LogInformation($"{DateTimeOffset.Now}: call {url}");
-            Task t = client.GetAsync(url);
-            // wait another yyy min
-            delay = Configuration.GetValue("WaketimePostDelayInMin", 1);
-            Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup waiting {delay} mins");
-            await Task.Delay(TimeSpan.FromMinutes(delay));
-            Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup call task delay status {t.Status}");
+            lock (client)
+            {
+                startupInfo.Wakeup();
+                Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup");
+                // wait xxx min
+                var delay = Configuration.GetValue("WaketimePreDelayInMin", 1);
+                Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup waiting {delay} mins");
+                Task.Delay(TimeSpan.FromMinutes(delay)).Wait();
+                // call wakeup url (in background)
+                var url = Configuration.GetValue<string>("WakeupUrl");
+                Logger.LogInformation($"{DateTimeOffset.Now}: call {url}");
+                Task t = client.GetAsync(url);
+                // wait another yyy min
+                delay = Configuration.GetValue("WaketimePostDelayInMin", 1);
+                Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup waiting {delay} mins");
+                Task.Delay(TimeSpan.FromMinutes(delay)).Wait();
+                Logger.LogInformation($"{DateTimeOffset.Now}: Wakeup call task delay status {t.Status}");
 
-            return "ok";
+                return "ok";
+            }
         }
     }
 }
