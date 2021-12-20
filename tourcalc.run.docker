@@ -31,3 +31,7 @@ COPY --from=buildUI /src/TourCalcWebApp/wwwroot/assets /app/wwwroot/assets
 #RUN chmod -R a+w /app
 RUN ls -Rla /app
 ENTRYPOINT ["dotnet", "TourCalcWebApp.dll"]
+
+### README
+#build: podman build -f tourcalc.run.docker -t tourcalc:dev --no-cache .
+# run:  podman run -p 8080:80 -e StorageType=InMemory localhost/tourcalc:dev

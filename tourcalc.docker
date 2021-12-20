@@ -1,21 +1,22 @@
 FROM mcr.microsoft.com/dotnet/aspnet:5.0 AS base
 WORKDIR /app
+#RUN dotnet --version
 EXPOSE 80
 EXPOSE 443
 
+FROM docker.io/library/node:latest AS buildUI
+WORKDIR /src
+COPY ./TourCalcWebApp ./TourCalcWebApp
+RUN ls
+WORKDIR /src/TourCalcWebApp
+RUN npm install
+RUN npm run buildProd
+RUN ls -Rla /src/TourCalcWebApp/
 
 FROM mcr.microsoft.com/dotnet/sdk:5.0 AS buildtc
 WORKDIR /src
-COPY ["TourCalcWebApp/TourCalcWebApp.csproj", "TourCalcWebApp/"]
-#RUN dotnet restore "TourCalcWebApp/TourCalcWebApp.csproj"
 COPY . .
 WORKDIR "/src/TourCalcWebApp"
-RUN apt-get update -y
-RUN curl -sL https://deb.nodesource.com/setup_10.x | bash --debug
-RUN apt-get install nodejs -yq
-RUN npm --version
-#RUN dotnet build "TourCalcWebApp.csproj" -c Release -o /app
-
 
 
 FROM buildtc as publishtc
@@ -26,6 +27,11 @@ RUN dotnet publish  --version-suffix ${BUILD_VER} "TourCalcWebApp.csproj" -c Rel
 FROM base AS final
 WORKDIR /app
 COPY --from=publishtc /app .
+COPY --from=buildUI /src/TourCalcWebApp/wwwroot/assets /app/wwwroot/assets
 #RUN chmod -R a+w /app
 RUN ls -Rla /app
-ENTRYPOINT ["dotnet", "TCWebAssembly.dll"]
+ENTRYPOINT ["dotnet", "TourCalcWebApp.dll"]
+
+### README
+#build: podman build -f tourcalc.run.docker -t tourcalc:dev --no-cache .
+# run:  podman run -p 8080:80 -e StorageType=InMemory localhost/tourcalc:dev
