@@ -17,13 +17,14 @@ RUN ls -Rla /src/TourCalcWebApp/wwwroot/assets
 
 
 #### Build and publish backend
-FROM mcr.microsoft.com/dotnet/sdk:5.0 AS buildtc
+FROM mcr.microsoft.com/dotnet/sdk:5.0 AS publishtc
 WORKDIR /src
 COPY . .
 
+# for tourcalc.run.docker only. DO NOT copy to tourcalc.docker (that is basically for build by ci/cd)
 RUN export TZ='Europe/Moscow'
 RUN export DT=`date +"%Y%m%d-%H%M%S"`
-RUN grep -Irl "#{Build.BuildNumber}#" . | xargs sed -i 's/#{Build.BuildNumber}#/$DT/g'
+RUN grep -Irl "#{Build.BuildNumber}#" . | xargs sed -i 's/#{Build.BuildNumber}#/'$DT'/g'
 RUN grep -Irl "#{Build.SourceBranch}#" . | xargs sed -i 's/#{Build.SourceBranch}#/local/g'
 
 WORKDIR "/src/TourCalcWebApp"
@@ -41,4 +42,4 @@ ENTRYPOINT ["dotnet", "TourCalcWebApp.dll"]
 
 ### README
 #build: podman build -f tourcalc.run.docker -t tourcalc:dev --no-cache .
-# run:  podman run -p 8080:80 -e StorageType=InMemory localhost/tourcalc:dev
+#run:   podman run -p 8080:80 -e StorageType=InMemory localhost/tourcalc:dev
