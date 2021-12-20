@@ -20,26 +20,22 @@ RUN ls -Rla /src/TourCalcWebApp/wwwroot/assets
 FROM mcr.microsoft.com/dotnet/sdk:5.0 AS publishtc
 WORKDIR /src
 COPY . .
-
-# for tourcalc.run.docker only. DO NOT copy to tourcalc.docker (that is basically for build by ci/cd)
-RUN export TZ='Europe/Moscow'
-RUN export DT=`date +"%Y%m%d-%H%M%S"`
-RUN grep -Irl "#{Build.BuildNumber}#" . | xargs sed -i 's/#{Build.BuildNumber}#/'$DT'/g'
-RUN grep -Irl "#{Build.SourceBranch}#" . | xargs sed -i 's/#{Build.SourceBranch}#/local/g'
-
 WORKDIR "/src/TourCalcWebApp"
-RUN dotnet publish  --version-suffix $DT "TourCalcWebApp.csproj" -c Release -o /app 
+RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && dotnet publish --version-suffix $DT "TourCalcWebApp.csproj" -c Release -o /app 
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publishtc /app .
 COPY --from=buildUI /src/TourCalcWebApp/wwwroot/assets /app/wwwroot/assets
 
+# for tourcalc.run.docker only. DO NOT copy to tourcalc.docker (that is basically for build by ci/cd)
 # replace buildnum and buildver
+RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && grep -Irl "#{Build.BuildNumber}#" . | xargs sed -i 's/#{Build.BuildNumber}#/'$DT'/g'
+RUN grep -Irl "#{Build.SourceBranch}#" . | xargs sed -i 's/#{Build.SourceBranch}#/local/g'
 
-RUN ls -Rla /app
+#RUN ls -Rla /app
 ENTRYPOINT ["dotnet", "TourCalcWebApp.dll"]
 
 ### README
-#build: podman build -f tourcalc.run.docker -t tourcalc:dev --no-cache .
+#build: podman build --build-arg -f tourcalc.run.docker -t tourcalc:dev --no-cache .
 #run:   podman run -p 8080:80 -e StorageType=InMemory localhost/tourcalc:dev
