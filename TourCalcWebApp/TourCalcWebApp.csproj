@@ -54,9 +54,9 @@
     <None Include="package.json" />
   </ItemGroup>
 
-  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Condition="$(Configuration) == 'Release'" Command="npm install" />
+  <!--Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Condition="$(Configuration) == 'Release'" Command="" />
     <Exec Condition="$(Configuration) == 'Release'" Command="npm run buildProd" />
-  </Target>
+  </Target-->
   
 </Project>
