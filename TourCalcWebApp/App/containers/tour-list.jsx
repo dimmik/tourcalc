@@ -112,8 +112,10 @@ export default class TourList extends React.Component {
                                                 <Button variant='outlined' onClick={() => {
                                                     document.getElementById('TourJsonTextArea').value = JSON.stringify(t, null, 2);
                                                 }}>JSON</Button>
-                                                <input type="text" id={t.id + "code"} label="Code" size="3"/>
-                                                <a href="#" onClick={() => alert("https://tourcalc.azurewebsites.net/goto/" + (document.getElementById(t.id + "code") == null ? "zzzz" : document.getElementById(t.id + "code").value) + "/" + t.id)}>link</a>
+                                                <input type="text" id={t.id + "code"} label="Code" size="3"
+                                                    onChange={
+                                                        () => document.getElementById(t.id + "link").href = "/goto/" + (document.getElementById(t.id + "code") == null ? "zzzz" : document.getElementById(t.id + "code").value) + "/" + t.id} />
+                                                <a href="#" id={t.id + "link"} target="_blank">link</a>
                                                 
                                             </TableCell>
                                             <TableCell>
