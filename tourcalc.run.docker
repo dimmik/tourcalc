@@ -37,5 +37,7 @@ RUN grep -Irl "#{Build.SourceBranch}#" . | xargs sed -i 's/#{Build.SourceBranch}
 ENTRYPOINT ["dotnet", "TourCalcWebApp.dll"]
 
 ### README
-#build: podman build -f tourcalc.run.docker -t tourcalc:dev --no-cache .
-#run:   podman run -p 8080:80 -e StorageType=InMemory localhost/tourcalc:dev
+#build:      podman build -f tourcalc.run.docker -t tourcalc:dev --no-cache .
+#run:        podman run -p 8080:80 -e StorageType=InMemory localhost/tourcalc:dev
+#run daemon (detached): podman run -d -p 8080:80 --env-file ~/config/tourcalc.env localhost/tourcalc:dev
+#run listening local: podman run -d -p 127.0.0.1:8080:80 --env-file ~/config/tourcalc.env localhost/tourcalc:dev 
