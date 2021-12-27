@@ -46,7 +46,7 @@ namespace TourCalcWebApp.Controllers
             var index = System.IO.File.ReadAllText(Configuration.GetValue("PathToIndexTpl", @"IndexTpl.html"));//IndexPage;
             try
             {
-                var pathToBundleJs = Configuration.GetValue("PathToBundleJs", @"wwwroot\assets\bundle.js");
+                var pathToBundleJs = Configuration.GetValue("PathToBundleJs", $@"wwwroot{Path.DirectorySeparatorChar}assets{Path.DirectorySeparatorChar}bundle.js");
                 var fileInfo = new FileInfo(pathToBundleJs);
                 using (var contentStream = System.IO.File.OpenRead(pathToBundleJs))
                 {
