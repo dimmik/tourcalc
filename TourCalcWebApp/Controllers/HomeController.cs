@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using TourCalcWebApp.Auth;
 
 namespace TourCalcWebApp.Controllers
@@ -18,10 +19,12 @@ namespace TourCalcWebApp.Controllers
     public class HomeController : ControllerBase
     {
         private readonly ITcConfiguration Configuration;
+        private readonly ILogger log;
 
-        public HomeController(ITcConfiguration config)
+        public HomeController(ITcConfiguration config, ILogger<HomeController> l)
         {
             Configuration = config;
+            log = l;
         }
         /// <summary>
         /// Index page to host SPA
@@ -30,6 +33,16 @@ namespace TourCalcWebApp.Controllers
         [HttpGet]
         public IActionResult Index()
         {
+            var redirectToSite = Configuration.GetValue("DoRedirectToDomain", false);
+            if (redirectToSite)
+            {
+                var redirectDomain = Configuration.GetValue("RedirectDomain", "");
+                if (!string.IsNullOrWhiteSpace(redirectDomain))
+                {
+                    var url = $"{(Request.IsHttps ? "https" : "http")}://{redirectDomain}{Request.Path}{Request.QueryString}";
+                    return Redirect(url);
+                }
+            }
             var index = System.IO.File.ReadAllText(Configuration.GetValue("PathToIndexTpl", @"IndexTpl.html"));//IndexPage;
             try
             {
@@ -43,9 +56,10 @@ namespace TourCalcWebApp.Controllers
                 //var ver = Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
                 //index = index.Replace("_ver_", $"{ver}");
             }
-            catch (Exception /*e*/)
+            catch (Exception e)
             {
                 //index = index.Replace("__error__", e.Message);
+                log.LogError($"Error: {e.Message} {e.StackTrace}");
             }
             index = index.Replace("_now_", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             //index = index.Replace("__the_path__", Environment.CurrentDirectory);
