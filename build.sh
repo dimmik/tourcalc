@@ -9,5 +9,6 @@ fi
 
 if [ $changed -eq 0 ]; then
   echo "NO news. Do not rebuild!"
+  return 1
 fi
 
