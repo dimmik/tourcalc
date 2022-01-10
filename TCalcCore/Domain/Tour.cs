@@ -19,6 +19,7 @@ namespace TCalc.Domain
         public string VersionFor_Id { get; set; } = "";
         public string VersionComment { get; set; } = "";
         public string InternalVersionComment = null;
+        public bool IsArchived { get; set; } = false;
         public void PrepareForStoring()
         {
             // delete spending lists that might be rather large
