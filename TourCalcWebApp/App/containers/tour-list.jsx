@@ -23,14 +23,15 @@ export default class TourList extends React.Component {
         super(props);
         this.state = {
             isToursLoaded: false,
-            tours: null
-
+            tours: null,
+            showArchived: false
         }
     }
     page = 0
     rowsPerPage = 15
 
     code = ""
+    
 
     componentDidMount() {
         document.title = "Tourcalc: List of tours"
@@ -51,14 +52,21 @@ export default class TourList extends React.Component {
                             <TableRow>
                                 <TableCell>Tours
                                 </TableCell>
-                                <TableCell onClick={() => { /*alert('will refresh'); AppState.refreshMainApp();*/ }}>Mode: {this.props.authData.type}&nbsp;<Link to="/login">change</Link>
+                                <TableCell onClick={() => { /*alert('will refresh'); AppState.refreshMainApp();*/ }}>
+                                    Mode: {this.props.authData.type}&nbsp;<Link to="/login">change</Link>
                                     {this.props.authData.type === 'Master'
                                         ? <div>
-                                            <input type="text" defaultValue={this.code} onChange={(e) => { this.code = e.target.value }} />
-                                            <Button variant="outlined" onClick={() => { this.loadTours() }}>Filter by code</Button>
+                                            <input type="text"
+                                                defaultValue={this.code}
+                                                onChange={(e) => { this.code = e.target.value; this.loadTours(); }} />
+                                            {/*<Button variant="outlined" onClick={() => { this.loadTours() }}>filter</Button>*/}
                                         </div>
                                         : ''
-                                     }
+                                    }
+                                    a: <input
+                                        type="checkbox"
+                                        defaultChecked={this.state.showArchived}
+                                        onChange={(e) => { this.setState({ showArchived: e.target.checked} ) }} />
                                 </TableCell>
                                 <TableCell>{
                                     this.props.authData.type === 'Master'
@@ -79,7 +87,9 @@ export default class TourList extends React.Component {
                         </TableHead>
                         <TableBody>
                             {
-                                this.state.tours.tours.map((t, idx) => {
+                                this.state.tours.tours
+                                    .filter(t => this.state.showArchived ? true : !t.isArchived)
+                                    .map((t, idx) => {
                                     return (
                                         <TableRow key={'row' + t.id} hover>
                                             <TableCell>
@@ -98,6 +108,11 @@ export default class TourList extends React.Component {
                                                         open={false}
                                                         authData={this.props.authData}
                                                         buttonText='Rename' actionButtonText="Change name" /></u>
+                                                <input type="checkbox" defaultChecked={t.isArchived}
+                                                    onClick={() => {
+                                                        AppState.changeTourArchived(this, t.id, !t.isArchived, t.code)
+                                                        .then(() => { this.loadTours() }) }}
+                                                />
                                             </TableCell>
                                             <TableCell>
                                                 {(idx + 1) + (this.page * this.rowsPerPage)}.<Link key={'l' + idx} to={'/tour/' + t.id}>{t.name}

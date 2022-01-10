@@ -113,6 +113,11 @@ namespace TourCalcWebApp.Storage
                         var tSpendings = tour.Spendings.Where(s => !s.Planned);
                         if (vSpendings.Count() < tSpendings.Count()) return $"S '{tSpendings.Last()?.Description ?? "--" }' added";
                         if (vSpendings.Count() > tSpendings.Count()) return $"S '{vSpendings.Except(tSpendings).Last()?.Description ?? "--" }' deleted";
+                        if (tourVersion.IsArchived != tour.IsArchived)
+                        {
+                            if (tour.IsArchived) return "Moved to archive";
+                            if (!tour.IsArchived) return "Restored from archive";
+                        }
                         return "Names or numbers changed";
                     })();
                     UpsertTour(tourVersion);

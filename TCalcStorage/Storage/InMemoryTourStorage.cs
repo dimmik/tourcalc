@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -29,7 +30,9 @@ namespace TCalcStorage.Storage
 
         public Tour GetTour(string tourid)
         {
-            return Tours.FirstOrDefault(t => t.Id == tourid);
+            var tour = Tours.FirstOrDefault(t => t.Id == tourid);
+            // return a clone
+            return JsonConvert.DeserializeObject<Tour>(JsonConvert.SerializeObject(tour));
         }
 
         public IEnumerable<Tour> GetTours(Expression<Func<Tour, bool>> predicate, bool includeVersions, int from, int count, out int totalCount)
