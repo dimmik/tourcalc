@@ -1,6 +1,8 @@
 ﻿import React, { Component, Fragment } from "react";
 import PropTypes from "prop-types";
 import TextField from '@material-ui/core/TextField';
+import MenuItem from '@material-ui/core/MenuItem';
+
 
 class Autocomplete extends Component {
     static propTypes = {
@@ -124,7 +126,7 @@ class Autocomplete extends Component {
         if (showSuggestions) {
             if (filteredSuggestions.length > 0) {
                 suggestionsListComponent = (
-                    <ul className="suggestions">
+                    <div>
                         {filteredSuggestions.map((suggestion, index) => {
                             let className;
 
@@ -134,12 +136,12 @@ class Autocomplete extends Component {
                             }
 
                             return (
-                                <li className={className} key={suggestion} onClick={onClickOnSuggestion}>
+                                <MenuItem style={{border: "1"}} className={className} key={suggestion} onClick={onClickOnSuggestion}>
                                     {suggestion}
-                                </li>
+                                </MenuItem>
                             );
                         })}
-                    </ul>
+                    </div>
                 );
             } else {
                 suggestionsListComponent = (
