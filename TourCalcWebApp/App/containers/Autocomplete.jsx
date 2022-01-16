@@ -14,6 +14,15 @@ class Autocomplete extends Component {
     constructor(props) {
         super(props);
 
+        this.wrapperRef = React.createRef();
+        
+        //this.setWrapperRef = this.setWrapperRef.bind(this);
+        this.handleClickOutside = this.handleClickOutside.bind(this);
+
+        this.hint = props.hint;
+        this.onFill = props.onFill;
+        this.defaultValue = props.defaultValue;
+
         this.state = {
             // The active selection's index
             activeSuggestion: 0,
@@ -22,14 +31,14 @@ class Autocomplete extends Component {
             // Whether or not the suggestion list is shown
             showSuggestions: false,
             // What the user has entered
-            userInput: ""
+            userInput: this.defaultValue
         };
+        //alert("wr: " + this.wrapperRef);
     }
 
     onChange = e => {
         const { suggestions } = this.props;
         const userInput = e.currentTarget.value;
-
         // Filter our suggestions that don't contain the user's input
         const filteredSuggestions = suggestions.filter(
             suggestion =>
@@ -44,7 +53,8 @@ class Autocomplete extends Component {
         });
     };
 
-    onClick = e => {
+    onClickOnSuggestion = e => {
+        //alert("s clicked: " + e.currentTarget.innerText);
         this.setState({
             activeSuggestion: 0,
             filteredSuggestions: [],
@@ -64,28 +74,38 @@ class Autocomplete extends Component {
                 userInput: filteredSuggestions[activeSuggestion]
             });
         }
-        // User pressed the up arrow
-        else if (e.keyCode === 38) {
-            if (activeSuggestion === 0) {
-                return;
-            }
-
-            this.setState({ activeSuggestion: activeSuggestion - 1 });
-        }
-        // User pressed the down arrow
-        else if (e.keyCode === 40) {
-            if (activeSuggestion - 1 === filteredSuggestions.length) {
-                return;
-            }
-
-            this.setState({ activeSuggestion: activeSuggestion + 1 });
-        }
+        
     };
+
+    componentDidUpdate() {
+        this.onFill(this.state.userInput);
+    }
+
+    componentDidMount() {
+        document.addEventListener('mousedown', this.handleClickOutside);
+    }
+
+    componentWillUnmount() {
+        document.removeEventListener('mousedown', this.handleClickOutside);
+    }
+    /**
+     * Alert if clicked on outside of element
+     */
+    handleClickOutside(event) {
+        var c = this.wrapperRef.current;
+        if (this.wrapperRef && this.wrapperRef.current && !this.wrapperRef.current.contains(event.target)) {
+            //alert('You clicked outside of me!');
+            this.setState({ showSuggestions: false });
+            this.wrapperRef.current = c;
+        }
+        //alert("wr: " + this.wrapperRef.current /*+ "outside: " + !this.wrapperRef.current.contains(event.target) */);
+        //alert('You clicked! wr: ' + this.wrapperRef);
+    }
 
     render() {
         const {
             onChange,
-            onClick,
+            onClickOnSuggestion,
             onKeyDown,
             state: {
                 activeSuggestion,
@@ -97,8 +117,8 @@ class Autocomplete extends Component {
 
         let suggestionsListComponent;
 
-        if (showSuggestions && userInput) {
-            if (filteredSuggestions.length) {
+        if (showSuggestions) {
+            if (filteredSuggestions.length > 0) {
                 suggestionsListComponent = (
                     <ul class="suggestions">
                         {filteredSuggestions.map((suggestion, index) => {
@@ -110,7 +130,7 @@ class Autocomplete extends Component {
                             }
 
                             return (
-                                <li className={className} key={suggestion} onClick={onClick}>
+                                <li className={className} key={suggestion} onClick={onClickOnSuggestion}>
                                     {suggestion}
                                 </li>
                             );
@@ -128,20 +148,20 @@ class Autocomplete extends Component {
 
         return (
             <Fragment>
-                <TextField
-                    id="type"
-                    value={userInput}
-                    onChange={onChange}
-                    onKeyDown={onKeyDown}
-                    margin="normal"
-                />
-                {/*<input
-                    type="text"
-                    onChange={onChange}
-                    onKeyDown={onKeyDown}
-                    value={userInput}
-                />*/}
-                {suggestionsListComponent}
+                <div ref={this.wrapperRef}>
+                    <TextField
+                        id="type"
+                        value={userInput}
+                        onChange={onChange}
+                        onKeyDown={onKeyDown}
+                        onClick={() => this.setState({ showSuggestions: true })}
+                    
+                        margin="normal"
+                        autoComplete="off"
+                        label={ this.hint }
+                    />
+                    {suggestionsListComponent}
+                 </div>
             </Fragment>
         );
     }

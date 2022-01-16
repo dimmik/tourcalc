@@ -2,6 +2,8 @@
 import ReactDOM from 'react-dom';
 import AppState from './appstate.jsx'
 
+import Autocomplete from './Autocomplete.jsx'
+
 import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
@@ -168,12 +170,21 @@ export default class SpendingsForm extends React.Component {
                                     }
                                     label="To All"
                                 />
-                                <TextField
+                                {/*<TextField
                                     id="type"
                                     label="Type"
                                     defaultValue={this.spending.type}
                                     onChange={(e) => this.spending.type = event.target.value}
                                     margin="normal"
+                                />*/}
+                                <Autocomplete
+                                    suggestions={this.tour.spendings.map((s) => s.type)
+                                        .filter(s => s) // not empty or null
+                                        .filter((value, index, self) => self.indexOf(value) === index) // remove dups
+                                    }
+                                    hint="Spending Type"
+                                    defaultValue={this.spending.type}
+                                    onFill={(val) => { this.spending.type = val; /*alert('Updated to ' + val)*/ }}
                                 />
                           </FormGroup>
                             <br  />
