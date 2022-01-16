@@ -37,8 +37,12 @@ class Autocomplete extends Component {
     }
 
     onChange = e => {
+        const txt = e.currentTarget.value;
+        this.filterSuggestions(txt);
+    };
+    filterSuggestions = (text) => {
         const { suggestions } = this.props;
-        const userInput = e.currentTarget.value;
+        const userInput = text;
         // Filter our suggestions that don't contain the user's input
         const filteredSuggestions = suggestions.filter(
             suggestion =>
@@ -49,9 +53,9 @@ class Autocomplete extends Component {
             activeSuggestion: 0,
             filteredSuggestions,
             showSuggestions: true,
-            userInput: e.currentTarget.value
+            userInput: text
         });
-    };
+    }
 
     onClickOnSuggestion = e => {
         //alert("s clicked: " + e.currentTarget.innerText);
@@ -120,7 +124,7 @@ class Autocomplete extends Component {
         if (showSuggestions) {
             if (filteredSuggestions.length > 0) {
                 suggestionsListComponent = (
-                    <ul class="suggestions">
+                    <ul className="suggestions">
                         {filteredSuggestions.map((suggestion, index) => {
                             let className;
 
@@ -139,7 +143,7 @@ class Autocomplete extends Component {
                 );
             } else {
                 suggestionsListComponent = (
-                    <div class="no-suggestions">
+                    <div className="no-suggestions">
                         <em>No suggestions</em>
                     </div>
                 );
@@ -154,7 +158,7 @@ class Autocomplete extends Component {
                         value={userInput}
                         onChange={onChange}
                         onKeyDown={onKeyDown}
-                        onClick={() => this.setState({ showSuggestions: true })}
+                        onClick={() => this.filterSuggestions(this.state.userInput)}
                     
                         margin="normal"
                         autoComplete="off"
