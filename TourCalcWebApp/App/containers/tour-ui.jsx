@@ -147,8 +147,14 @@ class TourTable extends React.Component {
     lastSpendingType(tour) {
         let sppp = tour.spendings.filter(s => !s.planned && s.type);
         return sppp.length > 0
-             ? sppp[sppp.length - 1].type
-             : "Common"
+            ? sppp[sppp.length - 1].type
+            : "Common"
+    }
+    lastSpenderGUID(tour) {
+        let sppp = tour.spendings.filter(s => !s.planned && s.type);
+        return sppp.length > 0
+            ? sppp[sppp.length - 1].fromGuid
+            : null
     }
 
     render() {
@@ -244,7 +250,7 @@ class TourTable extends React.Component {
                                                                 spending={{
                                                                     description: "",
                                                                     amountInCents: 0,
-                                                                    fromGuid: null,
+                                                                    fromGuid: this.lastSpenderGUID(this.state.tour),
                                                                     toGuid: [],
                                                                     toAll: true,
                                                                     guid: "",
