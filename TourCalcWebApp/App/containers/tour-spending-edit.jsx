@@ -170,22 +170,22 @@ export default class SpendingsForm extends React.Component {
                                     }
                                     label="To All"
                                 />
-                                {/*<TextField
+                                <TextField
                                     id="type"
-                                    label="Type"
+                                    label="Spending Type"
                                     defaultValue={this.spending.type}
                                     onChange={(e) => this.spending.type = event.target.value}
                                     margin="normal"
-                                />*/}
-                                <Autocomplete
+                                />
+                                {/*<Autocomplete
                                     suggestions={this.tour.spendings.map((s) => s.type)
                                         .filter(s => s) // not empty or null
                                         .filter((value, index, self) => self.indexOf(value) === index) // remove dups
                                     }
                                     hint="Spending Type"
                                     defaultValue={this.spending.type}
-                                    onFill={(val) => { this.spending.type = val; /*alert('Updated to ' + val)*/ }}
-                                />
+                                    onFill={(val) => { this.spending.type = val; }}
+                                />*/}
                           </FormGroup>
                             <br  />
                         </form>
