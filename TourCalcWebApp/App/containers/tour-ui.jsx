@@ -144,6 +144,19 @@ class TourTable extends React.Component {
         return ss;
     }
 
+    lastSpendingType(tour) {
+        let sppp = tour.spendings.filter(s => !s.planned && s.type);
+        return sppp.length > 0
+            ? sppp[sppp.length - 1].type
+            : "Common"
+    }
+    lastSpenderGUID(tour) {
+        let sppp = tour.spendings.filter(s => !s.planned && s.type);
+        return sppp.length > 0
+            ? sppp[sppp.length - 1].fromGuid
+            : null
+    }
+
     render() {
         if (!this.state.isTourLoaded) {
             return <div>Tour {this.props.tourid} loading...</div>
@@ -230,10 +243,19 @@ class TourTable extends React.Component {
                                                             <SpendingForm
                                                                 tour={this.state.tour}
                                                                 buttonText="Add"
-                                                                actionButtonText="Add Spending"
+                                                                actionButtonText="Save Spending"
                                                                 open={false}
                                                                 mode="add"
                                                                 app={this}
+                                                                spending={{
+                                                                    description: "",
+                                                                    amountInCents: 0,
+                                                                    fromGuid: this.lastSpenderGUID(this.state.tour),
+                                                                    toGuid: [],
+                                                                    toAll: true,
+                                                                    guid: "",
+                                                                    type: this.lastSpendingType(this.state.tour)
+                                                                }}
                                                             ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
                                                         }
                                                         &nbsp;
@@ -508,8 +530,9 @@ class TourTable extends React.Component {
                                                                         amountInCents: 0,
                                                                         fromGuid: p.guid,
                                                                         toGuid: [],
-                                                                        toAll: false,
-                                                                        guid: ""
+                                                                        toAll: true,
+                                                                        guid: "",
+                                                                        type: this.lastSpendingType(this.state.tour)
                                                                     }}
                                                                 ><Button color='primary' variant='outlined'
                                                                 >Spend</Button></SpendingForm>

@@ -57,6 +57,7 @@ export default class SpendingsForm extends React.Component {
         this.tour = props.tour
         if (props.spending != null) { // edit
             this.spending = JSON.parse(JSON.stringify(props.spending))
+            //alert("j: " + JSON.stringify(props.spending));
         }
         else { // adding
             this.spending.description = ""
@@ -80,7 +81,7 @@ export default class SpendingsForm extends React.Component {
         guid: ""
     }
     validate() {
-        if (this.state.spending != null && this.state.spending.amountInCents != 0 && this.state.spending.fromGuid != null && (this.spending.toAll || this.spending.toGuid.length > 0))
+        if (this.state.spending != null && this.state.spending.amountInCents != 0 && this.state.spending.fromGuid != null && (this.state.spending.toAll || this.state.spending.toGuid.length > 0))
             return true;
         return false;
     }
@@ -102,7 +103,7 @@ export default class SpendingsForm extends React.Component {
                                     label="Description"
                                     autoFocus
                                     defaultValue={this.spending.description}
-                                    onChange={(e) => this.spending.description = event.target.value}
+                                    onChange={(e) => { this.spending.description = event.target.value; this.setState({ spending: this.spending }) }}
                                     margin="normal"
                                 />
                                 <TextField
@@ -111,7 +112,7 @@ export default class SpendingsForm extends React.Component {
                                     label="Amount"
                                     type="number"
                                     defaultValue={this.spending.amountInCents}
-                                    onChange={(e) => this.spending.amountInCents = event.target.value}
+                                    onChange={(e) => { this.spending.amountInCents = event.target.value; this.setState({ spending: this.spending }) }}
                                     margin="normal"
                                 />
                                 <br/>
@@ -173,10 +174,26 @@ export default class SpendingsForm extends React.Component {
                                 <TextField
                                     id="type"
                                     label="Spending Type"
-                                    defaultValue={this.spending.type}
-                                    onChange={(e) => this.spending.type = event.target.value}
+                                    value={this.state.spending.type}
+                                    onChange={(e) => {
+                                        this.spending.type = event.target.value;
+                                        this.setState({ spending: this.spending });
+                                        //alert("st: " + this.spending.type )
+                                    }}
                                     margin="normal"
                                 />
+                                <Select
+                                    input={<Input id="select-type-from" />}
+                                    value={this.state.spending.type}
+                                    onChange={(e) => { this.spending.type = e.target.value; this.setState({ spending: this.spending }) }}
+                                >
+                                    {
+                                        this.tour.spendings.map((s) => s.type)
+                                            .filter(s => s) // not empty or null
+                                            .filter((value, index, self) => self.indexOf(value) === index)
+                                            .map(p => (<MenuItem value={p} key={p}>{p}</MenuItem>))
+                                    }
+                                </Select>
                                 {/*<Autocomplete
                                     suggestions={this.tour.spendings.map((s) => s.type)
                                         .filter(s => s) // not empty or null
@@ -195,8 +212,8 @@ export default class SpendingsForm extends React.Component {
                             //alert('sp: ' + JSON.stringify(this.spending, null, 2))
                             if (this.validate()) {
                                 (this.props.mode === "add"
-                                    ? AppState.addSpending(this.props.app, this.tour.id, this.spending)
-                                    : AppState.editSpending(this.props.app, this.tour.id, this.spending)
+                                    ? AppState.addSpending(this.props.app, this.tour.id, this.state.spending)
+                                    : AppState.editSpending(this.props.app, this.tour.id, this.state.spending)
                                 )
                                     .then(this.setState({ dialogOpen: false }))
                                     .then(() => { AppState.loadTour(this.props.app, this.tour.id) })
