@@ -188,7 +188,9 @@ export default class SpendingsForm extends React.Component {
                                     onChange={(e) => { this.spending.type = e.target.value; this.setState({ spending: this.spending }) }}
                                 >
                                     {
-                                        this.tour.spendings.map((s) => s.type)
+                                        this.tour.spendings
+                                            .filter(s => s.type && !s.planned)
+                                            .map((s) => s.type)
                                             .filter(s => s) // not empty or null
                                             .filter((value, index, self) => self.indexOf(value) === index)
                                             .map(p => (<MenuItem value={p} key={p}>{p}</MenuItem>))
