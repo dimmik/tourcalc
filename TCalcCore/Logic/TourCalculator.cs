@@ -60,13 +60,25 @@ namespace TCalc.Logic
                 bool isApplicable = false;
                 if (spending.ToAll)
                 {
-                    amount += spending.Weighted ? spending.AmountInCents * person.Weight * 1.0 / TotalWeight : spending.AmountInCents * 1.0;
+                    amount += spending.AmountInCents * person.Weight * 1.0 / TotalWeight;
                     isApplicable = true;
                 } else
                 {
                     if (spending.ToGuid.Contains(person.GUID))
                     {
-                        amount += spending.AmountInCents / spending.ToGuid.Count * 1.0;
+                        if (spending.IsPartialWeighted)
+                        {
+                            int spendingWeight = 0;
+                            foreach (var guid in spending.ToGuid)
+                            {
+                                var pWeight = CurrentTour.Persons.Where(p => p.GUID == guid).FirstOrDefault()?.Weight ?? 0;
+                                spendingWeight += pWeight;
+                            }
+                            amount += spending.AmountInCents * person.Weight * 1.0 / spendingWeight * 1.0;
+                        } else
+                        {
+                            amount += spending.AmountInCents * 1.0 / spending.ToGuid.Count;
+                        }
                         isApplicable = true;
                     }
                 }
