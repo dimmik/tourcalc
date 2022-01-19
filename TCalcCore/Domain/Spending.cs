@@ -11,6 +11,7 @@ namespace TCalc.Domain
         public List<string> ToGuid { get; set; } = new List<string>();
         public long AmountInCents { get; set; }
         public bool Weighted { get; set; } = true;
+        public bool IsPartialWeighted { get; set; } = false;
         public bool ToAll { get; set; } = false;
         public bool Planned { get; set; } = false;
         public string Description { get; set; } = "";

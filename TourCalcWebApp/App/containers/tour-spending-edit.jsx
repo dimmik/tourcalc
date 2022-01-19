@@ -171,6 +171,20 @@ export default class SpendingsForm extends React.Component {
                                     }
                                     label="To All"
                                 />
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            value={true}
+                                            checked={this.state.spending.isPartialWeighted}
+                                            onChange={(e) => {
+                                                this.spending.isPartialWeighted = e.target.checked;
+                                                this.setState({ spending: this.spending });
+                                            }}
+
+                                        />
+                                    }
+                                    label="Partial Weighted"
+                                />
                                 <TextField
                                     id="type"
                                     label="Spending Type"
