@@ -374,13 +374,18 @@ class TourTable extends React.Component {
                                                                 {p.amountInCents}
                                                             </TableCell>
                                                             <TableCell align="right"><Checkbox checked={p.toAll} disabled /></TableCell>
-                                                            <TableCell align="right" style={{ fontSize: "xx-small" }}>{p.toAll ? (<i style={{ backgroundColor: 'green', color: 'yellow' }}>ALL</i>) : p.toGuid.map(
+                                                            <TableCell align="right" style={{ fontSize: "xx-small" }}>
+                                                                {p.toAll ? (<i style={{ backgroundColor: 'green', color: 'yellow' }}>ALL</i>) : p.toGuid.map(
 
                                                                 (id) => (this.state.tour.persons.find((pp) => pp.guid === id) == null)
                                                                     ? '$$-' + id + '-$$'
                                                                     : this.state.tour.persons.find((pp) => pp.guid === id).name
 
-                                                            ).join(', ')}</TableCell>
+                                                                ).join(', ')}
+                                                                {(!p.toAll && p.isPartialWeighted)
+                                                                    ? (<i style={{ backgroundColor: 'yellow', color: 'green' }}><br/>Weighted</i>)
+                                                                    : (<span />)}
+                                                            </TableCell>
                                                         </TableRow>
                                                     ))}
                                                 <TableRow>
