@@ -74,6 +74,7 @@ namespace TCalc.Logic
                                 var pWeight = CurrentTour.Persons.Where(p => p.GUID == guid).FirstOrDefault()?.Weight ?? 0;
                                 spendingWeight += pWeight;
                             }
+                            if (spendingWeight == 0) spendingWeight = 1;
                             amount += spending.AmountInCents * person.Weight * 1.0 / spendingWeight * 1.0;
                         } else
                         {
