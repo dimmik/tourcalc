@@ -170,7 +170,8 @@ export default class SpendingsForm extends React.Component {
                                         />
                                     }
                                     label="To All"
-                                /> <FormControlLabel
+                                />
+                                <FormControlLabel
                                     control={
                                         <Switch
                                             value={true}
