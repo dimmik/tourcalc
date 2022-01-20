@@ -254,6 +254,7 @@ class TourTable extends React.Component {
                                                                     toGuid: [],
                                                                     toAll: true,
                                                                     guid: "",
+                                                                    isPartialWeighted: true,
                                                                     type: this.lastSpendingType(this.state.tour)
                                                                 }}
                                                             ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
@@ -359,6 +360,7 @@ class TourTable extends React.Component {
                                                                                 spending={(() => {
                                                                                     var pp = JSON.parse(JSON.stringify(p))
                                                                                     pp.type = ""; // so it'll not show in summary
+                                                                                    pp.isPartialWeighted = false;
                                                                                     return pp;
                                                                                 })()}
                                                                             ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
@@ -537,6 +539,7 @@ class TourTable extends React.Component {
                                                                         toGuid: [],
                                                                         toAll: true,
                                                                         guid: "",
+                                                                        isPartialWeighted: true,
                                                                         type: this.lastSpendingType(this.state.tour)
                                                                     }}
                                                                 ><Button color='primary' variant='outlined'

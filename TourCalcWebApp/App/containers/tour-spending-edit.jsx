@@ -63,6 +63,7 @@ export default class SpendingsForm extends React.Component {
             this.spending.description = ""
             this.spending.amountInCents = 0;
             this.spending.type = "Common";
+            this.spending.isPartialWeighted = true;
             this.spending.fromGuid = this.spending.fromGuid == null ? (this.tour.persons.length > 0 ? this.tour.persons[0].guid : "") : this.spending.fromGuid
         }
         this.setState ({
