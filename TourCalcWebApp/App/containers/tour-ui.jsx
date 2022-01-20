@@ -156,6 +156,26 @@ class TourTable extends React.Component {
             ? sppp[sppp.length - 1].fromGuid
             : null
     }
+    personByGuid(id) {
+        if (this.state.tour.persons.find((pp) => pp.guid === id) == null) {
+            return { name: '$$-' + id + '-$$', weight: 1 }
+        }
+        return this.state.tour.persons.find((pp) => pp.guid === id);
+    }
+    receiversOfSpending(p) {
+        if (p.toAll) return (<i style={{ backgroundColor: 'green', color: 'yellow' }}>ALL</i>);
+        let weighted = (!p.toAll && p.isPartialWeighted);
+        if (!weighted) {
+            if (p.toGuid.length == 1) {
+                return (<span>{p.toGuid.map(id => this.personByGuid(id).name).join(', ')}</span>);
+            }
+            return (<span>{p.toGuid.map(id => this.personByGuid(id).name).join(', ')}<br /><i style={{ color: "red", backgroundColor: "yellow" }}>NOT Weighted</i></span>);
+        }
+        //let totalWeight = p.toGuid.reduce(((prev, next) => prev + this.personByGuid(next).weight), 0);
+        //return (<span>{p.toGuid.map(id => this.personByGuid(id).name + "[" + Math.round(this.personByGuid(id).weight / totalWeight * 100) + "%]").join(', ')}</span>);
+        return (<span>{p.toGuid.map(id => this.personByGuid(id).name).join(', ')}</span>);
+
+    }
 
     render() {
         if (!this.state.isTourLoaded) {
@@ -377,16 +397,7 @@ class TourTable extends React.Component {
                                                             </TableCell>
                                                             <TableCell align="right"><Checkbox checked={p.toAll} disabled /></TableCell>
                                                             <TableCell align="right" style={{ fontSize: "xx-small" }}>
-                                                                {p.toAll ? (<i style={{ backgroundColor: 'green', color: 'yellow' }}>ALL</i>) : p.toGuid.map(
-
-                                                                (id) => (this.state.tour.persons.find((pp) => pp.guid === id) == null)
-                                                                    ? '$$-' + id + '-$$'
-                                                                    : this.state.tour.persons.find((pp) => pp.guid === id).name
-
-                                                                ).join(', ')}
-                                                                {(!p.toAll && p.isPartialWeighted)
-                                                                    ? (<i style={{ backgroundColor: 'yellow', color: 'green' }}><br/>Weighted</i>)
-                                                                    : (<span />)}
+                                                                {this.receiversOfSpending(p)}
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}
