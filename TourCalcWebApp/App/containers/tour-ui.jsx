@@ -303,8 +303,19 @@ class TourTable extends React.Component {
                                                         if (s1.planned && !s2.planned) return -1;
                                                         if (!s1.planned && s2.planned) return 1;
                                                         if (s1.planned && s2.planned) {
+                                                            // family first
                                                             if (s1.description.startsWith('Family') && !s2.description.startsWith('Family')) return -1;
                                                             if (!s1.description.startsWith('Family') && s2.description.startsWith('Family')) return 1;
+
+                                                            // group by name
+                                                            let pfs1 = this.state.tour.persons.find(pr => pr.guid == s1.fromGuid);
+                                                            let pfs2 = this.state.tour.persons.find(pr => pr.guid == s2.fromGuid);
+                                                            let pfs1name = (pfs1 ? pfs1.name : "");
+                                                            let pfs2name = (pfs2 ? pfs2.name : "");
+                                                            if (pfs1name > pfs2name) return 1;
+                                                            if (pfs1name < pfs2name) return -1;
+
+                                                            // then group by amount desc
                                                             if (s1.amountInCents > s2.amountInCents) return -1;
                                                             if (s1.amountInCents < s2.amountInCents) return 1;
                                                             return 0;
