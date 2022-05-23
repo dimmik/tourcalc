@@ -156,7 +156,7 @@ class TourTable extends React.Component {
             ? sppp[sppp.length - 1].fromGuid
             : null
     }
-
+    isSuggestedSet = false;
     render() {
         if (!this.state.isTourLoaded) {
             return <div>Tour {this.props.tourid} loading...</div>
@@ -165,7 +165,11 @@ class TourTable extends React.Component {
             if (this.state.tour == null) { // loaded, but null (no such tour)
                 return <Redirect to="/"/>
             }
-
+            if (!this.isSuggestedSet) {
+                this.state.showSuggested = this.state.tour.isFinalizing;
+                this.isSuggestedSet = true;
+                //alert("ssss!!!!");
+            }
             document.title = "Tourcalc: " + this.state.tour.name;
             this.spSummary = this.getSpendingsSummary(this.state.tour.spendings.filter(s => !s.planned))
 
@@ -263,6 +267,15 @@ class TourTable extends React.Component {
                                                             onClick={() => { this.setState({ showSuggested: !this.state.showSuggested }) }}>
                                                             S: {this.state.showSuggested ? 'hide' : 'show'}
                                                         </Button>
+                                                        Finalizing: <input
+                                                            type="checkbox"
+                                                            defaultChecked={this.state.tour.isFinalizing}
+                                                            onChange={(e) => {
+                                                                //this.state.tour.isFinalizing = !this.state.tour.isFinalizing;
+                                                                AppState.changeTourFinalizing(this, this.state.tour.id, !this.state.tour.isFinalizing, "")
+                                                                    .then(() => { AppState.loadTour(this, this.props.tourid); })
+                                                                    .then(() => { this.isSuggestedSet = false; });
+                                                            }} />
 
                                                         
                                                     </TableCell>
