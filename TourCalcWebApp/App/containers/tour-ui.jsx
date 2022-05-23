@@ -289,7 +289,8 @@ class TourTable extends React.Component {
                                                             onClick={() => { this.setState({ showSuggested: !this.state.showSuggested }) }}>
                                                             S: {this.state.showSuggested ? 'hide' : 'show'}
                                                         </Button>
-                                                        Finalizing: <input
+                                                        &nbsp;
+                                                        Fz: <input
                                                             type="checkbox"
                                                             defaultChecked={this.state.tour.isFinalizing}
                                                             onChange={(e) => {
