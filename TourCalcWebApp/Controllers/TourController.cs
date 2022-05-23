@@ -244,6 +244,32 @@ namespace TourCalcWebApp.Controllers
             return tour.GUID;
         }
         /// <summary>
+        /// Update tour's archived status
+        /// </summary>
+        /// <param name="tourid">id of tour to update</param>
+        /// <param name="tourJson">tour's json. Only /isArchived and /AccessCodeMD5 (if provided) is used</param>
+        /// <returns>id of updated tour</returns>
+        [HttpPatch("{tourid}/finalizing")]
+        public string UpdateTourFinalizing(string tourid, Tour tourJson)
+        {
+            var tour = TourStorageUtilities_LoadFromStoragebyId(tourid);
+
+            if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
+
+            tour.IsFinalizing = tourJson.IsFinalizing;
+            if (!string.IsNullOrWhiteSpace(tourJson.AccessCodeMD5))
+            {
+                AuthData authData = AuthHelper.GetAuthData(User, Configuration);
+                if (authData.IsMaster)
+                {
+                    tour.AccessCodeMD5 = AuthHelper.CreateMD5(tourJson.AccessCodeMD5);
+                }
+            }
+            TourStorage_StoreTour(tour);
+
+            return tour.GUID;
+        }
+        /// <summary>
         /// Delete tour
         /// </summary>
         /// <param name="tourid">id of tour</param>

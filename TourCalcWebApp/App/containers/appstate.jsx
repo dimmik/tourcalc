@@ -351,6 +351,24 @@ export default class AppState {
             })
             .then((res) => res, (error) => { alert('Error change tour archive status ' + error) })
     }
+    static changeTourFinalizing(comp, tourid, isFinalizing, tcode) {
+        let b = JSON.stringify({ isFinalizing: isFinalizing, AccessCodeMD5: tcode }, null, 2)
+        //alert('b: ' + b)
+        return fetch('/api/tour/' + tourid + "/finalizing", {
+            method: 'PATCH',
+            headers: new Headers({
+                "Authorization": 'Bearer ' + this.token,
+                "Content-Type": "application/json"
+            }),
+            body: b
+        })
+            .then(res => {
+                if (res.status != 200) throw new Error(res.statusText)
+                return res.text()
+            })
+            .then((res) => res, (error) => { alert('Error change tour Finalizing status ' + error) })
+    }
+
     static restoreTourVersion(comp, tourid, tour) {
         tour.isVersion = false;
         let b = JSON.stringify(tour, null, 2)
