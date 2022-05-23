@@ -57,12 +57,12 @@ export default class SpendingsForm extends React.Component {
         this.tour = props.tour
         if (props.spending != null) { // edit
             this.spending = JSON.parse(JSON.stringify(props.spending))
-            //alert("j: " + JSON.stringify(props.spending));
         }
         else { // adding
             this.spending.description = ""
             this.spending.amountInCents = 0;
             this.spending.type = "Common";
+            this.spending.isPartialWeighted = true;
             this.spending.fromGuid = this.spending.fromGuid == null ? (this.tour.persons.length > 0 ? this.tour.persons[0].guid : "") : this.spending.fromGuid
         }
         this.setState ({
@@ -139,9 +139,14 @@ export default class SpendingsForm extends React.Component {
                                     }
                                     value={this.state.spending.toGuid}
                                     onChange={(e) => {
-                                        //alert('options ' + JSON.stringify(e.target, null, 2))
                                         this.spending.toGuid = e.target.value;
-                                        //alert('sp ' + JSON.stringify(this.spending, null, 2))
+                                        if (this.spending.toGuid.length > 0) {
+                                            // if we choosed some people - turn off toAll
+                                            this.spending.toAll = false;
+                                        } else {
+                                            // if we removed all - turn toall on
+                                            this.spending.toAll = true;
+                                        }
                                         this.setState({ spending: this.spending });
                                     }}
                                     input={<Input id="select-multiple-checkbox" />}
@@ -171,6 +176,20 @@ export default class SpendingsForm extends React.Component {
                                     }
                                     label="To All"
                                 />
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            value={true}
+                                            checked={this.state.spending.isPartialWeighted}
+                                            onChange={(e) => {
+                                                this.spending.isPartialWeighted = e.target.checked;
+                                                this.setState({ spending: this.spending });
+                                            }}
+
+                                        />
+                                    }
+                                    label="Partial Weighted"
+                                />
                                 <TextField
                                     id="type"
                                     label="Spending Type"
@@ -178,7 +197,6 @@ export default class SpendingsForm extends React.Component {
                                     onChange={(e) => {
                                         this.spending.type = event.target.value;
                                         this.setState({ spending: this.spending });
-                                        //alert("st: " + this.spending.type )
                                     }}
                                     margin="normal"
                                 />
@@ -196,22 +214,12 @@ export default class SpendingsForm extends React.Component {
                                             .map(p => (<MenuItem value={p} key={p}>{p}</MenuItem>))
                                     }
                                 </Select>
-                                {/*<Autocomplete
-                                    suggestions={this.tour.spendings.map((s) => s.type)
-                                        .filter(s => s) // not empty or null
-                                        .filter((value, index, self) => self.indexOf(value) === index) // remove dups
-                                    }
-                                    hint="Spending Type"
-                                    defaultValue={this.spending.type}
-                                    onFill={(val) => { this.spending.type = val; }}
-                                />*/}
                           </FormGroup>
                             <br  />
                         </form>
                     </DialogContent>
                     <DialogActions>
                         <Button color="primary" size='large' variant='outlined' onClick={() => {
-                            //alert('sp: ' + JSON.stringify(this.spending, null, 2))
                             if (this.validate()) {
                                 (this.props.mode === "add"
                                     ? AppState.addSpending(this.props.app, this.tour.id, this.state.spending)

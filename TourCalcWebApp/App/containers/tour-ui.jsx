@@ -157,6 +157,27 @@ class TourTable extends React.Component {
             : null
     }
     isSuggestedSet = false;
+    personByGuid(id) {
+        if (this.state.tour.persons.find((pp) => pp.guid === id) == null) {
+            return { name: '$$-' + id + '-$$', weight: 1 }
+        }
+        return this.state.tour.persons.find((pp) => pp.guid === id);
+    }
+    receiversOfSpending(p) {
+        if (p.toAll) return (<i style={{ backgroundColor: 'green', color: 'yellow' }}>ALL</i>);
+        let weighted = (!p.toAll && p.isPartialWeighted);
+        if (!weighted) {
+            if (p.toGuid.length == 1) {
+                return (<span>{p.toGuid.map(id => this.personByGuid(id).name).join(', ')}</span>);
+            }
+            return (<span>{p.toGuid.map(id => this.personByGuid(id).name).join(', ')}<br /><i style={{ color: "red", backgroundColor: "yellow" }}>NOT Weighted</i></span>);
+        }
+        //let totalWeight = p.toGuid.reduce(((prev, next) => prev + this.personByGuid(next).weight), 0);
+        //return (<span>{p.toGuid.map(id => this.personByGuid(id).name + "[" + Math.round(this.personByGuid(id).weight / totalWeight * 100) + "%]").join(', ')}</span>);
+        return (<span>{p.toGuid.map(id => this.personByGuid(id).name).join(', ')}</span>);
+
+    }
+
     render() {
         if (!this.state.isTourLoaded) {
             return <div>Tour {this.props.tourid} loading...</div>
@@ -258,6 +279,7 @@ class TourTable extends React.Component {
                                                                     toGuid: [],
                                                                     toAll: true,
                                                                     guid: "",
+                                                                    isPartialWeighted: true,
                                                                     type: this.lastSpendingType(this.state.tour)
                                                                 }}
                                                             ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
@@ -295,8 +317,19 @@ class TourTable extends React.Component {
                                                         if (s1.planned && !s2.planned) return -1;
                                                         if (!s1.planned && s2.planned) return 1;
                                                         if (s1.planned && s2.planned) {
+                                                            // family first
                                                             if (s1.description.startsWith('Family') && !s2.description.startsWith('Family')) return -1;
                                                             if (!s1.description.startsWith('Family') && s2.description.startsWith('Family')) return 1;
+
+                                                            // group by name
+                                                            let pfs1 = this.state.tour.persons.find(pr => pr.guid == s1.fromGuid);
+                                                            let pfs2 = this.state.tour.persons.find(pr => pr.guid == s2.fromGuid);
+                                                            let pfs1name = (pfs1 ? pfs1.name : "");
+                                                            let pfs2name = (pfs2 ? pfs2.name : "");
+                                                            if (pfs1name > pfs2name) return 1;
+                                                            if (pfs1name < pfs2name) return -1;
+
+                                                            // then group by amount desc
                                                             if (s1.amountInCents > s2.amountInCents) return -1;
                                                             if (s1.amountInCents < s2.amountInCents) return 1;
                                                             return 0;
@@ -372,6 +405,7 @@ class TourTable extends React.Component {
                                                                                 spending={(() => {
                                                                                     var pp = JSON.parse(JSON.stringify(p))
                                                                                     pp.type = ""; // so it'll not show in summary
+                                                                                    pp.isPartialWeighted = false;
                                                                                     return pp;
                                                                                 })()}
                                                                             ><Button color='primary' variant='outlined'>Add</Button></SpendingForm>
@@ -387,13 +421,9 @@ class TourTable extends React.Component {
                                                                 {p.amountInCents}
                                                             </TableCell>
                                                             <TableCell align="right"><Checkbox checked={p.toAll} disabled /></TableCell>
-                                                            <TableCell align="right" style={{ fontSize: "xx-small" }}>{p.toAll ? (<i style={{ backgroundColor: 'green', color: 'yellow' }}>ALL</i>) : p.toGuid.map(
-
-                                                                (id) => (this.state.tour.persons.find((pp) => pp.guid === id) == null)
-                                                                    ? '$$-' + id + '-$$'
-                                                                    : this.state.tour.persons.find((pp) => pp.guid === id).name
-
-                                                            ).join(', ')}</TableCell>
+                                                            <TableCell align="right" style={{ fontSize: "xx-small" }}>
+                                                                {this.receiversOfSpending(p)}
+                                                            </TableCell>
                                                         </TableRow>
                                                     ))}
                                                 <TableRow>
@@ -545,6 +575,7 @@ class TourTable extends React.Component {
                                                                         toGuid: [],
                                                                         toAll: true,
                                                                         guid: "",
+                                                                        isPartialWeighted: true,
                                                                         type: this.lastSpendingType(this.state.tour)
                                                                     }}
                                                                 ><Button color='primary' variant='outlined'
