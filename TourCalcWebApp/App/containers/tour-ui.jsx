@@ -221,7 +221,7 @@ class TourTable extends React.Component {
                         <main>
                             <Switch>
                                 <Route exact path={'/tour/' + this.props.tourid}
-                                    render={(props) => <Redirect to={'/tour/' + this.props.tourid + '/persons'} />}
+                                    render={(props) => <Redirect to={'/tour/' + this.props.tourid + (this.state.tour.isFinalizing ? '/spendings' : '/persons')} />}
                                 />
                                 {/*--- Spendings ---*/}
 
