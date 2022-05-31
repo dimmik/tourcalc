@@ -1,17 +1,51 @@
-﻿@inherits LayoutComponentBase
+﻿@using TCBlazor.Client.Storage
+@using TCalcCore.Auth
+@inherits LayoutComponentBase
+@inject HttpClient Http
+
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@if (authData == null)
+{
+        <span>Checking auth...</span>
+    }
+    else
+    {
+        @if (authData.Type == "None")
+        {
+        <span>Not authorized</span>
+            
+        } 
+        else
+        {
+            <div class="sidebar">
+            <NavMenu />
+            </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+            <main>
+                <article class="content px-4">
+                    @Body
+                </article>
+            </main>
+            
+        }
+        
+}
 </div>
+@code {
+    private AuthData? authData = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = $"Bearer {TourcalcLocalStorage.AuthToken}";
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            "/api/auth/whoami");
+        request.Headers.Add("Authorization", auth);
+        var resp = await Http.SendAsync(request);
+        if (resp.IsSuccessStatusCode)
+        {
+            authData = await resp.Content.ReadFromJsonAsync<AuthData>();
+        }
+    }
+
+}

@@ -10,6 +10,7 @@ using TourCalcWebApp.Auth;
 using TourCalcWebApp.Exceptions;
 using System.Linq.Expressions;
 using TCalcStorage.Storage.LiteDB;
+using TCalcCore.Auth;
 
 namespace TourCalcWebApp.Controllers
 {

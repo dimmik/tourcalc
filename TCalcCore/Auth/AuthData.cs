@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace TourCalcWebApp.Auth
+namespace TCalcCore.Auth
 {
     public class AuthData
     {
