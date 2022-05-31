@@ -36,8 +36,6 @@ namespace TourCalcWebApp
         public void ConfigureServices(IServiceCollection services)
         {
 
-            var tgToken = Configuration.GetValue<string>("TelegramBotToken", "1234567:4TT8bAc8GHUspu3ERYn-KGcvsvGB9u_n4ddy");
-            services.AddSingleton<IBotService>(new BotService(tgToken));
 
             services.AddSingleton<ITcConfiguration>(Configuration);
             //SetupLightDB(services);

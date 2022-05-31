@@ -12,10 +12,10 @@ using TourCalcWebApp.Auth;
 
 namespace TourCalcWebApp.Controllers
 {
-    [Route("/{*pathToStaticContent}")]
-    [Authorize]
-    [ApiController]
-    [AllowAnonymous]
+    //[Route("/{*pathToStaticContent}")]
+    //[Authorize]
+    //[ApiController]
+    //[AllowAnonymous]
     public class HomeController : ControllerBase
     {
         private readonly ITcConfiguration Configuration;
