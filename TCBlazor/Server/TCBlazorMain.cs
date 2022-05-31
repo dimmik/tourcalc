@@ -66,6 +66,7 @@ namespace Company.TCBlazor
             app.UseStaticFiles();
 
             app.UseRouting();
+
             app.UseAuthentication();
             app.UseAuthorization();
 
