@@ -16,6 +16,7 @@ using Newtonsoft.Json;
 using Org.BouncyCastle.Security;
 using TCalc.Domain;
 using TCalc.Storage;
+using TCalcCore.Auth;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Exceptions;
 using TourCalcWebApp.Utils;

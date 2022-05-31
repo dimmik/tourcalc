@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
+using TCalcCore.Auth;
 using TourCalcWebApp.Controllers;
 
 namespace TourCalcWebApp.Auth

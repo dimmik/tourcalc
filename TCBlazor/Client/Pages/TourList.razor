@@ -1,0 +1,41 @@
+﻿@page "/tourlist"
+@using TCalc.Domain
+@inject HttpClient Http
+@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+
+
+<h3>TourList</h3>
+@if (tours == null)
+{
+    <span>Tours loading...</span>
+}
+else
+{
+    <span>
+    tours:
+    <table>
+        @foreach (var tour in tours.Tours)
+       {
+        <tr>
+            <td>@tour.Name</td>
+            <td>@tour.DateCreated</td>
+        </tr>           
+       }
+    </table>
+    </span>
+}
+
+@code {
+    private TCalc.Domain.TourList? tours = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await ts.Get("__tc_token");
+        Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", token);
+        var from = 0;
+        var count = 100;
+        var code = "";
+        tours = await Http.GetFromJsonAsync<TCalc.Domain.TourList>($"/api/tour/all/suggested?from={from}&count={count}&code={code}");
+    }
+
+}

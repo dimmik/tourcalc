@@ -1,17 +1,73 @@
-﻿@inherits LayoutComponentBase
+﻿@using TCBlazor.Client.Storage
+@using TCalcCore.Auth
+@inherits LayoutComponentBase
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@if (authData == null)
+{
+        <span>Checking auth...</span>
+    }
+    else
+    {
+        @if (authData.Type == "None")
+        {
+        <span><input type="text" @bind-value="code" />
+            <button @onclick="LogIn">Auth</button>
+            
+        </span>
+            
+        } 
+        else
+        {
+            <div class="sidebar">
+            <NavMenu />
+            </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+            <main>
+                <article class="content px-4">
+                    @Body
+                </article>
+            </main>
+            
+        }
+        
+}
 </div>
+@code {
+    private AuthData? authData = null;
+    private string? code;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RetrieveAuthData();
+    }
+    private async Task RetrieveAuthData()
+    {
+        var token = await ts.Get("__tc_token");
+        var auth = $"Bearer {token}";
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            "/api/auth/whoami");
+        request.Headers.Add("Authorization", auth);
+        var resp = await Http.SendAsync(request);
+        if (resp.IsSuccessStatusCode)
+        {
+            authData = await resp.Content.ReadFromJsonAsync<AuthData>();
+        } 
+        else
+        {
+            authData = null;
+        }
+    }
+    private async Task LogIn()
+    {
+        var scope = "code"; // "admin"
+        var url = "/api/auth/token/" + scope + "/" + code;
+        var token = await Http.GetStringAsync(url);
+        await ts.Set("__tc_token", token);
+        await RetrieveAuthData();
+    }
+    
+}

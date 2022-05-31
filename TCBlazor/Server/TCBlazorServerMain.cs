@@ -8,7 +8,7 @@ using TourCalcWebApp.Storage;
 
 namespace Company.TCBlazor
 {
-    public class TCBlazorMain
+    public class TCBlazorServerMain
     {
         public static void Main(string[] args)
         {
