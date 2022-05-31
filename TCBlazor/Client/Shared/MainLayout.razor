@@ -2,7 +2,7 @@
 @using TCalcCore.Auth
 @inherits LayoutComponentBase
 @inject HttpClient Http
-
+@inject IJSRuntime JS
 
 <div class="page">
 @if (authData == null)
@@ -13,7 +13,10 @@
     {
         @if (authData.Type == "None")
         {
-        <span>Not authorized</span>
+        <span><input type="text" @bind-value="code" />
+            <button @onclick="LogIn">Auth</button>
+            
+        </span>
             
         } 
         else
@@ -34,10 +37,16 @@
 </div>
 @code {
     private AuthData? authData = null;
+    private string? code;
 
     protected override async Task OnInitializedAsync()
     {
-        var auth = $"Bearer {TourcalcLocalStorage.AuthToken}";
+        await RetrieveAuthData();
+    }
+    private async Task RetrieveAuthData()
+    {
+        var token = await GetFromLocalStorage("__tc_token");
+        var auth = $"Bearer {token}";
         var request = new HttpRequestMessage(HttpMethod.Get,
             "/api/auth/whoami");
         request.Headers.Add("Authorization", auth);
@@ -45,7 +54,27 @@
         if (resp.IsSuccessStatusCode)
         {
             authData = await resp.Content.ReadFromJsonAsync<AuthData>();
+        } 
+        else
+        {
+            authData = null;
         }
     }
-
+    private async Task LogIn()
+    {
+        var scope = "code"; // "admin"
+        var url = "/api/auth/token/" + scope + "/" + code;
+        var token = await Http.GetStringAsync(url);
+        await SetToLocalStorage("__tc_token", token);
+        await RetrieveAuthData();
+    }
+    private async Task<string> GetFromLocalStorage(string key)
+    {
+        var res = await JS.InvokeAsync<string>("localStorage.getItem", new object[] { key });
+        return res;
+    }
+    private async Task SetToLocalStorage(string key, string val)
+    {
+        await JS.InvokeVoidAsync("localStorage.setItem", new object[] { key, val });
+    }
 }
