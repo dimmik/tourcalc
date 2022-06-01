@@ -12,18 +12,18 @@
 }
 else
 {
-    <span>
+    <div>
     tours:
     <table>
         @foreach (var tour in tours.Tours)
        {
         <tr>
-            <td>@tour.Name</td>
+            <td><NavLink href=@($"tour/{tour.Id}")>@tour.Name</NavLink></td>
             <td>@tour.DateCreated</td>
         </tr>           
        }
     </table>
-    </span>
+    </div>
 }
 
 @code {
