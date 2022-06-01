@@ -1,4 +1,5 @@
 ﻿@using TCBlazor.Client.Storage
+@using TCBlazor.Client.Utils
 @using TCalcCore.Auth
 @inherits LayoutComponentBase
 @inject HttpClient Http
@@ -7,7 +8,7 @@
 
 <div class="page">
 @if (authData == null)
-{
+{ // TODO beautify
         <span>Checking auth...</span>
     }
     else
@@ -47,19 +48,7 @@
     private async Task RetrieveAuthData()
     {
         var token = await ts.Get("__tc_token");
-        var auth = $"Bearer {token}";
-        var request = new HttpRequestMessage(HttpMethod.Get,
-            "/api/auth/whoami");
-        request.Headers.Add("Authorization", auth);
-        var resp = await Http.SendAsync(request);
-        if (resp.IsSuccessStatusCode)
-        {
-            authData = await resp.Content.ReadFromJsonAsync<AuthData>();
-        } 
-        else
-        {
-            authData = null;
-        }
+        authData = await Http.GetFromJsonWithAuthToken<AuthData?>("/api/auth/whoami", token);
     }
     private async Task LogIn()
     {
