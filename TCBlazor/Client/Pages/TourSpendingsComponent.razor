@@ -12,10 +12,15 @@
     </TableHeader>
     <RowTemplate>
         <td>@spending.Description</td>
-        <td>@spending.FromGuid</td>
+        <td>@((Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == spending.FromGuid).FirstOrDefault()?.Name)</td>
         <td>@spending.AmountInCents</td>
         <td>@spending.ToAll</td>
-        <td>Recepients</td>
+        <td>@(string.Join(",",
+                spending
+                .ToGuid
+                .Select(g => (Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == g).FirstOrDefault()?.Name))
+                    )
+                </td>
     </RowTemplate>
 </TableTemplate>
 
