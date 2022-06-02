@@ -1,25 +1,33 @@
 ﻿@using TCalc.Domain
-<h3>TourSpendingsComponent</h3>
-
-
-<TableTemplate Items=@(Tour?.Spendings ?? new List<Spending>()) Context="spending">
+<TableTemplate Items=@(Tour?.Spendings ?? new List<Spending>()) Context="spending" TopPadding="30">
     <TableHeader>
-        <th>Description</th>
+        <th>Spending Description</th>
         <th>From</th>
         <th>Amount</th>
-        <th>ToAll</th>
         <th>Recepients</th>
     </TableHeader>
     <RowTemplate>
         <td>@spending.Description</td>
         <td>@((Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == spending.FromGuid).FirstOrDefault()?.Name)</td>
         <td>@spending.AmountInCents</td>
-        <td>@spending.ToAll</td>
-        <td>@(string.Join(",",
-                spending
-                .ToGuid
-                .Select(g => (Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == g).FirstOrDefault()?.Name))
-                    )
+        <td>@if (spending.ToAll)
+            {
+                <span>All</span>
+            }    
+            else 
+            {
+                <span>
+                    @(
+                        string.Join(",",
+                            spending
+                            .ToGuid
+                            .Select(g => (Tour?.Persons ?? new List<Person>())
+                                    .Where(p => p.GUID == g)
+                                    .FirstOrDefault()?.Name)
+                             )
+                     )
+                 </span>
+            }
                 </td>
     </RowTemplate>
 </TableTemplate>

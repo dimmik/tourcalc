@@ -4,27 +4,34 @@
 @inject HttpClient Http
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage tourLocalStorage
 
-
-<h3>Tour @TourId</h3>
-Tour with id @TourId
 @if (Tour == null)
 {
     <span>Tour loading...</span>
 }
 else
 {
-    <div>
-<!--Persons-->
-<b id=@GetId("persons")>Persons</b>
-<a href=@GetHref("spendings")>Spendings</a>
-<TourPersonsComponent Tour=@Tour/>
+    <PageTitle>@Tour.Name</PageTitle>
+<h3>@Tour.Name</h3>
 
-<!--Spendings-->
-<b id=@GetId("spendings")>Spendings</b>
-<a href=@GetHref("persons")>Persons</a>
-<TourSpendingsComponent Tour=@Tour/>
+    <TableTemplate Items=@(new string[1]) TopPadding="0">
+        <TableHeader>
+            <th>
+                <a href=@GetHref("persons")>Persons</a>
+                <a href=@GetHref("spendings")>Spendings</a>
+            </th>
+        </TableHeader>
+        <RowTemplate>
+            <td>
+                <!--Persons-->
+                <b id=@GetId("persons")>Persons</b>
+                <TourPersonsComponent Tour=@Tour/>
+                <!--Spendings-->
+                <b id=@GetId("spendings")>Spendings</b>
+                <TourSpendingsComponent Tour=@Tour/>
+            </td>
+        </RowTemplate>
 
-    </div>
+    </TableTemplate>
 }
 <AnchorNavigation />
 @code {

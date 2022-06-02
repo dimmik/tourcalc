@@ -1,8 +1,7 @@
 ﻿@using TCalc.Domain
-<h3>TourPersonsComponent</h3>
-<TableTemplate Items="@(Tour?.Persons ?? new List<Person>())"  Context="person">
+<TableTemplate Items="@(Tour?.Persons ?? new List<Person>())"  Context="person" TopPadding="30">
     <TableHeader>
-        <th>Name</th>
+        <th>Person Name</th>
         <th>Weight</th>
         <th>Spent</th>
         <th>Received</th>

@@ -16,7 +16,7 @@ namespace Company.TCBlazor
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
-
+            var assembly = typeof(TourController).Assembly;
             //builder.Services.AddControllersWithViews();
             builder.Services.AddControllers();
             builder.Services.AddRazorPages();
