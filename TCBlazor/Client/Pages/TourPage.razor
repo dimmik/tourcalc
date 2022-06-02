@@ -16,26 +16,12 @@ else
     <div>
 <!--Persons-->
 Persons
-<table>
-@foreach (var person in Tour.Persons)
-{
-    <tr>
-        <td>@person.Name</td>
-        <td>@person.Weight</td>
-     </tr>
-}
-</table>
+<TourPersonsComponent Tour=@Tour/>
+
 <!--Spendings-->
 Spendings
-<table>
-@foreach (var spending in Tour.Spendings)
-{
-    <tr>
-        <td>@spending.Description</td>
-        <td>@spending.AmountInCents</td>
-     </tr>
-}
-</table>
+<TourSpendingsComponent Tour=@Tour/>
+
     </div>
 }
 
@@ -43,10 +29,10 @@ Spendings
     [Parameter]
     public string? TourId { get; set; }
 
-    public TCalc.Domain.Tour? Tour = null;
+    public Tour? Tour = null;
     protected override async Task OnInitializedAsync()
     {
         var token = await ts.Get("__tc_token");
-        Tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/tour/{TourId}/suggested", token);
+        Tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
     }
 }

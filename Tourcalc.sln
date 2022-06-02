@@ -11,11 +11,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleTest", "ConsoleTest\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TCalcStorage", "TCalcStorage\TCalcStorage.csproj", "{088DC10E-2B8F-4009-ABEF-0EC9DEB3599A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TCBlazor.Server", "TCBlazor\Server\TCBlazor.Server.csproj", "{C5E85647-1572-4D01-9813-1D37E86E4DAB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TCBlazor.Server", "TCBlazor\Server\TCBlazor.Server.csproj", "{C5E85647-1572-4D01-9813-1D37E86E4DAB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TCBlazor.Client", "TCBlazor\Client\TCBlazor.Client.csproj", "{7AC12835-E584-4D15-8673-F1B1B12EEC50}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TCBlazor.Client", "TCBlazor\Client\TCBlazor.Client.csproj", "{7AC12835-E584-4D15-8673-F1B1B12EEC50}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TCBlazor.Shared", "TCBlazor\Shared\TCBlazor.Shared.csproj", "{BE37E881-38D9-46A0-A786-F8664A5BF8A5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TCBlazor.Shared", "TCBlazor\Shared\TCBlazor.Shared.csproj", "{BE37E881-38D9-46A0-A786-F8664A5BF8A5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
