@@ -33,6 +33,6 @@ Spendings
     protected override async Task OnInitializedAsync()
     {
         var token = await ts.Get("__tc_token");
-        Tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/tour/{TourId}/suggested", token);
+        Tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
     }
 }

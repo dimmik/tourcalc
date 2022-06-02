@@ -48,12 +48,12 @@
     private async Task RetrieveAuthData()
     {
         var token = await ts.Get("__tc_token");
-        authData = await Http.GetFromJsonWithAuthToken<AuthData?>("/api/auth/whoami", token);
+        authData = await Http.GetFromJsonWithAuthToken<AuthData?>("/api/Auth/whoami", token);
     }
     private async Task LogIn()
     {
         var scope = "code"; // "admin"
-        var url = "/api/auth/token/" + scope + "/" + code;
+        var url = "/api/Auth/token/" + scope + "/" + code;
         var token = await Http.GetStringAsync(url);
         await ts.Set("__tc_token", token);
         await RetrieveAuthData();
