@@ -36,7 +36,7 @@ else
         var from = 0;
         var count = 100;
         var code = "";
-        tours = await Http.GetFromJsonWithAuthToken<TCalc.Domain.TourList>($"/api/tour/all/suggested?from={from}&count={count}&code={code}", token);
+        tours = await Http.GetFromJsonWithAuthToken<TourList>($"/api/tour/all/suggested?from={from}&count={count}&code={code}", token);
     }
 
 }

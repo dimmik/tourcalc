@@ -1,0 +1,52 @@
+﻿@page "/tour/{tourId}"
+@using TCBlazor.Client.Utils
+@using TCalc.Domain
+@inject HttpClient Http
+@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+
+
+<h3>Tour @TourId</h3>
+Tour with id @TourId
+@if (Tour == null)
+{
+    <span>Tour loading...</span>
+}
+else
+{
+    <div>
+<!--Persons-->
+Persons
+<table>
+@foreach (var person in Tour.Persons)
+{
+    <tr>
+        <td>@person.Name</td>
+        <td>@person.Weight</td>
+     </tr>
+}
+</table>
+<!--Spendings-->
+Spendings
+<table>
+@foreach (var spending in Tour.Spendings)
+{
+    <tr>
+        <td>@spending.Description</td>
+        <td>@spending.AmountInCents</td>
+     </tr>
+}
+</table>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? TourId { get; set; }
+
+    public TCalc.Domain.Tour? Tour = null;
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await ts.Get("__tc_token");
+        Tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/tour/{TourId}/suggested", token);
+    }
+}
