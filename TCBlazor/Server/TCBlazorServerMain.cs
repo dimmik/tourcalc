@@ -53,6 +53,12 @@ namespace Company.TCBlazor
             if (app.Environment.IsDevelopment())
             {
                 app.UseWebAssemblyDebugging();
+                app.MapGet("/debug/routes", (IEnumerable<EndpointDataSource> endpointSources) => 
+                    {
+                        return string.Join("\n", endpointSources.SelectMany(source => source.Endpoints));
+                    }
+                );
+            
             }
             else
             {

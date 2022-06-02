@@ -1,15 +1,21 @@
 ﻿@using TCalc.Domain
 <h3>TourPersonsComponent</h3>
-
-<table>
-@foreach (var person in (Tour?.Persons ?? new List<Person>()))
-{
-    <tr>
+<TableTemplate Items="@(Tour?.Persons ?? new List<Person>())"  Context="person">
+    <TableHeader>
+        <th>Name</th>
+        <th>Weight</th>
+        <th>Spent</th>
+        <th>Received</th>
+        <th>Debt</th>
+    </TableHeader>
+    <RowTemplate>
         <td>@person.Name</td>
         <td>@person.Weight</td>
-     </tr>
-}
-</table>
+        <td>@person.SpentInCents</td>
+        <td>@person.ReceivedInCents</td>
+        <td>@person.Debt()</td>
+    </RowTemplate>
+</TableTemplate>
 
 @code {
     [Parameter]
