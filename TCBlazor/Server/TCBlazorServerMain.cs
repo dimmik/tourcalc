@@ -19,14 +19,6 @@ namespace Company.TCBlazor
 
             //builder.Services.AddControllersWithViews();
             builder.Services.AddControllers();
-
-            //var assembly = typeof(TourCalcWebApp.Controllers.AuthController).Assembly;
-
-            //builder.Services.AddControllers()
-            //    .AddApplicationPart(assembly)
-            //    .AddControllersAsServices();
-            //.PartManager.ApplicationParts.Add(new AssemblyPart(assembly));
-
             builder.Services.AddRazorPages();
 
             // services for tourcalc
@@ -75,14 +67,9 @@ namespace Company.TCBlazor
             app.UseStaticFiles();
 
             app.UseRouting();
+
             app.UseAuthentication();
             app.UseAuthorization();
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-            });
-
-
 
             app.MapRazorPages();
             app.MapControllers();

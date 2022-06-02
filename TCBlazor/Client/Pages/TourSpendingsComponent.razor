@@ -1,8 +1,8 @@
 ﻿@using TCalc.Domain
-<h3>TourPersonsComponent</h3>
+<h3>TourSpendingsComponent</h3>
 
 <table>
-@foreach (var spending in Tour.Spendings)
+@foreach (var spending in (Tour?.Spendings ?? new List<Spending>()))
 {
     <tr>
         <td>@spending.Description</td>
