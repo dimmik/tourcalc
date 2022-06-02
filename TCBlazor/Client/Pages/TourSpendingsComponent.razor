@@ -1,0 +1,17 @@
+﻿@using TCalc.Domain
+<h3>TourPersonsComponent</h3>
+
+<table>
+@foreach (var spending in Tour.Spendings)
+{
+    <tr>
+        <td>@spending.Description</td>
+        <td>@spending.AmountInCents</td>
+     </tr>
+}
+</table>
+
+@code {
+    [Parameter]
+    public Tour? Tour { get; set; } = null;
+}
