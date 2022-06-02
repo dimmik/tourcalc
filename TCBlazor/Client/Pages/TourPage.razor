@@ -2,7 +2,7 @@
 @using TCBlazor.Client.Utils
 @using TCalc.Domain
 @inject HttpClient Http
-@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject TCBlazor.Client.Storage.TourcalcLocalStorage tourLocalStorage
 
 
 <h3>Tour @TourId</h3>
@@ -15,16 +15,18 @@ else
 {
     <div>
 <!--Persons-->
-Persons
+<b id=@GetId("persons")>Persons</b>
+<a href=@GetHref("spendings")>Spendings</a>
 <TourPersonsComponent Tour=@Tour/>
 
 <!--Spendings-->
-Spendings
+<b id=@GetId("spendings")>Spendings</b>
+<a href=@GetHref("persons")>Persons</a>
 <TourSpendingsComponent Tour=@Tour/>
 
     </div>
 }
-
+<AnchorNavigation />
 @code {
     [Parameter]
     public string? TourId { get; set; }
@@ -32,7 +34,9 @@ Spendings
     public Tour? Tour = null;
     protected override async Task OnInitializedAsync()
     {
-        var token = await ts.Get("__tc_token");
+        var token = await tourLocalStorage.Get("__tc_token");
         Tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
     }
+    string GetId(string l) => $"{l}";
+    string GetHref(string l) => $"/tour/{TourId}#" + GetId(l);
 }
