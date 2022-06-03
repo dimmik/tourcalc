@@ -26,7 +26,7 @@
     public RenderFragment<TItem>? RowTemplate { get; set; }
 
     [Parameter, AllowNull]
-    public IReadOnlyList<TItem> Items { get; set; }
+    public IEnumerable<TItem> Items { get; set; }
 
     [Parameter]
     public int TopPadding { get; set; } = 0;

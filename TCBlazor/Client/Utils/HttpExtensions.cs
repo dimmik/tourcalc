@@ -1,4 +1,6 @@
 ﻿using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 
 namespace TCBlazor.Client.Utils
 {
@@ -6,13 +8,28 @@ namespace TCBlazor.Client.Utils
     {
         public async static Task<T?> GetFromJsonWithAuthToken<T>(this HttpClient http, string url, string token)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            return await GetFromJsonWithAuthToken<T>(http, url, token, HttpMethod.Get, null);
+        }
+
+        public async static Task<T?> GetFromJsonWithAuthToken<T>(this HttpClient http, string url, string token, HttpMethod method, object? body)
+        {
+            var request = new HttpRequestMessage(method, url);
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", token);
+            if (body != null)
+            {
+                request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            }
             var resp = await http.SendAsync(request);
             T? t = default;
             if (resp.IsSuccessStatusCode)
             {
-                t = await resp.Content.ReadFromJsonAsync<T>();
+                try
+                {
+                    t = await resp.Content.ReadFromJsonAsync<T>();
+                } catch
+                {
+                    // no luck
+                }
             }
             return t;
         }
