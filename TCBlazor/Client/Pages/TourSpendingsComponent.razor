@@ -1,5 +1,5 @@
 ﻿@using TCalc.Domain
-<TableTemplate Items=@(Tour?.Spendings ?? new List<Spending>()) Context="spending" TopPadding="30">
+<TableTemplate Items=@(GetSpendingSorted()) Context="spending" TopPadding="30">
     <TableHeader>
         <th>Spending Description</th>
         <th>From</th>
@@ -12,11 +12,11 @@
         <td>@spending.AmountInCents</td>
         <td>@if (spending.ToAll)
             {
-                <span>All</span>
+                <span style="background-color:green;color:yellow;font-size:xx-small">ALL</span>
             }    
             else 
             {
-                <span>
+                <span style="font-size:xx-small">
                     @(
                         string.Join(",",
                             spending
@@ -35,4 +35,14 @@
 @code {
     [Parameter]
     public Tour? Tour { get; set; } = null;
+    public List<Spending> GetSpendingSorted()
+    {
+        List<Spending> res = Tour?.Spendings ?? new List<Spending>();
+        var planned = res.Where(s => s.Planned);
+        var real = res.Where(s => !s.Planned);
+        planned = planned.OrderBy(s => (Tour?.Persons ?? new List<Person>()).FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "");
+        real = real.OrderBy(s => s.DateCreated);
+
+        return planned.Concat(real).ToList();
+    }
 }

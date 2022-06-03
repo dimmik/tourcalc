@@ -17,7 +17,12 @@ namespace Company.TCBlazor
 
             // Add services to the container.
             var assembly = typeof(TourController).Assembly;
+            builder.Services.AddControllers()
+                .AddApplicationPart(assembly)
+                .AddControllersAsServices();
+            //.PartManager.ApplicationParts.Add(new AssemblyPart(assembly));
             //builder.Services.AddControllersWithViews();
+
             builder.Services.AddControllers();
             builder.Services.AddRazorPages();
 
@@ -79,11 +84,16 @@ namespace Company.TCBlazor
 
             app.MapRazorPages();
             app.MapControllers();
-            app.MapFallbackToFile("index.html");
+            app.Map("api/{**any}", HandleApiFallback);
+            app.MapFallbackToFile("{**any}", "index.html");
 
             app.Run();
         }
-
+        private static Task HandleApiFallback(HttpContext context)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return Task.CompletedTask;
+        }
 
         private static void SetupAuth(IServiceCollection services, ITcConfiguration configuration)
         {
