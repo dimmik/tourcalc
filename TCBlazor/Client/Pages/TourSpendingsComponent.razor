@@ -1,14 +1,31 @@
 ﻿@using TCalc.Domain
-<TableTemplate Items=@(GetSpendingSorted()) Context="spending" TopPadding="30">
+@using TCBlazor.Client.Utils
+<TableTemplate 
+    Items=@(GetSpendingSorted()) 
+    Context="spending" 
+    TopPadding="30"
+    ConditionalRowStyle=@((s, idx) => 
+    {
+        if (s.Planned){
+            return "background-color: yellow";
+        } else {
+            return $"background-color: {(idx % 2 == 0 ? "LightCyan" : "white")}";
+        }
+        //return "";
+    })
+>
     <TableHeader>
-        <th>Spending Description</th>
+        <th>Spending Description <span style="cursor: pointer" @onclick=@(() => ShowPlanned = !ShowPlanned)>[@(ShowPlanned ? "-" : "+")]</span></th>
         <th>From</th>
         <th>Amount</th>
         <th>Recepients</th>
     </TableHeader>
     <RowTemplate>
-        <td>@spending.Description</td>
-        <td>@((Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == spending.FromGuid).FirstOrDefault()?.Name)</td>
+        <td>
+            @((MarkupString)spending.Description.AsBreakable())
+            <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] <b>@spending.Type</b></div>
+        </td>
+        <td>@((MarkupString)((Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == spending.FromGuid).FirstOrDefault()?.Name ?? "").AsBreakable())</td>
         <td>@spending.AmountInCents</td>
         <td>@if (spending.ToAll)
             {
@@ -18,15 +35,19 @@
             {
                 <span style="font-size:xx-small">
                     @(
-                        string.Join(",",
+                        (MarkupString)string.Join(",",
                             spending
                             .ToGuid
                             .Select(g => (Tour?.Persons ?? new List<Person>())
                                     .Where(p => p.GUID == g)
                                     .FirstOrDefault()?.Name)
-                             )
+                             ).AsBreakable()
                      )
-                 </span>
+                </span>
+                if (!spending.IsPartialWeighted && spending.ToGuid.Count > 1)
+                {
+                    <div style="color:darkcyan; font-size: xx-small"><b><i>NOT Weighted</i></b></div>
+                }
             }
                 </td>
     </RowTemplate>
@@ -35,6 +56,11 @@
 @code {
     [Parameter]
     public Tour? Tour { get; set; } = null;
+    private bool ShowPlanned = false;
+    protected override void OnInitialized()
+    {
+        ShowPlanned = Tour?.IsFinalizing ?? false;
+    }
     public List<Spending> GetSpendingSorted()
     {
         List<Spending> res = Tour?.Spendings ?? new List<Spending>();
@@ -46,6 +72,6 @@
             ;
         real = real.OrderBy(s => s.DateCreated);
 
-        return planned.Concat(real).ToList();
+        return (ShowPlanned ? planned : new Spending[0]).Concat(real).ToList();
     }
 }

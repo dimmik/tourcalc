@@ -1,4 +1,5 @@
 ﻿@using TCalc.Domain
+@using TCBlazor.Client.Utils
 <TableTemplate Items="@(Tour?.Persons ?? new List<Person>())"  Context="person" TopPadding="30">
     <TableHeader>
         <th>Person Name</th>
@@ -8,7 +9,7 @@
         <th>Debt</th>
     </TableHeader>
     <RowTemplate>
-        <td>@person.Name</td>
+        <td>@((MarkupString)person.Name.AsBreakable())</td>
         <td>@person.Weight</td>
         <td>@person.SpentInCents</td>
         <td>@person.ReceivedInCents</td>

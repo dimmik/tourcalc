@@ -282,6 +282,7 @@
           "totalSpendingAmountInCents": 599,
           "spendingDescription": "Пи-джин",
           "isSpendingToAll": false,
+          "isPartialWeighted": true,
           "toNames": [
             "Андрей",
             "Дима А.",
@@ -13746,6 +13747,7 @@
       "order": 0,
       "isChanged": true,
       "isFromJson": false,
+      "isPartialWeighted": true,
       "dateCreated": "2021-01-15T14:00:12.07Z"
     },
     {
@@ -15083,6 +15085,7 @@
   "order": 0,
   "isChanged": true,
   "isFromJson": false,
+  "isFinalizing": true,
   "dateCreated": "2021-01-14T13:51:36.272Z"
 }
 

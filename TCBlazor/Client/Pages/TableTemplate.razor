@@ -6,12 +6,13 @@
     <thead style="position: sticky; top: @(TopPadding)px; background-color: white;">
         <tr>@TableHeader</tr>
     </thead>
-    <tbody>
+    <tbody style="font-size: small">
         @foreach (var item in Items)
         {
+            idx++;
             if (RowTemplate is not null)
             {
-                <tr>@RowTemplate(item)</tr>
+                <tr style=@(ConditionalRowStyle(item, idx))>@RowTemplate(item)</tr>
             }
         }
     </tbody>
@@ -29,4 +30,9 @@
 
     [Parameter]
     public int TopPadding { get; set; } = 0;
+
+    [Parameter]
+    public Func<TItem, int, string> ConditionalRowStyle { get; set; } = (i, idx) => "";
+
+    private int idx = 0;
 }

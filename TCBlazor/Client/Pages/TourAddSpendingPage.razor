@@ -1,0 +1,9 @@
+﻿@page "/tour/{tourId}/addspending/{*personId}"
+<h3>TourAddSpendingPage</h3>
+spendings to tour @TourId dfault from person '@PersonId'
+@code {
+    [Parameter]
+    public string? TourId { get; set; }
+    [Parameter]
+    public string? PersonId { get; set; }
+}
