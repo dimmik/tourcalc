@@ -7,7 +7,11 @@
     ConditionalRowStyle=@((s, idx) => 
     {
         if (s.Planned){
-            return "background-color: yellow";
+            if (s.Description.StartsWith("Family")){
+                return "background-color: aquamarine";
+            } else {
+                return "background-color: yellow";
+            }
         } else {
             return $"background-color: {(idx % 2 == 0 ? "LightCyan" : "white")}";
         }
@@ -67,8 +71,9 @@
         var planned = res.Where(s => s.Planned);
         var real = res.Where(s => !s.Planned);
         planned = planned
-            .OrderBy(s => (Tour?.Persons ?? new List<Person>()).FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "")
-            .ThenByDescending(s => s.AmountInCents)
+            .OrderBy(s => s.Description.StartsWith("Family") ? 0 : 1) // first family
+            .ThenBy(s => (Tour?.Persons ?? new List<Person>()).FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "") // then by name
+            .ThenByDescending(s => s.AmountInCents) // then by amount
             ;
         real = real.OrderBy(s => s.DateCreated);
 
