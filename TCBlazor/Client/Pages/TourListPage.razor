@@ -12,7 +12,7 @@
 }
 else
 {
-    <TableTemplate Items=@GetTours()  Context="tour" TopPadding="30">
+    <TableTemplate Items=@GetTours() Context="tour" TopPadding="30">
     <TableHeader>
         <th>Tour Name</th>
         <th>Fin</th>
@@ -40,7 +40,7 @@ else
             @onclick=@(() => OnFinChange(tour))
             />
         </td>
-        <td><input  @key=@($"arch_{tour.Id}") type="checkbox" 
+        <td><input @key=@($"arch_{tour.Id}") type="checkbox" 
             checked=@tour.IsArchived 
             @onclick=@(() => OnArchChange(tour))
             /></td>
