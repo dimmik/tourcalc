@@ -12,11 +12,11 @@
 }
 else
 {
-    <TableTemplate Items=@(tours.Tours)  Context="tour" TopPadding="30">
+    <TableTemplate Items=@GetTours()  Context="tour" TopPadding="30">
     <TableHeader>
         <th>Tour Name</th>
         <th>Fin</th>
-        <th>Arch</th>
+        <th>Arch <input type="checkbox" @bind-value=@ShowArchived/></th>
         <th>Del</th>
     </TableHeader>
     <RowTemplate>
@@ -35,12 +35,12 @@ else
 
             </div>
         </td>
-        <td><input id=@($"fin_{tour.Id}") type="checkbox" 
+        <td><input @key=@($"fin_{tour.Id}") type="checkbox" 
             checked=@tour.IsFinalizing 
             @onclick=@(() => OnFinChange(tour))
             />
         </td>
-        <td><input  id=@($"arch_{tour.Id}") type="checkbox" 
+        <td><input  @key=@($"arch_{tour.Id}") type="checkbox" 
             checked=@tour.IsArchived 
             @onclick=@(() => OnArchChange(tour))
             /></td>
@@ -51,6 +51,7 @@ else
 
 @code {
     private TCalc.Domain.TourList? tours = null;
+    private bool ShowArchived = false;
 
     private async Task ChangeTourName(Tour tour)
     {
@@ -83,9 +84,15 @@ else
     {
         await LoadTours();
     }
+    private IEnumerable<Tour> GetTours()
+    {
+        var res = tours?.Tours ?? new Tour[0] ;
+        if (!ShowArchived) res = res.Where(t => !t.IsArchived);
+        return res;
+    }
     private async Task LoadTours()
     {
-        var token = await ts.Get("__tc_token");
+        var token = await ts.GetToken();
         // TODO pagination, links, all the stuff
         var from = 0;
         var count = 100;
