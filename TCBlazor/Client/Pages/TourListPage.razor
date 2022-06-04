@@ -20,8 +20,20 @@ else
         <th>Del</th>
     </TableHeader>
     <RowTemplate>
-        <td><NavLink href=@($"tour/{tour.Id}")>@((MarkupString)tour.Name.AsBreakable())</NavLink>
-            <div style="font-size: xx-small">[@tour.DateCreated.ToString("dd.MM.yyyy HH:mm")]</div>
+        <td>
+                @if (!(tour.Metadata == "Editing"))
+                {
+                    <NavLink href=@($"tour/{tour.Id}")>@((MarkupString)tour.Name.AsBreakable())</NavLink> 
+                    
+                } else
+                {
+                    <span><input type="text" @bind-value=@tour.Name  @onfocusout=@(() => ChangeTourName(tour))/><button>✓</button></span>
+                }
+            <div style="font-size: xx-small">[@tour.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
+            <button @onclick=@(() => tour.Metadata = (tour.Metadata == "Editing" ? "--" : "Editing"))>✎</button>
+                
+
+            </div>
         </td>
         <td><input id=@($"fin_{tour.Id}") type="checkbox" 
             checked=@tour.IsFinalizing 
@@ -39,6 +51,12 @@ else
 
 @code {
     private TCalc.Domain.TourList? tours = null;
+
+    private async Task ChangeTourName(Tour tour)
+    {
+        await Http.GetFromJsonWithAuthToken<string>($"/api/tour/{tour.Id}/changename", await ts.GetToken(), HttpMethod.Patch, tour);
+        await LoadTours();        
+    }
 
     private async Task OnFinChange(Tour tour)
     {
