@@ -19,14 +19,13 @@
             {
                 <span><input type="text" @bind-value="code" />
                     <button @onclick="LogIn">Auth</button>
-
                 </span>
             }
             else
             {
                 <div class="sidebar">
-                    M: @authData.IsMaster
                     <NavMenu />
+                    <div style="color:white;cursor:pointer;" @onclick=@(() => LogOut())>Log Out</div>
                 </div>
 
                 <main>
@@ -54,6 +53,11 @@
     {
         await RetrieveAuthData();
     }
+    private async Task LogOut()
+    {
+        await ts.SetToken("");
+        await RetrieveAuthData();
+    }
     private async Task RetrieveAuthData()
     {
         var token = await ts.GetToken();
@@ -62,17 +66,24 @@
     private async Task LogIn()
     {
         LoggingIn = true;
-        var scope = "code"; // "admin"
-        var scC = (code ?? "").Split(':');
-        if (scC.Length > 1)
+        try {
+            var scope = "code"; // "admin"
+            var c = code;
+            var scC = (code ?? "").Split(':');
+            if (scC.Length > 1)
+            {
+                scope = scC[0];
+                c = scC[1];
+            }
+            var url = "/api/Auth/token/" + scope + "/" + c;
+            var token = await Http.GetStringAsync(url);
+            await ts.SetToken(token);
+            await RetrieveAuthData();
+        } 
+        catch
         {
-            scope = scC[0];
-            code = scC[1];
+            // TODO handle
         }
-        var url = "/api/Auth/token/" + scope + "/" + code;
-        var token = await Http.GetStringAsync(url);
-        await ts.SetToken(token);
-        await RetrieveAuthData();
         LoggingIn = false;
     }
     
