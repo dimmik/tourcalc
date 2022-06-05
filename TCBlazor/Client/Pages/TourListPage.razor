@@ -20,14 +20,14 @@ else
         <th>Tour Name
             @if (AddingTour)
         {
-            <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)>X</span>
+            <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)>🗙</span>
             <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
-            <button @onclick=@(() => AddNewTour())>Add</button>
+            <span style="cursor:pointer" @onclick=@(() => AddNewTour())>✓</span>
             
         }
         else
         {
-            <button @onclick=@(() => AddingTour = true)>+</button>            
+            <span style="cursor:pointer;border:solid thin" @onclick=@(() => AddingTour = true)>+</span>            
         }</th>
         <th>Fin</th>
         <th>Arch <input type="checkbox" @bind-value=@ShowArchived/></th>
