@@ -23,5 +23,9 @@ namespace TCBlazor.Client.Storage
         {
             return await Get(TokenKey);
         }
+        public async Task SetToken(string token)
+        {
+            await Set(TokenKey, token);
+        }
     }
 }

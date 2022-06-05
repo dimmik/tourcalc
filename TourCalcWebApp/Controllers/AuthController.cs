@@ -139,6 +139,7 @@ namespace TourCalcWebApp.Controllers
 
         private AuthData Authorize(string scope, string accessCode)
         {
+            // TODO: think about what to return. Maybe exceptions is not the best way
             AuthData auth = new AuthData();
             if (scope == "admin")
             {

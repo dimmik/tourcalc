@@ -13,33 +13,42 @@
     }
     else
     {
-        @if (authData.Type == "None")
+        if (!LoggingIn)
         {
-        <span><input type="text" @bind-value="code" />
-            <button @onclick="LogIn">Auth</button>
-            
-        </span>
-            
+            @if (authData.Type == "None")
+            {
+                <span><input type="text" @bind-value="code" />
+                    <button @onclick="LogIn">Auth</button>
+
+                </span>
+            }
+            else
+            {
+                <div class="sidebar">
+                    M: @authData.IsMaster
+                    <NavMenu />
+                </div>
+
+                <main>
+                    <article class="content px-4">
+                        @Body
+                    </article>
+                </main>
+            }
+
         } 
         else
         {
-            <div class="sidebar">
-            <NavMenu />
-            </div>
-
-            <main>
-                <article class="content px-4">
-                    @Body
-                </article>
-            </main>
-            
+            <span>Logging In ...</span>
         }
-        
+
 }
 </div>
 @code {
     private AuthData? authData = null;
     private string? code;
+
+    private bool LoggingIn = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -47,16 +56,24 @@
     }
     private async Task RetrieveAuthData()
     {
-        var token = await ts.Get("__tc_token");
+        var token = await ts.GetToken();
         authData = await Http.GetFromJsonWithAuthToken<AuthData?>("/api/Auth/whoami", token);
     }
     private async Task LogIn()
     {
+        LoggingIn = true;
         var scope = "code"; // "admin"
+        var scC = (code ?? "").Split(':');
+        if (scC.Length > 1)
+        {
+            scope = scC[0];
+            code = scC[1];
+        }
         var url = "/api/Auth/token/" + scope + "/" + code;
         var token = await Http.GetStringAsync(url);
-        await ts.Set("__tc_token", token);
+        await ts.SetToken(token);
         await RetrieveAuthData();
+        LoggingIn = false;
     }
     
 }
