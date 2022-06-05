@@ -1,36 +1,25 @@
-FROM mcr.microsoft.com/dotnet/aspnet:5.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
 WORKDIR /app
 #RUN dotnet --version
 EXPOSE 80
 EXPOSE 443
 
-FROM docker.io/library/node:latest AS buildUI
-WORKDIR /src
-COPY ./TourCalcWebApp ./TourCalcWebApp
-RUN ls
-WORKDIR /src/TourCalcWebApp
-RUN npm install
-RUN npm run buildProd
-RUN ls -Rla /src/TourCalcWebApp/
-
-FROM mcr.microsoft.com/dotnet/sdk:5.0 AS buildtc
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS buildtc
 WORKDIR /src
 COPY . .
-WORKDIR "/src/TourCalcWebApp"
+WORKDIR "/src/TCBlazor/Server"
 
 
 FROM buildtc as publishtc
 ARG BUILD_VER=default
 
-RUN dotnet publish  --version-suffix ${BUILD_VER} "TourCalcWebApp.csproj" -c Release -o /app 
+RUN dotnet publish  --version-suffix ${BUILD_VER} "TCBlazor.Server.csproj" -c Release -o /app 
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publishtc /app .
-COPY --from=buildUI /src/TourCalcWebApp/wwwroot/assets /app/wwwroot/assets
-#RUN chmod -R a+w /app
 RUN ls -Rla /app
-ENTRYPOINT ["dotnet", "TourCalcWebApp.dll"]
+ENTRYPOINT ["dotnet", "TCBlazor.Server.dll"]
 
 ### README
 #build: podman build -f tourcalc.run.docker -t tourcalc:dev --no-cache .
