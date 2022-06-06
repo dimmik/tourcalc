@@ -17,11 +17,23 @@ else
 - list of spendings, filtered by person and sorted by date desc
 
 -->
-<span>Form to add spending</span>
+<div>Form to add spending
+    <input type="text" @bind-value=@(NewSpending.Description)/>
+    From: 
+    <select id="from" @bind="NewSpending.FromGuid">
+        <option value="xxx">yyy</option>
+    @foreach (var p in tour.Persons)
+    {
+        <option value="@p.GUID">@p.Name</option>
+    }
+    </select>
+</div>
 <TourSpendingsComponent 
     Tour=@tour 
     SpendingListPreProcessor=@(
-        (l) => l.Where(s => !s.Planned && (PersonId == null || s.FromGuid == PersonId)).OrderByDescending(s => s.DateCreated)
+        (l) => l
+        .Where(s => !s.Planned && (string.IsNullOrWhiteSpace(NewSpending.FromGuid) || s.FromGuid == NewSpending.FromGuid))
+        .OrderByDescending(s => s.DateCreated)
     )
     />
 }
@@ -31,10 +43,13 @@ else
     [Parameter]
     public string? PersonId { get; set; }
 
+    private Spending NewSpending = new Spending();
+
     public Tour? tour = null;
     protected override async Task OnInitializedAsync()
     {
         var token = await tourLocalStorage.GetToken();
         tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
+        if (PersonId != null) NewSpending.FromGuid = PersonId;
     }
 }
