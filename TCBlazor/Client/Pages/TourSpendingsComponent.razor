@@ -65,9 +65,12 @@
     {
         ShowPlanned = Tour?.IsFinalizing ?? false;
     }
-    public List<Spending> GetSpendingSorted()
+    [Parameter]
+    public Func<IEnumerable<Spending>, IEnumerable<Spending>> SpendingListPreProcessor { get; set; } = (s) => s;
+
+    public IEnumerable<Spending> GetSpendingSorted()
     {
-        List<Spending> res = Tour?.Spendings ?? new List<Spending>();
+        IEnumerable<Spending> res = (Tour?.Spendings ?? new List<Spending>());
         var planned = res.Where(s => s.Planned);
         var real = res.Where(s => !s.Planned);
         planned = planned
@@ -77,6 +80,6 @@
             ;
         real = real.OrderBy(s => s.DateCreated);
 
-        return (ShowPlanned ? planned : new Spending[0]).Concat(real).ToList();
+        return SpendingListPreProcessor((ShowPlanned ? planned : new Spending[0]).Concat(real).ToList());
     }
 }

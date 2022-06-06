@@ -1,9 +1,40 @@
 ﻿@page "/tour/{tourId}/addspending/{*personId}"
+@using TCBlazor.Client.Utils
+@using TCalc.Domain
+@inject HttpClient Http
+@inject TCBlazor.Client.Storage.TourcalcLocalStorage tourLocalStorage
+
 <h3>TourAddSpendingPage</h3>
 spendings to tour @TourId dfault from person '@PersonId'
+@if (tour == null)
+{
+    <span>Tour loading ...</span>
+}
+else 
+{
+<!--
+- Form for adding spending with choosing from
+- list of spendings, filtered by person and sorted by date desc
+
+-->
+<span>Form to add spending</span>
+<TourSpendingsComponent 
+    Tour=@tour 
+    SpendingListPreProcessor=@(
+        (l) => l.Where(s => !s.Planned && (PersonId == null || s.FromGuid == PersonId)).OrderByDescending(s => s.DateCreated)
+    )
+    />
+}
 @code {
     [Parameter]
     public string? TourId { get; set; }
     [Parameter]
     public string? PersonId { get; set; }
+
+    public Tour? tour = null;
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await tourLocalStorage.GetToken();
+        tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
+    }
 }

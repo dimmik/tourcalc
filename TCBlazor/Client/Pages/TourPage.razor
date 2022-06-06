@@ -41,7 +41,7 @@ else
     public Tour? Tour = null;
     protected override async Task OnInitializedAsync()
     {
-        var token = await tourLocalStorage.Get("__tc_token");
+        var token = await tourLocalStorage.GetToken();
         Tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
     }
     string GetId(string l) => $"{l}";
