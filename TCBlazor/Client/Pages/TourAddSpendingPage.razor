@@ -1,6 +1,7 @@
 ﻿@page "/tour/{tourId}/addspending/{*personId}"
 @using TCBlazor.Client.Utils
 @using TCalc.Domain
+@using AntDesign
 @inject HttpClient Http
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage tourLocalStorage
 
@@ -27,6 +28,23 @@ else
         <option value="@p.GUID">@p.Name</option>
     }
     </select>
+
+    <Select Mode="multiple"
+        Placeholder="To..."
+		@bind-Values="@_selectedValues1"
+		TItemValue="string"
+		TItem="string"
+        OnSelectedItemsChanged="OnToPersonsChangedHandler"
+		Style="width: 100%; margin-bottom: 8px;"
+		EnableSearch
+		AllowClear>
+		    <SelectOptions>
+			    @foreach(var p in tour.Persons)
+			    {
+				    <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+			    }
+		    </SelectOptions>
+</Select>
 </div>
 <TourSpendingsComponent 
     Tour=@tour 
@@ -44,6 +62,7 @@ else
     public string? PersonId { get; set; }
 
     private Spending NewSpending = new Spending();
+    IEnumerable<string> _selectedValues1 = new List<string>();
 
     public Tour? tour = null;
     protected override async Task OnInitializedAsync()
@@ -51,5 +70,10 @@ else
         var token = await tourLocalStorage.GetToken();
         tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
         if (PersonId != null) NewSpending.FromGuid = PersonId;
+    }
+    private void OnToPersonsChangedHandler(IEnumerable<string> values)
+    {
+		if (values != null)
+			Console.WriteLine($"selected: ${string.Join(",", values)}");
     }
 }
