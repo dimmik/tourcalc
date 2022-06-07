@@ -52,11 +52,12 @@ else
     )
     >
     <EditActionTemplate Context="s"> <span style="cursor:pointer" @onclick=@(
-        () => {
+        async () => {
             mode = ComponentMode.Edit;
             SpendingId = s.GUID;
             LoadSpending();
             StateHasChanged();
+            await JsRuntime.InvokeVoidAsync("backToTop");
         }
     )>&nbsp; ✎</span></EditActionTemplate>
     </TourSpendingsComponent>
