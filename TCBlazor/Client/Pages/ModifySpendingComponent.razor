@@ -80,6 +80,12 @@
         }
     }
 
+    [Parameter]
+    public Action<string> OnFromChanged { get; set; } = (s) => { };
+    private void OnFromSelectedChangedHandler(string v)
+    {
+        OnFromChanged(v);
+    }
     private async Task SaveSpending()
     {
         await OnSave(TheSpending);
