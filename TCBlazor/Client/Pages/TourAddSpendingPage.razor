@@ -25,6 +25,7 @@ else
         tour=@tour
         TheSpending=@NewSpending
         OnSave=@(async (s) => await AddSpending(s))
+        OnFromChanged=@((g) => FromGuidChanged(g))
         />
 </div>
 <TourSpendingsComponent 
@@ -93,7 +94,12 @@ else
         NewSpending.ToAll = true;
         if (PersonId != null) NewSpending.FromGuid = PersonId;
     }
-    
+    private void FromGuidChanged(string g)
+    {
+        NewSpending.FromGuid = g;
+        StateHasChanged();
+    }
+
 
     
 }
