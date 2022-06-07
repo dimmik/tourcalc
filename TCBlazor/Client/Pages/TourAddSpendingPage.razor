@@ -4,6 +4,7 @@
 @using AntDesign
 @inject HttpClient Http
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage tourLocalStorage
+@inject IJSRuntime JsRuntime
 
 <h3>TourAddSpendingPage</h3>
 spendings to tour @TourId dfault from person '@PersonId'
@@ -24,15 +25,19 @@ else
     Category: <AutoComplete 
         @bind-Value=@(NewSpending.Type) 
         Options=@(tour.Spendings.Select(s => s.Type).Distinct()) 
-        Placeholder="input here"/>
+        
+        Placeholder="Spending Category"/>
 <br/>
-    From:   <select id="from" @bind="NewSpending.FromGuid">
-    @foreach (var p in tour.Persons)
-    {
-        <option value="@p.GUID">@p.Name</option>
-    }
-    </select><br/>
-    To All: <input type="checkbox" @bind-value=@(NewSpending.ToAll)/><br/>
+    From:  <Select DataSource=@(tour.Persons)
+                @bind-Value=@(NewSpending.FromGuid)
+                LabelName="@nameof(Person.Name)"
+                ValueName="@nameof(Person.GUID)"
+                Placeholder="From"
+                DefaultActiveFirstItem="false"
+                EnableSearch>
+        </Select>
+<br/>
+    <Checkbox type="checkbox" @bind-value=@(NewSpending.ToAll)>To All</Checkbox><br/>
 
     To <Select Mode="multiple"
         Placeholder="To..."
@@ -71,9 +76,29 @@ else
     private Spending NewSpending = new Spending();
     private async Task AddSpending()
     {
-        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{TourId}/spending", await tourLocalStorage.GetToken(), HttpMethod.Post, NewSpending);
-        await LoadTour();
-        InitNewSpending();
+        List<string> err = new List<string>();
+        if (NewSpending.AmountInCents == 0)
+        {
+            err.Add("Amount should not be 0");
+        }
+        if (string.IsNullOrWhiteSpace(NewSpending.Description))
+        {
+            err.Add("Please Specify Description");
+        }
+        if (!NewSpending.ToAll && (NewSpending.ToGuid ?? new List<string>()).Count == 0)
+        {
+            err.Add("Spending should have recepients or be to all");
+        }
+        if (err.Count == 0)
+        {
+            await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{TourId}/spending", await tourLocalStorage.GetToken(), HttpMethod.Post, NewSpending);
+            await LoadTour();
+            InitNewSpending();
+        } 
+        else
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Errors: {string.Join("\n", err)}");
+        }
     }
     IEnumerable<string> _selectedValuesTo = new List<string>();
 
@@ -93,6 +118,7 @@ else
         NewSpending.Description = "";
         NewSpending.AmountInCents = 0;
         NewSpending.IsPartialWeighted = true;
+        NewSpending.ToAll = true;
         if (PersonId != null) NewSpending.FromGuid = PersonId;
     }
     private void OnToPersonsChangedHandler(IEnumerable<string> values)
