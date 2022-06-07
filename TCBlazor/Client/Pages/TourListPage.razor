@@ -82,14 +82,14 @@ else
 
     private async Task ChangeTourName(Tour tour)
     {
-        await Http.GetFromJsonWithAuthToken<string>($"/api/tour/{tour.Id}/changename", await ts.GetToken(), HttpMethod.Patch, tour);
+        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{tour.Id}/changename", await ts.GetToken(), HttpMethod.Patch, tour);
         await LoadTours();        
     }
 
     private async Task OnFinChange(Tour tour)
     {
         tour.IsFinalizing = !tour.IsFinalizing;
-        await Http.GetFromJsonWithAuthToken<string>($"/api/tour/{tour.Id}/finalizing", await ts.GetToken(), HttpMethod.Patch, tour);
+        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{tour.Id}/finalizing", await ts.GetToken(), HttpMethod.Patch, tour);
         await LoadTours();
     }
     private async Task OnArchChange(Tour tour)
@@ -103,7 +103,7 @@ else
         bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete tour '{tour.Name}'");
         if (confirmed)
         {
-            await Http.GetFromJsonWithAuthToken<string>($"/api/tour/{tour.Id}", await ts.GetToken(), HttpMethod.Delete, null);
+            await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Delete, null);
             await LoadTours();
         }
     }

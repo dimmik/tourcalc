@@ -18,24 +18,30 @@ else
 - list of spendings, filtered by person and sorted by date desc
 
 -->
-<div>Form to add spending
-    <input type="text" @bind-value=@(NewSpending.Description)/>
-    From: 
-    <select id="from" @bind="NewSpending.FromGuid">
-        <option value="xxx">yyy</option>
+<div>
+    Description: <input type="text" @bind-value=@(NewSpending.Description)/> <br/>
+    Amount: <input type="text" @bind-value=@(NewSpending.AmountInCents)/><br/>
+    Category: <AutoComplete 
+        @bind-Value=@(NewSpending.Type) 
+        Options=@(tour.Spendings.Select(s => s.Type).Distinct()) 
+        Placeholder="input here"/>
+<br/>
+    From:   <select id="from" @bind="NewSpending.FromGuid">
     @foreach (var p in tour.Persons)
     {
         <option value="@p.GUID">@p.Name</option>
     }
-    </select>
+    </select><br/>
+    To All: <input type="checkbox" @bind-value=@(NewSpending.ToAll)/><br/>
 
-    <Select Mode="multiple"
+    To <Select Mode="multiple"
         Placeholder="To..."
-		@bind-Values="@_selectedValues1"
+		@bind-Values="@_selectedValuesTo"
 		TItemValue="string"
 		TItem="string"
         OnSelectedItemsChanged="OnToPersonsChangedHandler"
 		Style="width: 100%; margin-bottom: 8px;"
+        Disabled=@(NewSpending.ToAll)
 		EnableSearch
 		AllowClear>
 		    <SelectOptions>
@@ -44,7 +50,8 @@ else
 				    <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
 			    }
 		    </SelectOptions>
-</Select>
+    </Select><br/>
+    <button @onclick=@(async () => await AddSpending())>Add</button>
 </div>
 <TourSpendingsComponent 
     Tour=@tour 
@@ -62,18 +69,39 @@ else
     public string? PersonId { get; set; }
 
     private Spending NewSpending = new Spending();
-    IEnumerable<string> _selectedValues1 = new List<string>();
+    private async Task AddSpending()
+    {
+        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{TourId}/spending", await tourLocalStorage.GetToken(), HttpMethod.Post, NewSpending);
+        await LoadTour();
+        InitNewSpending();
+    }
+    IEnumerable<string> _selectedValuesTo = new List<string>();
 
     public Tour? tour = null;
     protected override async Task OnInitializedAsync()
     {
+        await LoadTour();
+        InitNewSpending();
+    }
+    private async Task LoadTour()
+    {
         var token = await tourLocalStorage.GetToken();
-        tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
+        tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);        
+    }
+    private void InitNewSpending()
+    {
+        NewSpending.Description = "";
+        NewSpending.AmountInCents = 0;
+        NewSpending.IsPartialWeighted = true;
         if (PersonId != null) NewSpending.FromGuid = PersonId;
     }
     private void OnToPersonsChangedHandler(IEnumerable<string> values)
     {
-		if (values != null)
-			Console.WriteLine($"selected: ${string.Join(",", values)}");
+        if (values != null){
+            Console.WriteLine($"selected: ${string.Join(",", values)}");
+            NewSpending.ToGuid = values.ToList();
+        }
     }
+
+    
 }
