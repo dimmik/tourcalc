@@ -20,64 +20,11 @@ else
 -->
 <div>
 <h4><NavLink href=@($"tour/{tour.Id}")>@tour.Name</NavLink></h4>
-    <Form 
-        Model="NewSpending"
-        Layout="@FormLayout.Horizontal"
-        Size="@AntSizeLDSType.Small"
-        LabelColSpan="4"
-        WrapperColSpan="8"
-
-    >
-        <FormItem Label="Description" Style="margin-bottom: 1px" LabelStyle="padding: 0 !important">
-            <Input @bind-Value=@(NewSpending.Description)/>
-        </FormItem>
-        <FormItem Label="Amount" Style="margin-bottom: 1px;">
-            <Input @bind-Value=@(NewSpending.AmountInCents) />
-         </FormItem>
-
-        <FormItem Label="Category" Style="margin-bottom: 1px;">
-            <AutoComplete 
-                @bind-Value=@(NewSpending.Type) 
-                Options=@(tour.Spendings.Select(s => s.Type).Distinct())         
-                Placeholder="Spending Category"/>
-        </FormItem>
-        <FormItem Label="From" Style="margin-bottom: 1px">
-            <Select DataSource=@(tour.Persons)
-                @bind-Value=@(NewSpending.FromGuid)
-                LabelName="@nameof(Person.Name)"
-                ValueName="@nameof(Person.GUID)"
-                Placeholder="From"
-                DefaultActiveFirstItem="false"
-                EnableSearch>
-            </Select>
-        </FormItem>
-        <FormItem Label="To All" Style="margin-bottom: 1px">
-            <Switch @bind-Value=@(NewSpending.ToAll)></Switch>
-        </FormItem>
-        <FormItem Label="To" Style="margin-bottom: 1px">
-            <Select Mode="multiple"
-                Placeholder="To..."
-		        @bind-Values="@_selectedValuesTo"
-		        TItemValue="string"
-		        TItem="string"
-                OnSelectedItemsChanged="OnToPersonsChangedHandler"
-                Disabled=@(NewSpending.ToAll)
-		        EnableSearch
-		        AllowClear>
-		            <SelectOptions>
-			            @foreach(var p in tour.Persons)
-			            {
-				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
-			            }
-		            </SelectOptions>
-            </Select>
-        </FormItem>
-        <FormItem Style="margin-bottom: 1px">
-            <Button Type="@ButtonType.Primary" @onclick=@(async () => await AddSpending())>
-                Save
-            </Button>
-        </FormItem>
-    </Form>
+    <ModifySpendingComponent
+        tour=@tour
+        TheSpending=@NewSpending
+        OnSave=@(async (s) => await AddSpending(s))
+        />
 </div>
 <TourSpendingsComponent 
     Tour=@tour 
@@ -95,24 +42,24 @@ else
     public string? PersonId { get; set; }
 
     private Spending NewSpending = new Spending();
-    private async Task AddSpending()
+    private async Task AddSpending(Spending s)
     {
         List<string> err = new List<string>();
-        if (NewSpending.AmountInCents == 0)
+        if (s.AmountInCents == 0)
         {
             err.Add("Amount should not be 0");
         }
-        if (string.IsNullOrWhiteSpace(NewSpending.Description))
+        if (string.IsNullOrWhiteSpace(s.Description))
         {
             err.Add("Please Specify Description");
         }
-        if (!NewSpending.ToAll && (NewSpending.ToGuid ?? new List<string>()).Count == 0)
+        if (!s.ToAll && (s.ToGuid ?? new List<string>()).Count == 0)
         {
             err.Add("Spending should have recepients or be to all");
         }
         if (err.Count == 0)
         {
-            await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{TourId}/spending", await tourLocalStorage.GetToken(), HttpMethod.Post, NewSpending);
+            await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{TourId}/spending", await tourLocalStorage.GetToken(), HttpMethod.Post, s);
             await LoadTour();
             InitNewSpending();
         } 
@@ -142,13 +89,7 @@ else
         NewSpending.ToAll = true;
         if (PersonId != null) NewSpending.FromGuid = PersonId;
     }
-    private void OnToPersonsChangedHandler(IEnumerable<string> values)
-    {
-        if (values != null){
-            //Console.WriteLine($"selected: ${string.Join(",", values)}");
-            NewSpending.ToGuid = values.ToList();
-        }
-    }
+    
 
     
 }
