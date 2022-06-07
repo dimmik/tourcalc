@@ -46,6 +46,8 @@ else
     public string? SpendingId { get; set; }
 
     private Spending NewSpending = new Spending();
+    private bool initialized = false;
+
     private async Task AddSpending(Spending s)
     {
         List<string> err = new List<string>();
@@ -66,6 +68,7 @@ else
             await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{TourId}/spending", await tourLocalStorage.GetToken(), HttpMethod.Post, s);
             await LoadTour();
             InitNewSpending();
+            StateHasChanged();
         } 
         else
         {
@@ -80,6 +83,7 @@ else
     {
         await LoadTour();
         InitNewSpending();
+        initialized = true;
     }
     private async Task LoadTour()
     {
@@ -92,7 +96,7 @@ else
         NewSpending.AmountInCents = 0;
         NewSpending.IsPartialWeighted = true;
         NewSpending.ToAll = true;
-        if (PersonId != null) NewSpending.FromGuid = PersonId;
+        if (PersonId != null && !initialized) NewSpending.FromGuid = PersonId;
     }
     private void FromGuidChanged(string g)
     {
