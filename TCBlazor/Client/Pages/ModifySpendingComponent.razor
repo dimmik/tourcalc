@@ -1,0 +1,111 @@
+﻿
+@using AntDesign
+@using TCalc.Domain
+
+<Form 
+        Model="TheSpending"
+        Layout="@FormLayout.Horizontal"
+        Size="@AntSizeLDSType.Small"
+        LabelColSpan="4"
+        WrapperColSpan="8"
+
+    >
+        <FormItem Label="Description" Style="margin-bottom: 1px" LabelStyle="padding: 0 !important">
+            <Input @bind-Value=@(TheSpending.Description)/>
+        </FormItem>
+        <FormItem Label="Amount" Style="margin-bottom: 1px;">
+            <Input @bind-Value=@(TheSpending.AmountInCents) />
+         </FormItem>
+
+        <FormItem Label="Category" Style="margin-bottom: 1px;">
+            <AutoComplete 
+                @bind-Value=@(TheSpending.Type) 
+                Options=@(tour.Spendings.Select(s => s.Type).Distinct())         
+                Placeholder="Spending Category"/>
+        </FormItem>
+        <FormItem Label="From" Style="margin-bottom: 1px">
+            <Select
+                xOnSelectedItemsChanged="OnFromSelectedChangedHandler"
+                OnSelectedItemChanged="OnFromSelectedChangedHandler"
+                @bind-Value=@(TheSpending.FromGuid)
+                TItemValue="string"
+		        TItem="string"
+                Placeholder="From"
+                DefaultActiveFirstItem="false"
+                EnableSearch
+            >
+                    <SelectOptions>
+			            @foreach(var p in tour.Persons)
+			            {
+				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+			            }
+		            </SelectOptions>
+            </Select>
+        </FormItem>
+        <FormItem Label="To All" Style="margin-bottom: 1px">
+            <Switch @bind-Value=@(TheSpending.ToAll)></Switch>
+        </FormItem>
+        <FormItem Label="To" Style="margin-bottom: 1px">
+            <Select Mode="multiple"
+                Placeholder="To..."
+		        @bind-Values="@_selectedValuesTo"
+		        TItemValue="string"
+		        TItem="string"
+                OnSelectedItemsChanged="OnToPersonsChangedHandler"
+                Disabled=@(TheSpending.ToAll)
+		        EnableSearch
+		        AllowClear>
+		            <SelectOptions>
+			            @foreach(var p in tour.Persons)
+			            {
+				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+			            }
+		            </SelectOptions>
+            </Select>
+        </FormItem>
+        <FormItem Style="margin-bottom: 1px">
+            <Button Type="@ButtonType.Primary" @onclick=@(async () => await SaveSpending())>
+                Save
+            </Button>
+        </FormItem>
+    </Form>
+
+@code {
+    [Parameter]
+    public Spending TheSpending { get; set; }
+
+    [Parameter]
+    public Tour tour { get; set; }
+
+    [Parameter]
+    public Func<Spending, Task> OnSave { get; set; } = async (s) => { };
+
+
+    [Parameter]
+    public Action<string> OnFromChanged { get; set; } = (s) => { };
+
+
+    protected override void OnParametersSet()
+    {
+        _selectedValuesTo = TheSpending.ToGuid;
+    }
+
+    IEnumerable<string> _selectedValuesTo = new List<string>();
+
+    private void OnToPersonsChangedHandler(IEnumerable<string> values)
+    {
+        if (values != null){
+            //Console.WriteLine($"selected: ${string.Join(",", values)}");
+            TheSpending.ToGuid = values.ToList();
+        }
+    }
+
+    public void OnFromSelectedChangedHandler(string v)
+    {
+        OnFromChanged(v);
+    }
+    private async Task SaveSpending()
+    {
+        await OnSave(TheSpending);
+    }
+}

@@ -29,7 +29,7 @@ namespace TourCalcWebApp.Storage
             //bool createVersions = Configuration.GetValue("TourVersioning", true);
             bool isVersionEditable = Configuration.GetValue("TourVersionEditable", false);
 
-            var providerType = Configuration.GetValue("StorageType", "LiteDb");
+            var providerType = Configuration.GetValue("StorageType", "InMemory");
             if (providerType.ToLower() == "LiteDb".ToLower())
             {
                 var rootFolder = Configuration.GetValue("DatabaseRootFolder", Path.DirectorySeparatorChar == '\\' ? @"d:\home\" : "/home/");

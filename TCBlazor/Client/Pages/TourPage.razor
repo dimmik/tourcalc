@@ -2,7 +2,7 @@
 @using TCBlazor.Client.Utils
 @using TCalc.Domain
 @inject HttpClient Http
-@inject TCBlazor.Client.Storage.TourcalcLocalStorage tourLocalStorage
+@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
 
 @if (Tour == null)
 {
@@ -27,7 +27,18 @@ else
                 <TourPersonsComponent Tour=@Tour/>
                 <!--Spendings-->
                 <b id=@GetId("spendings")>Spendings</b>
-                <TourSpendingsComponent Tour=@Tour/>
+                <TourSpendingsComponent 
+                    Tour=@Tour
+                    OnSpendingDelete=@(async (s) => {
+                        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{Tour.Id}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+                        await LoadTour();
+                        StateHasChanged();
+                    })
+                >
+                    <EditActionTemplate Context="s">
+                        <NavLink href=@($"/tour/{Tour.Id}/spending/edit/{s.GUID}")>&nbsp; ✎</NavLink>
+                    </EditActionTemplate>
+                </TourSpendingsComponent>
             </td>
         </RowTemplate>
 
@@ -41,7 +52,11 @@ else
     public Tour? Tour = null;
     protected override async Task OnInitializedAsync()
     {
-        var token = await tourLocalStorage.Get("__tc_token");
+        await LoadTour();
+    }
+    private async Task LoadTour()
+    {
+        var token = await ts.GetToken();
         Tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
     }
     string GetId(string l) => $"{l}";

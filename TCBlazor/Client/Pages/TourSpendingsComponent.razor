@@ -1,5 +1,10 @@
 ﻿@using TCalc.Domain
 @using TCBlazor.Client.Utils
+
+@inject HttpClient Http
+@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject IJSRuntime JsRuntime
+
 <TableTemplate 
     Items=@(GetSpendingSorted()) 
     Context="spending" 
@@ -7,7 +12,11 @@
     ConditionalRowStyle=@((s, idx) => 
     {
         if (s.Planned){
-            return "background-color: yellow";
+            if (s.Description.StartsWith("Family")){
+                return "background-color: aquamarine";
+            } else {
+                return "background-color: yellow";
+            }
         } else {
             return $"background-color: {(idx % 2 == 0 ? "LightCyan" : "white")}";
         }
@@ -22,8 +31,18 @@
     </TableHeader>
     <RowTemplate>
         <td>
+            <span style="cursor:pointer;" 
+                @onclick=@(() => OnSpendingDeleteClicked(spending))>
+                🗙
+            </span>
+
             @((MarkupString)spending.Description.AsBreakable())
-            <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] <b>@spending.Type</b></div>
+            <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] <b>@spending.Type</b>
+                @if (EditActionTemplate != null)
+                {
+                    <span>@EditActionTemplate(spending)</span>
+                }
+                </div>
         </td>
         <td>@((MarkupString)((Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == spending.FromGuid).FirstOrDefault()?.Name ?? "").AsBreakable())</td>
         <td>@spending.AmountInCents</td>
@@ -57,21 +76,41 @@
     [Parameter]
     public Tour? Tour { get; set; } = null;
     private bool ShowPlanned = false;
-    protected override void OnInitialized()
+    protected override void OnParametersSet()
     {
         ShowPlanned = Tour?.IsFinalizing ?? false;
     }
-    public List<Spending> GetSpendingSorted()
+    [Parameter]
+    public Func<IEnumerable<Spending>, IEnumerable<Spending>> SpendingListPreProcessor { get; set; } = (s) => s;
+
+
+    public IEnumerable<Spending> GetSpendingSorted()
     {
-        List<Spending> res = Tour?.Spendings ?? new List<Spending>();
+        IEnumerable<Spending> res = (Tour?.Spendings ?? new List<Spending>());
         var planned = res.Where(s => s.Planned);
         var real = res.Where(s => !s.Planned);
         planned = planned
-            .OrderBy(s => (Tour?.Persons ?? new List<Person>()).FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "")
-            .ThenByDescending(s => s.AmountInCents)
+            .OrderBy(s => s.Description.StartsWith("Family") ? 0 : 1) // first family
+            .ThenBy(s => (Tour?.Persons ?? new List<Person>()).FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "") // then by name
+            .ThenByDescending(s => s.AmountInCents) // then by amount
             ;
         real = real.OrderBy(s => s.DateCreated);
 
-        return (ShowPlanned ? planned : new Spending[0]).Concat(real).ToList();
+        return SpendingListPreProcessor((ShowPlanned ? planned : new Spending[0]).Concat(real).ToList());
+    }
+
+    [Parameter]
+    public RenderFragment<Spending>? EditActionTemplate { get; set; }
+
+    [Parameter]
+    public Func<Spending, Task> OnSpendingDelete { get; set; } = async (s) => { };
+
+    async Task OnSpendingDeleteClicked(Spending s)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete spending '{s.Description}'");
+        if (confirmed)
+        {
+            await OnSpendingDelete(s);
+        }
     }
 }

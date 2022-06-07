@@ -1,0 +1,169 @@
+﻿@page "/tour/{tourId}/spending/edit/{spendingId}"
+@page "/tour/{tourId}/spending/add/{*personId}"
+@using TCBlazor.Client.Utils
+@using TCalc.Domain
+@using AntDesign
+@inject HttpClient Http
+@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject IJSRuntime JsRuntime
+
+<h3>Spending</h3>
+@if (tour == null || TheSpending == null)
+{
+    <span>Loading ...</span>
+}
+else 
+{
+<!--
+- Form for adding spending with choosing from
+- list of spendings, filtered by person and sorted by date desc
+
+-->
+<div>
+<h4><NavLink href=@($"tour/{tour.Id}")>@tour.Name</NavLink>
+        </h4>
+<div style="background-color:cornsilk">
+            @if (mode == ComponentMode.Edit)
+            {
+                <span>Editing '@(TheSpending.Description)'</span>
+                <span style="cursor:pointer" @onclick=@(() => {
+                    mode = ComponentMode.Add;
+                    InitNewSpending();
+                    StateHasChanged();
+                })>&nbsp; <u>Add New</u></span>
+            } else
+            {
+                <span>Adding New Spending</span>
+            }
+</div>
+    <ModifySpendingComponent
+        tour=@tour
+        TheSpending=@TheSpending
+        OnSave=@(async (s) => await SaveSpending(s))
+        OnFromChanged=@((g) => FromGuidChanged(g))
+        />
+</div>
+<TourSpendingsComponent 
+    Tour=@tour 
+    SpendingListPreProcessor=@(
+        (l) => l
+        .Where(s => !s.Planned && (string.IsNullOrWhiteSpace(TheSpending.FromGuid) || s.FromGuid == TheSpending.FromGuid))
+        .OrderByDescending(s => s.DateCreated)
+    )
+    OnSpendingDelete=@(async (s) => {
+                        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{tour.Id}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+                        await LoadTour();
+                        StateHasChanged();
+                    })
+    >
+    <EditActionTemplate Context="s"> <span style="cursor:pointer" @onclick=@(
+        async () => {
+            mode = ComponentMode.Edit;
+            SpendingId = s.GUID;
+            LoadSpending();
+            StateHasChanged();
+            await JsRuntime.InvokeVoidAsync("backToTop");
+        }
+    )>&nbsp; ✎</span></EditActionTemplate>
+    </TourSpendingsComponent>
+}
+@code {
+    [Parameter]
+    public string? TourId { get; set; }
+    [Parameter]
+    public string? PersonId { get; set; }
+    [Parameter]
+    public string? SpendingId { get; set; }
+
+    private Spending TheSpending = new Spending();
+    private bool initialized = false;
+
+    private async Task SaveSpending(Spending s)
+    {
+        List<string> err = new List<string>();
+        if (s.AmountInCents == 0)
+        {
+            err.Add("Amount should not be 0");
+        }
+        if (string.IsNullOrWhiteSpace(s.Description))
+        {
+            err.Add("Please Specify Description");
+        }
+        if (!s.ToAll && (s.ToGuid ?? new List<string>()).Count == 0)
+        {
+            err.Add("Spending should have recepients or be to all");
+        }
+        if (err.Count == 0)
+        {
+            // '/api/tour/' + tourid + '/spending/' + spending.guid
+            if (mode == ComponentMode.Add)
+            {
+                await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{TourId}/spending", await ts.GetToken(), HttpMethod.Post, s);
+            } else
+            {
+                await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{TourId}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Patch, s);
+            }
+            await LoadTour();
+            if (mode == ComponentMode.Add)
+            {
+                InitNewSpending();
+            } else
+            {
+                LoadSpending();
+            }
+            StateHasChanged();
+        } 
+        else
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Errors: {string.Join("\n", err)}");
+        }
+    }
+    IEnumerable<string> _selectedValuesTo = new List<string>();
+
+    public Tour? tour = null;
+
+    ComponentMode mode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTour();
+        mode = SpendingId == null ? ComponentMode.Add : ComponentMode.Edit;
+        if (mode == ComponentMode.Add)
+        {
+            InitNewSpending();
+        } else
+        {
+            LoadSpending();
+        }
+        initialized = true;
+    }
+    private async Task LoadTour()
+    {
+        var token = await ts.GetToken();
+        tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);        
+    }
+    private void InitNewSpending()
+    {
+        TheSpending.Description = "";
+        TheSpending.AmountInCents = 0;
+        TheSpending.IsPartialWeighted = true;
+        TheSpending.ToAll = true;
+        TheSpending.ToGuid = new List<string>();
+        if (PersonId != null && !initialized) TheSpending.FromGuid = PersonId;
+    }
+    private void LoadSpending()
+    {
+        TheSpending = tour.Spendings.FirstOrDefault(s => s.GUID == SpendingId) ?? new Spending();
+    }
+    private void FromGuidChanged(string g)
+    {
+        TheSpending.FromGuid = g;
+        StateHasChanged();
+    }
+
+    enum ComponentMode
+    {
+        Add, Edit
+    }
+
+}

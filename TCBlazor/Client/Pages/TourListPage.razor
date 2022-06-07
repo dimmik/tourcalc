@@ -3,35 +3,123 @@
 @using TCalc.Domain
 @inject HttpClient Http
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject IJSRuntime JsRuntime
 
-
-<h3>TourList</h3>
 @if (tours == null)
 {
+<h3>Tour List</h3>
     <span>Tours loading...</span>
 }
 else
 {
-    <div>
-    tours:
-    <table>
-        @foreach (var tour in tours.Tours)
-       {
-        <tr>
-            <td><NavLink href=@($"tour/{tour.Id}")>@tour.Name</NavLink></td>
-            <td>@tour.DateCreated</td>
-        </tr>           
-       }
-    </table>
-    </div>
+<h3>Tour List
+        
+    </h3>
+    <TableTemplate Items=@GetTours() Context="tour" TopPadding="30">
+    <TableHeader>
+        <th>Tour Name
+            @if (AddingTour)
+        {
+            <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)>🗙</span>
+            <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
+            <span style="cursor:pointer" @onclick=@(() => AddNewTour())>✓</span>
+            
+        }
+        else
+        {
+            <span style="cursor:pointer;border:solid thin" @onclick=@(() => AddingTour = true)>+</span>            
+        }</th>
+        <th>Fin</th>
+        <th>Arch <input type="checkbox" @bind-value=@ShowArchived/></th>
+        <th>Del</th>
+    </TableHeader>
+    <RowTemplate>
+        <td>
+                @if (!(tour.Metadata == "Editing"))
+                {
+                    <NavLink href=@($"tour/{tour.Id}")>@((MarkupString)tour.Name.AsBreakable())</NavLink> 
+                    
+                } else
+                {
+                    <span><input type="text" @bind-value=@tour.Name @onfocusout=@(() => ChangeTourName(tour))/><span style="cursor:pointer;" >✓</span></span>
+                }
+            <div style="font-size: xx-small">[@tour.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
+            <span style="cursor:pointer;" @onclick=@(() => tour.Metadata = (tour.Metadata == "Editing" ? "--" : "Editing"))>✎</span>
+                
+
+            </div>
+        </td>
+        <td><input @key=@($"fin_{tour.Id}") type="checkbox" 
+            checked=@tour.IsFinalizing 
+            @onclick=@(() => OnFinChange(tour))
+            />
+        </td>
+        <td><input @key=@($"arch_{tour.Id}") type="checkbox" 
+            checked=@tour.IsArchived 
+            @onclick=@(() => OnArchChange(tour))
+            /></td>
+        <td><span style="border:dashed; cursor:pointer;" @onclick=@(() => OnDelete(tour))>X</span></td>
+    </RowTemplate>
+</TableTemplate>
 }
 
 @code {
     private TCalc.Domain.TourList? tours = null;
+    private bool ShowArchived = false;
+    private bool AddingTour = false;
+    private string NewTourName = "";
 
+    private async Task AddNewTour()
+    {
+        if (!string.IsNullOrWhiteSpace(NewTourName))
+        {
+            await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/add/c", await ts.GetToken(), HttpMethod.Post, new Tour() { Name = NewTourName });
+            await LoadTours();
+            AddingTour = false;
+            NewTourName = "";
+        }
+    }
+
+    private async Task ChangeTourName(Tour tour)
+    {
+        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{tour.Id}/changename", await ts.GetToken(), HttpMethod.Patch, tour);
+        await LoadTours();        
+    }
+
+    private async Task OnFinChange(Tour tour)
+    {
+        tour.IsFinalizing = !tour.IsFinalizing;
+        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{tour.Id}/finalizing", await ts.GetToken(), HttpMethod.Patch, tour);
+        await LoadTours();
+    }
+    private async Task OnArchChange(Tour tour)
+    {
+        tour.IsArchived = !tour.IsArchived;
+        await Http.GetFromJsonWithAuthToken<string>($"/api/tour/{tour.Id}/archive", await ts.GetToken(), HttpMethod.Patch, tour);
+        await LoadTours();
+    }
+    async Task OnDelete(Tour tour)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete tour '{tour.Name}'");
+        if (confirmed)
+        {
+            await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Delete, null);
+            await LoadTours();
+        }
+    }
     protected override async Task OnInitializedAsync()
     {
-        var token = await ts.Get("__tc_token");
+        await LoadTours();
+    }
+    private IEnumerable<Tour> GetTours()
+    {
+        var res = tours?.Tours ?? new Tour[0] ;
+        if (!ShowArchived) res = res.Where(t => !t.IsArchived);
+        return res;
+    }
+    private async Task LoadTours()
+    {
+        var token = await ts.GetToken();
         // TODO pagination, links, all the stuff
         var from = 0;
         var count = 100;
