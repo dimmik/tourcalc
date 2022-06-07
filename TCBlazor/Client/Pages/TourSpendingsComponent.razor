@@ -27,7 +27,12 @@
     <RowTemplate>
         <td>
             @((MarkupString)spending.Description.AsBreakable())
-            <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] <b>@spending.Type</b></div>
+            <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] <b>@spending.Type</b>
+                @if (EditActionTemplate != null)
+                {
+                    <span>@EditActionTemplate(spending)</span>
+                }
+                </div>
         </td>
         <td>@((MarkupString)((Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == spending.FromGuid).FirstOrDefault()?.Name ?? "").AsBreakable())</td>
         <td>@spending.AmountInCents</td>
@@ -82,4 +87,7 @@
 
         return SpendingListPreProcessor((ShowPlanned ? planned : new Spending[0]).Concat(real).ToList());
     }
+
+    [Parameter]
+    public RenderFragment<Spending>? EditActionTemplate { get; set; }
 }

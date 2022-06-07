@@ -85,8 +85,16 @@
     public Action<string> OnFromChanged { get; set; } = (s) => { };
 
 
+    protected override void OnParametersSet()
+    {
+        _selectedValuesTo = TheSpending.ToGuid;
+    }
 
     IEnumerable<string> _selectedValuesTo = new List<string>();
+    protected override async Task OnInitializedAsync()
+    {
+        
+    }
     private void OnToPersonsChangedHandler(IEnumerable<string> values)
     {
         if (values != null){

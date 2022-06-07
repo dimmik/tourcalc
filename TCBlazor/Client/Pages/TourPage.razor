@@ -27,7 +27,11 @@ else
                 <TourPersonsComponent Tour=@Tour/>
                 <!--Spendings-->
                 <b id=@GetId("spendings")>Spendings</b>
-                <TourSpendingsComponent Tour=@Tour/>
+                <TourSpendingsComponent Tour=@Tour>
+                    <EditActionTemplate Context="s">
+                        <NavLink href=@($"/tour/{Tour.Id}/spending/edit/{s.GUID}")>&nbsp; ✎</NavLink>
+                    </EditActionTemplate>
+                </TourSpendingsComponent>
             </td>
         </RowTemplate>
 
