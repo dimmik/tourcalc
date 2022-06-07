@@ -1,5 +1,10 @@
 ﻿@using TCalc.Domain
 @using TCBlazor.Client.Utils
+
+@inject HttpClient Http
+@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject IJSRuntime JsRuntime
+
 <TableTemplate 
     Items=@(GetSpendingSorted()) 
     Context="spending" 
@@ -26,6 +31,11 @@
     </TableHeader>
     <RowTemplate>
         <td>
+            <span style="cursor:pointer;" 
+                @onclick=@(() => OnSpendingDeleteClicked(spending))>
+                🗙
+            </span>
+
             @((MarkupString)spending.Description.AsBreakable())
             <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] <b>@spending.Type</b>
                 @if (EditActionTemplate != null)
@@ -66,12 +76,13 @@
     [Parameter]
     public Tour? Tour { get; set; } = null;
     private bool ShowPlanned = false;
-    protected override void OnInitialized()
+    protected override void OnParametersSet()
     {
         ShowPlanned = Tour?.IsFinalizing ?? false;
     }
     [Parameter]
     public Func<IEnumerable<Spending>, IEnumerable<Spending>> SpendingListPreProcessor { get; set; } = (s) => s;
+
 
     public IEnumerable<Spending> GetSpendingSorted()
     {
@@ -90,4 +101,16 @@
 
     [Parameter]
     public RenderFragment<Spending>? EditActionTemplate { get; set; }
+
+    [Parameter]
+    public Func<Spending, Task> OnSpendingDelete { get; set; } = async (s) => { };
+
+    async Task OnSpendingDeleteClicked(Spending s)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete spending '{s.Description}'");
+        if (confirmed)
+        {
+            await OnSpendingDelete(s);
+        }
+    }
 }
