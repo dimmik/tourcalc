@@ -24,13 +24,22 @@
                 Placeholder="Spending Category"/>
         </FormItem>
         <FormItem Label="From" Style="margin-bottom: 1px">
-            <Select DataSource=@(tour.Persons)
+            <Select
+                xOnSelectedItemsChanged="OnFromSelectedChangedHandler"
+                OnSelectedItemChanged="OnFromSelectedChangedHandler"
                 @bind-Value=@(TheSpending.FromGuid)
-                LabelName="@nameof(Person.Name)"
-                ValueName="@nameof(Person.GUID)"
+                TItemValue="string"
+		        TItem="string"
                 Placeholder="From"
                 DefaultActiveFirstItem="false"
-                EnableSearch>
+                EnableSearch
+            >
+                    <SelectOptions>
+			            @foreach(var p in tour.Persons)
+			            {
+				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+			            }
+		            </SelectOptions>
             </Select>
         </FormItem>
         <FormItem Label="To All" Style="margin-bottom: 1px">
@@ -71,6 +80,12 @@
     [Parameter]
     public Func<Spending, Task> OnSave { get; set; } = async (s) => { };
 
+
+    [Parameter]
+    public Action<string> OnFromChanged { get; set; } = (s) => { };
+
+
+
     IEnumerable<string> _selectedValuesTo = new List<string>();
     private void OnToPersonsChangedHandler(IEnumerable<string> values)
     {
@@ -80,9 +95,7 @@
         }
     }
 
-    [Parameter]
-    public Action<string> OnFromChanged { get; set; } = (s) => { };
-    private void OnFromSelectedChangedHandler(string v)
+    public void OnFromSelectedChangedHandler(string v)
     {
         OnFromChanged(v);
     }
