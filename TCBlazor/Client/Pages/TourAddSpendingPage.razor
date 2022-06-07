@@ -1,11 +1,13 @@
-﻿@page "/tour/{tourId}/addspending/{*personId}"
+﻿@page "/tour/{tourId}/spending/edit/{spendingId}"
+@page "/tour/{tourId}/spending/add/{*personId}"
 @using TCBlazor.Client.Utils
 @using TCalc.Domain
+@using AntDesign
 @inject HttpClient Http
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage tourLocalStorage
+@inject IJSRuntime JsRuntime
 
-<h3>TourAddSpendingPage</h3>
-spendings to tour @TourId dfault from person '@PersonId'
+<h3>Add Spending</h3>
 @if (tour == null)
 {
     <span>Tour loading ...</span>
@@ -17,16 +19,14 @@ else
 - list of spendings, filtered by person and sorted by date desc
 
 -->
-<div>Form to add spending
-    <input type="text" @bind-value=@(NewSpending.Description)/>
-    From: 
-    <select id="from" @bind="NewSpending.FromGuid">
-        <option value="xxx">yyy</option>
-    @foreach (var p in tour.Persons)
-    {
-        <option value="@p.GUID">@p.Name</option>
-    }
-    </select>
+<div>
+<h4><NavLink href=@($"tour/{tour.Id}")>@tour.Name</NavLink></h4>
+    <ModifySpendingComponent
+        tour=@tour
+        TheSpending=@NewSpending
+        OnSave=@(async (s) => await AddSpending(s))
+        OnFromChanged=@((g) => FromGuidChanged(g))
+        />
 </div>
 <TourSpendingsComponent 
     Tour=@tour 
@@ -42,14 +42,68 @@ else
     public string? TourId { get; set; }
     [Parameter]
     public string? PersonId { get; set; }
+    [Parameter]
+    public string? SpendingId { get; set; }
 
     private Spending NewSpending = new Spending();
+    private bool initialized = false;
+
+    private async Task AddSpending(Spending s)
+    {
+        List<string> err = new List<string>();
+        if (s.AmountInCents == 0)
+        {
+            err.Add("Amount should not be 0");
+        }
+        if (string.IsNullOrWhiteSpace(s.Description))
+        {
+            err.Add("Please Specify Description");
+        }
+        if (!s.ToAll && (s.ToGuid ?? new List<string>()).Count == 0)
+        {
+            err.Add("Spending should have recepients or be to all");
+        }
+        if (err.Count == 0)
+        {
+            await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{TourId}/spending", await tourLocalStorage.GetToken(), HttpMethod.Post, s);
+            await LoadTour();
+            InitNewSpending();
+            StateHasChanged();
+        } 
+        else
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Errors: {string.Join("\n", err)}");
+        }
+    }
+    IEnumerable<string> _selectedValuesTo = new List<string>();
 
     public Tour? tour = null;
+
     protected override async Task OnInitializedAsync()
     {
-        var token = await tourLocalStorage.GetToken();
-        tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
-        if (PersonId != null) NewSpending.FromGuid = PersonId;
+        await LoadTour();
+        InitNewSpending();
+        initialized = true;
     }
+    private async Task LoadTour()
+    {
+        var token = await tourLocalStorage.GetToken();
+        tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);        
+    }
+    private void InitNewSpending()
+    {
+        NewSpending.Description = "";
+        NewSpending.AmountInCents = 0;
+        NewSpending.IsPartialWeighted = true;
+        NewSpending.ToAll = true;
+        if (PersonId != null && !initialized) NewSpending.FromGuid = PersonId;
+    }
+    private void FromGuidChanged(string g)
+    {
+        NewSpending.FromGuid = g;
+        StateHasChanged();
+    }
+
+
+    
 }

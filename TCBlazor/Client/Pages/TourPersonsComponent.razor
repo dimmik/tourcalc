@@ -10,7 +10,7 @@
     </TableHeader>
     <RowTemplate>
         <td>@((MarkupString)person.Name.AsBreakable())
-            <NavLink href=@($"tour/{Tour?.GUID}/addspending/{person.GUID}")>spend</NavLink> 
+            <NavLink href=@($"tour/{Tour?.GUID}/spending/add/{person.GUID}")>spend</NavLink> 
         </td>
         <td>@person.Weight</td>
         <td>@person.SpentInCents</td>
