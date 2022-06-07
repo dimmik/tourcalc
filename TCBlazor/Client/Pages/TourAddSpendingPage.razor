@@ -1,4 +1,5 @@
-﻿@page "/tour/{tourId}/addspending/{*personId}"
+﻿@page "/tour/{tourId}/spending/edit/{spendingId}"
+@page "/tour/{tourId}/spending/add/{*personId}"
 @using TCBlazor.Client.Utils
 @using TCalc.Domain
 @using AntDesign
@@ -40,6 +41,8 @@ else
     public string? TourId { get; set; }
     [Parameter]
     public string? PersonId { get; set; }
+    [Parameter]
+    public string? SpendingId { get; set; }
 
     private Spending NewSpending = new Spending();
     private async Task AddSpending(Spending s)
@@ -71,6 +74,7 @@ else
     IEnumerable<string> _selectedValuesTo = new List<string>();
 
     public Tour? tour = null;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadTour();
