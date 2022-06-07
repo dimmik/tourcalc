@@ -6,8 +6,7 @@
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage tourLocalStorage
 @inject IJSRuntime JsRuntime
 
-<h3>TourAddSpendingPage</h3>
-spendings to tour @TourId dfault from person '@PersonId'
+<h3>Add Spending</h3>
 @if (tour == null)
 {
     <span>Tour loading ...</span>
@@ -20,43 +19,65 @@ else
 
 -->
 <div>
-    Description: <input type="text" @bind-value=@(NewSpending.Description)/> <br/>
-    Amount: <input type="text" @bind-value=@(NewSpending.AmountInCents)/><br/>
-    Category: <AutoComplete 
-        @bind-Value=@(NewSpending.Type) 
-        Options=@(tour.Spendings.Select(s => s.Type).Distinct()) 
-        
-        Placeholder="Spending Category"/>
-<br/>
-    From:  <Select DataSource=@(tour.Persons)
+<h4><NavLink href=@($"tour/{tour.Id}")>@tour.Name</NavLink></h4>
+    <Form 
+        Model="NewSpending"
+        Layout="@FormLayout.Horizontal"
+        Size="@AntSizeLDSType.Small"
+        LabelColSpan="4"
+        WrapperColSpan="8"
+
+    >
+        <FormItem Label="Description" Style="margin-bottom: 1px" LabelStyle="padding: 0 !important">
+            <Input @bind-Value=@(NewSpending.Description)/>
+        </FormItem>
+        <FormItem Label="Amount" Style="margin-bottom: 1px;">
+            <Input @bind-Value=@(NewSpending.AmountInCents) />
+         </FormItem>
+
+        <FormItem Label="Category" Style="margin-bottom: 1px;">
+            <AutoComplete 
+                @bind-Value=@(NewSpending.Type) 
+                Options=@(tour.Spendings.Select(s => s.Type).Distinct())         
+                Placeholder="Spending Category"/>
+        </FormItem>
+        <FormItem Label="From" Style="margin-bottom: 1px">
+            <Select DataSource=@(tour.Persons)
                 @bind-Value=@(NewSpending.FromGuid)
                 LabelName="@nameof(Person.Name)"
                 ValueName="@nameof(Person.GUID)"
                 Placeholder="From"
                 DefaultActiveFirstItem="false"
                 EnableSearch>
-        </Select>
-<br/>
-    <Checkbox type="checkbox" @bind-value=@(NewSpending.ToAll)>To All</Checkbox><br/>
-
-    To <Select Mode="multiple"
-        Placeholder="To..."
-		@bind-Values="@_selectedValuesTo"
-		TItemValue="string"
-		TItem="string"
-        OnSelectedItemsChanged="OnToPersonsChangedHandler"
-		Style="width: 100%; margin-bottom: 8px;"
-        Disabled=@(NewSpending.ToAll)
-		EnableSearch
-		AllowClear>
-		    <SelectOptions>
-			    @foreach(var p in tour.Persons)
-			    {
-				    <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
-			    }
-		    </SelectOptions>
-    </Select><br/>
-    <button @onclick=@(async () => await AddSpending())>Add</button>
+            </Select>
+        </FormItem>
+        <FormItem Label="To All" Style="margin-bottom: 1px">
+            <Switch @bind-Value=@(NewSpending.ToAll)></Switch>
+        </FormItem>
+        <FormItem Label="To" Style="margin-bottom: 1px">
+            <Select Mode="multiple"
+                Placeholder="To..."
+		        @bind-Values="@_selectedValuesTo"
+		        TItemValue="string"
+		        TItem="string"
+                OnSelectedItemsChanged="OnToPersonsChangedHandler"
+                Disabled=@(NewSpending.ToAll)
+		        EnableSearch
+		        AllowClear>
+		            <SelectOptions>
+			            @foreach(var p in tour.Persons)
+			            {
+				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+			            }
+		            </SelectOptions>
+            </Select>
+        </FormItem>
+        <FormItem Style="margin-bottom: 1px">
+            <Button Type="@ButtonType.Primary" @onclick=@(async () => await AddSpending())>
+                Save
+            </Button>
+        </FormItem>
+    </Form>
 </div>
 <TourSpendingsComponent 
     Tour=@tour 
@@ -124,7 +145,7 @@ else
     private void OnToPersonsChangedHandler(IEnumerable<string> values)
     {
         if (values != null){
-            Console.WriteLine($"selected: ${string.Join(",", values)}");
+            //Console.WriteLine($"selected: ${string.Join(",", values)}");
             NewSpending.ToGuid = values.ToList();
         }
     }
