@@ -20,7 +20,7 @@ else
 
 -->
 <div>
-<h4><NavLink href=@($"tour/{tour.Id}")>@tour.Name</NavLink>
+<h4><NavLink href=@($"tour/{tour.Id}")>&lt;&lt; @tour.Name</NavLink>
         </h4>
 <div style="background-color:cornsilk">
             @if (mode == ComponentMode.Edit)
@@ -144,6 +144,7 @@ else
     }
     private void InitNewSpending()
     {
+        TheSpending = TheSpending.SafeClone<Spending>();
         TheSpending.Description = "";
         TheSpending.AmountInCents = 0;
         TheSpending.IsPartialWeighted = true;
@@ -153,7 +154,7 @@ else
     }
     private void LoadSpending()
     {
-        TheSpending = tour.Spendings.FirstOrDefault(s => s.GUID == SpendingId) ?? new Spending();
+        TheSpending = tour?.Spendings?.FirstOrDefault(s => s.GUID == SpendingId) ?? new Spending();
     }
     private void FromGuidChanged(string g)
     {

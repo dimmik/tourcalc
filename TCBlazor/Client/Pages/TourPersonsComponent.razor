@@ -1,6 +1,11 @@
 ﻿@using TCalc.Domain
 @using TCBlazor.Client.Utils
-<TableTemplate Items="@(Tour?.Persons ?? new List<Person>())"  Context="person" TopPadding="30">
+@using AntDesign
+
+@inject IJSRuntime JsRuntime
+
+
+<TableTemplate Items="@GetPersons()"  Context="person" TopPadding="30">
     <TableHeader>
         <th>Person Name</th>
         <th>Weight</th>
@@ -9,17 +14,204 @@
         <th>Debt</th>
     </TableHeader>
     <RowTemplate>
-        <td>@((MarkupString)person.Name.AsBreakable())
-            <NavLink href=@($"tour/{Tour?.GUID}/spending/add/{person.GUID}")>spend</NavLink> 
-        </td>
-        <td>@person.Weight</td>
-        <td>@person.SpentInCents</td>
-        <td>@person.ReceivedInCents</td>
-        <td>@person.Debt()</td>
+        @if (string.IsNullOrWhiteSpace(person.Metadata))
+        {
+            <td>
+                <span style="cursor:pointer;" @onclick=@(async () => {
+                bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete person '{person.Name}'?");
+                if (confirmed)
+                {
+                    await OnPersonDelete(person);
+                }
+            })>
+                    🗙
+                </span>
+                <span style="cursor:pointer;" @onclick=@(() => person.Metadata = "Editing")>@((MarkupString)person.Name.AsBreakable())</span>
+                &nbsp;|&nbsp;<NavLink href=@($"tour/{Tour?.GUID ?? "000"}/spending/add/{person.GUID}")>spend</NavLink> 
+                @if (!string.IsNullOrWhiteSpace(person.ParentId))
+                {
+                    <div>→ @(Tour?.Persons?.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</div>
+                }
+            </td>
+            <td>@person.Weight</td>
+            <td>@SpentInfo(person)</td>
+            <td>@ReceivedInfo(person)</td>
+            <td>@person.Debt()</td>
+        } 
+        else if (person.Metadata == "Editing")
+        {
+            @AddEditCodeBlock(person, () => (person ?? new Person()).Metadata = "", OnPersonEdit)
+        } else if (person.Metadata == "Adding")
+        {
+            if (!AddingPerson)
+            {
+                <td colspan="5"><span style="cursor:pointer" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</span></td>
+            } else
+            {
+                @AddEditCodeBlock(person, () => AddingPerson = !AddingPerson, OnPersonAdd)
+            }
+        }
     </RowTemplate>
 </TableTemplate>
 
 @code {
     [Parameter]
     public Tour? Tour { get; set; } = null;
+
+    [Parameter]
+    public Func<Person, Task> OnPersonEdit { get; set; } = async (p) => { };
+    [Parameter]
+    public Func<Person, Task> OnPersonAdd { get; set; } = async (p) => { };
+    [Parameter]
+    public Func<Person, Task> OnPersonDelete { get; set; } = async (p) => { };
+
+    Dictionary<string, Person> EditingPersons { get; set; } = new Dictionary<string, Person>();
+
+    Dictionary<string, bool> ReceivedInfoShown { get; set; } = new Dictionary<string, bool>();
+    Dictionary<string, bool> SpentInfoShown { get; set; } = new Dictionary<string, bool>();
+
+    bool AddingPerson = false;
+
+    protected override void OnParametersSet()
+    {
+        EditingPersons = GetPersons().Select(p => p.SafeClone<Person>()).ToDictionary(p => p.GUID);
+        ReceivedInfoShown = GetPersons().ToDictionary(k => k.GUID, v => false);
+        SpentInfoShown = GetPersons().ToDictionary(k => k.GUID, v => false);
+    }
+    private IEnumerable<Person> GetPersons()
+    {
+        return new[] { new Person() { Name = "", Metadata = "Adding", GUID = "New" } }.Concat(GetSortedTourPersons());
+    }
+    private IEnumerable<Person> GetSortedTourPersons()
+    {
+        IEnumerable<Person> pers = (Tour?.Persons ?? new List<Person>());
+        var res = pers.OrderBy(p =>
+        {
+            var name = p.Name;
+            if (!string.IsNullOrWhiteSpace(p.ParentId))
+            {
+                var pname = pers.FirstOrDefault(pp => pp.GUID == p.ParentId)?.Name ?? "";
+                name = $"{pname}{name}";
+            }
+            return name;
+        });
+        return res;
+    }
+
+    private RenderFragment ReceivedInfo(Person person)
+    {
+        bool visible = ReceivedInfoShown.ContainsKey(person.GUID) ? ReceivedInfoShown[person.GUID] : false;
+        return __builder =>
+        {
+            <span style="cursor:pointer" @onclick=@(() => ReceivedInfoShown[person.GUID] = true)>@person.ReceivedInCents</span>
+            <Modal Title="@($"Received for {person.Name}")"
+                        Visible="@visible"
+                        OkText=@("Got It")
+                        OnOk=@(() => ReceivedInfoShown[person.GUID] = false)
+                        OnCancel=@(() => ReceivedInfoShown[person.GUID] = false)
+                        DestroyOnClose=@true
+                            >
+                            <div style="height: 55vh; overflow:scroll;">
+                                <TableTemplate Items=@(person.ReceivedSendingInfo) 
+                                Context="si"
+                                ConditionalRowStyle=@((spi, idx) => {
+                                    if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
+                                    {
+                                        return "background-color: lightgreen";
+                                    }
+                                    if (!spi.IsSpendingToAll){
+                                        return "background-color: lightblue";
+                                    }
+                                    return "background-color: white";
+                                })
+                                >
+                                    <RowTemplate>
+                                        <td>@((MarkupString)si.From.AsBreakable(3))</td>
+                                        <td>@si.ReceivedAmountInCents 
+                                            <span style="font-size: xx-small">@($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents : 0.00}")% of @si.TotalSpendingAmountInCents</span>
+                                        </td>
+                                        <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
+                                    </RowTemplate>
+                                </TableTemplate>
+                            </div>
+            </Modal>
+        };
+    }
+    private RenderFragment SpentInfo(Person person)
+    {
+        bool visible = SpentInfoShown.ContainsKey(person.GUID) ? SpentInfoShown[person.GUID] : false;
+        return __builder =>
+        {
+            <span style="cursor:pointer" @onclick=@(() => SpentInfoShown[person.GUID] = true)>@person.SpentInCents</span>
+            <Modal Title="@($"Spent for {person.Name}")"
+                Visible="@visible"
+                OkText=@("Got It")
+                OnOk=@(() => SpentInfoShown[person.GUID] = false)
+                OnCancel=@(() => SpentInfoShown[person.GUID] = false)
+                DestroyOnClose=@true
+                    >
+                    <div style="height: 55vh; overflow:scroll;">
+                        <TableTemplate Items=@(person.SpentSendingInfo) 
+                        Context="si"
+                        ConditionalRowStyle=@((spi, idx) => {
+                            if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
+                            {
+                                return "background-color: lightgreen";
+                            }
+                            if (!spi.IsSpendingToAll){
+                                return "background-color: lightblue";
+                            }
+                            return "background-color: white";
+                        })
+                        >
+                            <RowTemplate>
+                                <td>@((MarkupString)si.From.AsBreakable(3))</td>
+                                <td>@si.TotalSpendingAmountInCents</td>
+                                <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
+                            </RowTemplate>
+                        </TableTemplate>
+                    </div>
+            </Modal>
+        };
+    }
+
+    private RenderFragment AddEditCodeBlock(Person person, Action onCloseButton, Func<Person, Task> onSubmit)
+    {
+        Person pp = EditingPersons.ContainsKey(person.GUID) ? EditingPersons[person.GUID] : new Person();
+        pp.Metadata = "";
+        return __builder =>
+        {
+    <td>
+                <span style="cursor:pointer;" @onclick=@(() => onCloseButton())>
+                    🗙
+                </span>
+                <input @bind-value=@(pp.Name)/> 
+                <div>→ 
+                    <Select
+                        @bind-Value="pp.ParentId"
+                    TItemValue="string"
+		            TItem="string"
+                    Placeholder="Who is paying"
+                    Style="display: inline-block;"
+                    DefaultActiveFirstItem="true"
+                        EnableSearch
+                    >
+                        <SelectOptions>
+                            @foreach (var p in new[] { new Person() { Name = "---- None ----", GUID = "" } }.Concat((Tour?.Persons ?? new List<Person>())))
+                            {
+                                <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+                            }
+                        </SelectOptions>
+                    </Select>
+                </div>
+    </td>
+    <td><input @bind-value=@(pp.Weight)/></td>
+    <td><span style="cursor:pointer" @onclick=@(async () => await onSubmit(pp))>✓</span></td>
+    <td></td>
+    <td></td>
+        };
+
+        
+    }
+
 }

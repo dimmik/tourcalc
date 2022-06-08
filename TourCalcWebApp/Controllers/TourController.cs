@@ -401,9 +401,15 @@ namespace TourCalcWebApp.Controllers
                 if (removedPerson != null)
                 {
                     t.Persons.Remove(removedPerson);
+                    t.Persons.Where(p => p.ParentId == removedPerson.GUID).ToList().ForEach(p => p.ParentId = null);
                     t.Spendings.RemoveAll(s => s.FromGuid == removedPerson.GUID);
                     t.Spendings.RemoveAll(s => s.Planned);
                     t.Spendings.ForEach(s => s.ToGuid.RemoveAll(g => g == removedPerson.GUID));
+
+                    // We might have removed the single toguid from the spending. Let's remove such spendings that are not toall at the same time
+                    //(or maybe better to make the to all?..)
+                    t.Spendings.RemoveAll(s => (!s.ToAll && !s.ToGuid.Any()));
+
                     TourStorage_StoreTour(t);
                     return removedPerson.GUID;
                 }

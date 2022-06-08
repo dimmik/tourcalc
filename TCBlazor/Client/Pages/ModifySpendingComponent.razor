@@ -25,7 +25,6 @@
         </FormItem>
         <FormItem Label="From" Style="margin-bottom: 1px">
             <Select
-                xOnSelectedItemsChanged="OnFromSelectedChangedHandler"
                 OnSelectedItemChanged="OnFromSelectedChangedHandler"
                 @bind-Value=@(TheSpending.FromGuid)
                 TItemValue="string"

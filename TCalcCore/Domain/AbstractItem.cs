@@ -1,7 +1,7 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Text;
 
 namespace TCalc.Domain
 {
@@ -30,6 +30,11 @@ namespace TCalc.Domain
         public override int GetHashCode()
         {
             return GUID.GetHashCode();
+        }
+        public T SafeClone<T>() where T : AbstractItem
+        {
+            T clone = JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(this));
+            return clone;
         }
     }
 }

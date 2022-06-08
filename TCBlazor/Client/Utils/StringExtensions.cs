@@ -2,10 +2,10 @@
 {
     public static class StringExtensions
     {
-        public static string AsBreakable(this string str)
+        public static string AsBreakable(this string str, int chunkSize = 6)
         {
             var safeStr = str.Replace("<", "&lt;");
-            var prepared = string.Join("<wbr/>", ChunksUpto(safeStr, 6));
+            var prepared = string.Join("<wbr/>", ChunksUpto(safeStr, chunkSize));
             prepared = prepared.Replace("\r\n", "\n").Replace("\n", "<br/>");
             return prepared;
         }
