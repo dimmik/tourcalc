@@ -2,10 +2,12 @@
 @using System.Diagnostics.CodeAnalysis
 
 <table class="table">
-
-    <thead style="position: sticky; top: @(TopPadding)px; background-color: white;">
-        <tr>@TableHeader</tr>
-    </thead>
+    @if (TableHeader is not null)
+    {
+        <thead style="position: sticky; top: @(TopPadding)px; background-color: white;">
+            <tr>@TableHeader</tr>
+        </thead>
+    }
     <tbody style="font-size: small">
         @foreach (var item in Items)
         {
