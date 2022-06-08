@@ -1,5 +1,7 @@
 ﻿@using TCalc.Domain
 @using TCBlazor.Client.Utils
+@using AntDesign
+
 @inject IJSRuntime JsRuntime
 
 
@@ -12,26 +14,66 @@
         <th>Debt</th>
     </TableHeader>
     <RowTemplate>
-        <td>
-            <span style="cursor:pointer;" @onclick=@(async () => {
+        @if (person.Metadata != "Editing")
+        {
+            <td>
+                <span style="cursor:pointer;" @onclick=@(async () => {
                 bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete person '{person.Name}'?");
                 if (confirmed)
                 {
                     await OnPersonDelete(person);
                 }
             })>
-                🗙
-            </span>
-            <span style="cursor:pointer;">@((MarkupString)person.Name.AsBreakable())</span>
-            &nbsp;|&nbsp;<NavLink href=@($"tour/{Tour?.GUID ?? "000"}/spending/add/{person.GUID}")>spend</NavLink> 
-            @if (!string.IsNullOrWhiteSpace(person.ParentId)){
-                <div>→ @(Tour?.Persons?.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</div>
+                    🗙
+                </span>
+                <span style="cursor:pointer;" @onclick=@(() => person.Metadata = "Editing")>@((MarkupString)person.Name.AsBreakable())</span>
+                &nbsp;|&nbsp;<NavLink href=@($"tour/{Tour?.GUID ?? "000"}/spending/add/{person.GUID}")>spend</NavLink> 
+                @if (!string.IsNullOrWhiteSpace(person.ParentId))
+                {
+                    <div>→ @(Tour?.Persons?.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</div>
+                }
+            </td>
+            <td>@person.Weight</td>
+            <td>@person.SpentInCents</td>
+            <td>@person.ReceivedInCents</td>
+            <td>@person.Debt()</td>
+        } 
+        else
+        {
+            Person pp = EditingPersons.ContainsKey(person.GUID) ? EditingPersons[person.GUID] : new Person();
+            pp.Metadata = "";
+            <td>
+                <span style="cursor:pointer;" @onclick=@(() => {(person ?? new Person()).Metadata = "";})>
+                    🗙
+                </span>
+                <input @bind-value=@(pp.Name)/> 
+                    <div>→ 
+                        <Select
+                @bind-Value="pp.ParentId"
+                TItemValue="string"
+		        TItem="string"
+                Placeholder="Who is paying"
+                Style="display: inline-block;"
+                DefaultActiveFirstItem="true"
+                EnableSearch
+            >
+                    <SelectOptions>
+                            @foreach(var p in new[] { new Person() { Name = "---- None ----", GUID = "" } }.Concat((Tour?.Persons ?? new List<Person>())))
+                            {
+				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+			            }
+		            </SelectOptions>
+            </Select>
+            </div>
+            </td>
+            <td><input @bind-value=@(pp.Weight)/></td>
+            <td><span style="cursor:pointer" @onclick=@(async () => {
+                await OnPersonEdit(pp);
             }
-        </td>
-        <td>@person.Weight</td>
-        <td>@person.SpentInCents</td>
-        <td>@person.ReceivedInCents</td>
-        <td>@person.Debt()</td>
+            )>✓</span></td>
+            <td></td>
+            <td></td>
+        }
     </RowTemplate>
 </TableTemplate>
 
@@ -45,4 +87,10 @@
     public Func<Person, Task> OnPersonAdd { get; set; } = async (p) => { };
     [Parameter]
     public Func<Person, Task> OnPersonDelete { get; set; } = async (p) => { };
+
+    Dictionary<string, Person> EditingPersons { get; set; } = new Dictionary<string, Person>();
+    protected override void OnParametersSet()
+    {
+        EditingPersons = (Tour?.Persons ?? new List<Person>()).Select(p => p.SafeClone<Person>()).ToDictionary(p => p.GUID);
+    }
 }
