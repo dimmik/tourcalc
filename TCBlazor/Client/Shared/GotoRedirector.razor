@@ -1,0 +1,28 @@
+﻿@page "/goto/{transientAccessCode}/{tid}"
+
+@using TCBlazor.Client.Storage
+@using TCBlazor.Client.Utils
+@using TCalcCore.Auth
+
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+
+@inject NavigationManager NavManager
+
+
+<h3>Redirecting... code @transientAccessCode tid @tid</h3>
+
+@code {
+    [Parameter]
+    public string? transientAccessCode {get; set;}
+    [Parameter]
+    public string? tid {get; set;}
+    protected override async Task OnInitializedAsync()
+    {
+        var url = "/api/Auth/token/code/" + transientAccessCode;
+        var token = await Http.GetStringAsync(url);
+        await ts.SetToken(token);
+        NavManager.NavigateTo($"/tour/{tid}");
+    }
+}

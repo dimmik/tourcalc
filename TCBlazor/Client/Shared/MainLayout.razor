@@ -7,7 +7,7 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
-@inject MessageService _message
+
 
 <div class="page">
 @if (authData == null)
@@ -22,8 +22,6 @@
 }
     else
     {
-        _message.Destroy();
-
         if (!LoggingIn)
         {
             @if (authData.Type == "None")
