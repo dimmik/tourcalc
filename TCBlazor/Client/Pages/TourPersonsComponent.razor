@@ -9,8 +9,15 @@
         <th>Debt</th>
     </TableHeader>
     <RowTemplate>
-        <td>@((MarkupString)person.Name.AsBreakable())
-            <NavLink href=@($"tour/{Tour?.GUID}/spending/add/{person.GUID}")>spend</NavLink> 
+        <td>
+            <span style="cursor:pointer;">
+                🗙
+            </span>
+            <span style="cursor:pointer;">@((MarkupString)person.Name.AsBreakable())</span>
+            &nbsp;|&nbsp;<NavLink href=@($"tour/{Tour?.GUID ?? "000"}/spending/add/{person.GUID}")>spend</NavLink> 
+            @if (!string.IsNullOrWhiteSpace(person.ParentId)){
+                <div>→ @(Tour?.Persons?.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</div>
+            }
         </td>
         <td>@person.Weight</td>
         <td>@person.SpentInCents</td>

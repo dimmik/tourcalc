@@ -3,6 +3,7 @@
 @using TCBlazor.Client.Utils
 @using TCalc.Domain
 @using AntDesign
+@using System.Text.Json
 @inject HttpClient Http
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
@@ -144,6 +145,7 @@ else
     }
     private void InitNewSpending()
     {
+        TheSpending = JsonSerializer.Deserialize<Spending>(JsonSerializer.Serialize(TheSpending ?? new Spending())) ?? new Spending();
         TheSpending.Description = "";
         TheSpending.AmountInCents = 0;
         TheSpending.IsPartialWeighted = true;
@@ -153,7 +155,7 @@ else
     }
     private void LoadSpending()
     {
-        TheSpending = tour.Spendings.FirstOrDefault(s => s.GUID == SpendingId) ?? new Spending();
+        TheSpending = tour?.Spendings?.FirstOrDefault(s => s.GUID == SpendingId) ?? new Spending();
     }
     private void FromGuidChanged(string g)
     {
