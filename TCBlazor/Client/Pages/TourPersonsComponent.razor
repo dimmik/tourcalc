@@ -187,7 +187,7 @@
                 </span>
                 <input @bind-value=@(pp.Name)/> 
                 <div>→ 
-                    <Select
+                    <nobr><Select
                         @bind-Value="pp.ParentId"
                     TItemValue="string"
 		            TItem="string"
@@ -203,9 +203,11 @@
                             }
                         </SelectOptions>
                     </Select>
+                    <span style="cursor:pointer" @onclick=@(() => pp.ParentId = "")>X</span>
+                    </nobr>
                 </div>
     </td>
-    <td><input @bind-value=@(pp.Weight)/></td>
+    <td><input @bind-value=@(pp.Weight) size="5"/></td>
     <td><span style="cursor:pointer" @onclick=@(async () => await onSubmit(pp))>✓</span></td>
     <td></td>
     <td></td>
