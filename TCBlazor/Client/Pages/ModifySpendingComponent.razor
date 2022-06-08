@@ -95,7 +95,7 @@
 
     private bool IsItANewSpending()
     {
-        return !tour.Spendings.Any(s => s.GUID == TheSpending.GUID);
+        return !tour.Spendings.Any(s => !s.Planned && s.GUID == TheSpending.GUID);
     }
 
     protected override void OnParametersSet()

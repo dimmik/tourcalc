@@ -58,7 +58,16 @@ else
                     })
                 >
                     <EditActionTemplate Context="s">
-                        <NavLink href=@($"/tour/{Tour.Id}/spending/edit/{s.GUID}")>&nbsp; ✎</NavLink>
+                        <NavLink href=@($"/tour/{Tour.Id}/spending/edit/{s.GUID}")>&nbsp; 
+                            @if (s.Planned)
+                            {
+                                <b style="font-size: x-large">+</b>
+                            }
+                            else
+                            {
+                                <span>✎</span>                    
+                            }
+                    </NavLink>
                     </EditActionTemplate>
                 </TourSpendingsComponent>
             </td>

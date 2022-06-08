@@ -494,6 +494,7 @@ namespace TourCalcWebApp.Controllers
                 }
                 s.GUID = IdHelper.NewId();
                 s.DateCreated = DateTime.UtcNow;
+                s.Planned = false;
                 t.Spendings.Add(s);
                 TourStorage_StoreTour(t);
             }

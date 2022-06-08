@@ -32,8 +32,18 @@ else
                 })
                 Type="@ButtonType.Primary"
                 >Add New</Button>
-            } else
-            {
+        } else if (mode == ComponentMode.AddPlanned)
+        {
+                <b>Adding planned '@(TheSpending.Description)'</b>
+                <Button @onclick=@(() => {
+                    mode = ComponentMode.Add;
+                    InitNewSpending();
+                    StateHasChanged();
+                })
+                Type="@ButtonType.Primary"
+                >Add New</Button>            
+        } else
+        {
                 <b>Adding New Spending</b>
             }
     <ModifySpendingComponent
@@ -59,13 +69,23 @@ else
     >
     <EditActionTemplate Context="s"> <span style="cursor:pointer" @onclick=@(
         async () => {
-            mode = ComponentMode.Edit;
+            mode = (!tour?.Spendings?.Any(ss => !ss.Planned && ss.GUID == s.GUID) ?? false) 
+                ? ComponentMode.AddPlanned
+                : ComponentMode.Edit;
             SpendingId = s.GUID;
             LoadSpending();
             StateHasChanged();
             await JsRuntime.InvokeVoidAsync("backToTop");
         }
-    )>&nbsp; ✎</span></EditActionTemplate>
+    )>&nbsp;    @if (s.Planned)
+                {
+                    <b style="font-size: x-large">+</b>
+                }
+                else
+                {
+                    <span>✎</span>                    
+                }
+            </span></EditActionTemplate>
     </TourSpendingsComponent>
 }
 @code {
@@ -96,8 +116,7 @@ else
         }
         if (err.Count == 0)
         {
-            // '/api/tour/' + tourid + '/spending/' + spending.guid
-            if (mode == ComponentMode.Add)
+            if (mode == ComponentMode.Add || mode == ComponentMode.AddPlanned)
             {
                 await Http.CallWithAuthToken<string>($"/api/Tour/{TourId}/spending", await ts.GetToken(), HttpMethod.Post, s);
             } else
@@ -105,13 +124,8 @@ else
                 await Http.CallWithAuthToken<string>($"/api/Tour/{TourId}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Patch, s);
             }
             await LoadTour();
-            if (mode == ComponentMode.Add)
-            {
-                InitNewSpending();
-            } else
-            {
-                LoadSpending();
-            }
+            InitNewSpending();
+            mode = ComponentMode.Add;
             StateHasChanged();
         } 
         else
@@ -128,11 +142,15 @@ else
     protected override async Task OnInitializedAsync()
     {
         await LoadTour();
-        mode = SpendingId == null ? ComponentMode.Add : ComponentMode.Edit;
+        mode = SpendingId == null 
+            ? ComponentMode.Add 
+            : (!tour?.Spendings?.Any(s => !s.Planned && s.GUID == SpendingId) ?? false) 
+                ? ComponentMode.AddPlanned
+                : ComponentMode.Edit;
         if (mode == ComponentMode.Add)
         {
             InitNewSpending();
-        } else
+        } else 
         {
             LoadSpending();
         }
@@ -166,7 +184,7 @@ else
 
     enum ComponentMode
     {
-        Add, Edit
+        Add, AddPlanned, Edit
     }
 
 }

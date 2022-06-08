@@ -204,7 +204,8 @@ namespace TCalc.Logic
                 var credit = -creditors.First().Debt();
                 // find first debtor (highest debt)
                 var highestDebt = debtors.First().Debt();
-                CurrentTour.Spendings.Add(new Spending()
+                // spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{parent.GUID}".CreateMD5();
+                var spending = new Spending()
                 {
                     FromGuid = debtors.First().GUID,
                     Planned = true,
@@ -212,8 +213,10 @@ namespace TCalc.Logic
                     ToAll = false,
                     AmountInCents = credit > highestDebt ? highestDebt : credit,
                     Description = $"X '{debtors.First()?.Name ?? "n/a"}' -> '{creditors.First()?.Name ?? "n/a"}'",
-                    GUID = Guid.NewGuid().ToString()
-                });
+                    Type = ""
+                };
+                spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{creditors.First().GUID}".CreateMD5();
+                CurrentTour.Spendings.Add(spending);
                 // add spending
                 Calculate(includePlanned: true);
                 creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
@@ -274,10 +277,32 @@ namespace TCalc.Logic
                     ToGuid = new[] { parent.GUID }.ToList(),
                     ToAll = false,
                     AmountInCents = debt,
-                    GUID = Guid.NewGuid().ToString(),
-                    Description = $"Family '{d.Name}' -> '{parent.Name}'"
+                    Description = $"Family '{d.Name}' -> '{parent.Name}'",
+                    Type = ""
                 };
+                spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{parent.GUID}".CreateMD5();
                 CurrentTour.Spendings.Add(spending);
+            }
+        }
+    }
+    static class SU
+    {
+        public static string CreateMD5(this string input)
+        {
+            if (input == null) input = "";
+            // Use input string to calculate MD5 hash
+            using (System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create())
+            {
+                byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(input);
+                byte[] hashBytes = md5.ComputeHash(inputBytes);
+
+                // Convert the byte array to hexadecimal string
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < hashBytes.Length; i++)
+                {
+                    sb.Append(hashBytes[i].ToString("X2"));
+                }
+                return sb.ToString();
             }
         }
     }
