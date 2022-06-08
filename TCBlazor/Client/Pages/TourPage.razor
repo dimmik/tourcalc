@@ -24,7 +24,14 @@ else
             <td>
                 <!--Persons-->
                 <b id=@GetId("persons")>Persons</b>
-                <TourPersonsComponent Tour=@Tour/>
+                <TourPersonsComponent 
+                    Tour=@Tour
+                    OnPersonDelete=@(async (p) => {
+                        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{Tour.Id}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+                        await LoadTour();
+                        StateHasChanged();
+                    })
+                    />
                 <!--Spendings-->
                 <b id=@GetId("spendings")>Spendings</b>
                 <TourSpendingsComponent 

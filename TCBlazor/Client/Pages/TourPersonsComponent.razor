@@ -1,5 +1,8 @@
 ﻿@using TCalc.Domain
 @using TCBlazor.Client.Utils
+@inject IJSRuntime JsRuntime
+
+
 <TableTemplate Items="@(Tour?.Persons ?? new List<Person>())"  Context="person" TopPadding="30">
     <TableHeader>
         <th>Person Name</th>
@@ -10,7 +13,13 @@
     </TableHeader>
     <RowTemplate>
         <td>
-            <span style="cursor:pointer;">
+            <span style="cursor:pointer;" @onclick=@(async () => {
+                bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete person '{person.Name}'?");
+                if (confirmed)
+                {
+                    await OnPersonDelete(person);
+                }
+            })>
                 🗙
             </span>
             <span style="cursor:pointer;">@((MarkupString)person.Name.AsBreakable())</span>
@@ -29,4 +38,11 @@
 @code {
     [Parameter]
     public Tour? Tour { get; set; } = null;
+
+    [Parameter]
+    public Func<Person, Task> OnPersonEdit { get; set; } = async (p) => { };
+    [Parameter]
+    public Func<Person, Task> OnPersonAdd { get; set; } = async (p) => { };
+    [Parameter]
+    public Func<Person, Task> OnPersonDelete { get; set; } = async (p) => { };
 }
