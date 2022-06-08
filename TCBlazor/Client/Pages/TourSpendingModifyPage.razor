@@ -22,20 +22,20 @@ else
 <div>
 <h4><NavLink href=@($"tour/{tour.Id}")>&lt;&lt; @tour.Name</NavLink>
         </h4>
-<div style="background-color:cornsilk">
             @if (mode == ComponentMode.Edit)
             {
-                <span>Editing '@(TheSpending.Description)'</span>
-                <span style="cursor:pointer" @onclick=@(() => {
+                <b>Editing '@(TheSpending.Description)'</b>
+                <Button @onclick=@(() => {
                     mode = ComponentMode.Add;
                     InitNewSpending();
                     StateHasChanged();
-                })>&nbsp; <u>Add New</u></span>
+                })
+                Type="@ButtonType.Primary"
+                >Add New</Button>
             } else
             {
-                <span>Adding New Spending</span>
+                <b>Adding New Spending</b>
             }
-</div>
     <ModifySpendingComponent
         tour=@tour
         TheSpending=@TheSpending
@@ -146,6 +146,7 @@ else
     private void InitNewSpending()
     {
         TheSpending = TheSpending.SafeClone<Spending>();
+        TheSpending.GUID = "";
         TheSpending.Description = "";
         TheSpending.AmountInCents = 0;
         TheSpending.IsPartialWeighted = true;

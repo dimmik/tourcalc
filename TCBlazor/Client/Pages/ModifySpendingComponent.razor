@@ -7,7 +7,8 @@
         Layout="@FormLayout.Horizontal"
         Size="@AntSizeLDSType.Small"
         LabelColSpan="4"
-        WrapperColSpan="8"
+        WrapperColSpan="10"
+        
 
     >
         <FormItem Label="Description" Style="margin-bottom: 1px" LabelStyle="padding: 0 !important">
@@ -63,18 +64,27 @@
             </Select>
         </FormItem>
         <FormItem Style="margin-bottom: 1px">
-            <Button Type="@ButtonType.Primary" @onclick=@(async () => await SaveSpending())>
-                Save
-            </Button>
+                <Button Type="@ButtonType.Primary" @onclick=@(async () => await SaveSpending())>
+                    @($"{(IsItANewSpending() ? "Add" : "Save")}")
+                    @if (ShowSaved)
+                    {
+                        <b>Saved</b>
+                    }
+                    @if (ShowInProgress)
+                    {
+                        <b>... Saving ...</b>
+                    }
+                </Button>
+
         </FormItem>
     </Form>
 
 @code {
     [Parameter]
-    public Spending TheSpending { get; set; }
+    public Spending TheSpending { get; set; } = new Spending();
 
     [Parameter]
-    public Tour tour { get; set; }
+    public Tour tour { get; set; } = new Tour();
 
     [Parameter]
     public Func<Spending, Task> OnSave { get; set; } = async (s) => { };
@@ -83,6 +93,10 @@
     [Parameter]
     public Action<string> OnFromChanged { get; set; } = (s) => { };
 
+    private bool IsItANewSpending()
+    {
+        return !tour.Spendings.Any(s => s.GUID == TheSpending.GUID);
+    }
 
     protected override void OnParametersSet()
     {
@@ -103,8 +117,15 @@
     {
         OnFromChanged(v);
     }
+    bool ShowSaved = false;
+    bool ShowInProgress = false;
     private async Task SaveSpending()
     {
+        ShowInProgress = true;
         await OnSave(TheSpending);
+        ShowInProgress = false;
+        ShowSaved = true;
+        await Task.Delay(2350);
+        ShowSaved = false;
     }
 }

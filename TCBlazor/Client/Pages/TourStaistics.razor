@@ -1,0 +1,52 @@
+﻿@using TCalc.Domain
+
+<!--
+    1. spendings by category
+    2. chart
+-->
+        <TableTemplate Items=@summary Context="item"
+            ConditionalRowStyle=@((r, idx) => $"{(idx % 2 == 0 ? "background-color: lightgreen" : "background-color: lightblue")}")
+            >
+            <TableHeader>
+                <th>Category</th>
+                <th>Amount</th>
+                <th>Percent</th>
+                <th>###
+                </th>
+            </TableHeader>
+            <RowTemplate>
+                <td>@item.Name</td>
+                <td>@item.Amount</td>
+                <td>@($"{item.Amount * 100.0 / summary.Select(s => s.Amount).Sum() : 0}%")</td>
+                <td><b>@(new string('—', (int)(item.Amount * 50.0 / summary.Select(s => s.Amount).Sum())))</b></td>
+            </RowTemplate>
+        </TableTemplate>
+
+@code {
+    [Parameter]
+    public Tour Tour { get; set; } = new Tour();
+
+    private IEnumerable<(string Name, long Amount)> summary = new List<(string Name, long Amount)>();
+
+    //private string StringOfLen()
+
+    protected override void OnParametersSet()
+    {
+        summary = GetSpendingForStat();
+    }
+
+    public IEnumerable<(string Name, long Amount)> GetSpendingForStat()
+    {
+        var ss = Tour.Spendings
+        .Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type))
+        ;
+        Dictionary<string, long> summary = new Dictionary<string, long>();
+        foreach (var s in ss)
+        {
+            if (!summary.ContainsKey(s.Type)) summary[s.Type] = 0;
+            summary[s.Type] += s.AmountInCents;
+        }
+        return summary.DistinctBy(s => s.Key).OrderByDescending(s => s.Value).Select(s => (s.Key, s.Value));
+    } 
+
+}
