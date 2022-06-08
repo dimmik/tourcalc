@@ -100,6 +100,19 @@
         return $"{PersonNameWithParentNamesRecursive(Tour?.Persons?.FirstOrDefault(pp => pp.GUID == (p?.ParentId ?? "")), level + 1)}{p?.Name ?? ""}";
     }
 
+    private RenderFragment footer(Action onOk)
+    {
+        return __builder =>
+        {
+            <Template>
+                <Button OnClick=@((e) => onOk())
+                Type="primary">
+                    Got It
+                </Button>
+            </Template>
+        };
+    }
+
     private RenderFragment ReceivedInfo(Person person)
     {
         bool visible = ReceivedInfoShown.ContainsKey(person.GUID) ? ReceivedInfoShown[person.GUID] : false;
@@ -108,10 +121,11 @@
             <span style="cursor:pointer" @onclick=@(() => ReceivedInfoShown[person.GUID] = true)>@person.ReceivedInCents</span>
             <Modal Title="@($"Received for {person.Name}")"
                         Visible="@visible"
-                        OkText=@("Got It")
+                        Footer=@(footer(() => ReceivedInfoShown[person.GUID] = false))
                         OnOk=@(() => ReceivedInfoShown[person.GUID] = false)
                         OnCancel=@(() => ReceivedInfoShown[person.GUID] = false)
                         DestroyOnClose=@true
+                        Closable=@true
                             >
                             <div style="height: 55vh; overflow:scroll;">
                                 <TableTemplate Items=@(person.ReceivedSendingInfo) 
@@ -136,9 +150,10 @@
                                     </RowTemplate>
                                 </TableTemplate>
                             </div>
-            </Modal>
+        </Modal>
         };
     }
+    
     private RenderFragment SpentInfo(Person person)
     {
         bool visible = SpentInfoShown.ContainsKey(person.GUID) ? SpentInfoShown[person.GUID] : false;
@@ -147,10 +162,11 @@
             <span style="cursor:pointer" @onclick=@(() => SpentInfoShown[person.GUID] = true)>@person.SpentInCents</span>
             <Modal Title="@($"Spent for {person.Name}")"
                 Visible="@visible"
-                OkText=@("Got It")
+                Footer=@(footer(() => SpentInfoShown[person.GUID] = false))
                 OnOk=@(() => SpentInfoShown[person.GUID] = false)
                 OnCancel=@(() => SpentInfoShown[person.GUID] = false)
                 DestroyOnClose=@true
+                Closable=@true
                     >
                     <div style="height: 55vh; overflow:scroll;">
                         <TableTemplate Items=@(person.SpentSendingInfo) 
