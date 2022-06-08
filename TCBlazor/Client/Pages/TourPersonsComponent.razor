@@ -87,15 +87,17 @@
         IEnumerable<Person> pers = (Tour?.Persons ?? new List<Person>());
         var res = pers.OrderBy(p =>
         {
-            var name = p.Name;
-            if (!string.IsNullOrWhiteSpace(p.ParentId))
-            {
-                var pname = pers.FirstOrDefault(pp => pp.GUID == p.ParentId)?.Name ?? "";
-                name = $"{pname}{name}";
-            }
+            var name = PersonNameWithParentNamesRecursive(p);
             return name;
         });
         return res;
+    }
+    private string PersonNameWithParentNamesRecursive(Person p, int level = 0)
+    {
+        if (level > 50) return "";
+        if (p == null) return "";
+        if (string.IsNullOrWhiteSpace(p?.ParentId)) return p?.Name ?? "";
+        return $"{PersonNameWithParentNamesRecursive(Tour?.Persons?.FirstOrDefault(pp => pp.GUID == (p?.ParentId ?? "")), level + 1)}{p?.Name ?? ""}";
     }
 
     private RenderFragment ReceivedInfo(Person person)
