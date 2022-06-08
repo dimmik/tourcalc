@@ -87,15 +87,30 @@
         IEnumerable<Person> pers = (Tour?.Persons ?? new List<Person>());
         var res = pers.OrderBy(p =>
         {
-            var name = p.Name;
-            if (!string.IsNullOrWhiteSpace(p.ParentId))
-            {
-                var pname = pers.FirstOrDefault(pp => pp.GUID == p.ParentId)?.Name ?? "";
-                name = $"{pname}{name}";
-            }
+            var name = PersonNameWithParentNamesRecursive(p);
             return name;
         });
         return res;
+    }
+    private string PersonNameWithParentNamesRecursive(Person p, int level = 0)
+    {
+        if (level > 50) return "";
+        if (p == null) return "";
+        if (string.IsNullOrWhiteSpace(p?.ParentId)) return p?.Name ?? "";
+        return $"{PersonNameWithParentNamesRecursive(Tour?.Persons?.FirstOrDefault(pp => pp.GUID == (p?.ParentId ?? "")), level + 1)}{p?.Name ?? ""}";
+    }
+
+    private RenderFragment footer(Action onOk)
+    {
+        return __builder =>
+        {
+            <Template>
+                <Button OnClick=@((e) => onOk())
+                Type="primary">
+                    Got It
+                </Button>
+            </Template>
+        };
     }
 
     private RenderFragment ReceivedInfo(Person person)
@@ -106,10 +121,11 @@
             <span style="cursor:pointer" @onclick=@(() => ReceivedInfoShown[person.GUID] = true)>@person.ReceivedInCents</span>
             <Modal Title="@($"Received for {person.Name}")"
                         Visible="@visible"
-                        OkText=@("Got It")
+                        Footer=@(footer(() => ReceivedInfoShown[person.GUID] = false))
                         OnOk=@(() => ReceivedInfoShown[person.GUID] = false)
                         OnCancel=@(() => ReceivedInfoShown[person.GUID] = false)
                         DestroyOnClose=@true
+                        Closable=@true
                             >
                             <div style="height: 55vh; overflow:scroll;">
                                 <TableTemplate Items=@(person.ReceivedSendingInfo) 
@@ -134,9 +150,10 @@
                                     </RowTemplate>
                                 </TableTemplate>
                             </div>
-            </Modal>
+        </Modal>
         };
     }
+    
     private RenderFragment SpentInfo(Person person)
     {
         bool visible = SpentInfoShown.ContainsKey(person.GUID) ? SpentInfoShown[person.GUID] : false;
@@ -145,10 +162,11 @@
             <span style="cursor:pointer" @onclick=@(() => SpentInfoShown[person.GUID] = true)>@person.SpentInCents</span>
             <Modal Title="@($"Spent for {person.Name}")"
                 Visible="@visible"
-                OkText=@("Got It")
+                Footer=@(footer(() => SpentInfoShown[person.GUID] = false))
                 OnOk=@(() => SpentInfoShown[person.GUID] = false)
                 OnCancel=@(() => SpentInfoShown[person.GUID] = false)
                 DestroyOnClose=@true
+                Closable=@true
                     >
                     <div style="height: 55vh; overflow:scroll;">
                         <TableTemplate Items=@(person.SpentSendingInfo) 
@@ -187,7 +205,7 @@
                 </span>
                 <input @bind-value=@(pp.Name)/> 
                 <div>→ 
-                    <Select
+                    <nobr><Select
                         @bind-Value="pp.ParentId"
                     TItemValue="string"
 		            TItem="string"
@@ -203,9 +221,11 @@
                             }
                         </SelectOptions>
                     </Select>
+                    <span style="cursor:pointer" @onclick=@(() => pp.ParentId = "")>X</span>
+                    </nobr>
                 </div>
     </td>
-    <td><input @bind-value=@(pp.Weight)/></td>
+    <td><input @bind-value=@(pp.Weight) size="5"/></td>
     <td><span style="cursor:pointer" @onclick=@(async () => await onSubmit(pp))>✓</span></td>
     <td></td>
     <td></td>

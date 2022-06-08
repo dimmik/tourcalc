@@ -31,10 +31,13 @@
     </TableHeader>
     <RowTemplate>
         <td>
-            <span style="cursor:pointer;" 
+            @if (!spending.Planned)
+            {
+                <span style="cursor:pointer;" 
                 @onclick=@(() => OnSpendingDeleteClicked(spending))>
                 🗙
-            </span>
+                </span>
+            }
 
             @((MarkupString)spending.Description.AsBreakable())
             <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] <b>@spending.Type</b>

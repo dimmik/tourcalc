@@ -73,7 +73,7 @@ else
     {
         if (!string.IsNullOrWhiteSpace(NewTourName))
         {
-            await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/add/c", await ts.GetToken(), HttpMethod.Post, new Tour() { Name = NewTourName });
+            await Http.CallWithAuthToken<string>($"/api/Tour/add/c", await ts.GetToken(), HttpMethod.Post, new Tour() { Name = NewTourName });
             await LoadTours();
             AddingTour = false;
             NewTourName = "";
@@ -82,20 +82,20 @@ else
 
     private async Task ChangeTourName(Tour tour)
     {
-        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{tour.Id}/changename", await ts.GetToken(), HttpMethod.Patch, tour);
+        await Http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/changename", await ts.GetToken(), HttpMethod.Patch, tour);
         await LoadTours();        
     }
 
     private async Task OnFinChange(Tour tour)
     {
         tour.IsFinalizing = !tour.IsFinalizing;
-        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{tour.Id}/finalizing", await ts.GetToken(), HttpMethod.Patch, tour);
+        await Http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/finalizing", await ts.GetToken(), HttpMethod.Patch, tour);
         await LoadTours();
     }
     private async Task OnArchChange(Tour tour)
     {
         tour.IsArchived = !tour.IsArchived;
-        await Http.GetFromJsonWithAuthToken<string>($"/api/tour/{tour.Id}/archive", await ts.GetToken(), HttpMethod.Patch, tour);
+        await Http.CallWithAuthToken<string>($"/api/tour/{tour.Id}/archive", await ts.GetToken(), HttpMethod.Patch, tour);
         await LoadTours();
     }
     async Task OnDelete(Tour tour)
@@ -103,7 +103,7 @@ else
         bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete tour '{tour.Name}'");
         if (confirmed)
         {
-            await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Delete, null);
+            await Http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Delete, null);
             await LoadTours();
         }
     }
@@ -124,7 +124,7 @@ else
         var from = 0;
         var count = 100;
         var code = "";
-        tours = await Http.GetFromJsonWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
+        tours = await Http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
     }
 
 }

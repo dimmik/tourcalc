@@ -1,25 +1,42 @@
 ﻿@using TCBlazor.Client.Storage
 @using TCBlazor.Client.Utils
 @using TCalcCore.Auth
+@using AntDesign
+
 @inherits LayoutComponentBase
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject MessageService _message
 
 <div class="page">
 @if (authData == null)
-{ // TODO beautify
-        <span>Checking auth...</span>
-    }
+{ 
+        <AntDesign.Modal
+                Visible=@true
+                Title="Check Auth"
+                Footer=@dummyFooter
+                >
+                <div style="text-align:center">Checking auth</div>
+                </AntDesign.Modal>
+}
     else
     {
+        _message.Destroy();
+
         if (!LoggingIn)
         {
             @if (authData.Type == "None")
             {
+                <AntDesign.Modal
+                Visible=@true
+                Title="Log In"
+                Footer=@dummyFooter
+                >
                 <span><input type="text" @bind-value="code" />
                     <button @onclick="LogIn">Auth</button>
                 </span>
+                </AntDesign.Modal>
             }
             else
             {
@@ -38,7 +55,13 @@
         } 
         else
         {
-            <span>Logging In ...</span>
+            <AntDesign.Modal
+                Visible=@true
+                Title="Logging In"
+                Footer=@dummyFooter
+                >
+                <div style="text-align:center">Logging In...</div>
+                </AntDesign.Modal>
         }
 
 }
@@ -60,8 +83,9 @@
     }
     private async Task RetrieveAuthData()
     {
+        //await Task.Delay(40000);
         var token = await ts.GetToken();
-        authData = await Http.GetFromJsonWithAuthToken<AuthData?>("/api/Auth/whoami", token);
+        authData = await Http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
     }
     private async Task LogIn()
     {
@@ -86,5 +110,7 @@
         }
         LoggingIn = false;
     }
-    
+    RenderFragment dummyFooter =
+    @<span></span>
+    ;
 }
