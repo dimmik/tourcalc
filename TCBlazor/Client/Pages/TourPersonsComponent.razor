@@ -5,7 +5,7 @@
 @inject IJSRuntime JsRuntime
 
 
-<TableTemplate Items="@(Tour?.Persons ?? new List<Person>())"  Context="person" TopPadding="30">
+<TableTemplate Items="@GetPersons()"  Context="person" TopPadding="30">
     <TableHeader>
         <th>Person Name</th>
         <th>Weight</th>
@@ -14,7 +14,7 @@
         <th>Debt</th>
     </TableHeader>
     <RowTemplate>
-        @if (person.Metadata != "Editing")
+        @if (string.IsNullOrWhiteSpace(person.Metadata))
         {
             <td>
                 <span style="cursor:pointer;" @onclick=@(async () => {
@@ -38,59 +38,84 @@
             <td>@person.ReceivedInCents</td>
             <td>@person.Debt()</td>
         } 
-        else
+        else if (person.Metadata == "Editing")
         {
-            Person pp = EditingPersons.ContainsKey(person.GUID) ? EditingPersons[person.GUID] : new Person();
-            pp.Metadata = "";
-            <td>
-                <span style="cursor:pointer;" @onclick=@(() => {(person ?? new Person()).Metadata = "";})>
-                    🗙
-                </span>
-                <input @bind-value=@(pp.Name)/> 
-                    <div>→ 
-                        <Select
-                @bind-Value="pp.ParentId"
-                TItemValue="string"
-		        TItem="string"
-                Placeholder="Who is paying"
-                Style="display: inline-block;"
-                DefaultActiveFirstItem="true"
-                EnableSearch
-            >
-                    <SelectOptions>
-                            @foreach(var p in new[] { new Person() { Name = "---- None ----", GUID = "" } }.Concat((Tour?.Persons ?? new List<Person>())))
-                            {
-				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
-			            }
-		            </SelectOptions>
-            </Select>
-            </div>
-            </td>
-            <td><input @bind-value=@(pp.Weight)/></td>
-            <td><span style="cursor:pointer" @onclick=@(async () => {
-                await OnPersonEdit(pp);
+            @AddEditCodeBlock(person, () => (person ?? new Person()).Metadata = "", OnPersonEdit)
+        } else if (person.Metadata == "Adding")
+        {
+            if (!AddingPerson)
+            {
+                <td colspan="5"><span style="cursor:pointer" @onclick=@(() => AddingPerson = !AddingPerson)>Add Person</span></td>
+            } else
+            {
+                @AddEditCodeBlock(person, () => AddingPerson = !AddingPerson, OnPersonAdd)
             }
-            )>✓</span></td>
-            <td></td>
-            <td></td>
         }
     </RowTemplate>
 </TableTemplate>
 
 @code {
-    [Parameter]
-    public Tour? Tour { get; set; } = null;
+        [Parameter]
+        public Tour? Tour { get; set; } = null;
 
-    [Parameter]
-    public Func<Person, Task> OnPersonEdit { get; set; } = async (p) => { };
-    [Parameter]
-    public Func<Person, Task> OnPersonAdd { get; set; } = async (p) => { };
-    [Parameter]
-    public Func<Person, Task> OnPersonDelete { get; set; } = async (p) => { };
+        [Parameter]
+        public Func<Person, Task> OnPersonEdit { get; set; } = async (p) => { };
+        [Parameter]
+        public Func<Person, Task> OnPersonAdd { get; set; } = async (p) => { };
+        [Parameter]
+        public Func<Person, Task> OnPersonDelete { get; set; } = async (p) => { };
 
-    Dictionary<string, Person> EditingPersons { get; set; } = new Dictionary<string, Person>();
+        Dictionary<string, Person> EditingPersons { get; set; } = new Dictionary<string, Person>();
+
+        bool AddingPerson = false;
+
     protected override void OnParametersSet()
     {
-        EditingPersons = (Tour?.Persons ?? new List<Person>()).Select(p => p.SafeClone<Person>()).ToDictionary(p => p.GUID);
+        EditingPersons = GetPersons().Select(p => p.SafeClone<Person>()).ToDictionary(p => p.GUID);
     }
+    private IEnumerable<Person> GetPersons()
+    {
+        return new[] { new Person() { Name = "", Metadata = "Adding", GUID = "New" } }.Concat((Tour?.Persons ?? new List<Person>()));
+    }
+
+    private RenderFragment AddEditCodeBlock(Person person, Action onCloseButton, Func<Person, Task> onSubmit)
+    {
+        Person pp = EditingPersons.ContainsKey(person.GUID) ? EditingPersons[person.GUID] : new Person();
+        pp.Metadata = "";
+        return __builder =>
+        {
+        <td>
+            <span style="cursor:pointer;" @onclick=@(() => onCloseButton())>
+                🗙
+            </span>
+            <input @bind-value=@(pp.Name)/> 
+            <div>→ 
+                <Select
+                    @bind-Value="pp.ParentId"
+                    TItemValue="string"
+		            TItem="string"
+                    Placeholder="Who is paying"
+                    Style="display: inline-block;"
+                    DefaultActiveFirstItem="true"
+                    EnableSearch
+                >
+                    <SelectOptions>
+                        @foreach (var p in new[] { new Person() { Name = "---- None ----", GUID = "" } }.Concat((Tour?.Persons ?? new List<Person>())))
+                            {
+                            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+                            }
+                    </SelectOptions>
+                </Select>
+            </div>
+        </td>
+        <td><input @bind-value=@(pp.Weight)/></td>
+        <td><span style="cursor:pointer" @onclick=@(async () => await onSubmit(pp))>✓</span></td>
+        <td></td>
+        <td></td>
+        }
+    ;
+
+        
+    }
+
 }
