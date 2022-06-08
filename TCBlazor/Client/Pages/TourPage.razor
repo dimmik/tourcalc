@@ -11,8 +11,13 @@
 else
 {
     <PageTitle>@Tour.Name</PageTitle>
-<h3>@Tour.Name</h3>
-
+<h3>@Tour.Name (
+    <span style="cursor:pointer; color: blue; border: solid 1px black" @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") stats</span>
+    )</h3>
+@if (ShowStatistics)
+{
+        <TourStaistics Tour=@Tour/>
+}
     <TableTemplate Items=@(new string[1]) TopPadding="0">
         <TableHeader>
             <th>
@@ -65,6 +70,8 @@ else
 @code {
     [Parameter]
     public string? TourId { get; set; }
+
+    private bool ShowStatistics = false;
 
     public Tour? Tour = null;
     protected override async Task OnInitializedAsync()
