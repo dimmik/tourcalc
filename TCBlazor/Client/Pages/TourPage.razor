@@ -27,17 +27,17 @@ else
                 <TourPersonsComponent 
                     Tour=@Tour
                     OnPersonDelete=@(async (p) => {
-                        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{Tour.Id}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+                        await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
                         await LoadTour();
                         StateHasChanged();
                     })
                     OnPersonEdit=@(async (p) => {
-                        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{Tour.Id}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Patch, p);
+                        await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Patch, p);
                         await LoadTour();
                         StateHasChanged();
                     })
                     OnPersonAdd=@(async (p) => {
-                        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{Tour.Id}/person", await ts.GetToken(), HttpMethod.Post, p);
+                        await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/person", await ts.GetToken(), HttpMethod.Post, p);
                         await LoadTour();
                         StateHasChanged();
                     })
@@ -47,7 +47,7 @@ else
                 <TourSpendingsComponent 
                     Tour=@Tour
                     OnSpendingDelete=@(async (s) => {
-                        await Http.GetFromJsonWithAuthToken<string>($"/api/Tour/{Tour.Id}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+                        await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
                         await LoadTour();
                         StateHasChanged();
                     })
@@ -74,7 +74,7 @@ else
     private async Task LoadTour()
     {
         var token = await ts.GetToken();
-        Tour = await Http.GetFromJsonWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
+        Tour = await Http.CallWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
     }
     string GetId(string l) => $"{l}";
     string GetHref(string l) => $"/tour/{TourId}#" + GetId(l);

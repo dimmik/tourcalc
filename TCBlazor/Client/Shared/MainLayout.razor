@@ -61,7 +61,7 @@
     private async Task RetrieveAuthData()
     {
         var token = await ts.GetToken();
-        authData = await Http.GetFromJsonWithAuthToken<AuthData?>("/api/Auth/whoami", token);
+        authData = await Http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
     }
     private async Task LogIn()
     {

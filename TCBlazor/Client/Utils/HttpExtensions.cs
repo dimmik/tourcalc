@@ -6,12 +6,12 @@ namespace TCBlazor.Client.Utils
 {
     public static class HttpExtensions
     {
-        public async static Task<T?> GetFromJsonWithAuthToken<T>(this HttpClient http, string url, string token)
+        public async static Task<T?> CallWithAuthToken<T>(this HttpClient http, string url, string token)
         {
-            return await GetFromJsonWithAuthToken<T>(http, url, token, HttpMethod.Get, null);
+            return await CallWithAuthToken<T>(http, url, token, HttpMethod.Get, null);
         }
 
-        public async static Task<T?> GetFromJsonWithAuthToken<T>(this HttpClient http, string url, string token, HttpMethod method, object? body)
+        public async static Task<T?> CallWithAuthToken<T>(this HttpClient http, string url, string token, HttpMethod method, object? body)
         {
             var request = new HttpRequestMessage(method, url);
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", token);
