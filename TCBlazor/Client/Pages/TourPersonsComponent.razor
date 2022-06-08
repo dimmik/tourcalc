@@ -36,7 +36,7 @@
             <td>@person.Weight</td>
             <td>@SpentInfo(person)</td>
             <td>@ReceivedInfo(person)</td>
-            <td>@person.Debt()</td>
+            <td><b style="color: @($"{(person.Debt() > 0 ? "green" : person.Debt() == 0 ? "black" : "red")}")">@person.Debt()</b></td>
         } 
         else if (person.Metadata == "Editing")
         {
