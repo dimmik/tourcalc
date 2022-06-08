@@ -80,7 +80,22 @@
     }
     private IEnumerable<Person> GetPersons()
     {
-        return new[] { new Person() { Name = "", Metadata = "Adding", GUID = "New" } }.Concat((Tour?.Persons ?? new List<Person>()));
+        return new[] { new Person() { Name = "", Metadata = "Adding", GUID = "New" } }.Concat(GetSortedTourPersons());
+    }
+    private IEnumerable<Person> GetSortedTourPersons()
+    {
+        IEnumerable<Person> pers = (Tour?.Persons ?? new List<Person>());
+        var res = pers.OrderBy(p =>
+        {
+            var name = p.Name;
+            if (!string.IsNullOrWhiteSpace(p.ParentId))
+            {
+                var pname = pers.FirstOrDefault(pp => pp.GUID == p.ParentId)?.Name ?? "";
+                name = $"{pname}{name}";
+            }
+            return name;
+        });
+        return res;
     }
 
     private RenderFragment ReceivedInfo(Person person)
@@ -97,7 +112,19 @@
                         DestroyOnClose=@true
                             >
                             <div style="height: 55vh; overflow:scroll;">
-                                <TableTemplate Items=@(person.ReceivedSendingInfo) Context="si">
+                                <TableTemplate Items=@(person.ReceivedSendingInfo) 
+                                Context="si"
+                                ConditionalRowStyle=@((spi, idx) => {
+                                    if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
+                                    {
+                                        return "background-color: lightgreen";
+                                    }
+                                    if (!spi.IsSpendingToAll){
+                                        return "background-color: lightblue";
+                                    }
+                                    return "background-color: white";
+                                })
+                                >
                                     <RowTemplate>
                                         <td>@((MarkupString)si.From.AsBreakable(3))</td>
                                         <td>@si.ReceivedAmountInCents 
@@ -124,7 +151,19 @@
                 DestroyOnClose=@true
                     >
                     <div style="height: 55vh; overflow:scroll;">
-                        <TableTemplate Items=@(person.SpentSendingInfo) Context="si">
+                        <TableTemplate Items=@(person.SpentSendingInfo) 
+                        Context="si"
+                        ConditionalRowStyle=@((spi, idx) => {
+                            if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
+                            {
+                                return "background-color: lightgreen";
+                            }
+                            if (!spi.IsSpendingToAll){
+                                return "background-color: lightblue";
+                            }
+                            return "background-color: white";
+                        })
+                        >
                             <RowTemplate>
                                 <td>@((MarkupString)si.From.AsBreakable(3))</td>
                                 <td>@si.TotalSpendingAmountInCents</td>
