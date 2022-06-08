@@ -47,8 +47,9 @@ else
     Tour=@tour 
     SpendingListPreProcessor=@(
         (l) => l
-        .Where(s => !s.Planned && (string.IsNullOrWhiteSpace(TheSpending.FromGuid) || s.FromGuid == TheSpending.FromGuid))
-        .OrderByDescending(s => s.DateCreated)
+        .Where(s => (string.IsNullOrWhiteSpace(TheSpending.FromGuid) || s.FromGuid == TheSpending.FromGuid))
+        .OrderBy(s => s.Planned ? 0 : 1)
+        .ThenByDescending(s => s.DateCreated)
     )
     OnSpendingDelete=@(async (s) => {
                         await Http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
