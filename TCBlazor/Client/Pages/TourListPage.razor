@@ -45,7 +45,7 @@ else
                 }
             <div style="font-size: xx-small">[@tour.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
             <span style="cursor:pointer;" @onclick=@(() => tour.Metadata = (tour.Metadata == "Editing" ? "--" : "Editing"))>✎</span>
-                
+                &nbsp;&nbsp; <a href=@($"/goto/{aCode}/{tour.Id}")>link</a>
 
             </div>
         </td>
@@ -68,6 +68,7 @@ else
     private bool ShowArchived = false;
     private bool AddingTour = false;
     private string NewTourName = "";
+    private string aCode = "";
 
     private async Task AddNewTour()
     {
@@ -110,6 +111,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         await LoadTours();
+        aCode = await ts.Get("aCode");
     }
     private IEnumerable<Tour> GetTours()
     {
