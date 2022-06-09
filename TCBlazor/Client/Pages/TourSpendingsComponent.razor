@@ -22,14 +22,34 @@
 >
     <TableHeader>
         <th>
-            <span style="cursor:pointer" @onclick=@(() => ToggleSorting(SortingField.Descr))>Spending Description &nbsp;</span>
+            <span style="cursor:pointer;@(sortingField == SortingField.Descr ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Descr))>Spending Description &nbsp;</span>
                         
-            <span style="cursor:pointer" @onclick=@(() => ToggleSorting(SortingField.Date))>Dt&nbsp;</span>
-            <span style="cursor:pointer" @onclick=@(() => ToggleSorting(SortingField.Type))>Cat&nbsp;</span>
+            <span style="cursor:pointer;@(sortingField == SortingField.Date ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Date))>Dt&nbsp;</span>
+            <span style="cursor:pointer;@(sortingField == SortingField.Type ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Type))>Cat&nbsp;</span>
             &nbsp; <span style="cursor: pointer" @onclick=@(() => ShowPlanned = !ShowPlanned)>[@(ShowPlanned ? "-" : "+")]</span>
+            <Select
+                @bind-Value=@(filterCategory)
+                TItemValue="string"
+		        TItem="string"
+                AllowClear=@true
+                Placeholder="Cat filter"
+                Style="display:inline-block"
+                DropdownMatchSelectWidth=@false
+                >
+                <SelectOptions>
+			            @foreach(var c in (Tour?
+                                .Spendings?
+                                .Where(s => !s.Planned)?
+                                .Select(s => s.Type)?.Where(cc => !string.IsNullOrWhiteSpace(cc)) ?? new string[0])
+                                .Distinct())
+			            {
+				            <SelectOption TItemValue="string" TItem="string" Value=@c Label=@c />
+			            }
+		            </SelectOptions>
+            </Select>
             </th>
-        <th><span style="cursor:pointer" @onclick=@(() => ToggleSorting(SortingField.From))>From</span></th>
-        <th><span style="cursor:pointer" @onclick=@(() => ToggleSorting(SortingField.Amount))>Amount</span></th>
+        <th><span style="cursor:pointer;@(sortingField == SortingField.From ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.From))>From</span></th>
+        <th><span style="cursor:pointer;@(sortingField == SortingField.Amount ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Amount))>Amount</span></th>
         <th>Recepients</th>
     </TableHeader>
     <RowTemplate>
@@ -132,11 +152,6 @@
 
     private IEnumerable<Spending> FieldSort(IEnumerable<Spending> seq)
     {
-
-        
-
-
-
         if (sortingField == null) return seq;
         if (sortPredicates.ContainsKey(sortingField.Value))
         {
@@ -144,6 +159,17 @@
         }
         return seq;
     }
+    private string filterCategory = "";
+
+    private IEnumerable<Spending> FieldFilter(IEnumerable<Spending> seq)
+    {
+        if (!string.IsNullOrWhiteSpace(filterCategory))
+        {
+            return seq.Where(s => s.Type == filterCategory);
+        }
+        return seq;
+    }
+
     public IEnumerable<Spending> GetSpendingSorted()
     {
         IEnumerable<Spending> res = (Tour?.Spendings ?? new List<Spending>());
@@ -158,8 +184,8 @@
 
         var preprocessed = SpendingListPreProcessor((ShowPlanned ? planned : new Spending[0]).Concat(real).ToList());
         var sorted = FieldSort(preprocessed);
-
-        return sorted;
+        var filtered = FieldFilter(sorted);
+        return filtered;
     }
 
     [Parameter]
