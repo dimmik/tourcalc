@@ -8,14 +8,14 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "icon-512.png",
+      "src": "ms-icon-310x310.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "310x310"
     },
     {
-      "src": "icon-192.png",
+      "src": "ms-icon-150x150.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "150x150"
     }
   ]
 }
