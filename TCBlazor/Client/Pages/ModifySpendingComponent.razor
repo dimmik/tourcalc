@@ -17,7 +17,7 @@
         <FormItem Label="Category" Style="margin-bottom: 1px;">
             <AutoComplete 
                 @bind-Value=@(TheSpending.Type) 
-                Options=@(tour.Spendings.Select(s => s.Type).Distinct())         
+                Options=@(tour?.Spendings?.Where(s => !string.IsNullOrWhiteSpace(s.Type)).Select(s => s.Type)?.Distinct() ?? new string[0])
                 Placeholder="Spending Category"/>
         </FormItem>
         <FormItem Label="From" Style="margin-bottom: 1px">

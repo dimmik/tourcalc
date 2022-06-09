@@ -27,6 +27,8 @@ ENTRYPOINT ["dotnet", "TCBlazor.Server.dll"]
 
 ### README
 #build:      podman build -f tourcalc.run.docker -t tourcalc:dev --no-cache .
+#DEV build:      podman build -f tourcalc.run.docker -t tourcalcdev:dev --no-cache .
 #run:        podman run -p 8080:80 -e StorageType=InMemory localhost/tourcalc:dev
 #run daemon (detached): podman run -d -p 8080:80 --env-file ~/config/tourcalc.env localhost/tourcalc:dev
 #run listening local: podman run -d -p 127.0.0.1:8080:80 --env-file ~/config/tourcalc.env localhost/tourcalc:dev 
+#DEV run listening local: podman run -d -p 127.0.0.1:8082:80 --env-file ~/config/tourcalc.env --name tourcalcdev localhost/tourcalcdev:dev 
