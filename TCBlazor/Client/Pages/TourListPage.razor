@@ -18,7 +18,7 @@ else
         <th>Tour Name
             @if (AddingTour)
         {
-            <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)>🗙</span>
+            <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)><b>X</b></span>
             <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
             <span style="cursor:pointer" @onclick=@(() => AddNewTour())>✓</span>
             

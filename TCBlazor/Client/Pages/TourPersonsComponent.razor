@@ -20,7 +20,7 @@
                     await OnPersonDelete(person);
                 }
             })>
-                    🗙
+                    <b>X</b>
                 </span>
                 <span style="cursor:pointer;" @onclick=@(() => person.Metadata = "Editing")>@((MarkupString)person.Name.AsBreakable())</span>
                 &nbsp;|&nbsp;<NavLink href=@($"tour/{Tour?.GUID ?? "000"}/spending/add/{person.GUID}")>spend</NavLink> 
@@ -197,7 +197,7 @@
         {
     <td>
                 <span style="cursor:pointer;" @onclick=@(() => onCloseButton())>
-                    🗙
+                    <b>X</b>
                 </span>
                 <input @bind-value=@(pp.Name)/> 
                 <div>→ 
