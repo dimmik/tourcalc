@@ -21,9 +21,15 @@
     })
 >
     <TableHeader>
-        <th>Spending Description <span style="cursor: pointer" @onclick=@(() => ShowPlanned = !ShowPlanned)>[@(ShowPlanned ? "-" : "+")]</span></th>
-        <th>From</th>
-        <th>Amount</th>
+        <th>
+            <span style="cursor:pointer" @onclick=@(() => ToggleSorting(SortingField.Descr))>Spending Description &nbsp;</span>
+                        
+            <span style="cursor:pointer" @onclick=@(() => ToggleSorting(SortingField.Date))>Dt&nbsp;</span>
+            <span style="cursor:pointer" @onclick=@(() => ToggleSorting(SortingField.Type))>Cat&nbsp;</span>
+            &nbsp; <span style="cursor: pointer" @onclick=@(() => ShowPlanned = !ShowPlanned)>[@(ShowPlanned ? "-" : "+")]</span>
+            </th>
+        <th><span style="cursor:pointer" @onclick=@(() => ToggleSorting(SortingField.From))>From</span></th>
+        <th><span style="cursor:pointer" @onclick=@(() => ToggleSorting(SortingField.Amount))>Amount</span></th>
         <th>Recepients</th>
     </TableHeader>
     <RowTemplate>
@@ -32,7 +38,7 @@
             {
                 <span style="cursor:pointer;" 
                 @onclick=@(() => OnSpendingDeleteClicked(spending))>
-                <b>X</b>
+                <b>X&nbsp;</b>
                 </span>
             }
 
@@ -83,7 +89,61 @@
     [Parameter]
     public Func<IEnumerable<Spending>, IEnumerable<Spending>> SpendingListPreProcessor { get; set; } = (s) => s;
 
-
+    private SortingField? sortingField = null;
+    private SortingType sortingType = SortingType.Asc;
+    private void ToggleSorting(SortingField field)
+    {
+        if (sortingField != field)
+        {
+            sortingField = field;
+            sortingType = SortingType.Asc;
+        } else
+        {
+            if (sortingType == SortingType.Asc){
+                sortingType = SortingType.Desc;
+            } else 
+            {
+                sortingField = null;
+            }
+        }
+    }
+    private IEnumerable<Spending> SortByPredicate(IEnumerable<Spending> seq, SortingType st, Func<Spending, string> predicate)
+    {
+        if (st == SortingType.Asc)
+        {
+            return seq.OrderBy(s => !s.Planned).ThenBy(predicate);
+        } else
+        {
+            return seq.OrderBy(s => !s.Planned).ThenByDescending(predicate);                
+        }
+    }
+    
+    private IEnumerable<Spending> FieldSort(IEnumerable<Spending> seq)
+    {
+        if (sortingField == null) return seq;
+        
+        if (sortingField == SortingField.From)
+        {
+            return SortByPredicate(seq, sortingType, (s) => Tour?.Persons?.FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "");
+        }
+        if (sortingField == SortingField.Amount)
+        {
+            return SortByPredicate(seq, sortingType, (s) => s.AmountInCents.ToString("00000000000000"));
+        }
+        if (sortingField == SortingField.Descr)
+        {
+            return SortByPredicate(seq, sortingType, (s) => s.Description);
+        }
+        if (sortingField == SortingField.Date)
+        {
+            return SortByPredicate(seq, sortingType, (s) => $"{s.DateCreated : yyyyMMdd_HHmmss}");
+        }
+        if (sortingField == SortingField.Type)
+        {
+            return SortByPredicate(seq, sortingType, (s) => s.Type);
+        }
+        return seq;
+    }
     public IEnumerable<Spending> GetSpendingSorted()
     {
         IEnumerable<Spending> res = (Tour?.Spendings ?? new List<Spending>());
@@ -96,7 +156,10 @@
             ;
         real = real.OrderBy(s => s.DateCreated);
 
-        return SpendingListPreProcessor((ShowPlanned ? planned : new Spending[0]).Concat(real).ToList());
+        var preprocessed = SpendingListPreProcessor((ShowPlanned ? planned : new Spending[0]).Concat(real).ToList());
+        var sorted = FieldSort(preprocessed);
+
+        return sorted;
     }
 
     [Parameter]
@@ -112,5 +175,13 @@
         {
             await OnSpendingDelete(s);
         }
+    }
+    enum SortingType
+    {
+        Asc, Desc
+    }
+    enum SortingField
+    {
+        From, Descr, Date, Type, Amount
     }
 }
