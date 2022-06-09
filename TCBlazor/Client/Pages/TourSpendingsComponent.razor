@@ -85,6 +85,15 @@
     protected override void OnParametersSet()
     {
         ShowPlanned = Tour?.IsFinalizing ?? false;
+        InitSortPredicates();
+    }
+    private void InitSortPredicates()
+    {
+        sortPredicates[SortingField.From] = (s) => (Tour?.Persons?.FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "");
+        sortPredicates[SortingField.Amount] = (s) => s.AmountInCents.ToString("00000000000000");
+        sortPredicates[SortingField.Descr] = (s) => s.Description;
+        sortPredicates[SortingField.Date] = (s) => $"{s.DateCreated: yyyyMMdd_HHmmss}";
+        sortPredicates[SortingField.Type] = (s) => string.IsNullOrWhiteSpace(s.Type) ? new string(Char.MaxValue, 1) : s.Type;
     }
     [Parameter]
     public Func<IEnumerable<Spending>, IEnumerable<Spending>> SpendingListPreProcessor { get; set; } = (s) => s;
@@ -97,7 +106,8 @@
         {
             sortingField = field;
             sortingType = SortingType.Asc;
-        } else
+        } 
+        else
         {
             if (sortingType == SortingType.Asc){
                 sortingType = SortingType.Desc;
@@ -117,30 +127,20 @@
             return seq.OrderBy(s => !s.Planned).ThenByDescending(predicate);                
         }
     }
-    
+
+    Dictionary<SortingField, Func<Spending, string>> sortPredicates = new Dictionary<SortingField, Func<Spending, string>>();
+
     private IEnumerable<Spending> FieldSort(IEnumerable<Spending> seq)
     {
-        if (sortingField == null) return seq;
+
         
-        if (sortingField == SortingField.From)
+
+
+
+        if (sortingField == null) return seq;
+        if (sortPredicates.ContainsKey(sortingField.Value))
         {
-            return SortByPredicate(seq, sortingType, (s) => Tour?.Persons?.FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "");
-        }
-        if (sortingField == SortingField.Amount)
-        {
-            return SortByPredicate(seq, sortingType, (s) => s.AmountInCents.ToString("00000000000000"));
-        }
-        if (sortingField == SortingField.Descr)
-        {
-            return SortByPredicate(seq, sortingType, (s) => s.Description);
-        }
-        if (sortingField == SortingField.Date)
-        {
-            return SortByPredicate(seq, sortingType, (s) => $"{s.DateCreated : yyyyMMdd_HHmmss}");
-        }
-        if (sortingField == SortingField.Type)
-        {
-            return SortByPredicate(seq, sortingType, (s) => s.Type);
+            return SortByPredicate(seq, sortingType, sortPredicates[sortingField.Value]);
         }
         return seq;
     }
