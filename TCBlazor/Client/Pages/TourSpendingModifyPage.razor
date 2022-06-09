@@ -43,7 +43,7 @@ else
         {
                 <b>Adding New Spending</b>
             }
-    <ModifySpendingComponent
+    <TourSpendingModifyComponent
         tour=@tour
         TheSpending=@TheSpending
         OnSave=@(async (s) => await SaveSpending(s))
@@ -80,7 +80,7 @@ else
                 }
                 else
                 {
-                    <span>✎</span>                    
+                    <span style="border:solid 1px black; cursor: pointer">edit</span>                    
                 }
             </span></EditActionTemplate>
     </TourSpendingsComponent>
