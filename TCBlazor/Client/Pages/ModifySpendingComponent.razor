@@ -15,10 +15,20 @@
          </FormItem>
 
         <FormItem Label="Category" Style="margin-bottom: 1px;">
-            <AutoComplete 
-                @bind-Value=@(TheSpending.Type) 
-                Options=@(tour?.Spendings?.Where(s => !string.IsNullOrWhiteSpace(s.Type)).Select(s => s.Type)?.Distinct() ?? new string[0])
-                Placeholder="Spending Category"/>
+            <Select
+                @bind-Value=@(TheSpending.Type)
+                TItemValue="string"
+		        TItem="string"
+                AllowClear=@true
+                DropdownRender=@CategoryDropdownRenderer
+                >
+                <SelectOptions>
+			            @foreach(var c in SpendingCategories)
+			            {
+				            <SelectOption TItemValue="string" TItem="string" Value=@c Label=@c />
+			            }
+		            </SelectOptions>
+            </Select>
         </FormItem>
         <FormItem Label="From" Style="margin-bottom: 1px">
             <Select
@@ -27,8 +37,7 @@
                 TItemValue="string"
 		        TItem="string"
                 Placeholder="From"
-                DefaultActiveFirstItem="false"
-                EnableSearch
+                DefaultActiveFirstItem="false"                
             >
                     <SelectOptions>
 			            @foreach(var p in tour.Persons)
@@ -49,7 +58,6 @@
 		        TItem="string"
                 OnSelectedItemsChanged="OnToPersonsChangedHandler"
                 Disabled=@(TheSpending.ToAll)
-		        EnableSearch
 		        AllowClear>
 		            <SelectOptions>
 			            @foreach(var p in tour.Persons)
@@ -94,9 +102,13 @@
         return !tour.Spendings.Any(s => !s.Planned && s.GUID == TheSpending.GUID);
     }
 
+    private List<string> SpendingCategories = new List<string>();
+
+
     protected override void OnParametersSet()
     {
         _selectedValuesTo = TheSpending.ToGuid;
+        SpendingCategories = (tour?.Spendings?.Where(s => !string.IsNullOrWhiteSpace(s.Type)).Select(s => s.Type)?.Distinct() ?? new string[0]).ToList();
     }
 
     IEnumerable<string> _selectedValuesTo = new List<string>();
@@ -124,4 +136,35 @@
         await Task.Delay(2350);
         ShowSaved = false;
     }
+
+
+    private string _cname;
+    private void AddCatToList(MouseEventArgs args)
+    {
+        if (!string.IsNullOrWhiteSpace(_cname))
+        {
+            SpendingCategories.Add(_cname);
+            _cname = string.Empty;
+	   }
+    }
+    private RenderFragment CategoryDropdownRenderer(RenderFragment originNode)
+    {
+        RenderFragment customDropdownRender =
+            @<Template>
+                <div>
+                    @originNode
+                    <Divider Style="margin: 4px 0"></Divider>
+                    <div style="display: flex; flex-wrap: nowrap; padding: 8px">
+                        <Input Style="flex: auto" @bind-Value="@_cname"/>
+                        <a style="flex: none; padding: 8px; display: block; cursor: pointer" @onclick="AddCatToList">
+                            <Icon Type="plus" Theme="outline"></Icon>
+                            Add Category
+                        </a>
+                    </div>
+                </div>
+            </Template>;
+
+        return customDropdownRender;
+    }
+
 }
