@@ -46,6 +46,7 @@ namespace TCBlazor.Client.Utils
 
         public async Task<T?> CallWithAuthToken<T>(string url, string token, HttpMethod method, object? body)
         {
+            //_messageService.Info(getMessage("request to server"));
             var request = new HttpRequestMessage(method, url);
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", token);
             if (body != null)
@@ -71,6 +72,7 @@ namespace TCBlazor.Client.Utils
                 _messageService.Error(getMessage($"{(int)resp.StatusCode} {resp.StatusCode}: {m}"));
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             }
+            //_messageService.Destroy();
             return t;
         }
     }
