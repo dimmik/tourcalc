@@ -85,6 +85,7 @@
         //await Task.Delay(40000);
         var token = await ts.GetToken();
         authData = await Http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
+        ts.SetPageLocalValue("auth", authData);
     }
     private async Task LogIn()
     {
@@ -101,7 +102,6 @@
             var url = "/api/Auth/token/" + scope + "/" + c;
             var token = await Http.GetStringAsync(url);
             await ts.SetToken(token);
-            await ts.Set("aCode", code);
             await RetrieveAuthData();
         } 
         catch
