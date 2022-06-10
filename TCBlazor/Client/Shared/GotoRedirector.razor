@@ -11,7 +11,7 @@
 @inject NavigationManager NavManager
 
 
-<h3>Redirecting... code @transientAccessCode tid @tid</h3>
+<h3>Redirecting...</h3>
 
 @code {
     [Parameter]
@@ -24,6 +24,15 @@
         var token = await Http.GetStringAsync(url);
         await ts.SetToken(token);
         await ts.Set("aCode", transientAccessCode ?? "");
+        // now try to get a tour
+        var resp = await Http.Http.GetAsync($"/api/Tour/{tid}");
+        if (!resp.IsSuccessStatusCode)
+        {
+            url = $"/api/Auth/token/code/{transientAccessCode}/md5";
+            token = await Http.GetStringAsync(url);
+            await ts.SetToken(token);
+            await ts.Set("aCode", transientAccessCode ?? "");            
+        }
         NavManager.NavigateTo($"/tour/{tid}");
     }
 }

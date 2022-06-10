@@ -20,7 +20,7 @@ else
         {
             <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)><b>X</b></span>
             <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
-            <span style="cursor:pointer" @onclick=@(() => AddNewTour())>✓</span>
+            <span style="cursor:pointer;color:white;background-color:blue;border:1px solid black" @onclick=@(() => AddNewTour())>save</span>
             
         }
         else
@@ -39,11 +39,13 @@ else
                     
                 } else
                 {
-                    <span><input type="text" @bind-value=@tour.Name @onfocusout=@(() => ChangeTourName(tour))/><span style="cursor:pointer;" >✓</span></span>
+                    <span><input type="text" @bind-value=@tour.Name @onfocusout=@(() => ChangeTourName(tour))/>
+                        <span style="cursor:pointer;color:white;background-color:blue;border:1px solid black" >save</span>
+                        </span>
                 }
             <div style="font-size: xx-small">[@tour.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
             <span  style="cursor:pointer; border:solid 1px black" @onclick=@(() => tour.Metadata = (tour.Metadata == "Editing" ? "--" : "Editing"))>edit</span>
-                &nbsp;&nbsp; <a href=@($"/goto/{aCode}/{tour.Id}")>link</a>
+                &nbsp;&nbsp; <a href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>link</a>
 
             </div>
         </td>

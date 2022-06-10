@@ -87,13 +87,15 @@ namespace TourCalcWebApp.Controllers
         /// </summary>
         /// <param name="scope">Should be 'code' or 'admin'</param>
         /// <param name="key">code or admin key</param>
+        /// <param name="isMd5">if provided, code is treaten as md5 hash of real code</param>
         /// <param name="signerKey">ECDSA crypto service</param>
         /// <returns>JWT Token</returns>
-        [HttpGet("token/{scope}/{key}")]
-        public string GetToken(string scope, string key, [FromServices] IECDsaCryptoKey signerKey)
+        [HttpGet("token/{scope}/{key}/{*isMd5}")]
+        public string GetToken(string scope, string key, string isMd5, [FromServices] IECDsaCryptoKey signerKey)
         {
+
             if (key == null) key = "";
-            AuthData auth = Authorize(scope, key);
+            AuthData auth = Authorize(scope, key, (isMd5 != null));
 
             var claims = new Claim[]
             {
@@ -137,7 +139,7 @@ namespace TourCalcWebApp.Controllers
             return (Configuration as TcConfiguration)?.RequestedValues ?? new Dictionary<string, RequestedConfigValue>();
         }
 
-        private AuthData Authorize(string scope, string accessCode)
+        private AuthData Authorize(string scope, string accessCode, bool accessCodeIsMd5 = false)
         {
             // TODO: think about what to return. Maybe exceptions is not the best way
             AuthData auth = new AuthData();
@@ -173,7 +175,7 @@ namespace TourCalcWebApp.Controllers
                 // get all tours with given access code
                 auth.Type = "AccessCode";
                 auth.IsMaster = false;
-                auth.AccessCodeMD5 = AuthHelper.CreateMD5(accessCode);
+                auth.AccessCodeMD5 = accessCodeIsMd5 ? accessCode : AuthHelper.CreateMD5(accessCode);
             } else
             {
                 throw HttpException.NotAuthenticated("Wrong scope. Please try 'code' or 'admin'. Or 'pigeon', who knows. Maybe 'slippery' will work.");
