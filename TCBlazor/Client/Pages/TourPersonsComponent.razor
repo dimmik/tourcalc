@@ -204,8 +204,10 @@
                 }
             <span style="cursor:pointer;" @onclick=@(() => onCloseButton())>
                                                 <b>X</b>
-                                            </span>
-                                            <input @bind-value=@(pp.Name) disabled=@IsSubmittingPerson/> <span 
+             </span>
+             <nobr>
+               <input @bind-value=@(pp.Name) size=7 disabled=@IsSubmittingPerson/> 
+        <span 
         style="cursor:pointer;border:1px solid black;background-color:blue;color:white;" 
         @onclick=@(async () => {
             IsSubmittingPerson = true;
@@ -214,19 +216,21 @@
         })>
         submit
         </span>
+        </nobr>
                                             <div>→ 
                                                 <nobr><Select
                                                     @bind-Value="pp.ParentId"
                     TItemValue="string"
 		            TItem="string"
-                    Placeholder="Who is paying"
+                    Placeholder="Payer"
                     Style="display: inline-block;"
                     Disabled=@IsSubmittingPerson
+                    DropdownMatchSelectWidth=@false
                     DefaultActiveFirstItem="true"
                                                     EnableSearch
                                                 >
                                                     <SelectOptions>
-                                                        @foreach (var p in new[] { new Person() { Name = "---- None ----", GUID = "" } }.Concat((Tour?.Persons ?? new List<Person>())))
+                                                        @foreach (var p in new[] { new Person() { Name = "None", GUID = "" } }.Concat((Tour?.Persons ?? new List<Person>())))
                             {
                                                             <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
                             }
