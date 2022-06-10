@@ -27,6 +27,14 @@ namespace TourCalcWebApp.Exceptions
                 context.Response.StatusCode = httpException.StatusCode;
                 var responseFeature = context.Features.Get<IHttpResponseFeature>();
                 responseFeature.ReasonPhrase = httpException.Message;
+                try
+                {
+                    await context.Response.WriteAsync(httpException.Message);
+                } catch
+                {
+                    // we do not need anything like "writer is already closed" or alike. 
+                    // Written? Ok. Error? Also ok, just code will be transferred
+                }
             }
         }
     }
