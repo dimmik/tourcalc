@@ -1,5 +1,7 @@
-﻿@inject EnrichedHttpClient Http
-@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+﻿@using TCBlazor.Client.Storage;
+
+@inject EnrichedHttpClient Http
+@inject TourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
 
 <TableTemplate 
@@ -108,6 +110,12 @@
     [Parameter]
     public Action? OnToggleShowPlanned { get; set; } = null;
 
+    private UISettings settings = new UISettings();
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await ts.GetUISettings();
+    }
 
     protected override void OnParametersSet()
     {
@@ -118,6 +126,7 @@
         }
         InitSortPredicates();
     }
+
     private void InitSortPredicates()
     {
         sortPredicates[SortingField.From] = (s) => (Tour?.Persons?.FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "");
@@ -184,7 +193,7 @@
     public IEnumerable<Spending> GetSpendingSorted()
     {
         IEnumerable<Spending> res = (Tour?.Spendings ?? new List<Spending>());
-        var planned = res.Where(s => s.Planned);
+        var planned = res.Where(s => s.Planned && Math.Abs(s.AmountInCents) > settings.MinimumMeaningfulDebt);
         var real = res.Where(s => !s.Planned);
         planned = planned
             .OrderBy(s => s.Description.StartsWith("Family") ? 0 : 1) // first family

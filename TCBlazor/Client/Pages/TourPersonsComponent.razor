@@ -1,4 +1,7 @@
-﻿@inject IJSRuntime JsRuntime
+﻿@using TCBlazor.Client.Storage;
+
+@inject TourcalcLocalStorage ts
+@inject IJSRuntime JsRuntime
 
 
 <TableTemplate Items="@GetPersons()"  Context="person" TopPadding="30">
@@ -32,7 +35,7 @@
             <td>@person.Weight</td>
             <td>@SpentInfo(person)</td>
             <td>@ReceivedInfo(person)</td>
-            <td><b style="color: @($"{(person.Debt() > 0 ? "red" : person.Debt() == 0 ? "black" : "green")}")">@person.Debt()</b></td>
+            <td><b style="color: @($"{(Debt(person) > 0 ? "red" : Debt(person) == 0 ? "black" : "green")}")">@Debt(person)</b></td>
         } 
         else if (person.Metadata == "Editing")
         {
@@ -68,12 +71,27 @@
 
     bool AddingPerson = false;
 
+    private UISettings settings = new UISettings();
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await ts.GetUISettings();
+    }
+
     protected override void OnParametersSet()
     {
         EditingPersons = GetPersons().Select(p => p.SafeClone<Person>()).ToDictionary(p => p.GUID);
         ReceivedInfoShown = GetPersons().ToDictionary(k => k.GUID, v => false);
         SpentInfoShown = GetPersons().ToDictionary(k => k.GUID, v => false);
     }
+
+    private long Debt(Person p)
+    {
+        // round to MinimumMeaningfulDebt
+        return Math.Abs(p.Debt()) > settings.MinimumMeaningfulDebt ? p.Debt() : 0;
+    }
+
+    
     private IEnumerable<Person> GetPersons()
     {
         return new[] { new Person() { Name = "", Metadata = "Adding", GUID = "New" } }.Concat(GetSortedTourPersons());

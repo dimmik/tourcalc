@@ -1,4 +1,5 @@
 ﻿using Microsoft.JSInterop;
+using System.Text.Json;
 
 namespace TCBlazor.Client.Storage
 {
@@ -6,6 +7,7 @@ namespace TCBlazor.Client.Storage
     {
         private IJSRuntime JS;
         public readonly static string TokenKey = "__tc_token";
+        public readonly static string UISettingsKey = "__tc_ui_settings";
         public TourcalcLocalStorage(IJSRuntime js)
         {
             JS = js;
@@ -39,6 +41,22 @@ namespace TCBlazor.Client.Storage
                 return pageLocalStorage[key];
             }
             return null;
+        }
+        public async Task<UISettings> GetUISettings()
+        {
+            var res = await JS.InvokeAsync<string>("localStorage.getItem", new object[] { UISettingsKey });
+            if (res == null)
+            {
+                var s = new UISettings();
+                await SetUISettings(s);
+                return s;
+            }
+            var settings = JsonSerializer.Deserialize<UISettings>(res) ?? new UISettings();
+            return settings;
+        }
+        public async Task SetUISettings(UISettings s)
+        {
+            await JS.InvokeAsync<UISettings>("localStorage.setItem", new object[] { UISettingsKey, JsonSerializer.Serialize(s) });
         }
     }
 }
