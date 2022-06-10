@@ -1,6 +1,7 @@
 ﻿@page "/tour/{tourId}"
-@inject HttpClient Http
+@inject EnrichedHttpClient Http
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject IJSRuntime JsRuntime
 
 @if (Tour == null)
 {
@@ -49,6 +50,11 @@ else
                 <b id=@GetId("spendings")>Spendings</b>
                 <TourSpendingsComponent 
                     Tour=@Tour
+                    ShowPlanned=@ShowPlannedSpendings
+                    OnToggleShowPlanned=@(() => {
+                        ShowPlannedSpendings = !ShowPlannedSpendings;
+                        StateHasChanged();
+                    })
                     OnSpendingDelete=@(async (s) => {
                         await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
                         await LoadTour();
@@ -56,16 +62,24 @@ else
                     })
                 >
                     <EditActionTemplate Context="s">
-                        <NavLink href=@($"/tour/{Tour.Id}/spending/edit/{s.GUID}")>&nbsp; 
                             @if (s.Planned)
                             {
-                                <b style="font-size: x-large">+</b>
+                                <b style="font-size: x-large; cursor:pointer;" @onclick=@(async () => {
+                                    bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Add planned '{s.Description}' : {s.AmountInCents}?");
+                                    if (confirmed)
+                                    {
+                                        await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/spending", await ts.GetToken(), HttpMethod.Post, s);
+                                        await LoadTour();
+                                        StateHasChanged();
+                                    }
+                                })>+</b>
                             }
                             else
                             {
+                            <NavLink href=@($"/tour/{Tour.Id}/spending/edit/{s.GUID}")>&nbsp; 
                                 <span style="border:solid 1px black">edit</span>                    
+                            </NavLink>
                             }
-                    </NavLink>
                     </EditActionTemplate>
                 </TourSpendingsComponent>
             </td>
@@ -79,11 +93,13 @@ else
     public string? TourId { get; set; }
 
     private bool ShowStatistics = false;
+    private bool ShowPlannedSpendings = false;
 
     public Tour? Tour = null;
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
         await LoadTour();
+        ShowPlannedSpendings = (Tour?.IsFinalizing ?? false);
     }
     private async Task LoadTour()
     {

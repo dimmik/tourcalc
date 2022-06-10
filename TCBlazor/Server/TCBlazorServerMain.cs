@@ -74,6 +74,8 @@ namespace Company.TCBlazor
 
             app.UseHttpsRedirection();
 
+            app.UseHttpException();
+
             app.UseBlazorFrameworkFiles();
             app.UseStaticFiles();
 
