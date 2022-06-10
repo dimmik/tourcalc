@@ -1,21 +1,20 @@
 ﻿@page "/tourlist"
 
 @using TCalcCore.Auth
+@using TCBlazor.Client.Storage
 
 @inject EnrichedHttpClient Http
-@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject TourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
 
 @if (tours == null)
 {
-<h3>Tour List</h3>
+    <h3>Tour List</h3>
     <span>Tours loading...</span>
 }
 else
 {
-<h3>Tour List
-        
-    </h3>
+    <h3>Tour List</h3>
     <TableTemplate Items=@GetTours() Context="tour" TopPadding="30">
     <TableHeader>
         <th>Tour Name

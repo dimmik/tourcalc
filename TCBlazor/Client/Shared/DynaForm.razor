@@ -1,0 +1,91 @@
+﻿@typeparam TItem
+@using System.Reflection
+
+<table>
+        @foreach (var nn in GetFields())
+        {
+                    @if (IsNumericType(nn.pi.PropertyType))
+                    {
+                        <tr>
+                            <td>
+                                <b>@(nn.name):</b>
+                            </td>
+                            <td>
+                                <input disabled=@disabled type="number" size="3" value=@(nn.pi.GetValue(Item)) @onchange=@(
+                                    (e) => {
+                                            nn.pi.SetValue(Item, int.Parse(e.Value?.ToString() ?? "0"));
+                                        })/>
+                            </td>
+                        </tr>
+                    }
+                    @if (nn.pi.PropertyType == typeof(string))
+                    {
+                        <tr>
+                            <td>
+                                <b>@(nn.name):</b>
+                            </td>
+                            <td>
+                                <input disabled=@disabled type="text" size="8" value=@(nn.pi.GetValue(Item)) @onchange=@((e) => nn.pi.SetValue(Item, e.Value?.ToString() ?? ""))/>
+                            </td>
+                        </tr>
+                    }
+        }
+        <tr>
+             <td colspan="2" style="text-align: right">
+                        <button disabled=@disabled @onclick=@(async () => {
+                            disabled = true;
+                            await OnSave(Item);
+                            disabled = false;
+                        })>Save</button>
+             </td>
+        </tr>
+</table>
+
+
+@code {
+
+    [Parameter]
+    public TItem Item { get; set; }
+
+    [Parameter]
+    public Func<TItem, Task> OnSave { get; set; } = async (i) => { };
+
+    bool disabled = false;
+
+    public IEnumerable<(string name, PropertyInfo pi)> GetFields()
+    {
+        var props = Item.GetType().GetProperties();
+        List<(string, PropertyInfo)> l = new List<(string, PropertyInfo)>();
+        foreach (var p in props)
+        {
+            if (p.CanRead && p.CanWrite)
+            {
+                l.Add((p.Name, p));
+            }
+        }
+        return l;
+    }
+
+    public static bool IsNumericType(Type? t)
+    {
+        if (t == null) return false;
+        switch (Type.GetTypeCode(t))
+      {
+        case TypeCode.Byte:
+        case TypeCode.SByte:
+        case TypeCode.UInt16:
+        case TypeCode.UInt32:
+        case TypeCode.UInt64:
+        case TypeCode.Int16:
+        case TypeCode.Int32:
+        case TypeCode.Int64:
+        case TypeCode.Decimal:
+        case TypeCode.Double:
+        case TypeCode.Single:
+          return true;
+        default:
+          return false;
+      }
+    }
+
+}
