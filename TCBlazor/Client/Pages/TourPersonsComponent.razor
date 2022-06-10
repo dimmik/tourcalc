@@ -100,31 +100,33 @@
     {
         return __builder =>
         {
-            <Template>
-                <Button OnClick=@((e) => onOk())
+    <Template>
+                                            <Button OnClick=@((e) => onOk())
                 Type="primary">
-                    Got It
-                </Button>
-            </Template>
+                                                Got It
+                                            </Button>
+        </Template>
         };
     }
+
+    private bool IsSubmittingPerson = false;
 
     private RenderFragment ReceivedInfo(Person person)
     {
         bool visible = ReceivedInfoShown.ContainsKey(person.GUID) ? ReceivedInfoShown[person.GUID] : false;
         return __builder =>
         {
-            <span style="cursor:pointer" @onclick=@(() => ReceivedInfoShown[person.GUID] = true)>@person.ReceivedInCents</span>
-            <Modal Title="@($"Received for {person.Name}")"
+    <span style="cursor:pointer" @onclick=@(() => ReceivedInfoShown[person.GUID] = true)>@person.ReceivedInCents</span>
+    <Modal Title="@($"Received for {person.Name}")"
                         Visible="@visible"
                         Footer=@(footer(() => ReceivedInfoShown[person.GUID] = false))
                         OnOk=@(() => ReceivedInfoShown[person.GUID] = false)
                         OnCancel=@(() => ReceivedInfoShown[person.GUID] = false)
                         DestroyOnClose=@true
                         Closable=@true
-                            >
-                            <div style="height: 55vh; overflow:scroll;">
-                                <TableTemplate Items=@(person.ReceivedSendingInfo) 
+                                                        >
+                                                        <div style="height: 55vh; overflow:scroll;">
+                                                            <TableTemplate Items=@(person.ReceivedSendingInfo) 
                                 Context="si"
                                 ConditionalRowStyle=@((spi, idx) => {
                                     if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
@@ -136,17 +138,17 @@
                                     }
                                     return "background-color: white";
                                 })
-                                >
-                                    <RowTemplate>
-                                        <td>@((MarkupString)si.From.AsBreakable(3))</td>
-                                        <td>@si.ReceivedAmountInCents 
-                                            <span style="font-size: xx-small">@($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents : 0.00}")% of @si.TotalSpendingAmountInCents</span>
-                                        </td>
-                                        <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
-                                    </RowTemplate>
-                                </TableTemplate>
-                            </div>
-        </Modal>
+                                                            >
+                                                                <RowTemplate>
+                                                                    <td>@((MarkupString)si.From.AsBreakable(3))</td>
+                                                                    <td>@si.ReceivedAmountInCents 
+                                                                        <span style="font-size: xx-small">@($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents : 0.00}")% of @si.TotalSpendingAmountInCents</span>
+                                                                    </td>
+                                                                    <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
+                                                                </RowTemplate>
+                                                            </TableTemplate>
+                                                        </div>
+    </Modal>
         };
     }
     
@@ -155,17 +157,17 @@
         bool visible = SpentInfoShown.ContainsKey(person.GUID) ? SpentInfoShown[person.GUID] : false;
         return __builder =>
         {
-            <span style="cursor:pointer" @onclick=@(() => SpentInfoShown[person.GUID] = true)>@person.SpentInCents</span>
-            <Modal Title="@($"Spent for {person.Name}")"
+    <span style="cursor:pointer" @onclick=@(() => SpentInfoShown[person.GUID] = true)>@person.SpentInCents</span>
+    <Modal Title="@($"Spent for {person.Name}")"
                 Visible="@visible"
                 Footer=@(footer(() => SpentInfoShown[person.GUID] = false))
                 OnOk=@(() => SpentInfoShown[person.GUID] = false)
                 OnCancel=@(() => SpentInfoShown[person.GUID] = false)
                 DestroyOnClose=@true
                 Closable=@true
-                    >
-                    <div style="height: 55vh; overflow:scroll;">
-                        <TableTemplate Items=@(person.SpentSendingInfo) 
+                                                >
+                                                <div style="height: 55vh; overflow:scroll;">
+                                                    <TableTemplate Items=@(person.SpentSendingInfo) 
                         Context="si"
                         ConditionalRowStyle=@((spi, idx) => {
                             if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
@@ -177,15 +179,15 @@
                             }
                             return "background-color: white";
                         })
-                        >
-                            <RowTemplate>
-                                <td>@((MarkupString)si.From.AsBreakable(3))</td>
-                                <td>@si.TotalSpendingAmountInCents</td>
-                                <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
-                            </RowTemplate>
-                        </TableTemplate>
-                    </div>
-            </Modal>
+                                                    >
+                                                        <RowTemplate>
+                                                            <td>@((MarkupString)si.From.AsBreakable(3))</td>
+                                                            <td>@si.TotalSpendingAmountInCents</td>
+                                                            <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
+                                                        </RowTemplate>
+                                                    </TableTemplate>
+                                                </div>
+    </Modal>
         };
     }
 
@@ -196,33 +198,46 @@
         return __builder =>
         {
     <td>
-                <span style="cursor:pointer;" @onclick=@(() => onCloseButton())>
-                    <b>X</b>
-                </span>
-                <input @bind-value=@(pp.Name)/> 
-                <div>→ 
-                    <nobr><Select
-                        @bind-Value="pp.ParentId"
+            @if (IsSubmittingPerson)
+                {
+                <div>submitting...</div>
+                }
+            <span style="cursor:pointer;" @onclick=@(() => onCloseButton())>
+                                                <b>X</b>
+                                            </span>
+                                            <input @bind-value=@(pp.Name) disabled=@IsSubmittingPerson/> <span 
+        style="cursor:pointer;border:1px solid black;background-color:blue;color:white;" 
+        @onclick=@(async () => {
+            IsSubmittingPerson = true;
+            await onSubmit(pp);
+            IsSubmittingPerson = false;
+        })>
+        submit
+        </span>
+                                            <div>→ 
+                                                <nobr><Select
+                                                    @bind-Value="pp.ParentId"
                     TItemValue="string"
 		            TItem="string"
                     Placeholder="Who is paying"
                     Style="display: inline-block;"
+                    Disabled=@IsSubmittingPerson
                     DefaultActiveFirstItem="true"
-                        EnableSearch
-                    >
-                        <SelectOptions>
-                            @foreach (var p in new[] { new Person() { Name = "---- None ----", GUID = "" } }.Concat((Tour?.Persons ?? new List<Person>())))
+                                                    EnableSearch
+                                                >
+                                                    <SelectOptions>
+                                                        @foreach (var p in new[] { new Person() { Name = "---- None ----", GUID = "" } }.Concat((Tour?.Persons ?? new List<Person>())))
                             {
-                                <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+                                                            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
                             }
-                        </SelectOptions>
-                    </Select>
-                    <span style="cursor:pointer" @onclick=@(() => pp.ParentId = "")>X</span>
-                    </nobr>
-                </div>
+                                                    </SelectOptions>
+                                                </Select>
+                                                <span style="cursor:pointer" @onclick=@(() => pp.ParentId = "")>X</span>
+                                                </nobr>
+                                            </div>
     </td>
-    <td><input @bind-value=@(pp.Weight) size="5"/></td>
-    <td><span style="cursor:pointer" @onclick=@(async () => await onSubmit(pp))>✓</span></td>
+    <td><input @bind-value=@(pp.Weight) size="5" disabled=@IsSubmittingPerson/></td>
+    <td></td>
     <td></td>
     <td></td>
         };
