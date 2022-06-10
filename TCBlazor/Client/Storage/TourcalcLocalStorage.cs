@@ -27,5 +27,18 @@ namespace TCBlazor.Client.Storage
         {
             await Set(TokenKey, token);
         }
+        private Dictionary<string, object?> pageLocalStorage = new Dictionary<string, object?>();
+        public void SetPageLocalValue(string key, object? val)
+        {
+            pageLocalStorage[key] = val;
+        }
+        public object? GetPageLocalValue(string key)
+        {
+            if (pageLocalStorage.ContainsKey(key))
+            {
+                return pageLocalStorage[key];
+            }
+            return null;
+        }
     }
 }
