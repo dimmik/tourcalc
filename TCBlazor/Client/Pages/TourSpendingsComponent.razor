@@ -26,7 +26,7 @@
                         
             <span style="cursor:pointer;@(sortingField == SortingField.Date ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Date))>Dt&nbsp;</span>
             <span style="cursor:pointer;@(sortingField == SortingField.Type ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Type))>Cat&nbsp;</span>
-            &nbsp; <span style="cursor: pointer" @onclick=@(() => ShowPlanned = !ShowPlanned)>[@(ShowPlanned ? "-" : "+")]</span>
+            &nbsp; <span style="cursor: pointer" @onclick=@(() => OnToggleShowPlanned())>[@(ShowPlanned ? "-" : "+")]</span>
             <Select
                 @bind-Value=@(filterCategory)
                 TItemValue="string"
@@ -101,10 +101,21 @@
 @code {
     [Parameter]
     public Tour? Tour { get; set; } = null;
-    private bool ShowPlanned = false;
+
+    [Parameter]
+    public bool ShowPlanned { get; set; } = false;
+
+    [Parameter]
+    public Action? OnToggleShowPlanned { get; set; } = null;
+
+
     protected override void OnParametersSet()
     {
-        ShowPlanned = Tour?.IsFinalizing ?? false;
+        //ShowPlanned = Tour?.IsFinalizing ?? false;
+        if (OnToggleShowPlanned == null)
+        {
+            OnToggleShowPlanned = () => ShowPlanned = !ShowPlanned;
+        }
         InitSortPredicates();
     }
     private void InitSortPredicates()
