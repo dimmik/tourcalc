@@ -4,7 +4,7 @@
 @using TCBlazor.Client.Utils
 @using TCalcCore.Auth
 
-@inject HttpClient Http
+@inject EnrichedHttpClient Http
 @inject IJSRuntime JS
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
 
@@ -23,7 +23,7 @@
         var url = "/api/Auth/token/code/" + transientAccessCode;
         var token = await Http.GetStringAsync(url);
         await ts.SetToken(token);
-        await ts.Set("aCode", transientAccessCode);
+        await ts.Set("aCode", transientAccessCode ?? "");
         NavManager.NavigateTo($"/tour/{tid}");
     }
 }
