@@ -39,8 +39,12 @@
             else
             {
                 <div class="sidebar">
-                    <NavMenu />
-                    <div style="color:white;cursor:pointer;" @onclick=@(() => LogOut())>Log Out</div>
+                    
+                    <NavMenu>
+                        <LogoutButton>
+                            <span style="cursor:pointer;" @onclick=@(() => LogOut())>Log Out @($"{(authData.IsMaster ? "Admin" : "User")}")</span>
+                        </LogoutButton>
+                    </NavMenu>
                 </div>
 
                 <main>
