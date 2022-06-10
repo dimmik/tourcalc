@@ -23,15 +23,13 @@
         var url = "/api/Auth/token/code/" + transientAccessCode;
         var token = await Http.GetStringAsync(url);
         await ts.SetToken(token);
-        await ts.Set("aCode", transientAccessCode ?? "");
         // now try to get a tour
-        var resp = await Http.Http.GetAsync($"/api/Tour/{tid}");
-        if (!resp.IsSuccessStatusCode)
+        var tt = await Http.CallWithAuthToken<Tour>($"/api/Tour/{tid}", token);
+        if (tt == null)
         {
             url = $"/api/Auth/token/code/{transientAccessCode}/md5";
             token = await Http.GetStringAsync(url);
             await ts.SetToken(token);
-            await ts.Set("aCode", transientAccessCode ?? "");            
         }
         NavManager.NavigateTo($"/tour/{tid}");
     }
