@@ -244,17 +244,17 @@
                     Style="display: inline-block;"
                     Disabled=@IsSubmittingPerson
                     DropdownMatchSelectWidth=@false
+                    AllowClear=@true
                     DefaultActiveFirstItem="true"
                                                     EnableSearch
                                                 >
                                                     <SelectOptions>
-                                                        @foreach (var p in new[] { new Person() { Name = "None", GUID = "" } }.Concat((Tour?.Persons ?? new List<Person>())))
+                                                        @foreach (var p in (Tour?.Persons ?? new List<Person>()).Where(ppp => ppp.GUID != pp.GUID))
                             {
                                                             <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
                             }
                                                     </SelectOptions>
                                                 </Select>
-                                                <span style="cursor:pointer" @onclick=@(() => pp.ParentId = "")>X</span>
                                                 </nobr>
                                             </div>
     </td>
