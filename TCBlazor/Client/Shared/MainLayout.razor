@@ -31,7 +31,12 @@
                 Title="Log In"
                 Footer=@dummyFooter
                 >
-                <span><input type="text" @bind-value="code" />
+                <span><input type="text" @bind-value="code" @onkeyup=@(async (e) => {
+                    if (e.Code == "Enter" || e.Code == "NumpadEnter"){
+                        //await JS.InvokeVoidAsync("alert", $"code: {code}");
+                        await LogIn();
+                    }
+                })/>
                     <button @onclick="LogIn">Auth</button>
                 </span>
                 </AntDesign.Modal>
