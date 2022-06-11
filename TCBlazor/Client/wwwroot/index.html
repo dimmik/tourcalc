@@ -19,8 +19,16 @@
         function backToTop() {
             document.getElementById("app").scrollIntoView();
         }
-        //BlazorScrollToId("aaa");
-        //alert("fffff");
+        window.clipboardCopy = {
+            copyText: function (text) {
+                navigator.clipboard.writeText(text).then(function () {
+                    alert("Copied to clipboard!");
+                })
+                    .catch(function (error) {
+                        alert(error);
+                    });
+            }
+        };
     </script>
     <style>
         /* Use a more specific selector if possible */

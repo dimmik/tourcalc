@@ -2,6 +2,9 @@
 
 @using TCalcCore.Auth
 @using TCBlazor.Client.Storage
+@using System.Text.Encodings.Web;
+@using System.Text.Json;
+@using System.Text.Unicode;
 
 @inject EnrichedHttpClient Http
 @inject TourcalcLocalStorage ts
@@ -56,7 +59,9 @@ else
                     {
                         <span>c: <input type="text" placeholder="code" size="3" @bind-value=@NewTourCode/></span>
                     }
-                <span  style="cursor:pointer; border:solid 1px black" @onclick=@(() => CloneTour(tour))>clone</span>
+                <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => CloneTour(tour))>clone</span>
+                |
+                <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => CopyTourJsonToCb(tour))>JSON</span>
             </div>
         </td>
         <td><input @key=@($"fin_{tour.Id}") type="checkbox" 
@@ -104,6 +109,16 @@ else
         await Http.CallWithAuthToken<string>($"/api/Tour/add/{NewTourCode}", await ts.GetToken(), HttpMethod.Post, cloned);
         await LoadTours();
 
+    }
+    private async Task CopyTourJsonToCb(Tour t)
+    {
+        var text = JsonSerializer.Serialize(t, new JsonSerializerOptions()
+        {
+            WriteIndented = true, 
+//            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        });
+        await JsRuntime.InvokeVoidAsync("clipboardCopy.copyText", text);
     }
 
     private async Task ChangeTourName(Tour tour)
