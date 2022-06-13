@@ -8,6 +8,7 @@
     Items=@(GetSpendingSorted()) 
     Context="spendingItem" 
     TopPadding="30"
+    ConditionalItemIdxIncrement=@((s, idx) => !s.Planned)
     ConditionalRowStyle=@((s, idx) => 
     {
         if (s.Planned){
@@ -57,6 +58,7 @@
     <RowTemplate>
         @{
             var spending = spendingItem.Item1;
+            var idx = spendingItem.Item2;
         }
         <td>
             @if (!spending.Planned)
@@ -65,8 +67,9 @@
                 @onclick=@(() => OnSpendingDeleteClicked(spending))>
                 <b>X&nbsp;</b>
                 </span>
+                <span>&nbsp;@idx.</span>
             }
-
+            
             @((MarkupString)spending.Description.AsBreakable())
             <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] <b>@spending.Type</b>
                 @if (EditActionTemplate != null)

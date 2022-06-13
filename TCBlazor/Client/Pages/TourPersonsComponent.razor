@@ -4,7 +4,12 @@
 @inject IJSRuntime JsRuntime
 
 
-<TableTemplate Items="@GetPersons()"  Context="personItem" TopPadding="30">
+<TableTemplate 
+    Items="@GetPersons()"  
+    Context="personItem" 
+    TopPadding="30"
+    ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
+>
     <TableHeader>
         <th>Person Name</th>
         <th>Weight</th>
@@ -15,6 +20,7 @@
     <RowTemplate>
         @{
             var person = personItem.Item1;
+            var idx = personItem.Item2;
         }
         @if (string.IsNullOrWhiteSpace(person.Metadata))
         {
@@ -28,6 +34,7 @@
             })>
                     <b>X</b>
                 </span>
+                <span>&nbsp;@idx.</span>
                 <span style="cursor:pointer;" @onclick=@(() => person.Metadata = "Editing")>@((MarkupString)person.Name.AsBreakable())</span>
                 &nbsp;|&nbsp;<NavLink href=@($"tour/{Tour?.GUID ?? "000"}/spending/add/{person.GUID}")>spend</NavLink> 
                 @if (!string.IsNullOrWhiteSpace(person.ParentId))
@@ -121,12 +128,12 @@
     {
         return __builder =>
         {
-            <Template>
-                <Button OnClick=@((e) => onOk())
+    <Template>
+                        <Button OnClick=@((e) => onOk())
                     Type="primary">
-                         Got It
-                </Button>
-             </Template>
+                                 Got It
+                        </Button>
+    </Template>
         };
     }
 
@@ -145,9 +152,9 @@
                         OnCancel=@(() => ReceivedInfoShown[person.GUID] = false)
                         DestroyOnClose=@true
                         Closable=@true
-                                                        >
-                                                        <div style="height: 55vh; overflow:scroll;">
-                                                            <TableTemplate Items=@(person.ReceivedSendingInfo) 
+                                                                >
+                                                                <div style="height: 55vh; overflow:scroll;">
+                                                                    <TableTemplate Items=@(person.ReceivedSendingInfo) 
                                 Context="siItem"
                                 ConditionalRowStyle=@((spi, idx) => {
                                     if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
@@ -159,19 +166,19 @@
                                     }
                                     return "background-color: white";
                                 })
-                                                            >
-                                                                <RowTemplate>
-                                                                @{
+                                                                    >
+                                                                        <RowTemplate>
+                                                                        @{
                                                                     var si = siItem.Item1;
-                                                                }
-                                                                    <td>@((MarkupString)si.From.AsBreakable(3))</td>
-                                                                    <td>@si.ReceivedAmountInCents 
-                                                                        <span style="font-size: xx-small">@($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents : 0.00}")% of @si.TotalSpendingAmountInCents</span>
-                                                                    </td>
-                                                                    <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
-                                                                </RowTemplate>
-                                                            </TableTemplate>
-                                                        </div>
+                                                                        }
+                                                                            <td>@((MarkupString)si.From.AsBreakable(3))</td>
+                                                                            <td>@si.ReceivedAmountInCents 
+                                                                                <span style="font-size: xx-small">@($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents : 0.00}")% of @si.TotalSpendingAmountInCents</span>
+                                                                            </td>
+                                                                            <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
+                                                                        </RowTemplate>
+                                                                    </TableTemplate>
+                                                                </div>
     </Modal>
         };
     }
@@ -189,9 +196,9 @@
                 OnCancel=@(() => SpentInfoShown[person.GUID] = false)
                 DestroyOnClose=@true
                 Closable=@true
-                                                >
-                                                <div style="height: 55vh; overflow:scroll;">
-                                                    <TableTemplate Items=@(person.SpentSendingInfo) 
+                                                        >
+                                                        <div style="height: 55vh; overflow:scroll;">
+                                                            <TableTemplate Items=@(person.SpentSendingInfo) 
                         Context="siItem"
                         ConditionalRowStyle=@((spi, idx) => {
                             if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
@@ -203,18 +210,18 @@
                             }
                             return "background-color: white";
                         })
-                                                    >
-                                                        <RowTemplate>
-                                                        @{
+                                                            >
+                                                                <RowTemplate>
+                                                                @{
                                                             var si = siItem.Item1;
-                                                        }
-                                                            <td>@((MarkupString)si.From.AsBreakable(3))</td>
-                                                            <td>@si.TotalSpendingAmountInCents</td>
-                                                            <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
-                                                        </RowTemplate>
-                                                    </TableTemplate>
-                                                </div>
-        </Modal>
+                                                                }
+                                                                    <td>@((MarkupString)si.From.AsBreakable(3))</td>
+                                                                    <td>@si.TotalSpendingAmountInCents</td>
+                                                                    <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
+                                                                </RowTemplate>
+                                                            </TableTemplate>
+                                                        </div>
+    </Modal>
         };
     }
 
@@ -225,38 +232,38 @@
         return __builder =>
         {
     <td>
-            @if (IsSubmittingPerson)
+                    @if (IsSubmittingPerson)
                 {
-                <div>submitting...</div>
+                        <div>submitting...</div>
                 }
-            <span style="cursor:pointer;" @onclick=@(() => onCloseButton())>
-                                                <b>X</b>
-             </span>
-             <nobr>
-               <input @bind-value=@(pp.Name) 
+                    <span style="cursor:pointer;" @onclick=@(() => onCloseButton())>
+                                                        <b>X</b>
+                     </span>
+                     <nobr>
+                       <input @bind-value=@(pp.Name) 
                 size=7 
                 disabled=@IsSubmittingPerson
-                @onkeyup=@(async (e) => {
+                        @onkeyup=@(async (e) => {
                         if (e.Code == "Enter" || e.Code == "NumpadEnter"){
                             IsSubmittingPerson = true;
                             await onSubmit(pp);
                             IsSubmittingPerson = false;
                         }
                     }) 
-                /> 
-        <span 
+                        /> 
+                <span 
         style="cursor:pointer;border:1px solid black;background-color:blue;color:white;" 
-        @onclick=@(async () => {
+                @onclick=@(async () => {
             IsSubmittingPerson = true;
             await onSubmit(pp);
             IsSubmittingPerson = false;
         })>
-        submit
-        </span>
-        </nobr>
-                                            <div>→ 
-                                                <nobr><Select
-                                                    @bind-Value="pp.ParentId"
+                submit
+                </span>
+                </nobr>
+                                                    <div>→ 
+                                                        <nobr><Select
+                                                            @bind-Value="pp.ParentId"
                     TItemValue="string"
 		            TItem="string"
                     Placeholder="Payer"
@@ -265,17 +272,17 @@
                     DropdownMatchSelectWidth=@false
                     AllowClear=@true
                     DefaultActiveFirstItem="true"
-                                                    EnableSearch
-                                                >
-                                                    <SelectOptions>
-                                                        @foreach (var p in (Tour?.Persons ?? new List<Person>()).Where(ppp => ppp.GUID != pp.GUID))
+                                                            EnableSearch
+                                                        >
+                                                            <SelectOptions>
+                                                                @foreach (var p in (Tour?.Persons ?? new List<Person>()).Where(ppp => ppp.GUID != pp.GUID))
                             {
-                                                            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+                                                                    <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
                             }
-                                                    </SelectOptions>
-                                                </Select>
-                                                </nobr>
-                                            </div>
+                                                            </SelectOptions>
+                                                        </Select>
+                                                        </nobr>
+                                                    </div>
     </td>
     <td><input @bind-value=@(pp.Weight) size="5" disabled=@IsSubmittingPerson/></td>
     <td></td>
