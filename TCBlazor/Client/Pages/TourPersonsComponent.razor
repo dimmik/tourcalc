@@ -4,7 +4,7 @@
 @inject IJSRuntime JsRuntime
 
 
-<TableTemplate Items="@GetPersons()"  Context="person" TopPadding="30">
+<TableTemplate Items="@GetPersons()"  Context="personItem" TopPadding="30">
     <TableHeader>
         <th>Person Name</th>
         <th>Weight</th>
@@ -13,6 +13,9 @@
         <th>Debt</th>
     </TableHeader>
     <RowTemplate>
+        @{
+            var person = personItem.Item1;
+        }
         @if (string.IsNullOrWhiteSpace(person.Metadata))
         {
             <td>
@@ -145,7 +148,7 @@
                                                         >
                                                         <div style="height: 55vh; overflow:scroll;">
                                                             <TableTemplate Items=@(person.ReceivedSendingInfo) 
-                                Context="si"
+                                Context="siItem"
                                 ConditionalRowStyle=@((spi, idx) => {
                                     if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
                                     {
@@ -158,6 +161,9 @@
                                 })
                                                             >
                                                                 <RowTemplate>
+                                                                @{
+                                                                    var si = siItem.Item1;
+                                                                }
                                                                     <td>@((MarkupString)si.From.AsBreakable(3))</td>
                                                                     <td>@si.ReceivedAmountInCents 
                                                                         <span style="font-size: xx-small">@($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents : 0.00}")% of @si.TotalSpendingAmountInCents</span>
@@ -186,7 +192,7 @@
                                                 >
                                                 <div style="height: 55vh; overflow:scroll;">
                                                     <TableTemplate Items=@(person.SpentSendingInfo) 
-                        Context="si"
+                        Context="siItem"
                         ConditionalRowStyle=@((spi, idx) => {
                             if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
                             {
@@ -199,6 +205,9 @@
                         })
                                                     >
                                                         <RowTemplate>
+                                                        @{
+                                                            var si = siItem.Item1;
+                                                        }
                                                             <td>@((MarkupString)si.From.AsBreakable(3))</td>
                                                             <td>@si.TotalSpendingAmountInCents</td>
                                                             <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>

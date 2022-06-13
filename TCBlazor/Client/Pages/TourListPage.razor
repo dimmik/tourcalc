@@ -18,7 +18,7 @@
 else
 {
     <h3>Tour List</h3>
-    <TableTemplate Items=@GetTours() Context="tour" TopPadding="30">
+    <TableTemplate Items=@GetTours() Context="tourItem" TopPadding="30">
     <TableHeader>
         <th>Tour Name
             @if (AddingTour)
@@ -41,6 +41,9 @@ else
         <th>Del</th>
     </TableHeader>
     <RowTemplate>
+        @{
+            var tour = tourItem.Item1;
+        }
         <td>
                 @if (!(tour.Metadata == "Editing"))
                 {

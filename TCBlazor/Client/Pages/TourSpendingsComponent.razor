@@ -6,7 +6,7 @@
 
 <TableTemplate 
     Items=@(GetSpendingSorted()) 
-    Context="spending" 
+    Context="spendingItem" 
     TopPadding="30"
     ConditionalRowStyle=@((s, idx) => 
     {
@@ -55,6 +55,9 @@
         <th>Recepients</th>
     </TableHeader>
     <RowTemplate>
+        @{
+            var spending = spendingItem.Item1;
+        }
         <td>
             @if (!spending.Planned)
             {

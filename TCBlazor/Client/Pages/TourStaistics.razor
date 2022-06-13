@@ -2,7 +2,7 @@
     1. spendings by category
     2. chart
 -->
-        <TableTemplate Items=@summary Context="item"
+        <TableTemplate Items=@summary Context="itemItem"
             ConditionalRowStyle=@((r, idx) => $"{(idx % 2 == 0 ? "background-color: lightgreen" : "background-color: lightblue")}")
             >
             <TableHeader>
@@ -13,6 +13,9 @@
                 </th>
             </TableHeader>
             <RowTemplate>
+                @{
+                    var item = itemItem.Item1;
+                }
                 <td>@item.Name</td>
                 <td>@item.Amount</td>
                 <td>@($"{item.Amount * 100.0 / summary.Select(s => s.Amount).Sum() : 0}%")</td>

@@ -12,9 +12,13 @@
         @foreach (var item in Items)
         {
             idx++;
+            if (ConditionalItemIdxIncrement(item, idx))
+            {
+                itemIdx++;
+            }
             if (RowTemplate is not null)
             {
-                <tr style=@(ConditionalRowStyle(item, idx))>@RowTemplate(item)</tr>
+                <tr style=@(ConditionalRowStyle(item, idx))>@RowTemplate((item, itemIdx))</tr>
             }
         }
     </tbody>
@@ -25,7 +29,7 @@
     public RenderFragment? TableHeader { get; set; }
 
     [Parameter]
-    public RenderFragment<TItem>? RowTemplate { get; set; }
+    public RenderFragment<(TItem, int)>? RowTemplate { get; set; }
 
     [Parameter, AllowNull]
     public IEnumerable<TItem> Items { get; set; }
@@ -36,5 +40,10 @@
     [Parameter]
     public Func<TItem, int, string> ConditionalRowStyle { get; set; } = (i, idx) => "";
 
+    [Parameter]
+    public Func<TItem, int, bool> ConditionalItemIdxIncrement { get; set; } = (i, idx) => true;
+
     private int idx = 0;
+    private int itemIdx = 0;
+
 }
