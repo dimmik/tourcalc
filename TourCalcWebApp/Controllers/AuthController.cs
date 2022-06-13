@@ -124,10 +124,10 @@ namespace TourCalcWebApp.Controllers
         public AuthData WhoAmI()
         {
             var auth = AuthHelper.GetAuthData(User, Configuration);
-            var tours = tourStorage.GetTours((x) => (x.AccessCodeMD5 != null && auth.AccessCodeMD5 == x.AccessCodeMD5), true, 0, int.MaxValue, out var tc);
-            auth.TourIds = tours.Any() 
-                ? tours.Select(t => t.Id).ToList()
-                : new string[0].ToList();
+            //var tours = tourStorage.GetTours((x) => (x.AccessCodeMD5 != null && auth.AccessCodeMD5 == x.AccessCodeMD5), true, 0, int.MaxValue, out var tc);
+            //auth.TourIds = tours.Any() 
+            //    ? tours.Select(t => t.Id).ToList()
+            //    : new string[0].ToList();
             return auth;
         }
 

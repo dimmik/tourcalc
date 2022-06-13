@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Claims;
@@ -15,6 +16,7 @@ namespace TourCalcWebApp.Auth
     {
         public static AuthData GetAuthData(ClaimsPrincipal User, ITcConfiguration config)
         {
+            Stopwatch sw = Stopwatch.StartNew();
             var claimsIdentity = User.Identity as ClaimsIdentity;
             var authDataJson = claimsIdentity.FindFirst("AuthDataJson")?.Value;
             AuthData authData;
@@ -34,7 +36,7 @@ namespace TourCalcWebApp.Auth
             {
                 authData.AccessCodeMD5 = "WrongMd5";
             }
-
+            sw.Stop();
             return authData;
         }
         public static string CreateMD5(this string input)
