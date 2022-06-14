@@ -9,6 +9,7 @@
 @inject EnrichedHttpClient Http
 @inject TourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
+@inject TCGlobal tcGlobal
 
 @if (tours == null)
 {
@@ -153,6 +154,7 @@ else
     }
     protected override async Task OnInitializedAsync()
     {
+        tcGlobal.SetTitle("Tour List");
         await LoadTours();
         auth = ts.GetPageLocalValue("auth") as AuthData ?? new AuthData();
     }

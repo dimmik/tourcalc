@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using TCBlazor.Client;
 using TCBlazor.Client.Storage;
 using TCBlazor.Client.Utils;
+using TCBlazor.Client.Shared;
 
 namespace Company.WebApplication1
 {
@@ -18,7 +19,7 @@ namespace Company.WebApplication1
             builder.Services.AddAntDesign();
             builder.Services.AddSingleton<TourcalcLocalStorage>();
             builder.Services.AddScoped<EnrichedHttpClient>();
-
+            builder.Services.AddSingleton<TCGlobal>();
 
             await builder.Build().RunAsync();
         }

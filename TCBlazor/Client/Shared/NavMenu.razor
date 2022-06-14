@@ -1,6 +1,7 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@inject TCGlobal tcGlobal;
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">Tourcalc</a>
+        <a class="navbar-brand" href="">@tcGlobal.Title</a>
         @if (LogoutButton is not null)
         {
             <span style="color:white;border:1px solid white">
@@ -38,4 +39,13 @@
     {
         collapseNavMenu = !collapseNavMenu;
     }
+    protected override void OnInitialized()
+    {
+        tcGlobal.OnChange += OnTitleChange;
+    }
+    private void OnTitleChange()
+    {
+        StateHasChanged();
+    }
+
 }

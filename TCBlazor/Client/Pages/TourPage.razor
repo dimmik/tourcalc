@@ -4,6 +4,7 @@
 @inject EnrichedHttpClient Http
 @inject TourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
+@inject TCGlobal tcGlobal;
 
 @if (Tour == null)
 {
@@ -101,6 +102,7 @@ else
     protected override async Task OnParametersSetAsync()
     {
         await LoadTour();
+        tcGlobal.SetTitle($"{Tour?.Name ?? "n/a"}");
         ShowPlannedSpendings = (Tour?.IsFinalizing ?? false);
     }
     private async Task LoadTour()
