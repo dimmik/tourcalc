@@ -154,7 +154,7 @@ else
     }
     protected override async Task OnInitializedAsync()
     {
-        tcGlobal.SetTitle("Tour List");
+        tcGlobal.Title = "Tour List";
         await LoadTours();
         auth = ts.GetPageLocalValue("auth") as AuthData ?? new AuthData();
     }
