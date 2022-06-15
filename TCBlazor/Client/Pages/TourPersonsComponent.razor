@@ -34,7 +34,7 @@
             })>
                     <b>X</b>
                 </span>
-                <span>&nbsp; @idx. @((MarkupString)person.Name.AsBreakable())</span>
+                <span>&nbsp; @idx. <b>@((MarkupString)person.Name.AsBreakable())</b></span>
                 &nbsp;<span style="font-size: x-small;cursor:pointer; color: blue; border: solid 1px black" @onclick=@(() => person.Metadata = "Editing")>edit</span>&nbsp;|&nbsp;<NavLink href=@($"tour/{Tour?.GUID ?? "000"}/spending/add/{person.GUID}")>spend</NavLink> 
                 @if (!string.IsNullOrWhiteSpace(person.ParentId))
                 {
