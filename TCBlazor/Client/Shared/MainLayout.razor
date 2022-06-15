@@ -4,13 +4,15 @@
 @using AntDesign
 
 @inherits LayoutComponentBase
-@inject EnrichedHttpClient Http
+
 @inject IJSRuntime JS
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject TCDataService dataSvc
+@inject AuthSvc auth
 
 
 <div class="page">
-@if (authData == null)
+@if (auth.Auth == null)
 { 
         <AntDesign.Modal
                 Visible=@true
@@ -24,7 +26,7 @@
     {
         if (!LoggingIn)
         {
-            @if (authData.Type == "None")
+            @if (auth.Auth.Type == "None")
             {
                 <AntDesign.Modal
                 Visible=@true
@@ -47,7 +49,7 @@
                     
                     <NavMenu>
                         <LogoutButton>
-                            <span style="cursor:pointer;" @onclick=@(() => LogOut())>Log Out @($"{(authData.IsMaster ? "Admin" : "User")}")</span>
+                            <span style="cursor:pointer;" @onclick=@(() => LogOut())>Log Out @($"{(auth.Auth.IsMaster ? "Admin" : "User")}")</span>
                         </LogoutButton>
                     </NavMenu>
                 </div>
@@ -75,26 +77,20 @@
 </div>
 <AntContainer/>
 @code {
-    private AuthData? authData = null;
     private string? code;
 
     private bool LoggingIn = false;
 
     protected override async Task OnInitializedAsync()
     {
-        await RetrieveAuthData();
+        if (auth.Auth == null)
+        {
+            await auth.Init();
+        }
     }
     private async Task LogOut()
     {
-        await ts.SetToken("");
-        await RetrieveAuthData();
-    }
-    private async Task RetrieveAuthData()
-    {
-        //await Task.Delay(40000);
-        var token = await ts.GetToken();
-        authData = await Http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
-        ts.SetPageLocalValue("auth", authData);
+        await auth.LogOut();
     }
     private async Task LogIn()
     {
@@ -108,10 +104,7 @@
                 scope = scC[0];
                 c = scC[1];
             }
-            var url = "/api/Auth/token/" + scope + "/" + c;
-            var token = await Http.GetStringAsync(url);
-            await ts.SetToken(token);
-            await RetrieveAuthData();
+            await auth.LogIn(scope, c);
         } 
         catch
         {

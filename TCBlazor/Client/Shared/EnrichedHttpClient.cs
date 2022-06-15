@@ -5,7 +5,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
-namespace TCBlazor.Client.Utils
+namespace TCBlazor.Client.Shared
 {
     public class EnrichedHttpClient
     {
@@ -23,8 +23,13 @@ namespace TCBlazor.Client.Utils
         {
             try
             {
-                return await Http.GetStringAsync(url);
-            } catch (Exception e)
+                Stopwatch sw = Stopwatch.StartNew();
+                var s = await Http.GetStringAsync(url);
+                sw.Stop();
+                Console.WriteLine($"GET to {url} finished in {sw.Elapsed}");
+                return s;
+            }
+            catch (Exception e)
             {
 #pragma warning disable CS4014 // (show message. will run somewhere there) Because this call is not awaited, execution of the current method continues before the call is completed
                 _messageService.Error(getMessage(e.Message));
@@ -67,7 +72,8 @@ namespace TCBlazor.Client.Utils
                 {
                     // no luck
                 }
-            } else
+            }
+            else
             {
                 var m = await resp.Content.ReadAsStringAsync();
 #pragma warning disable CS4014 // (show message. will run somewhere there) Because this call is not awaited, execution of the current method continues before the call is completed
@@ -76,7 +82,7 @@ namespace TCBlazor.Client.Utils
             }
             //_messageService.Destroy();
             sw.Stop();
-            Console.WriteLine($"req to {url} finished in {sw.Elapsed}");
+            Console.WriteLine($"{method} to {url} finished in {sw.Elapsed}");
             return t;
         }
     }

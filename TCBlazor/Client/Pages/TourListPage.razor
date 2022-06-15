@@ -6,10 +6,11 @@
 @using System.Text.Json;
 @using System.Text.Unicode;
 
-@inject EnrichedHttpClient Http
 @inject TourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
 @inject TCGlobal tcGlobal
+@inject TCDataService dataSvc
+@inject AuthSvc auth
 
 @if (tours == null)
 {
@@ -26,7 +27,7 @@ else
         {
             <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)><b>X</b></span>
             <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
-                @if (auth.IsMaster)
+                @if (auth.Auth.IsMaster)
                     {
                         <span>c: <input type="text" placeholder="code" size="3" @bind-value=@NewTourCode/></span>
                     }
@@ -59,7 +60,7 @@ else
             <div style="font-size: xx-small">[@tour.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
             <span  style="cursor:pointer; border:solid 1px black" @onclick=@(() => tour.Metadata = (tour.Metadata == "Editing" ? "--" : "Editing"))>edit</span>
                 &nbsp;&nbsp; <a href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>link</a> | &nbsp;&nbsp;
-                @if (auth.IsMaster)
+                @if (auth.Auth.IsMaster)
                     {
                         <span>c: <input type="text" placeholder="code" size="3" @bind-value=@NewTourCode/></span>
                     }
@@ -89,20 +90,18 @@ else
     private string NewTourName = "";
     private string NewTourCode = "باخوس";
 
-    private AuthData auth = new AuthData();
 
     private async Task AddNewTour()
     {
         if (!string.IsNullOrWhiteSpace(NewTourName) && !string.IsNullOrWhiteSpace(NewTourCode))
         {
-
-            await Http.CallWithAuthToken<string>($"/api/Tour/add/{NewTourCode}", await ts.GetToken(), HttpMethod.Post, new Tour() { Name = NewTourName });
+            await dataSvc.AddTour(new Tour() { Name = NewTourName }, NewTourCode);
             await LoadTours();
             AddingTour = false;
             NewTourName = "";
         } else
         {
-            await JsRuntime.InvokeVoidAsync("alert", $"Please specify tour name {(auth.IsMaster ? "and code" : "")}");
+            await JsRuntime.InvokeVoidAsync("alert", $"Please specify tour name {((auth?.Auth?.IsMaster ?? false) ? "and code" : "")}");
         }
     }
 
@@ -110,7 +109,7 @@ else
     {
         var cloned = t.SafeClone<Tour>();
         cloned.Name = $"clone of {t.Name}";
-        await Http.CallWithAuthToken<string>($"/api/Tour/add/{NewTourCode}", await ts.GetToken(), HttpMethod.Post, cloned);
+        await dataSvc.AddTour(cloned, NewTourCode);
         await LoadTours();
 
     }
@@ -119,7 +118,6 @@ else
         var text = JsonSerializer.Serialize(t, new JsonSerializerOptions()
         {
             WriteIndented = true, 
-//            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         });
         await JsRuntime.InvokeVoidAsync("clipboardCopy.copyText", text);
@@ -127,20 +125,20 @@ else
 
     private async Task ChangeTourName(Tour tour)
     {
-        await Http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/changename", await ts.GetToken(), HttpMethod.Patch, tour);
+        await dataSvc.EditTour(tour, "changename");
         await LoadTours();        
     }
 
     private async Task OnFinChange(Tour tour)
     {
         tour.IsFinalizing = !tour.IsFinalizing;
-        await Http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/finalizing", await ts.GetToken(), HttpMethod.Patch, tour);
+        await dataSvc.EditTour(tour, "finalizing");
         await LoadTours();
     }
     private async Task OnArchChange(Tour tour)
     {
         tour.IsArchived = !tour.IsArchived;
-        await Http.CallWithAuthToken<string>($"/api/tour/{tour.Id}/archive", await ts.GetToken(), HttpMethod.Patch, tour);
+        await dataSvc.EditTour(tour, "archive");
         await LoadTours();
     }
     async Task OnDelete(Tour tour)
@@ -148,7 +146,7 @@ else
         bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete tour '{tour.Name}'");
         if (confirmed)
         {
-            await Http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Delete, null);
+            await dataSvc.DeleteTour(tour);
             await LoadTours();
         }
     }
@@ -156,7 +154,6 @@ else
     {
         tcGlobal.Title = "Tour List";
         await LoadTours();
-        auth = ts.GetPageLocalValue("auth") as AuthData ?? new AuthData();
     }
     private IEnumerable<Tour> GetTours()
     {
@@ -166,12 +163,7 @@ else
     }
     private async Task LoadTours()
     {
-        var token = await ts.GetToken();
-        // TODO pagination, links, all the stuff
-        var from = 0;
-        var count = 100;
-        var code = "";
-        tours = await Http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
+        tours = await dataSvc.GetTourList();
     }
 
 }

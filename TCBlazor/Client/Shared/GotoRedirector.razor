@@ -1,12 +1,9 @@
 ﻿@page "/goto/{transientAccessCode}/{tid}"
+@inject AuthSvc auth
 
 @using TCBlazor.Client.Storage
-@using TCBlazor.Client.Utils
-@using TCalcCore.Auth
 
-@inject EnrichedHttpClient Http
-@inject IJSRuntime JS
-@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject TCDataService dataSvc
 
 @inject NavigationManager NavManager
 
@@ -20,16 +17,14 @@
     public string? tid {get; set;}
     protected override async Task OnInitializedAsync()
     {
-        var url = "/api/Auth/token/code/" + transientAccessCode;
-        var token = await Http.GetStringAsync(url);
-        await ts.SetToken(token);
+        //await dataSvc.GetAndStoreToken("code", transientAccessCode);
+        await auth.LogIn("code", transientAccessCode);
         // now try to get a tour
-        var tt = await Http.CallWithAuthToken<Tour>($"/api/Tour/{tid}", token);
+        var tt = await dataSvc.LoadTourBare(tid);
         if (tt == null)
         {
-            url = $"/api/Auth/token/code/{transientAccessCode}/md5";
-            token = await Http.GetStringAsync(url);
-            await ts.SetToken(token);
+            await dataSvc.GetAndStoreTokenForCodeMd5(transientAccessCode);
+            await auth.Init();
         }
         NavManager.NavigateTo($"/tour/{tid}");
     }
