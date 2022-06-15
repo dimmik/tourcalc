@@ -1,6 +1,6 @@
 {
-  "name": "TCBlazor",
-  "short_name": "TCBlazor",
+  "name": "Tourcalc",
+  "short_name": "Tourcalc",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
