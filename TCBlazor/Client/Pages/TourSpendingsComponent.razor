@@ -1,6 +1,5 @@
 ﻿@using TCBlazor.Client.Storage;
 
-@inject EnrichedHttpClient Http
 @inject TourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
 
@@ -29,7 +28,7 @@
                         
             <span style="cursor:pointer;@(sortingField == SortingField.Date ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Date))>Dt&nbsp;</span>
             <span style="cursor:pointer;@(sortingField == SortingField.Type ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Type))>Cat&nbsp;</span>
-            &nbsp; <span style="cursor: pointer" @onclick=@(() => OnToggleShowPlanned())>[@(ShowPlanned ? "-" : "+")]</span>
+            &nbsp; <span style="cursor: pointer" @onclick=@(() => OnToggleShowPlanned?.Invoke())>[@(ShowPlanned ? "-" : "+")]</span>
             <Select
                 @bind-Value=@(filterCategory)
                 TItemValue="string"

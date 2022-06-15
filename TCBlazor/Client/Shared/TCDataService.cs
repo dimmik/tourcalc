@@ -48,6 +48,29 @@ namespace TCBlazor.Client.Shared
             var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token);
             return t;
         }
+        public async Task DeleteTour(Tour tour)
+        {
+            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Delete, null);
+        }
+        public async Task EditTour(Tour tour, string operation)
+        {
+            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/{operation}", await ts.GetToken(), HttpMethod.Patch, tour);
+        }
+        public async Task AddTour(Tour tour, string code)
+        {
+            await http.CallWithAuthToken<string>($"/api/Tour/add/{code}", await ts.GetToken(), HttpMethod.Post, tour);
+        }
+        public async Task<TourList?> GetTourList()
+        {
+            var token = await ts.GetToken();
+            // TODO pagination, links, all the stuff
+            var from = 0;
+            var count = 1000;
+            var code = "";
+            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
+            return tours;
+        }
+
         #region Persons
         public async Task DeletePerson(string tourId, Person p)
         {
