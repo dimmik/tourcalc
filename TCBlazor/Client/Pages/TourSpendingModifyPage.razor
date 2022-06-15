@@ -3,6 +3,7 @@
 @inject EnrichedHttpClient Http
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
+@inject TCDataService dataSvc;
 
 <h3>Spending</h3>
 @if (tour == null || TheSpending == null)
@@ -155,8 +156,7 @@ else
     }
     private async Task LoadTour()
     {
-        var token = await ts.GetToken();
-        tour = await Http.CallWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);        
+        tour = await dataSvc.LoadTour(TourId);
     }
     private void InitNewSpending()
     {

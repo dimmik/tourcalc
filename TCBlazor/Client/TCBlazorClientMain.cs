@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using TCBlazor.Client;
 using TCBlazor.Client.Storage;
-using TCBlazor.Client.Utils;
 using TCBlazor.Client.Shared;
 
 namespace Company.WebApplication1
@@ -15,11 +14,16 @@ namespace Company.WebApplication1
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
-            builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
-            builder.Services.AddAntDesign();
-            builder.Services.AddSingleton<TourcalcLocalStorage>();
-            builder.Services.AddScoped<EnrichedHttpClient>();
-            builder.Services.AddSingleton<TCGlobal>();
+            builder.Services
+                .AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
+                .AddAntDesign()
+                .AddSingleton<TourcalcLocalStorage>()
+                .AddScoped<EnrichedHttpClient>()
+                .AddSingleton<TCGlobal>()
+                .AddScoped<TCDataService>()
+                ;
+
+
 
             await builder.Build().RunAsync();
         }

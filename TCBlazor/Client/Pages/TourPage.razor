@@ -1,24 +1,23 @@
 ﻿@page "/tour/{tourId}"
 @using TCBlazor.Client.Storage;
 
-@inject EnrichedHttpClient Http
-@inject TourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
 @inject TCGlobal tcGlobal
+@inject TCDataService dataSvc
 
-@if (Tour == null)
+@if (tour == null)
 {
     <span>Tour loading...</span>
 }
 else
 {
-    <PageTitle>@Tour.Name</PageTitle>
-<h3>@Tour.Name 
+    <PageTitle>@tour.Name</PageTitle>
+<h3>@tour.Name 
     <span style="cursor:pointer; color: blue; border: solid 1px black" @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") stats</span>
     </h3>     
 @if (ShowStatistics)
 {
-        <TourStaistics Tour=@Tour/>
+        <TourStaistics Tour=@tour/>
 }
     <TableTemplate Items=@(new string[1]) TopPadding="0">
         <TableHeader>
@@ -32,19 +31,19 @@ else
                 <!--Persons-->
                 <b id=@GetId("persons")>Persons</b>
                 <TourPersonsComponent 
-                    Tour=@Tour
+                    Tour=@tour
                     OnPersonDelete=@(async (p) => {
-                        await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+                        await dataSvc.DeletePerson(tour.Id, p);
                         await LoadTour();
                         StateHasChanged();
                     })
                     OnPersonEdit=@(async (p) => {
-                        await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Patch, p);
+                        await dataSvc.EditPerson(tour.Id, p);
                         await LoadTour();
                         StateHasChanged();
                     })
                     OnPersonAdd=@(async (p) => {
-                        await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/person", await ts.GetToken(), HttpMethod.Post, p);
+                        await dataSvc.AddPerson(tour.Id, p);
                         await LoadTour();
                         StateHasChanged();
                     })
@@ -52,14 +51,15 @@ else
                 <!--Spendings-->
                 <b id=@GetId("spendings")>Spendings</b>
                 <TourSpendingsComponent 
-                    Tour=@Tour
+                    Tour=@tour
                     ShowPlanned=@ShowPlannedSpendings
                     OnToggleShowPlanned=@(() => {
+                        // TODO works slow. Think about it
                         ShowPlannedSpendings = !ShowPlannedSpendings;
                         StateHasChanged();
                     })
                     OnSpendingDelete=@(async (s) => {
-                        await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+                        await dataSvc.DeleteSpending(tour.Id, s);
                         await LoadTour();
                         StateHasChanged();
                     })
@@ -71,7 +71,7 @@ else
                                     bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Add planned '{s.Description}' : {s.AmountInCents}?");
                                     if (confirmed)
                                     {
-                                        await Http.CallWithAuthToken<string>($"/api/Tour/{Tour.Id}/spending", await ts.GetToken(), HttpMethod.Post, s);
+                                        await dataSvc.AddSpending(tour.Id, s);
                                         await LoadTour();
                                         StateHasChanged();
                                     }
@@ -79,7 +79,7 @@ else
                             }
                             else
                             {
-                            <NavLink href=@($"/tour/{Tour.Id}/spending/edit/{s.GUID}")>&nbsp; 
+                            <NavLink href=@($"/tour/{tour.Id}/spending/edit/{s.GUID}")>&nbsp; 
                                 <span style="border:solid 1px black">edit</span>                    
                             </NavLink>
                             }
@@ -98,17 +98,16 @@ else
     private bool ShowStatistics = false;
     private bool ShowPlannedSpendings = false;
 
-    public Tour? Tour = null;
+    public Tour? tour = null;
     protected override async Task OnParametersSetAsync()
     {
         await LoadTour();
-        tcGlobal.Title = $"{Tour?.Name ?? "n/a"}";
-        ShowPlannedSpendings = (Tour?.IsFinalizing ?? false);
+        tcGlobal.Title = $"{tour?.Name ?? "n/a"}";
+        ShowPlannedSpendings = (tour?.IsFinalizing ?? false);
     }
     private async Task LoadTour()
     {
-        var token = await ts.GetToken();
-        Tour = await Http.CallWithAuthToken<Tour>($"/api/Tour/{TourId}/suggested", token);
+        tour = await dataSvc.LoadTour(TourId);
     }
     string GetId(string l) => $"{l}";
     string GetHref(string l) => $"/tour/{TourId}#" + GetId(l);
