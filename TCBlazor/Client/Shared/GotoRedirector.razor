@@ -1,4 +1,5 @@
 ﻿@page "/goto/{transientAccessCode}/{tid}"
+@inject AuthSvc auth
 
 @using TCBlazor.Client.Storage
 
@@ -16,12 +17,14 @@
     public string? tid {get; set;}
     protected override async Task OnInitializedAsync()
     {
-        await dataSvc.GetAndStoreToken("code", transientAccessCode);
+        //await dataSvc.GetAndStoreToken("code", transientAccessCode);
+        await auth.LogIn("code", transientAccessCode);
         // now try to get a tour
         var tt = await dataSvc.LoadTourBare(tid);
         if (tt == null)
         {
             await dataSvc.GetAndStoreTokenForCodeMd5(transientAccessCode);
+            await auth.Init();
         }
         NavManager.NavigateTo($"/tour/{tid}");
     }

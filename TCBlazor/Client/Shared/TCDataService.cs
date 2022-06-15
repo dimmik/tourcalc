@@ -29,6 +29,10 @@ namespace TCBlazor.Client.Shared
             var token = await http.GetStringAsync(url);
             await ts.SetToken(token);
         }
+        public async Task ClearToken()
+        {
+            await ts.SetToken("");
+        }
         public async Task GetAndStoreTokenForCodeMd5(string? code)
         {
             var url = $"/api/Auth/token/code/{code ?? "trashNoTours"}/md5";
@@ -63,7 +67,7 @@ namespace TCBlazor.Client.Shared
         }
         public async Task AddTour(Tour? tour, string? code)
         {
-            if (tour != null) return;
+            if (tour == null) return;
             await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? "trashNoTours"}", await ts.GetToken(), HttpMethod.Post, tour);
         }
         public async Task<TourList?> GetTourList()

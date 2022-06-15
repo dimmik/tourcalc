@@ -21,6 +21,7 @@ namespace Company.WebApplication1
                 .AddScoped<EnrichedHttpClient>()
                 .AddSingleton<TCGlobal>()
                 .AddScoped<TCDataService>()
+                .AddScoped<AuthSvc>()
                 ;
 
 
