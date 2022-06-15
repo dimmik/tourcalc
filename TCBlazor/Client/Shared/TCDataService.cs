@@ -1,4 +1,5 @@
 ﻿using TCalc.Domain;
+using TCalcCore.Auth;
 using TCBlazor.Client.Storage;
 
 namespace TCBlazor.Client.Shared
@@ -14,10 +15,37 @@ namespace TCBlazor.Client.Shared
             this.http = http ?? throw new ArgumentNullException(nameof(http));
         }
 
+
+        public async Task<AuthData?> GetAuthData()
+        {
+            var token = await ts.GetToken();
+            var ad = await http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
+            return ad;
+        }
+
+        public async Task GetAndStoreToken(string scope, string code)
+        {
+            var url = $"/api/Auth/token/{scope}/{code}";
+            var token = await http.GetStringAsync(url);
+            await ts.SetToken(token);
+        }
+        public async Task GetAndStoreTokenForCodeMd5(string code)
+        {
+            var url = $"/api/Auth/token/code/{code}/md5";
+            var token = await http.GetStringAsync(url);
+            await ts.SetToken(token);
+        }
+
         public async Task<Tour?> LoadTour(string id)
         {
             var token = await ts.GetToken();
             var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}/suggested", token);
+            return t;
+        }
+        public async Task<Tour?> LoadTourBare(string id)
+        {
+            var token = await ts.GetToken();
+            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token);
             return t;
         }
         #region Persons

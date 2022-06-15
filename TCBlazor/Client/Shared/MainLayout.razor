@@ -4,9 +4,10 @@
 @using AntDesign
 
 @inherits LayoutComponentBase
-@inject EnrichedHttpClient Http
+
 @inject IJSRuntime JS
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject TCDataService dataSvc
 
 
 <div class="page">
@@ -92,8 +93,7 @@
     private async Task RetrieveAuthData()
     {
         //await Task.Delay(40000);
-        var token = await ts.GetToken();
-        authData = await Http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
+        authData = await dataSvc.GetAuthData();
         ts.SetPageLocalValue("auth", authData);
     }
     private async Task LogIn()
@@ -108,9 +108,7 @@
                 scope = scC[0];
                 c = scC[1];
             }
-            var url = "/api/Auth/token/" + scope + "/" + c;
-            var token = await Http.GetStringAsync(url);
-            await ts.SetToken(token);
+            await dataSvc.GetAndStoreToken(scope, c);
             await RetrieveAuthData();
         } 
         catch

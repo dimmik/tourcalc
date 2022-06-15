@@ -1,9 +1,8 @@
 ﻿@page "/tour/{tourId}/spending/edit/{spendingId}"
 @page "/tour/{tourId}/spending/add/{*personId}"
-@inject EnrichedHttpClient Http
-@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+
 @inject IJSRuntime JsRuntime
-@inject TCDataService dataSvc;
+@inject TCDataService dataSvc
 
 <h3>Spending</h3>
 @if (tour == null || TheSpending == null)
@@ -18,7 +17,7 @@ else
 
 -->
 <div>
-<h4><NavLink href=@($"tour/{tour.Id}")>&lt;&lt; @tour.Name</NavLink>
+<h4><NavLink href=@($"tour/{TourId}")>&lt;&lt; @tour.Name</NavLink>
         </h4>
             @if (mode == ComponentMode.Edit)
             {
@@ -60,7 +59,7 @@ else
         .ThenByDescending(s => s.DateCreated)
     )
     OnSpendingDelete=@(async (s) => {
-                        await Http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+                        await dataSvc.DeleteSpending(TourId, s);
                         await LoadTour();
                         StateHasChanged();
                     })
@@ -116,10 +115,10 @@ else
         {
             if (mode == ComponentMode.Add || mode == ComponentMode.AddPlanned)
             {
-                await Http.CallWithAuthToken<string>($"/api/Tour/{TourId}/spending", await ts.GetToken(), HttpMethod.Post, s);
+                await dataSvc.AddSpending(TourId, s);
             } else
             {
-                await Http.CallWithAuthToken<string>($"/api/Tour/{TourId}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Patch, s);
+                await dataSvc.EditSpending(TourId, s);
             }
             await LoadTour();
             InitNewSpending();

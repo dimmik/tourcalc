@@ -23,7 +23,11 @@ namespace TCBlazor.Client.Shared
         {
             try
             {
-                return await Http.GetStringAsync(url);
+                Stopwatch sw = Stopwatch.StartNew();
+                var s = await Http.GetStringAsync(url);
+                sw.Stop();
+                Console.WriteLine($"GET to {url} finished in {sw.Elapsed}");
+                return s;
             }
             catch (Exception e)
             {
