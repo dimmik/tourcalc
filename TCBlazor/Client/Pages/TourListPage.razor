@@ -125,20 +125,20 @@ else
 
     private async Task ChangeTourName(Tour tour)
     {
-        await dataSvc.EditTour(tour, "changename");
+        await dataSvc.EditTourProps(tour, "changename");
         await LoadTours();        
     }
 
     private async Task OnFinChange(Tour tour)
     {
         tour.IsFinalizing = !tour.IsFinalizing;
-        await dataSvc.EditTour(tour, "finalizing");
+        await dataSvc.EditTourProps(tour, "finalizing");
         await LoadTours();
     }
     private async Task OnArchChange(Tour tour)
     {
         tour.IsArchived = !tour.IsArchived;
-        await dataSvc.EditTour(tour, "archive");
+        await dataSvc.EditTourProps(tour, "archive");
         await LoadTours();
     }
     async Task OnDelete(Tour tour)

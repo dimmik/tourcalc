@@ -188,9 +188,12 @@ namespace TourCalcWebApp.Controllers
 
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
+            if (tourJson.IsVersion && tourJson.GUID != tour.GUID && !tour.IsVersion) // restoring from version
+            {
+                tourJson.IsVersion = false;
+                tourJson.InternalVersionComment = $"Tour Restored to {tourJson.DateVersioned:yyyy-MM-dd HH:mm:ss}";
+            }
             tourJson.GUID = tourid;
-            // ??? Is it only for restoring a version?
-            tourJson.InternalVersionComment = $"Tour Restored to {tourJson.DateVersioned.ToString("yyyy-MM-dd HH:mm:ss")}";
             TourStorage_StoreTour(tourJson);
 
             return tourJson.GUID;

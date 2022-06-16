@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using TCalc.Domain;
 using TCalc.Logic;
+using TCalc.Storage;
 using TCalcCore.Auth;
 using TCBlazor.Client.Storage;
 
@@ -12,6 +13,7 @@ namespace TCBlazor.Client.Shared
     {
         private readonly TourcalcLocalStorage ts;
         private readonly EnrichedHttpClient http;
+        private readonly TourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
 
         public TCDataService(TourcalcLocalStorage ts, EnrichedHttpClient http)
         {
@@ -88,11 +90,17 @@ namespace TCBlazor.Client.Shared
             if (tour == null) return;
             await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Delete, null);
         }
-        public async Task EditTour(Tour? tour, string? operation)
+        public async Task EditTourProps(Tour? tour, string? operation)
         {
             if (tour == null) return;
             if (operation == null) return;
             await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/{operation}", await ts.GetToken(), HttpMethod.Patch, tour);
+        }
+        private async Task UpdateTour(string? tourId, Tour? tour)
+        {
+            if (tour == null) return;
+            if (tourId == null) return;
+            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Patch, tour);
         }
         public async Task AddTour(Tour? tour, string? code)
         {
@@ -121,8 +129,15 @@ namespace TCBlazor.Client.Shared
         {
             if (tourId == null) return;
             if (p == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Patch, p);
+            //await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Patch, p);
+            Tour? tour = await LoadTourBare(tourId);
+            if (tour == null) return;
+            tour = tourStorageProcessor.UpdatePerson(tour, p, p.GUID);
+            await UpdateTour(tour.GUID, tour);
         }
+
+        
+
         public async Task AddPerson(string? tourId, Person? p)
         {
             if (tourId == null) return;
