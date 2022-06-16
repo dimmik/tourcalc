@@ -64,6 +64,7 @@ namespace TCalc.Storage
             {
                 t.Spendings.Remove(s);
             }
+            // keep some planned spendings, so that is someone is adding from middle of the list - not huge recalc
             var plannedAndTheSame = t.Spendings.Where(ss => ss.Planned && ss.IsAlmostTheSame(s)).ToList();
             if (plannedAndTheSame.Any())
             {

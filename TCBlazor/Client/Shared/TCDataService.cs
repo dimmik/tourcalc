@@ -20,10 +20,10 @@ namespace TCBlazor.Client.Shared
         }
 
 
-        public async Task<AuthData?> GetAuthData(bool getFromServer = false)
+        public async Task<AuthData?> GetAuthData(bool forceGetFromServer = false)
         {
             var token = await ts.GetToken();
-            if (getFromServer || !token.Contains('.'))
+            if (forceGetFromServer || !token.Contains('.'))
             {
                 var ad = await http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
                 return ad;
@@ -38,6 +38,7 @@ namespace TCBlazor.Client.Shared
                     var authDataContainer = JsonSerializer.Deserialize<AuthDataContainer>(plain);
                     string adStr = (authDataContainer?.AuthDataJson ?? "").Trim();
                     var ad = JsonSerializer.Deserialize<AuthData>(adStr);
+                    if (ad == null) throw new Exception("cannot get auth info from token");
                     return ad;
                 } catch
                 {
@@ -49,7 +50,7 @@ namespace TCBlazor.Client.Shared
 
         public async Task GetAndStoreToken(string? scope, string? code)
         {
-            var url = $"/api/Auth/token/{scope ?? "code"}/{code ?? "trashNoTours"}";
+            var url = $"/api/Auth/token/{scope ?? "code"}/{code ?? CodeThatForSureIsNotUsed}";
             var token = await http.GetStringAsync(url);
             await ts.SetToken(token);
         }
@@ -57,9 +58,10 @@ namespace TCBlazor.Client.Shared
         {
             await ts.SetToken("");
         }
+        private static readonly string CodeThatForSureIsNotUsed = "__trashNoTours__";
         public async Task GetAndStoreTokenForCodeMd5(string? code)
         {
-            var url = $"/api/Auth/token/code/{code ?? "trashNoTours"}/md5";
+            var url = $"/api/Auth/token/code/{code ?? CodeThatForSureIsNotUsed}/md5";
             var token = await http.GetStringAsync(url);
             await ts.SetToken(token);
         }
@@ -95,7 +97,7 @@ namespace TCBlazor.Client.Shared
         public async Task AddTour(Tour? tour, string? code)
         {
             if (tour == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? "trashNoTours"}", await ts.GetToken(), HttpMethod.Post, tour);
+            await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? CodeThatForSureIsNotUsed}", await ts.GetToken(), HttpMethod.Post, tour);
         }
         public async Task<TourList?> GetTourList()
         {
