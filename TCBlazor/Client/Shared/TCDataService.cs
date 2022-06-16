@@ -1,4 +1,5 @@
 ﻿using TCalc.Domain;
+using TCalc.Logic;
 using TCalcCore.Auth;
 using TCBlazor.Client.Storage;
 
@@ -43,9 +44,12 @@ namespace TCBlazor.Client.Shared
         public async Task<Tour?> LoadTour(string? id)
         {
             if (id == null) return default;
-            var token = await ts.GetToken();
-            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}/suggested", token);
-            return t;
+
+            var tour = await LoadTourBare(id);
+            var calculator = new TourCalculator(tour);
+            var calculated = calculator.SuggestFinalPayments();
+            return calculated;
+            //return tour;
         }
         public async Task<Tour?> LoadTourBare(string? id)
         {
