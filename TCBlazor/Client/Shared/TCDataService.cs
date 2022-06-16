@@ -1,4 +1,7 @@
-﻿using TCalc.Domain;
+﻿using Microsoft.AspNetCore.WebUtilities;
+using System.Text;
+using System.Text.Json;
+using TCalc.Domain;
 using TCalc.Logic;
 using TCalcCore.Auth;
 using TCBlazor.Client.Storage;
@@ -17,11 +20,31 @@ namespace TCBlazor.Client.Shared
         }
 
 
-        public async Task<AuthData?> GetAuthData()
+        public async Task<AuthData?> GetAuthData(bool getFromServer = false)
         {
             var token = await ts.GetToken();
-            var ad = await http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
-            return ad;
+            if (getFromServer || !token.Contains('.'))
+            {
+                var ad = await http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
+                return ad;
+            } 
+            else
+            {
+                try
+                {
+                    var parts = token.Split('.');
+                    var meaningful = parts[1];
+                    var plain = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(meaningful));
+                    var authDataContainer = JsonSerializer.Deserialize<AuthDataContainer>(plain);
+                    string adStr = (authDataContainer?.AuthDataJson ?? "").Trim();
+                    var ad = JsonSerializer.Deserialize<AuthData>(adStr);
+                    return ad;
+                } catch
+                {
+                    var ad = await http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
+                    return ad;
+                }
+            }
         }
 
         public async Task GetAndStoreToken(string? scope, string? code)
@@ -127,5 +150,9 @@ namespace TCBlazor.Client.Shared
 
         #endregion
 
+    }
+    class AuthDataContainer
+    {
+        public string AuthDataJson { get; set; } = "";
     }
 }

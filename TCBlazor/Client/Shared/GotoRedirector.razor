@@ -24,7 +24,7 @@
         if (tt == null)
         {
             await dataSvc.GetAndStoreTokenForCodeMd5(transientAccessCode);
-            await auth.Init();
+            await auth.PickUpAuthInfo();
         }
         NavManager.NavigateTo($"/tour/{tid}");
     }

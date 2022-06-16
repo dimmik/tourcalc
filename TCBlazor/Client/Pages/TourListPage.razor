@@ -27,7 +27,7 @@ else
         {
             <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)><b>X</b></span>
             <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
-                @if (auth.Auth.IsMaster)
+                @if (auth.Auth?.IsMaster ?? false)
                     {
                         <span>c: <input type="text" placeholder="code" size="3" @bind-value=@NewTourCode/></span>
                     }
@@ -60,7 +60,7 @@ else
             <div style="font-size: xx-small">[@tour.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
             <span  style="cursor:pointer; border:solid 1px black" @onclick=@(() => tour.Metadata = (tour.Metadata == "Editing" ? "--" : "Editing"))>edit</span>
                 &nbsp;&nbsp; <a href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>link</a> | &nbsp;&nbsp;
-                @if (auth.Auth.IsMaster)
+                @if (auth.Auth?.IsMaster ?? false)
                     {
                         <span>c: <input type="text" placeholder="code" size="3" @bind-value=@NewTourCode/></span>
                     }

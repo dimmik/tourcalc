@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using Newtonsoft.Json;
 using TCalc.Domain;
+using TCalcCore.Auth;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 
@@ -14,6 +15,11 @@ namespace ConsoleTest
     class Program
     {
         static void Main(string[] args)
+        {
+            var str = @"{""Type"":""AccessCode"",""IsMaster"":false,""AccessCodeMD5"":""1C0369EA42B2F746D3DF1E66BCB2DE46"",""TourIds"":[]}";
+            AuthData ad = System.Text.Json.JsonSerializer.Deserialize<AuthData>(str);
+        }
+        static void Maindddd(string[] args)
         {
             
             botClient = new TelegramBotClient("837732971:AAGSZXh9WcoyvmuuI8b2DzsHsxMV_1dlZBk");

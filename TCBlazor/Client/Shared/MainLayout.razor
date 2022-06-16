@@ -85,7 +85,7 @@
     {
         if (auth.Auth == null)
         {
-            await auth.Init();
+            await auth.PickUpAuthInfo();
         }
     }
     private async Task LogOut()
