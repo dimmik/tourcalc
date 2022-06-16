@@ -24,6 +24,8 @@ namespace TourCalcWebApp.Controllers
         private readonly ITcConfiguration Configuration;
         private readonly ITourStorage tourStorage;
 
+        private readonly TourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
+
         public TourController(ITcConfiguration config, ITourStorage storage)
         {
             Configuration = config;
@@ -187,6 +189,7 @@ namespace TourCalcWebApp.Controllers
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
             tourJson.GUID = tourid;
+            // ??? Is it only for restoring a version?
             tourJson.InternalVersionComment = $"Tour Restored to {tourJson.DateVersioned.ToString("yyyy-MM-dd HH:mm:ss")}";
             TourStorage_StoreTour(tourJson);
 
@@ -303,39 +306,6 @@ namespace TourCalcWebApp.Controllers
         #endregion
         #region Persons
         /// <summary>
-        /// All persons in given tour
-        /// </summary>
-        /// <param name="tourid">tour id</param>
-        /// <returns>list of persons</returns>
-        [HttpGet("{tourid}/person")]
-        public IEnumerable<Person> GetAllTourPersons(string tourid)
-        {
-            var tour = TourStorageUtilities_LoadFromStoragebyId(tourid);
-
-            if (tour != null) return tour.Persons.OrderBy(p => p.DateCreated);
-            else throw HttpException.NotFound($"no tour with id {tourid}");
-
-        }
-        /// <summary>
-        /// Given person in given tour
-        /// </summary>
-        /// <param name="tourid">tour id</param>
-        /// <param name="personguid">person GUID</param>
-        /// <returns>the person</returns>
-        [HttpGet("{tourid}/person/{personguid}")]
-        public Person GetTourPerson(string tourid, string personguid)
-        {
-            var tour = TourStorageUtilities_LoadFromStoragebyId(tourid);
-
-            if (tour != null)
-            {
-                var p = tour.Persons.Find(x => x.GUID == personguid);
-                if (p != null) return p;
-                else throw HttpException.NotFound($"no person with id {personguid}");
-            }
-            else throw HttpException.NotFound($"no person with id {tourid}");
-        }
-        /// <summary>
         /// Add a person to tour
         /// </summary>
         /// <param name="tourid">tour id</param>
@@ -348,9 +318,7 @@ namespace TourCalcWebApp.Controllers
 
             if (tour != null)
             {
-                p.GUID = IdHelper.NewId();
-                tour.Persons.Add(p);
-                tour.Spendings.RemoveAll(s => s.Planned);
+                tour = tourStorageProcessor.AddPerson(tour, p);
                 TourStorage_StoreTour(tour);
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
@@ -367,18 +335,11 @@ namespace TourCalcWebApp.Controllers
         public string UpdateTourPerson(string tourid, string personguid, Person p)
         {
             var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
-            p.GUID = personguid;
 
             if (t != null)
             {
-                var idx = t.Persons.FindIndex(x => x.GUID == personguid);
-                if (idx < 0) throw HttpException.NotFound($"No person with id {personguid} in tour {tourid}");
-                p.DateCreated = t.Persons[idx].DateCreated; // preserve
-
-                t.Persons[idx] = p;
-
-                t.Spendings.RemoveAll(s => s.Planned);
-
+                t = tourStorageProcessor.UpdatePerson(t, p, personguid);
+                if (t == null) throw HttpException.NotFound($"No person with id {personguid} in tour {tourid}");
                 TourStorage_StoreTour(t);
             }
             else throw HttpException.NotFound($"cannot update: no tour with id {tourid}");
@@ -397,41 +358,15 @@ namespace TourCalcWebApp.Controllers
 
             if (t != null)
             {
-                var removedPerson = t.Persons.SingleOrDefault(x => x.GUID == personguid);
-                if (removedPerson != null)
-                {
-                    t.Persons.Remove(removedPerson);
-                    t.Persons.Where(p => p.ParentId == removedPerson.GUID).ToList().ForEach(p => p.ParentId = null);
-                    t.Spendings.RemoveAll(s => s.FromGuid == removedPerson.GUID);
-                    t.Spendings.RemoveAll(s => s.Planned);
-                    t.Spendings.ForEach(s => s.ToGuid.RemoveAll(g => g == removedPerson.GUID));
-
-                    // We might have removed the single toguid from the spending. Let's remove such spendings that are not toall at the same time
-                    //(or maybe better to make the to all?..)
-                    t.Spendings.RemoveAll(s => (!s.ToAll && !s.ToGuid.Any()));
-
-                    TourStorage_StoreTour(t);
-                    return removedPerson.GUID;
-                }
-                else throw HttpException.NotFound($"cannot delete: no person with id {personguid}");
+                t = tourStorageProcessor.DeletePerson(t, personguid);
+                if (t == null) throw HttpException.NotFound($"cannot delete: no person with id {personguid}");
+                TourStorage_StoreTour(t);
+                return personguid;
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
         }
         #endregion
         #region Spendings
-        /// <summary>
-        /// All tour spendings
-        /// </summary>
-        /// <param name="tourid">id of tour</param>
-        /// <returns>spendings</returns>
-        [HttpGet("{tourid}/spending")]
-        public IEnumerable<Spending> GetAllTourSpendings(string tourid)
-        {
-            var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
-
-            if (t != null) return t.Spendings.OrderBy(sp => sp.DateCreated);
-            else throw HttpException.NotFound($"no tour with id {tourid}");
-        }
         /// <summary>
         /// Update given spending in given tour
         /// </summary>
@@ -444,32 +379,15 @@ namespace TourCalcWebApp.Controllers
         {
             var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
 
-            sp.GUID = spendingid;
 
             if (t != null)
             {
-                var idx = t.Spendings.FindIndex(x => x.GUID == spendingid);
-                if (idx < 0) throw HttpException.NotFound($"No spending with id {spendingid} in tour {tourid}");
-                sp.DateCreated = t.Spendings[idx].DateCreated; // preserve
-                t.Spendings[idx] = sp;
+                t = tourStorageProcessor.UpdateSpending(t, sp, spendingid);
+                if (t == null) throw HttpException.NotFound($"No spending with id {spendingid} in tour {tourid}");
                 TourStorage_StoreTour(t);
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
             return sp.GUID;
-        }
-        /// <summary>
-        /// Given spending in given tour
-        /// </summary>
-        /// <param name="tourid">tour id</param>
-        /// <param name="spendingid">spending id</param>
-        /// <returns>the spending</returns>
-        [HttpGet("{tourid}/spending/{spendingid}")]
-        public Spending GetTourSpending(string tourid, string spendingid)
-        {
-            var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
-
-            if (t != null) return t.Spendings.Find(x => x.GUID == spendingid);
-            else throw HttpException.NotFound($"no tour with id {tourid}");
         }
         /// <summary>
         /// Add spending to the tour
@@ -483,19 +401,7 @@ namespace TourCalcWebApp.Controllers
             var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
             if (t != null)
             {
-                if (t.Spendings.Contains(s))
-                {
-                    t.Spendings.Remove(s);
-                }
-                var plannedAndTheSame = t.Spendings.Where(ss => ss.Planned && ss.IsAlmostTheSame(s)).ToList();
-                if (plannedAndTheSame.Any())
-                {
-                    plannedAndTheSame.ForEach(pp => t.Spendings.Remove(pp));
-                }
-                s.GUID = IdHelper.NewId();
-                s.DateCreated = DateTime.UtcNow;
-                s.Planned = false;
-                t.Spendings.Add(s);
+                t = tourStorageProcessor.AddSpending(t, s);
                 TourStorage_StoreTour(t);
             }
             else throw HttpException.NotFound($"no tour with id {tourid}");
@@ -520,8 +426,8 @@ namespace TourCalcWebApp.Controllers
 
             if (t != null)
             {
-                var removedSpending = t.Spendings.SingleOrDefault(x => x.GUID == spendingid);
-                if (removedSpending != null) t.Spendings.Remove(removedSpending);
+                t = tourStorageProcessor.DeleteSpending(t, spendingid);
+                if (t == null) throw HttpException.NotFound($"Cannot delete: no spending with id {spendingid} in tour {tourid}");
                 TourStorage_StoreTour(t);
                 return spendingid;
             }
