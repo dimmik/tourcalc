@@ -25,10 +25,10 @@ namespace TCBlazor.Client.Shared
         public async Task<AuthData?> GetAuthData(bool forceGetFromServer = false)
         {
             var token = await ts.GetToken();
+            AuthData? ad;
             if (forceGetFromServer || !token.Contains('.'))
             {
-                var ad = await http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
-                return ad;
+                ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token);
             } 
             else
             {
@@ -39,15 +39,14 @@ namespace TCBlazor.Client.Shared
                     var plain = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(meaningful));
                     var authDataContainer = JsonSerializer.Deserialize<AuthDataContainer>(plain);
                     string adStr = (authDataContainer?.AuthDataJson ?? "").Trim();
-                    var ad = JsonSerializer.Deserialize<AuthData>(adStr);
+                    ad = JsonSerializer.Deserialize<AuthData>(adStr);
                     if (ad == null) throw new Exception("cannot get auth info from token");
-                    return ad;
                 } catch
                 {
-                    var ad = await http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
-                    return ad;
+                    ad = await http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
                 }
             }
+            return ad;
         }
 
         public async Task GetAndStoreToken(string? scope, string? code)

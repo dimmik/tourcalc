@@ -47,7 +47,8 @@ namespace TCBlazor.Client.Shared
 
         public async Task<T?> CallWithAuthToken<T>(string url, string token)
         {
-            return await CallWithAuthToken<T>(url, token, HttpMethod.Get, null);
+            T? r = await CallWithAuthToken<T>(url, token, HttpMethod.Get, null);
+            return r;
         }
 
         public async Task<T?> CallWithAuthToken<T>(string url, string token, HttpMethod method, object? body)
