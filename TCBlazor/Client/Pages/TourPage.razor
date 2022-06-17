@@ -14,7 +14,7 @@ else
 {
     <PageTitle>@tour.Name</PageTitle>
 <h3>@tour.Name 
-    <span style="cursor:pointer; color: blue; border: solid 1px black" @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") stats</span>
+    <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") stats</Button>
     </h3>     
 @if (ShowStatistics)
 {

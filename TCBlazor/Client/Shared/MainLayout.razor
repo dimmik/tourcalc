@@ -9,6 +9,7 @@
 @inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
 @inject TCDataService dataSvc
 @inject AuthSvc auth
+@inject TCGlobal tcGlobal
 
 
 <div class="page">
@@ -46,20 +47,20 @@
             }
             else
             {
-                <div class="sidebar">
-                    
-                    <NavMenu>
-                        <LogoutButton>
-                            <span style="cursor:pointer;" @onclick=@(() => LogOut())>Log Out @($"{(auth.Auth.IsMaster ? "Admin" : "User")}")</span>
-                        </LogoutButton>
-                    </NavMenu>
-                </div>
-
-                <main>
-                    <article class="content px-4">
-                        @Body
-                    </article>
-                </main>
+                <Layout>
+                    <Header Style="background-color: darkblue; color: white; padding: 4px">
+                        <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="">
+                            <span class="oi oi-home" aria-hidden="true"></span>
+                        </a>&nbsp;&nbsp;
+                        <span style="color:white; font-size: clamp(10px, 5vw, 18px);">
+                            @(tcGlobal.Title.Length > 2000 ? $"{tcGlobal.Title.Substring(0, 17)}..." : tcGlobal.Title)
+                        </span>&nbsp;&nbsp;
+                        <span style="cursor:pointer; font-size: clamp(10px, 5vw, 18px); border:1px solid white" @onclick=@(() => LogOut())>Log Out@($"{(auth.Auth.IsMaster ? " Admin" : "")}")</span>
+                        &nbsp;&nbsp;
+                        <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="/settings">⚙</a>
+                    </Header>
+                    <Content Style="padding: 4px">@Body</Content>
+                </Layout>
             }
 
         } 
@@ -85,6 +86,11 @@
     protected override async Task OnInitializedAsync()
     {
         await auth.PickUpAuthInfo();
+        tcGlobal.OnChange += OnTitleChange;
+    }
+    private void OnTitleChange()
+    {
+        StateHasChanged();
     }
     private async Task LogOut()
     {
