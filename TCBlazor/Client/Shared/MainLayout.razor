@@ -48,16 +48,20 @@
             else
             {
                 <Layout>
-                    <Header Style="background-color: darkblue; color: white; padding: 4px">
-                        <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="">
-                            <span class="oi oi-home" aria-hidden="true"></span>
-                        </a>&nbsp;&nbsp;
-                        <span style="color:white; font-size: clamp(10px, 5vw, 18px);">
-                            @(tcGlobal.Title.Length > 2000 ? $"{tcGlobal.Title.Substring(0, 17)}..." : tcGlobal.Title)
-                        </span>&nbsp;&nbsp;
-                        <span style="cursor:pointer; font-size: clamp(10px, 5vw, 18px); border:1px solid white" @onclick=@(() => LogOut())>Log Out@($"{(auth.Auth.IsMaster ? " Admin" : "")}")</span>
-                        &nbsp;&nbsp;
-                        <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="/settings">⚙</a>
+                    <Header Style="background-color: darkblue; color: white; padding: 4px; display: table;">
+                        <div style="display: table-cell; align-content: flex-start; width: 50%; text-align: start;">
+                            <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="">
+                                <span class="oi oi-home" aria-hidden="true"></span>
+                            </a>&nbsp;&nbsp;
+                            <span style="color:white; font-size: clamp(10px, 5vw, 18px);">
+                                @(tcGlobal.Title.Length > 2000 ? $"{tcGlobal.Title.Substring(0, 17)}..." : tcGlobal.Title)
+                            </span>&nbsp;&nbsp;
+                        </div>
+                        <div style="display: table-cell; align-content: flex-end; width: 50%; text-align: end;">
+                            <span style="cursor:pointer; font-size: clamp(10px, 5vw, 18px); border:1px solid white" @onclick=@(() => LogOut())>Log Out@($"{(auth.Auth.IsMaster ? " Admin" : "")}")</span>
+                            &nbsp;&nbsp;
+                            <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="/settings">⚙</a>
+                        </div>
                     </Header>
                     <Content Style="padding: 4px">@Body</Content>
                 </Layout>
