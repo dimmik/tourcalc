@@ -25,7 +25,7 @@ else
             <th>
                 <a href=@GetHref("persons")>Persons</a>
                 <a href=@GetHref("spendings")>Spendings</a>
-                <Button Type="primary" @onclick=@(() => NavManager.NavigateTo($"/tour/{tour.Id}/spending/add/"))>Add Spending</Button>
+                <Button Type="primary" Size="small" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
             </th>
         </TableHeader>
         <RowTemplate>

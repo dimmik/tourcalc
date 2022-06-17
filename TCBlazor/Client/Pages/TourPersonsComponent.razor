@@ -56,8 +56,7 @@
             if (!AddingPerson)
             {
                 <td colspan="5"><span style="cursor:pointer" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</span>
-                    <Button Type="primary" @onclick=@(() => NavManager.NavigateTo($"/tour/{Tour?.Id}/spending/add/"))>Add Spending</Button>
-                    </td>
+                </td>
             } else
             {
                 @AddEditCodeBlock(person, () => AddingPerson = !AddingPerson, OnPersonAdd)

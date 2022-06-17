@@ -25,7 +25,6 @@
 >
     <TableHeader>
         <th>
-            <Button Type="primary" @onclick=@(() => NavManager.NavigateTo($"/tour/{Tour?.Id}/spending/add/"))>Add Spending</Button>
             <span style="cursor:pointer;@(sortingField == SortingField.Descr ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Descr))>Spending Description &nbsp;</span>
                         
             <span style="cursor:pointer;@(sortingField == SortingField.Date ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Date))>Dt&nbsp;</span>
