@@ -2,6 +2,7 @@
 
 @inject TourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
+@inject NavigationManager NavManager
 
 
 <TableTemplate 
@@ -35,7 +36,8 @@
                     <b>X</b>
                 </span>
                 <span>&nbsp; @idx. <b>@((MarkupString)person.Name.AsBreakable())</b></span>
-                &nbsp;<span style="font-size: x-small;cursor:pointer; color: blue; border: solid 1px black" @onclick=@(() => person.Metadata = "Editing")>edit</span>&nbsp;|&nbsp;<NavLink href=@($"tour/{Tour?.GUID ?? "000"}/spending/add/{person.GUID}")>spend</NavLink> 
+                &nbsp;<span style="font-size: x-small;cursor:pointer; color: blue; border: solid 1px black" @onclick=@(() => person.Metadata = "Editing")>edit</span>
+                &nbsp;|&nbsp;<NavLink href=@($"tour/{Tour?.GUID ?? "000"}/spending/add/{person.GUID}")>spend</NavLink> 
                 @if (!string.IsNullOrWhiteSpace(person.ParentId))
                 {
                     <div>→ @(Tour?.Persons?.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</div>
@@ -53,7 +55,9 @@
         {
             if (!AddingPerson)
             {
-                <td colspan="5"><span style="cursor:pointer" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</span></td>
+                <td colspan="5"><span style="cursor:pointer" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</span>
+                    <Button Type="primary" @onclick=@(() => NavManager.NavigateTo($"/tour/{Tour?.Id}/spending/add/"))>Add Spending</Button>
+                    </td>
             } else
             {
                 @AddEditCodeBlock(person, () => AddingPerson = !AddingPerson, OnPersonAdd)

@@ -128,11 +128,11 @@ namespace TCBlazor.Client.Shared
         {
             if (tourId == null) return;
             if (p == null) return;
-            //await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Patch, p);
-            Tour? tour = await LoadTourBare(tourId);
+            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Patch, p);
+            /*Tour? tour = await LoadTourBare(tourId);
             if (tour == null) return;
             tour = tourStorageProcessor.UpdatePerson(tour, p, p.GUID);
-            await UpdateTour(tour.GUID, tour);
+            await UpdateTour(tour.GUID, tour);*/ // Later
         }
 
         

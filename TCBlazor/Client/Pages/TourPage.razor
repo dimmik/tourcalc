@@ -4,6 +4,7 @@
 @inject IJSRuntime JsRuntime
 @inject TCGlobal tcGlobal
 @inject TCDataService dataSvc
+@inject NavigationManager NavManager
 
 @if (tour == null)
 {
@@ -24,6 +25,7 @@ else
             <th>
                 <a href=@GetHref("persons")>Persons</a>
                 <a href=@GetHref("spendings")>Spendings</a>
+                <Button Type="primary" @onclick=@(() => NavManager.NavigateTo($"/tour/{tour.Id}/spending/add/"))>Add Spending</Button>
             </th>
         </TableHeader>
         <RowTemplate>
