@@ -4,6 +4,7 @@ using System.Text;
 using TCalc.Domain;
 using System.Linq;
 using System.Data.SqlTypes;
+using Algorithms.MD5;
 
 namespace TCalc.Logic
 {
@@ -290,20 +291,12 @@ namespace TCalc.Logic
         public static string CreateMD5(this string input)
         {
             if (input == null) input = "";
-            // Use input string to calculate MD5 hash
-            using (System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create())
+            if (input == null) input = "";
+            var md5 = new MD5
             {
-                byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(input);
-                byte[] hashBytes = md5.ComputeHash(inputBytes);
-
-                // Convert the byte array to hexadecimal string
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < hashBytes.Length; i++)
-                {
-                    sb.Append(hashBytes[i].ToString("X2"));
-                }
-                return sb.ToString();
-            }
+                Value = input
+            };
+            return md5.FingerPrint;
         }
     }
    

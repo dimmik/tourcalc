@@ -15,16 +15,16 @@ namespace TCBlazor.Client.Shared
         public async Task LogIn(string? scope, string? code)
         {
             await dataSvc.GetAndStoreToken(scope, code);
-            await Init();
+            await PickUpAuthInfo();
         }
-        public async Task Init()
+        public async Task PickUpAuthInfo()
         {
             Auth = await dataSvc.GetAuthData();
         }
         public async Task LogOut()
         {
             await dataSvc.ClearToken();
-            await Init();
+            await PickUpAuthInfo();
         }
     }
 }

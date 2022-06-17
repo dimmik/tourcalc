@@ -27,7 +27,7 @@ else
         {
             <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)><b>X</b></span>
             <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
-                @if (auth.Auth.IsMaster)
+                @if (auth.Auth?.IsMaster ?? false)
                     {
                         <span>c: <input type="text" placeholder="code" size="3" @bind-value=@NewTourCode/></span>
                     }
@@ -60,7 +60,7 @@ else
             <div style="font-size: xx-small">[@tour.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
             <span  style="cursor:pointer; border:solid 1px black" @onclick=@(() => tour.Metadata = (tour.Metadata == "Editing" ? "--" : "Editing"))>edit</span>
                 &nbsp;&nbsp; <a href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>link</a> | &nbsp;&nbsp;
-                @if (auth.Auth.IsMaster)
+                @if (auth.Auth?.IsMaster ?? false)
                     {
                         <span>c: <input type="text" placeholder="code" size="3" @bind-value=@NewTourCode/></span>
                     }
@@ -125,20 +125,20 @@ else
 
     private async Task ChangeTourName(Tour tour)
     {
-        await dataSvc.EditTour(tour, "changename");
+        await dataSvc.EditTourProps(tour, "changename");
         await LoadTours();        
     }
 
     private async Task OnFinChange(Tour tour)
     {
         tour.IsFinalizing = !tour.IsFinalizing;
-        await dataSvc.EditTour(tour, "finalizing");
+        await dataSvc.EditTourProps(tour, "finalizing");
         await LoadTours();
     }
     private async Task OnArchChange(Tour tour)
     {
         tour.IsArchived = !tour.IsArchived;
-        await dataSvc.EditTour(tour, "archive");
+        await dataSvc.EditTourProps(tour, "archive");
         await LoadTours();
     }
     async Task OnDelete(Tour tour)

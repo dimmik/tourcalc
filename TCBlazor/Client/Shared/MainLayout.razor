@@ -14,16 +14,17 @@
 <div class="page">
 @if (auth.Auth == null)
 { 
-        <AntDesign.Modal
-                Visible=@true
-                Title="Check Auth"
-                Footer=@dummyFooter
-                >
+//        <AntDesign.Modal
+//                Visible=@true
+//                Title="Check Auth"
+//                Footer=@dummyFooter
+//                >
                 <div style="text-align:center">Checking auth</div>
-                </AntDesign.Modal>
-}
+//        </AntDesign.Modal>
+    }
     else
     {
+
         if (!LoggingIn)
         {
             @if (auth.Auth.Type == "None")
@@ -83,10 +84,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (auth.Auth == null)
-        {
-            await auth.Init();
-        }
+        await auth.PickUpAuthInfo();
     }
     private async Task LogOut()
     {
