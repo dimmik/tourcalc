@@ -53,38 +53,46 @@ namespace TCBlazor.Client.Shared
 
         public async Task<T?> CallWithAuthToken<T>(string url, string token, HttpMethod method, object? body)
         {
-            //_messageService.Info(getMessage("request to server"));
-            Stopwatch sw = Stopwatch.StartNew();
-            var request = new HttpRequestMessage(method, url);
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", token);
-            if (body != null)
+            try
             {
-                request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-            }
-            var resp = await Http.SendAsync(request);
-            T? t = default;
-            if (resp.IsSuccessStatusCode)
-            {
-                try
+                Stopwatch sw = Stopwatch.StartNew();
+                var request = new HttpRequestMessage(method, url);
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", token);
+                if (body != null)
                 {
-                    t = await resp.Content.ReadFromJsonAsync<T>();
+                    request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
                 }
-                catch
+                var resp = await Http.SendAsync(request);
+                T? t = default;
+                if (resp.IsSuccessStatusCode)
                 {
-                    // no luck
+                    try
+                    {
+                        t = await resp.Content.ReadFromJsonAsync<T>();
+                    }
+                    catch
+                    {
+                        // no luck
+                    }
                 }
-            }
-            else
-            {
-                var m = await resp.Content.ReadAsStringAsync();
+                else
+                {
+                    var m = await resp.Content.ReadAsStringAsync();
 #pragma warning disable CS4014 // (show message. will run somewhere there) Because this call is not awaited, execution of the current method continues before the call is completed
-                _messageService.Error(getMessage($"{(int)resp.StatusCode} {resp.StatusCode}: {m}"));
+                    _messageService.Error(getMessage($"{(int)resp.StatusCode} {resp.StatusCode}: {m}"));
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                }
+                //_messageService.Destroy();
+                sw.Stop();
+                Console.WriteLine($"{method} to {url} finished in {sw.Elapsed}");
+                return t;
+            } catch (Exception e)
+            {
+#pragma warning disable CS4014 // (show message. will run somewhere there) Because this call is not awaited, execution of the current method continues before the call is completed
+                _messageService.Error(getMessage($"Error: {e.Message}"));
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                return default(T);
             }
-            //_messageService.Destroy();
-            sw.Stop();
-            Console.WriteLine($"{method} to {url} finished in {sw.Elapsed}");
-            return t;
         }
     }
 }
