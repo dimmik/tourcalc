@@ -35,13 +35,7 @@ else
         } else if (mode == ComponentMode.AddPlanned)
         {
                 <b>Adding planned '@(TheSpending.Description)'</b>
-                <Button @onclick=@(() => {
-                    mode = ComponentMode.Add;
-                    InitNewSpending();
-                    StateHasChanged();
-                })
-                Type="@ButtonType.Primary"
-                >Add New</Button>            
+                           
         } else
         {
                 <b>Adding New Spending</b>
@@ -51,6 +45,7 @@ else
         TheSpending=@TheSpending
         OnSave=@(async (s) => await SaveSpending(s))
         OnFromChanged=@((g) => FromGuidChanged(g))
+        OnCancel="OnCancel"
         />
 </div>
 <TourSpendingsComponent 
@@ -74,6 +69,9 @@ else
                 : ComponentMode.Edit;
             SpendingId = s.GUID;
             LoadSpending();
+            if (TheSpending.Planned){
+                TheSpending.Type = "";
+            }
             StateHasChanged();
             await JsRuntime.InvokeVoidAsync("backToTop");
         }
@@ -101,37 +99,22 @@ else
 
     private async Task SaveSpending(Spending s)
     {
-        List<string> err = new List<string>();
-        if (s.AmountInCents == 0)
+        if (mode == ComponentMode.Add || mode == ComponentMode.AddPlanned)
         {
-            err.Add("Amount should not be 0");
+            await dataSvc.AddSpending(TourId, s);
         }
-        if (string.IsNullOrWhiteSpace(s.Description))
-        {
-            err.Add("Please Specify Description");
-        }
-        if (!s.ToAll && (s.ToGuid ?? new List<string>()).Count == 0)
-        {
-            err.Add("Spending should have recepients or be to all");
-        }
-        if (err.Count == 0)
-        {
-            if (mode == ComponentMode.Add || mode == ComponentMode.AddPlanned)
-            {
-                await dataSvc.AddSpending(TourId, s);
-            } else
-            {
-                await dataSvc.EditSpending(TourId, s);
-            }
-            await LoadTour();
-            InitNewSpending();
-            mode = ComponentMode.Add;
-            StateHasChanged();
-        } 
         else
         {
-            await JsRuntime.InvokeVoidAsync("alert", $"Errors: {string.Join("\n", err)}");
+            await dataSvc.EditSpending(TourId, s);
         }
+        await LoadTour();
+        OnCancel();
+    }
+    private void OnCancel()
+    {
+        InitNewSpending();
+        mode = ComponentMode.Add;
+        StateHasChanged();
     }
     IEnumerable<string> _selectedValuesTo = new List<string>();
 

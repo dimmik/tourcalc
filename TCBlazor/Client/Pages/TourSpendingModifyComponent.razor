@@ -1,4 +1,6 @@
-﻿<Form 
+﻿@inject IJSRuntime JsRuntime
+
+<Form 
         Model="TheSpending"
         Layout="@FormLayout.Horizontal"
         Size="@AntSizeLDSType.Small"
@@ -68,16 +70,11 @@
             </Select>
         </FormItem>
         <FormItem Style="margin-bottom: 1px">
-                <Button Type="@ButtonType.Primary" @onclick=@(async () => await SaveSpending())>
-                    @($"{(IsItANewSpending() ? "Add" : "Save")}")
-                    @if (ShowSaved)
-                    {
-                        <b>&nbsp;Saved</b>
-                    }
-                    @if (ShowInProgress)
-                    {
-                        <b>&nbsp;... Saving ...</b>
-                    }
+                <Button Type="@ButtonType.Primary" Loading=@ShowInProgress @onclick=@(async () => await SaveSpending())>
+                    @($"{(IsItANewSpending() ? "Submit" : "Submit")}")
+                </Button>
+                <Button Danger=@true @onclick=@(() => OnCancel())>
+                    Cancel
                 </Button>
 
         </FormItem>
@@ -92,6 +89,9 @@
 
     [Parameter]
     public Func<Spending, Task> OnSave { get; set; } = async (s) => { };
+
+    [Parameter]
+    public Action OnCancel { get; set; } = () => { };
 
 
     [Parameter]
@@ -125,16 +125,31 @@
     {
         OnFromChanged(v);
     }
-    bool ShowSaved = false;
     bool ShowInProgress = false;
     private async Task SaveSpending()
     {
-        ShowInProgress = true;
-        await OnSave(TheSpending);
-        ShowInProgress = false;
-        ShowSaved = true;
-        await Task.Delay(2350);
-        ShowSaved = false;
+        List<string> err = new List<string>();
+        if (TheSpending.AmountInCents == 0)
+        {
+            err.Add("Amount should not be 0");
+        }
+        if (string.IsNullOrWhiteSpace(TheSpending.Description))
+        {
+            err.Add("Please Specify Description");
+        }
+        if (!TheSpending.ToAll && (TheSpending.ToGuid ?? new List<string>()).Count == 0)
+        {
+            err.Add("Spending should have recepients or be to all");
+        }
+        if (err.Count == 0)
+        {
+            ShowInProgress = true;
+            await OnSave(TheSpending);
+            ShowInProgress = false;
+        } else
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Errors: {string.Join("\n", err)}");
+        }
     }
 
 
