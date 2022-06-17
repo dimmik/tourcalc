@@ -3,10 +3,13 @@
     <div class="container-fluid">
         <a class="navbar-brand" href="">
             <span class="oi oi-home" aria-hidden="true"></span>
-            @tcGlobal.Title</a>
+            </a>
+            <span style="color:white; cursor:pointer; font-size: clamp(10px, 5vw, 18px);"  @onclick="ToggleNavMenu">
+                @(tcGlobal.Title.Length > 20 ? $"{tcGlobal.Title.Substring(0, 17)}..." : tcGlobal.Title)
+            </span>
         @if (LogoutButton is not null)
         {
-            <span style="color:white;border:1px solid white">
+            <span style="color:white;border:1px solid white; font-size: clamp(10px, 5vw, 18px);">
             @LogoutButton
             </span>
         }
