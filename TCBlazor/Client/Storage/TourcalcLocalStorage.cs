@@ -15,7 +15,7 @@ namespace TCBlazor.Client.Storage
         public async Task<string> Get(string key)
         {
             var res = await JS.InvokeAsync<string>("localStorage.getItem", new object[] { key });
-            return res;
+            return res ?? "";
         }
         public async Task Set(string key, string val)
         {
@@ -44,8 +44,8 @@ namespace TCBlazor.Client.Storage
         }
         public async Task<UISettings> GetUISettings()
         {
-            var res = await JS.InvokeAsync<string>("localStorage.getItem", new object[] { UISettingsKey });
-            if (res == null)
+            var res = await Get(UISettingsKey);
+            if (string.IsNullOrWhiteSpace(res))
             {
                 var s = new UISettings();
                 await SetUISettings(s);
@@ -56,7 +56,7 @@ namespace TCBlazor.Client.Storage
         }
         public async Task SetUISettings(UISettings s)
         {
-            await JS.InvokeAsync<UISettings>("localStorage.setItem", new object[] { UISettingsKey, JsonSerializer.Serialize(s) });
+            await Set(UISettingsKey, JsonSerializer.Serialize(s));
         }
     }
 }
