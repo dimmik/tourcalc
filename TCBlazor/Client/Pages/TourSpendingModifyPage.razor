@@ -3,6 +3,8 @@
 
 @inject IJSRuntime JsRuntime
 @inject TCDataService dataSvc
+@inject TCGlobal tcGlobal
+
 
 <h3>Spending</h3>
 @if (tour == null || TheSpending == null)
@@ -11,7 +13,8 @@
 }
 else 
 {
-<!--
+    tcGlobal.Title = $"{tour.Name} (s)";
+    <!--
 - Form for adding spending with choosing from
 - list of spendings, filtered by person and sorted by date desc
 
