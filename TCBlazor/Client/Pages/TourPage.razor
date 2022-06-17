@@ -73,7 +73,9 @@ else
                                     bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Add planned '{s.Description}' : {s.AmountInCents}?");
                                     if (confirmed)
                                     {
-                                        await dataSvc.AddSpending(tour.Id, s);
+                                        var ss = s.SafeClone<Spending>();
+                                        ss.Type = "";
+                                        await dataSvc.AddSpending(tour.Id, ss);
                                         await LoadTour();
                                         StateHasChanged();
                                     }

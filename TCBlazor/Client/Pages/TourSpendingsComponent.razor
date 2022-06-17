@@ -71,7 +71,11 @@
             }
             
             @((MarkupString)spending.Description.AsBreakable())
-            <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] <b>@spending.Type</b>
+            <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
+                @if (!spending.Planned)
+                {
+                    <b>@spending.Type</b>
+                }
                 @if (EditActionTemplate != null)
                 {
                     <span>@EditActionTemplate(spending)</span>
