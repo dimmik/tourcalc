@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Net.Http.Headers;
 using TCalc.Storage;
 using TourCalcWebApp;
 using TourCalcWebApp.Auth;
@@ -87,7 +88,14 @@ namespace Company.TCBlazor
             app.MapRazorPages();
             app.MapControllers();
             app.Map("api/{**any}", HandleApiFallback);
-            app.MapFallbackToFile("{**any}", "index.html");
+            app.MapFallbackToFile("{**any}", "index.html", new StaticFileOptions
+            {
+                OnPrepareResponse = ctx =>
+                {
+                        ctx.Context.Response.Headers[HeaderNames.CacheControl] =
+                            "no-cache";
+                }
+            });
 
             app.Run();
         }
