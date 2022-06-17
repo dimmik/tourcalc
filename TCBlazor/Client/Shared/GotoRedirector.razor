@@ -4,6 +4,7 @@
 @using TCBlazor.Client.Storage
 
 @inject TCDataService dataSvc
+@inject TourcalcLocalStorage ts
 
 @inject NavigationManager NavManager
 
@@ -26,6 +27,8 @@
             await dataSvc.GetAndStoreTokenForCodeMd5(transientAccessCode);
             await auth.PickUpAuthInfo();
         }
-        NavManager.NavigateTo($"/tour/{tid}");
+        var settings = await ts.GetUISettings();
+        var url = settings.Default_Tour_Page_Is_Add_Spending ? $"/tour/{tid}/spending/add/": $"/tour/{tid}";
+        NavManager.NavigateTo(url);
     }
 }

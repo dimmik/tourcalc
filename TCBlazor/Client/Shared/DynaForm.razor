@@ -10,11 +10,14 @@
                             <td>
                                 <b>@(nn.name):</b>
                             </td>
-                            <td>
-                                <input disabled=@disabled type="number" size="3" value=@(nn.pi.GetValue(Item)) @onchange=@(
-                                    (e) => {
+                            <td align="center">
+                                <input disabled=@disabled type="number" size="3" value=@(nn.pi.GetValue(Item)) 
+                                @onchange=@(
+                                    async (e) => {
                                             nn.pi.SetValue(Item, int.Parse(e.Value?.ToString() ?? "0"));
-                                        })/>
+                                            disabled = true;
+                                            await OnSave(Item);
+                                            disabled = false;                                        })/>
                             </td>
                         </tr>
                     }
@@ -24,21 +27,36 @@
                             <td>
                                 <b>@(nn.name):</b>
                             </td>
+                            <td align="center">
+                                <input disabled=@disabled type="text" size="8" value=@(nn.pi.GetValue(Item)) 
+                                @onchange=@(async (e) => {
+                                        nn.pi.SetValue(Item, e.Value?.ToString() ?? "");
+                                        disabled = true;
+                                        await OnSave(Item);
+                                        disabled = false;
+                                })/>
+                            </td>
+                        </tr>
+                    }
+                    @if (nn.pi.PropertyType == typeof(bool))
+                    {
+                        <tr>
                             <td>
-                                <input disabled=@disabled type="text" size="8" value=@(nn.pi.GetValue(Item)) @onchange=@((e) => nn.pi.SetValue(Item, e.Value?.ToString() ?? ""))/>
+                                <b>@(nn.name):</b>
+                            </td>
+                            <td align="center">
+                                <input disabled=@disabled type="checkbox" size="8" 
+                                    checked=@((bool)nn.pi.GetValue(Item)) 
+                                    @onchange=@(async (e) => {
+                                        nn.pi.SetValue(Item, e.Value ?? false);
+                                        disabled = true;
+                                        await OnSave(Item);
+                                        disabled = false;
+                                    })/>
                             </td>
                         </tr>
                     }
         }
-        <tr>
-             <td colspan="2" style="text-align: right">
-                        <button disabled=@disabled @onclick=@(async () => {
-                            disabled = true;
-                            await OnSave(Item);
-                            disabled = false;
-                        })>Save</button>
-             </td>
-        </tr>
 </table>
 
 
