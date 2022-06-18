@@ -116,23 +116,25 @@ namespace TCBlazor.Client.Shared
             var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
             return tours;
         }
-
+        private async Task EditTourData(string tourId, Func<Tour, Tour> process)
+        {
+            Tour? tour = await LoadTourBare(tourId);
+            if (tour == null) return;
+            tour = process(tour);
+            await UpdateTour(tour.GUID, tour);
+        }
         #region Persons
         public async Task DeletePerson(string? tourId, Person? p)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+            await EditTourData(tourId, t => tourStorageProcessor.DeletePerson(t, p.GUID));
         }
         public async Task EditPerson(string? tourId, Person? p)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Patch, p);
-            /*Tour? tour = await LoadTourBare(tourId);
-            if (tour == null) return;
-            tour = tourStorageProcessor.UpdatePerson(tour, p, p.GUID);
-            await UpdateTour(tour.GUID, tour);*/ // Later
+            await EditTourData(tourId, (t) => tourStorageProcessor.UpdatePerson(t, p, p.GUID));
         }
 
         
@@ -141,7 +143,7 @@ namespace TCBlazor.Client.Shared
         {
             if (tourId == null) return;
             if (p == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/person", await ts.GetToken(), HttpMethod.Post, p);
+            await EditTourData(tourId, t => tourStorageProcessor.AddPerson(t, p));
         }
         #endregion
         #region Spendings
@@ -149,19 +151,19 @@ namespace TCBlazor.Client.Shared
         {
             if (tourId == null) return;
             if (s == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+            await EditTourData(tourId, t => tourStorageProcessor.DeleteSpending(t, s.GUID));
         }
         public async Task EditSpending(string? tourId, Spending? s)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Patch, s);
+            await EditTourData(tourId, t => tourStorageProcessor.UpdateSpending(t, s, s.GUID));
         }
         public async Task AddSpending(string? tourId, Spending? s)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/spending", await ts.GetToken(), HttpMethod.Post, s);
+            await EditTourData(tourId, t => tourStorageProcessor.AddSpending(t, s));
         }
 
         #endregion
