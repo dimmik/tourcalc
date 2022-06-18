@@ -72,6 +72,7 @@ namespace TCBlazor.Client.Shared
             if (id == null) return default;
 
             var tour = await LoadTourBare(id);
+            if (tour == null) return null;
             var calculator = new TourCalculator(tour);
             var calculated = calculator.SuggestFinalPayments();
             return calculated;
@@ -100,6 +101,10 @@ namespace TCBlazor.Client.Shared
             if (tour == null) return;
             if (tourId == null) return;
             var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Patch, tour);
+            if (string.IsNullOrWhiteSpace(tid))
+            {
+                throw new Exception("wrong tour id");
+            }
         }
         public async Task AddTour(Tour? tour, string? code)
         {
@@ -121,12 +126,16 @@ namespace TCBlazor.Client.Shared
         {
             if (!tourUpdateQueues.ContainsKey(tourId)) tourUpdateQueues[tourId] = new();
             tourUpdateQueues[tourId].Enqueue(process);
-            await TryApplyOnServer(tourId);
+            bool updatedOnServer = await TryApplyOnServer(tourId);
+            if (!updatedOnServer)
+            {
+                //http.ShowError($"keeping queue of size {tourUpdateQueues[tourId].Count}");
+            };
         }
         private async Task<bool> TryApplyOnServer(string tourId)
         {
             Tour? tour = await LoadTourBare(tourId);
-            if (tour == null) return true;
+            if (tour == null) return false;
             Queue<Func<Tour, Tour>> updateQueue = tourUpdateQueues[tourId];
             Queue<Func<Tour, Tour>> backupQueue = new();
             while (updateQueue.TryDequeue(out var f))
@@ -141,6 +150,8 @@ namespace TCBlazor.Client.Shared
             } catch
             {
                 tourUpdateQueues[tourId] = backupQueue;
+                // TODO debugging. remove
+                //http.ShowError($"keeping queue of size {backupQueue.Count}");
                 return false;
             }
         }

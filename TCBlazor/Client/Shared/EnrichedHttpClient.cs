@@ -1,9 +1,8 @@
 ﻿using AntDesign;
 using Microsoft.AspNetCore.Components;
+using Newtonsoft.Json;
 using System.Diagnostics;
-using System.Net.Http.Json;
 using System.Text;
-using System.Text.Json;
 
 namespace TCBlazor.Client.Shared
 {
@@ -31,9 +30,7 @@ namespace TCBlazor.Client.Shared
             }
             catch (Exception e)
             {
-#pragma warning disable CS4014 // (show message. will run somewhere there) Because this call is not awaited, execution of the current method continues before the call is completed
-                _messageService.Error(getMessage(e.Message));
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                ShowError(e.Message);
                 throw;
             }
         }
@@ -60,39 +57,50 @@ namespace TCBlazor.Client.Shared
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", token);
                 if (body != null)
                 {
-                    request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+                    request.Content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
                 }
                 var resp = await Http.SendAsync(request);
                 T? t = default;
                 if (resp.IsSuccessStatusCode)
                 {
+                    var s = await resp.Content.ReadAsStringAsync();
                     try
                     {
-                        t = await resp.Content.ReadFromJsonAsync<T>();
+                        t = JsonConvert.DeserializeObject<T>(s);
                     }
                     catch
                     {
-                        // no luck
+                        try
+                        {
+                            // (maybe s is just a string?)
+                            s = $"\"{s}\"";
+                            t = JsonConvert.DeserializeObject<T>(s);
+                        }
+                        catch
+                        {
+                            // no luck
+                        }
                     }
                 }
                 else
                 {
                     var m = await resp.Content.ReadAsStringAsync();
-#pragma warning disable CS4014 // (show message. will run somewhere there) Because this call is not awaited, execution of the current method continues before the call is completed
-                    _messageService.Error(getMessage($"{(int)resp.StatusCode} {resp.StatusCode}: {m}"));
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                    ShowError($"{(int)resp.StatusCode} {resp.StatusCode}: {m}");
                 }
                 //_messageService.Destroy();
                 sw.Stop();
                 Console.WriteLine($"{method} to {url} finished in {sw.Elapsed}");
                 return t;
-            } catch (Exception e)
+            } 
+            catch (Exception e)
             {
-#pragma warning disable CS4014 // (show message. will run somewhere there) Because this call is not awaited, execution of the current method continues before the call is completed
-                _messageService.Error(getMessage($"Error: {e.Message}"));
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                return default(T);
+                ShowError($"Error: {e.Message}");
+                return default;
             }
+        }
+        public void ShowError(string txt)
+        {
+            _messageService.Error(getMessage(txt));
         }
     }
 }
