@@ -121,8 +121,8 @@ namespace TCBlazor.Client.Shared
             Tour? tour = await LoadTourBare(tourId);
             if (tour == null) return;
             tour = process(tour);
-            // TODO debugging purposes only. comment out
-            await Task.Delay(new[] { 10, 5000 }[new Random(DateTime.Now.Millisecond).Next() % 2]);
+            // debugging purposes only. comment out
+            // await Task.Delay(new[] { 10, 5000 }[new Random(DateTime.Now.Millisecond).Next() % 2]);
             await UpdateTour(tour.GUID, tour);
         }
         #region Persons
