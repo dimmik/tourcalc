@@ -99,7 +99,7 @@ namespace TCBlazor.Client.Shared
         {
             if (tour == null) return;
             if (tourId == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Patch, tour);
+            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Patch, tour);
         }
         public async Task AddTour(Tour? tour, string? code)
         {
@@ -116,14 +116,33 @@ namespace TCBlazor.Client.Shared
             var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
             return tours;
         }
+        private Dictionary<string, Queue<Func<Tour, Tour>>> tourUpdateQueues = new();
         private async Task EditTourData(string tourId, Func<Tour, Tour> process)
         {
+            if (!tourUpdateQueues.ContainsKey(tourId)) tourUpdateQueues[tourId] = new();
+            tourUpdateQueues[tourId].Enqueue(process);
+            await TryApplyOnServer(tourId);
+        }
+        private async Task<bool> TryApplyOnServer(string tourId)
+        {
             Tour? tour = await LoadTourBare(tourId);
-            if (tour == null) return;
-            tour = process(tour);
-            // debugging purposes only. comment out
-            // await Task.Delay(new[] { 10, 5000 }[new Random(DateTime.Now.Millisecond).Next() % 2]);
-            await UpdateTour(tour.GUID, tour);
+            if (tour == null) return true;
+            Queue<Func<Tour, Tour>> updateQueue = tourUpdateQueues[tourId];
+            Queue<Func<Tour, Tour>> backupQueue = new();
+            while (updateQueue.TryDequeue(out var f))
+            {
+                backupQueue.Enqueue(f);
+                tour = f(tour);
+            }
+            try
+            {
+                await UpdateTour(tour.GUID, tour);
+                return true;
+            } catch
+            {
+                tourUpdateQueues[tourId] = backupQueue;
+                return false;
+            }
         }
         #region Persons
         public async Task DeletePerson(string? tourId, Person? p)
