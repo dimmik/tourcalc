@@ -35,17 +35,17 @@ else
                 <TourPersonsComponent 
                     Tour=@tour
                     OnPersonDelete=@(async (p) => {
-                        await dataSvc.DeletePerson(tour.Id, p);
+                        await dataSvc.DeletePerson(tour.Id, p, OnFreshTourLoaded);
                         await LoadTour();
                         StateHasChanged();
                     })
                     OnPersonEdit=@(async (p) => {
-                        await dataSvc.EditPerson(tour.Id, p);
+                        await dataSvc.EditPerson(tour.Id, p, OnFreshTourLoaded);
                         await LoadTour();
                         StateHasChanged();
                     })
                     OnPersonAdd=@(async (p) => {
-                        await dataSvc.AddPerson(tour.Id, p);
+                        await dataSvc.AddPerson(tour.Id, p, OnFreshTourLoaded);
                         await LoadTour();
                         StateHasChanged();
                     })
@@ -61,7 +61,7 @@ else
                         StateHasChanged();
                     })
                     OnSpendingDelete=@(async (s) => {
-                        await dataSvc.DeleteSpending(tour.Id, s);
+                        await dataSvc.DeleteSpending(tour.Id, s, OnFreshTourLoaded);
                         await LoadTour();
                         StateHasChanged();
                     })
@@ -75,7 +75,7 @@ else
                                     {
                                         var ss = s.SafeClone<Spending>();
                                         ss.Type = "";
-                                        await dataSvc.AddSpending(tour.Id, ss);
+                                        await dataSvc.AddSpending(tour.Id, ss, OnFreshTourLoaded);
                                         await LoadTour();
                                         StateHasChanged();
                                     }
@@ -111,7 +111,12 @@ else
     }
     private async Task LoadTour()
     {
-        tour = await dataSvc.LoadTour(TourId, () => StateHasChanged());
+        tour = await dataSvc.LoadTour(TourId, OnFreshTourLoaded);
+    }
+    private async Task OnFreshTourLoaded()
+    {
+        tour = await dataSvc.LoadTour(TourId, () => { return Task.CompletedTask; });
+        StateHasChanged();
     }
     string GetId(string l) => $"{l}";
     string GetHref(string l) => $"/tour/{TourId}#" + GetId(l);

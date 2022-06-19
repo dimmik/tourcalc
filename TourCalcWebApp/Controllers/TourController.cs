@@ -11,6 +11,7 @@ using TourCalcWebApp.Exceptions;
 using System.Linq.Expressions;
 using TCalcStorage.Storage.LiteDB;
 using TCalcCore.Auth;
+using System.Threading.Tasks;
 
 namespace TourCalcWebApp.Controllers
 {
@@ -45,6 +46,8 @@ namespace TourCalcWebApp.Controllers
             {
                 throw HttpException.NotFound($"No tour with id={tourid}");
             }
+            // TODO remove, for debugging purposes only
+            // Task.Delay(20000).Wait();
             return tour;
         }
         /// <summary>

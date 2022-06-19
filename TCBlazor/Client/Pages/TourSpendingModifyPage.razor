@@ -57,7 +57,7 @@ else
         .ThenByDescending(s => s.DateCreated)
     )
     OnSpendingDelete=@(async (s) => {
-                        await dataSvc.DeleteSpending(TourId, s);
+                        await dataSvc.DeleteSpending(TourId, s, OnFreshTourLoaded);
                         await LoadTour();
                         StateHasChanged();
                     })
@@ -101,11 +101,11 @@ else
     {
         if (mode == ComponentMode.Add || mode == ComponentMode.AddPlanned)
         {
-            await dataSvc.AddSpending(TourId, s);
+            await dataSvc.AddSpending(TourId, s, OnFreshTourLoaded);
         }
         else
         {
-            await dataSvc.EditSpending(TourId, s);
+            await dataSvc.EditSpending(TourId, s, OnFreshTourLoaded);
         }
         await LoadTour();
         OnCancel();
@@ -141,7 +141,12 @@ else
     }
     private async Task LoadTour()
     {
-        tour = await dataSvc.LoadTour(TourId, () => StateHasChanged());
+        tour = await dataSvc.LoadTour(TourId, OnFreshTourLoaded);
+    }
+    private async Task OnFreshTourLoaded()
+    {
+        tour = await dataSvc.LoadTour(TourId, () => { return Task.CompletedTask; });
+        StateHasChanged();
     }
     private void InitNewSpending()
     {
