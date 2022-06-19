@@ -150,14 +150,14 @@ namespace TCBlazor.Client.Shared
             return tours;
         }
         // TODO make serializable. Store method name and params instead of action, and proces respectively
-        private Dictionary<string, Queue<Func<Tour, Tour>>> tourServerUpdateQueues = new();
-        private Dictionary<string, Queue<Func<Tour, Tour>>> tourLocalUpdateQueues = new();
+        private readonly Dictionary<string, Queue<Func<Tour, Tour>>> tourServerUpdateQueues = new();
+        private readonly Dictionary<string, Queue<Func<Tour, Tour>>> tourLocalUpdateQueues = new();
         private async Task EditTourData(string tourId, Func<Tour, Tour> process, Func<Task> onFreshTourLoaded)
         {
             if (!tourServerUpdateQueues.ContainsKey(tourId)) tourServerUpdateQueues[tourId] = new();
             if (!tourLocalUpdateQueues.ContainsKey(tourId)) tourLocalUpdateQueues[tourId] = new();
             tourServerUpdateQueues[tourId].Enqueue(process);
-            tourLocalUpdateQueues[tourId].Enqueue(process);
+            tourLocalUpdateQueues [tourId].Enqueue(process);
 
             // update locally
             Tour? tour = await ts.GetObject<Tour>(GetTourStorageKey(tourId));
@@ -183,7 +183,7 @@ namespace TCBlazor.Client.Shared
             }
             else
             {
-                //await onFreshTourLoaded();
+                await onFreshTourLoaded();
             }
         }
         private async Task<bool> TryApplyOnServer(string tourId)
