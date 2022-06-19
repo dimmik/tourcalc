@@ -10,6 +10,7 @@
 @inject TCDataService dataSvc
 @inject AuthSvc auth
 @inject TCGlobal tcGlobal
+@inject NavigationManager NavManager
 
 
 <div class="page">
@@ -58,7 +59,10 @@
                             </span>&nbsp;&nbsp;
                         </div>
                         <div style="display: table-cell; align-content: flex-end; width: 35%; text-align: end;">
-                            <span style="cursor:pointer; font-size: clamp(6px, 4vw, 18px); border:1px solid white" @onclick=@(() => LogOut())>Log Out@($"{(auth.Auth.IsMaster ? " Admin" : "")}")</span>
+                            <span style="cursor:pointer; font-size: clamp(6px, 4vw, 18px); border:1px solid white" @onclick=@(async () => {
+                                await LogOut();
+                                NavManager.NavigateTo("/");
+                            })>Log Out@($"{(auth.Auth.IsMaster ? " Admin" : "")}")</span>
                             &nbsp;&nbsp;
                             <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="/settings">⚙</a>
                         </div>
