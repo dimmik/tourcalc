@@ -67,23 +67,52 @@ namespace TCBlazor.Client.Shared
             await ts.SetToken(token);
         }
 
-        public async Task<Tour?> LoadTour(string? id)
+        public async Task<Tour?> LoadTour(string? id, Func<Task> onTourRefreshedFromServer)
         {
             if (id == null) return default;
 
-            var tour = await LoadTourBare(id);
+            var tour = await LoadTourBare(id, onTourRefreshedFromServer);
+            if (tour == null) return null;
             var calculator = new TourCalculator(tour);
             var calculated = calculator.SuggestFinalPayments();
             return calculated;
             //return tour;
         }
-        public async Task<Tour?> LoadTourBare(string? id)
+        private static string GetTourStorageKey(string tourId)
+        {
+            return $"__tour_{tourId}";
+        }
+        public async Task<Tour?> LoadTourBare(string? id, Func<Task> onTourRefreshedFromServer, bool forceLoadFromServer = false)
         {
             if (id == null) return default;
+            // First get from local storage
+            Tour? t = await ts.GetObject<Tour?>(GetTourStorageKey(id));
+            if (t != null && !forceLoadFromServer) // found locally and we do not enforce loading from server
+            {
+                // Then in background - load the tour from server
+                Task<Tour?> tourLoadTask = LoadTourFromServerInBackground(id, t, onTourRefreshedFromServer);
+                return t;
+            } else
+            {
+                // if it is null, no tour in local storage = well, just load from server
+                t = await LoadTourFromServerInBackground(id, t, onTourRefreshedFromServer);
+                return t;
+            }
+        }
+
+        private async Task<Tour?> LoadTourFromServerInBackground(string id, Tour? localTour, Func<Task> onTourRefreshedFromServer)
+        {
             var token = await ts.GetToken();
             var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token);
+            if (t != null && t.StateGUID != (localTour?.StateGUID ?? Guid.NewGuid().ToString()))
+            {
+                // On success, AND if state differs - store the tour and execute onTourRefreshedFromServer
+                await ts.SetObject(GetTourStorageKey(id), t);
+                await onTourRefreshedFromServer();
+            }
             return t;
         }
+
         public async Task DeleteTour(Tour? tour)
         {
             if (tour == null) return;
@@ -99,7 +128,11 @@ namespace TCBlazor.Client.Shared
         {
             if (tour == null) return;
             if (tourId == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Patch, tour);
+            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Patch, tour);
+            if (string.IsNullOrWhiteSpace(tid))
+            {
+                throw new Exception("wrong tour id");
+            }
         }
         public async Task AddTour(Tour? tour, string? code)
         {
@@ -116,52 +149,107 @@ namespace TCBlazor.Client.Shared
             var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
             return tours;
         }
+        // TODO make serializable. Store method name and params instead of action, and proces respectively
+        private Dictionary<string, Queue<Func<Tour, Tour>>> tourServerUpdateQueues = new();
+        private Dictionary<string, Queue<Func<Tour, Tour>>> tourLocalUpdateQueues = new();
+        private async Task EditTourData(string tourId, Func<Tour, Tour> process, Func<Task> onFreshTourLoaded)
+        {
+            if (!tourServerUpdateQueues.ContainsKey(tourId)) tourServerUpdateQueues[tourId] = new();
+            if (!tourLocalUpdateQueues.ContainsKey(tourId)) tourLocalUpdateQueues[tourId] = new();
+            tourServerUpdateQueues[tourId].Enqueue(process);
+            tourLocalUpdateQueues[tourId].Enqueue(process);
 
-        #region Persons
-        public async Task DeletePerson(string? tourId, Person? p)
-        {
-            if (tourId == null) return;
-            if (p == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+            // update locally
+            Tour? tour = await ts.GetObject<Tour>(GetTourStorageKey(tourId));
+            if (tour != null)
+            {
+                Queue<Func<Tour, Tour>> localUpdateQueue = tourLocalUpdateQueues[tourId];
+                while (localUpdateQueue.TryDequeue(out var f))
+                {
+                    tour = f(tour);
+                }
+                await ts.SetObject(GetTourStorageKey(tourId), tour);
+            }
+
+            _ = UpdateOnServer(tourId, onFreshTourLoaded);
         }
-        public async Task EditPerson(string? tourId, Person? p)
+        private async Task UpdateOnServer(string tourId, Func<Task> onFreshTourLoaded)
+        {
+            // try update on server
+            bool updatedOnServer = await TryApplyOnServer(tourId);
+            if (!updatedOnServer)
+            {
+                http.ShowError($"Failed to sync: {tourServerUpdateQueues[tourId].Count}");
+            }
+            else
+            {
+                await onFreshTourLoaded();
+            }
+        }
+        private async Task<bool> TryApplyOnServer(string tourId)
+        {
+            Tour? tour = await LoadTourBare(tourId, () => { return Task.CompletedTask; }, forceLoadFromServer: true);
+            if (tour == null) return false;
+            Queue<Func<Tour, Tour>> updateQueue = tourServerUpdateQueues[tourId];
+            Queue<Func<Tour, Tour>> backupQueue = new();
+            while (updateQueue.TryDequeue(out var f))
+            {
+                backupQueue.Enqueue(f);
+                tour = f(tour);
+            }
+            try
+            {
+                await UpdateTour(tour.GUID, tour);
+                return true;
+            } catch
+            {
+                tourServerUpdateQueues[tourId] = backupQueue;
+                // debugging. comment out
+                //http.ShowError($"keeping queue of size {backupQueue.Count}");
+                return false;
+            }
+        }
+        #region Persons
+        public async Task DeletePerson(string? tourId, Person? p, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/person/{p.GUID}", await ts.GetToken(), HttpMethod.Patch, p);
-            /*Tour? tour = await LoadTourBare(tourId);
-            if (tour == null) return;
-            tour = tourStorageProcessor.UpdatePerson(tour, p, p.GUID);
-            await UpdateTour(tour.GUID, tour);*/ // Later
+            await EditTourData(tourId, t => tourStorageProcessor.DeletePerson(t, p.GUID), onFreshTourLoaded);
+        }
+        public async Task EditPerson(string? tourId, Person? p, Func<Task> onFreshTourLoaded)
+        {
+            if (tourId == null) return;
+            if (p == null) return;
+            await EditTourData(tourId, (t) => tourStorageProcessor.UpdatePerson(t, p, p.GUID), onFreshTourLoaded);
         }
 
         
 
-        public async Task AddPerson(string? tourId, Person? p)
+        public async Task AddPerson(string? tourId, Person? p, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/person", await ts.GetToken(), HttpMethod.Post, p);
+            await EditTourData(tourId, t => tourStorageProcessor.AddPerson(t, p), onFreshTourLoaded);
         }
         #endregion
         #region Spendings
-        public async Task DeleteSpending(string? tourId, Spending? s)
+        public async Task DeleteSpending(string? tourId, Spending? s, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Delete, null);
+            await EditTourData(tourId, t => tourStorageProcessor.DeleteSpending(t, s.GUID), onFreshTourLoaded);
         }
-        public async Task EditSpending(string? tourId, Spending? s)
+        public async Task EditSpending(string? tourId, Spending? s, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/spending/{s.GUID}", await ts.GetToken(), HttpMethod.Patch, s);
+            await EditTourData(tourId, t => tourStorageProcessor.UpdateSpending(t, s, s.GUID), onFreshTourLoaded);
         }
-        public async Task AddSpending(string? tourId, Spending? s)
+        public async Task AddSpending(string? tourId, Spending? s, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tourId}/spending", await ts.GetToken(), HttpMethod.Post, s);
+            await EditTourData(tourId, t => tourStorageProcessor.AddSpending(t, s), onFreshTourLoaded);
         }
 
         #endregion

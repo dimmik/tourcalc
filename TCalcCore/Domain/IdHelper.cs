@@ -15,6 +15,11 @@ namespace TCalc.Domain
             string result = Base32Encoding.ToString(bytes).ToLower().TrimEnd(new[] { '=' }).Replace('+', '*').Replace('/', '$');
             return result;
         }
+        public static string NewStateGuid()
+        {
+            var dt = DateTime.UtcNow + TimeSpan.FromHours(3);
+            return $"{dt:yyyy-MM-dd HH:mm:ss}.{Guid.NewGuid()}";
+        }
         private static long Reverse(long n)
         {
             long reverse = 0, rem;

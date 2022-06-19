@@ -25,22 +25,27 @@ namespace TCBlazor.Client.Storage
         {
             return await Get(TokenKey);
         }
+        public async Task SetObject<T>(string key, T obj)
+        {
+            string json = JsonSerializer.Serialize(obj);
+            await Set(key, json);
+        }
+        public async Task<T?> GetObject<T>(string key)
+        {
+            string json = await Get(key);
+            try
+            {
+                T? res = JsonSerializer.Deserialize<T>(json ?? "");
+                return res;
+            }
+            catch
+            {
+                return default;
+            }
+        }
         public async Task SetToken(string token)
         {
             await Set(TokenKey, token);
-        }
-        private Dictionary<string, object?> pageLocalStorage = new Dictionary<string, object?>();
-        public void SetPageLocalValue(string key, object? val)
-        {
-            pageLocalStorage[key] = val;
-        }
-        public object? GetPageLocalValue(string key)
-        {
-            if (pageLocalStorage.ContainsKey(key))
-            {
-                return pageLocalStorage[key];
-            }
-            return null;
         }
         public async Task<UISettings> GetUISettings()
         {

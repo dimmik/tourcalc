@@ -11,6 +11,7 @@ using TourCalcWebApp.Exceptions;
 using System.Linq.Expressions;
 using TCalcStorage.Storage.LiteDB;
 using TCalcCore.Auth;
+using System.Threading.Tasks;
 
 namespace TourCalcWebApp.Controllers
 {
@@ -45,6 +46,8 @@ namespace TourCalcWebApp.Controllers
             {
                 throw HttpException.NotFound($"No tour with id={tourid}");
             }
+            // TODO remove, for debugging purposes only
+            // Task.Delay(20000).Wait();
             return tour;
         }
         /// <summary>
@@ -175,6 +178,8 @@ namespace TourCalcWebApp.Controllers
             tourStorage.AddTour(tourJson);
             return tourJson.GUID;
         }
+        private static readonly object getTourMonitorLock = new();
+        private static readonly Dictionary<string, object> updateTourMonitor = new();
         /// <summary>
         /// Update the tour
         /// </summary>
@@ -188,15 +193,34 @@ namespace TourCalcWebApp.Controllers
 
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
 
-            if (tourJson.IsVersion && tourJson.GUID != tour.GUID && !tour.IsVersion) // restoring from version
+            lock (getTourMonitorLock)
             {
-                tourJson.IsVersion = false;
-                tourJson.InternalVersionComment = $"Tour Restored to {tourJson.DateVersioned:yyyy-MM-dd HH:mm:ss}";
+                if (!updateTourMonitor.ContainsKey(tour.Id)) 
+                    updateTourMonitor[tour.Id] = new object();
             }
-            tourJson.GUID = tourid;
-            TourStorage_StoreTour(tourJson);
 
-            return tourJson.GUID;
+            lock (updateTourMonitor[tour.Id]){ 
+                if (tourJson.IsVersion && tourJson.GUID != tour.GUID && !tour.IsVersion) // restoring from version
+                {
+                    tourJson.IsVersion = false;
+                    tourJson.InternalVersionComment = $"Tour Restored to {tourJson.DateVersioned:yyyy-MM-dd HH:mm:ss}";
+                }
+                else // changing the tour
+                {
+                    // check soft lock
+                    var storedState = tour.StateGUID;
+                    var updatingState = tourJson.StateGUID;
+                    if (storedState != updatingState)
+                    { // we are saving tour of different state
+                        throw new HttpException(409, $"You are trying to override newer version of tour ({storedState})");
+                    }
+                    // all ok, storing. Provide new state id
+                    tourJson.StateGUID = IdHelper.NewStateGuid();
+                }
+                tourJson.GUID = tourid;
+                TourStorage_StoreTour(tourJson);
+                return tourJson.GUID;
+            }
         }
         /// <summary>
         /// Update tour's name

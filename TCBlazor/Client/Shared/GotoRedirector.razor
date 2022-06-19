@@ -21,7 +21,7 @@
         //await dataSvc.GetAndStoreToken("code", transientAccessCode);
         await auth.LogIn("code", transientAccessCode);
         // now try to get a tour
-        var tt = await dataSvc.LoadTourBare(tid);
+        var tt = await dataSvc.LoadTourBare(tid, () => { return Task.CompletedTask; });
         if (tt == null)
         {
             await dataSvc.GetAndStoreTokenForCodeMd5(transientAccessCode);

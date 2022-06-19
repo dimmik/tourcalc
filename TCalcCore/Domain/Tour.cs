@@ -21,6 +21,7 @@ namespace TCalc.Domain
         public string InternalVersionComment = null;
         public bool IsArchived { get; set; } = false;
         public bool IsFinalizing { get; set; } = false;
+        public string StateGUID { get; set; } = "";
         public void PrepareForStoring()
         {
             // delete spending lists that might be rather large
