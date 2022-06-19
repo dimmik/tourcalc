@@ -70,11 +70,11 @@
     public Tour? Tour { get; set; } = null;
 
     [Parameter]
-    public Func<Person, Task> OnPersonEdit { get; set; } = async (p) => { };
+    public Func<Person, Task> OnPersonEdit { get; set; } = p => Task.CompletedTask;
     [Parameter]
-    public Func<Person, Task> OnPersonAdd { get; set; } = async (p) => { };
+    public Func<Person, Task> OnPersonAdd { get; set; } = p => Task.CompletedTask;
     [Parameter]
-    public Func<Person, Task> OnPersonDelete { get; set; } = async (p) => { };
+    public Func<Person, Task> OnPersonDelete { get; set; } = p => Task.CompletedTask;
 
     Dictionary<string, Person> EditingPersons { get; set; } = new Dictionary<string, Person>();
 
