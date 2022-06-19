@@ -1,4 +1,5 @@
 ﻿using Microsoft.JSInterop;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace TCBlazor.Client.Storage
@@ -27,15 +28,21 @@ namespace TCBlazor.Client.Storage
         }
         public async Task SetObject<T>(string key, T obj)
         {
-            string json = JsonSerializer.Serialize(obj);
+            Stopwatch sw = Stopwatch.StartNew();
+            string json = Newtonsoft.Json.JsonConvert.SerializeObject(obj);
             await Set(key, json);
+            sw.Stop();
+            Console.WriteLine($"Set object {key} in {sw.Elapsed}");
         }
         public async Task<T?> GetObject<T>(string key)
         {
+            Stopwatch sw = Stopwatch.StartNew();
             string json = await Get(key);
             try
             {
-                T? res = JsonSerializer.Deserialize<T>(json ?? "");
+                T? res = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json ?? "");
+                sw.Stop();
+                Console.WriteLine($"Get object {key} in {sw.Elapsed}");
                 return res;
             }
             catch
