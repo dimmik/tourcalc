@@ -141,7 +141,7 @@ else
     }
     private async Task LoadTour()
     {
-        tour = await dataSvc.LoadTour(TourId);
+        tour = await dataSvc.LoadTour(TourId, () => StateHasChanged());
     }
     private void InitNewSpending()
     {

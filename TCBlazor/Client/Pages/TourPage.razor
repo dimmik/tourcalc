@@ -111,7 +111,7 @@ else
     }
     private async Task LoadTour()
     {
-        tour = await dataSvc.LoadTour(TourId);
+        tour = await dataSvc.LoadTour(TourId, () => StateHasChanged());
     }
     string GetId(string l) => $"{l}";
     string GetHref(string l) => $"/tour/{TourId}#" + GetId(l);

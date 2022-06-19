@@ -67,42 +67,52 @@ namespace TCBlazor.Client.Shared
             await ts.SetToken(token);
         }
 
-        public async Task<Tour?> LoadTour(string? id)
+        public async Task<Tour?> LoadTour(string? id, Action onTourRefreshedFromServer)
         {
             if (id == null) return default;
 
-            var tour = await LoadTourBare(id);
+            var tour = await LoadTourBare(id, onTourRefreshedFromServer);
             if (tour == null) return null;
             var calculator = new TourCalculator(tour);
             var calculated = calculator.SuggestFinalPayments();
             return calculated;
             //return tour;
         }
-        public async Task<Tour?> LoadTourBare(string? id, bool forceLoadFromServer = false)
+        private static string GetTourStorageKey(string tourId)
+        {
+            return $"__tour_{tourId}";
+        }
+        public async Task<Tour?> LoadTourBare(string? id, Action onTourRefreshedFromServer, bool forceLoadFromServer = false)
         {
             if (id == null) return default;
-            // always first try to get from server and re-store in local storage
-            try
+            // First get from local storage
+            Tour? t = await ts.GetObject<Tour?>(GetTourStorageKey(id));
+            if (t != null && !forceLoadFromServer) // found locally and we do not enforce loading from server
             {
-                var token = await ts.GetToken();
-                var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token);
-                if (t == null)
-                {
-                    if (forceLoadFromServer) return t;
-                }
-                else
-                {
-                    await ts.SetObject($"tour_{id}", t);
-                }
-            } catch
+                // Then in background - load the tour from server
+                Task<Tour?> tourLoadTask = LoadTourFromServerInBackground(id, t, onTourRefreshedFromServer);
+                return t;
+            } else
             {
+                // if it is null, no tour in local storage = well, just load from server
+                t = await LoadTourFromServerInBackground(id, t, onTourRefreshedFromServer);
+                return t;
             }
-            // first get from local storage
-            Tour? localTour = await ts.GetObject<Tour>($"tour_{id}");
-            // if success - get again from local storage
-            // if not - return what we had on first step
-            return localTour;
         }
+
+        private async Task<Tour?> LoadTourFromServerInBackground(string id, Tour? localTour, Action onTourRefreshedFromServer)
+        {
+            var token = await ts.GetToken();
+            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token);
+            if (t != null && t.StateGUID != (localTour?.StateGUID ?? Guid.NewGuid().ToString()))
+            {
+                // On success, AND if state differs - store the tour and execute onTourRefreshedFromServer
+                await ts.SetObject(GetTourStorageKey(id), t);
+                onTourRefreshedFromServer();
+            }
+            return t;
+        }
+
         public async Task DeleteTour(Tour? tour)
         {
             if (tour == null) return;
@@ -139,6 +149,7 @@ namespace TCBlazor.Client.Shared
             var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
             return tours;
         }
+        // TODO make serializable. Store method name and params instead of action, and proces respectively
         private Dictionary<string, Queue<Func<Tour, Tour>>> tourServerUpdateQueues = new();
         private Dictionary<string, Queue<Func<Tour, Tour>>> tourLocalUpdateQueues = new();
         private async Task EditTourData(string tourId, Func<Tour, Tour> process)
@@ -149,7 +160,7 @@ namespace TCBlazor.Client.Shared
             tourLocalUpdateQueues[tourId].Enqueue(process);
 
             // update locally
-            Tour? tour = await ts.GetObject<Tour>($"tour_{tourId}");
+            Tour? tour = await ts.GetObject<Tour>(GetTourStorageKey(tourId));
             if (tour != null)
             {
                 Queue<Func<Tour, Tour>> localUpdateQueue = tourLocalUpdateQueues[tourId];
@@ -157,7 +168,7 @@ namespace TCBlazor.Client.Shared
                 {
                     tour = f(tour);
                 }
-                await ts.SetObject($"tour_{tourId}", tour);
+                await ts.SetObject(GetTourStorageKey(tourId), tour);
             }
 
             // try update on server
@@ -169,7 +180,7 @@ namespace TCBlazor.Client.Shared
         }
         private async Task<bool> TryApplyOnServer(string tourId)
         {
-            Tour? tour = await LoadTourBare(tourId, forceLoadFromServer: true);
+            Tour? tour = await LoadTourBare(tourId, () => { }, forceLoadFromServer: true);
             if (tour == null) return false;
             Queue<Func<Tour, Tour>> updateQueue = tourServerUpdateQueues[tourId];
             Queue<Func<Tour, Tour>> backupQueue = new();
