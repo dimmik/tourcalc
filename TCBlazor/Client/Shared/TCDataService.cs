@@ -78,12 +78,30 @@ namespace TCBlazor.Client.Shared
             return calculated;
             //return tour;
         }
-        public async Task<Tour?> LoadTourBare(string? id)
+        public async Task<Tour?> LoadTourBare(string? id, bool forceLoadFromServer = false)
         {
             if (id == null) return default;
-            var token = await ts.GetToken();
-            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token);
-            return t;
+            // always first try to get from server and re-store in local storage
+            try
+            {
+                var token = await ts.GetToken();
+                var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token);
+                if (t == null)
+                {
+                    if (forceLoadFromServer) return t;
+                }
+                else
+                {
+                    await ts.SetObject($"tour_{id}", t);
+                }
+            } catch
+            {
+            }
+            // first get from local storage
+            Tour? localTour = await ts.GetObject<Tour>($"tour_{id}");
+            // if success - get again from local storage
+            // if not - return what we had on first step
+            return localTour;
         }
         public async Task DeleteTour(Tour? tour)
         {
@@ -121,22 +139,39 @@ namespace TCBlazor.Client.Shared
             var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
             return tours;
         }
-        private Dictionary<string, Queue<Func<Tour, Tour>>> tourUpdateQueues = new();
+        private Dictionary<string, Queue<Func<Tour, Tour>>> tourServerUpdateQueues = new();
+        private Dictionary<string, Queue<Func<Tour, Tour>>> tourLocalUpdateQueues = new();
         private async Task EditTourData(string tourId, Func<Tour, Tour> process)
         {
-            if (!tourUpdateQueues.ContainsKey(tourId)) tourUpdateQueues[tourId] = new();
-            tourUpdateQueues[tourId].Enqueue(process);
+            if (!tourServerUpdateQueues.ContainsKey(tourId)) tourServerUpdateQueues[tourId] = new();
+            if (!tourLocalUpdateQueues.ContainsKey(tourId)) tourLocalUpdateQueues[tourId] = new();
+            tourServerUpdateQueues[tourId].Enqueue(process);
+            tourLocalUpdateQueues[tourId].Enqueue(process);
+
+            // update locally
+            Tour? tour = await ts.GetObject<Tour>($"tour_{tourId}");
+            if (tour != null)
+            {
+                Queue<Func<Tour, Tour>> localUpdateQueue = tourLocalUpdateQueues[tourId];
+                while (localUpdateQueue.TryDequeue(out var f))
+                {
+                    tour = f(tour);
+                }
+                await ts.SetObject($"tour_{tourId}", tour);
+            }
+
+            // try update on server
             bool updatedOnServer = await TryApplyOnServer(tourId);
             if (!updatedOnServer)
             {
-                //http.ShowError($"keeping queue of size {tourUpdateQueues[tourId].Count}");
+                http.ShowError($"Failed to sync: {tourServerUpdateQueues[tourId].Count}");
             };
         }
         private async Task<bool> TryApplyOnServer(string tourId)
         {
-            Tour? tour = await LoadTourBare(tourId);
+            Tour? tour = await LoadTourBare(tourId, forceLoadFromServer: true);
             if (tour == null) return false;
-            Queue<Func<Tour, Tour>> updateQueue = tourUpdateQueues[tourId];
+            Queue<Func<Tour, Tour>> updateQueue = tourServerUpdateQueues[tourId];
             Queue<Func<Tour, Tour>> backupQueue = new();
             while (updateQueue.TryDequeue(out var f))
             {
@@ -149,8 +184,8 @@ namespace TCBlazor.Client.Shared
                 return true;
             } catch
             {
-                tourUpdateQueues[tourId] = backupQueue;
-                // TODO debugging. remove
+                tourServerUpdateQueues[tourId] = backupQueue;
+                // debugging. comment out
                 //http.ShowError($"keeping queue of size {backupQueue.Count}");
                 return false;
             }

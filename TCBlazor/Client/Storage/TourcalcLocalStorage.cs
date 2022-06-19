@@ -25,16 +25,23 @@ namespace TCBlazor.Client.Storage
         {
             return await Get(TokenKey);
         }
-        public async Task SetObject<T>(string key, T obj) where T : new()
+        public async Task SetObject<T>(string key, T obj)
         {
-            string json = JsonSerializer.Serialize(obj ?? new());
+            string json = JsonSerializer.Serialize(obj);
             await Set(key, json);
         }
-        public async Task<T> GetObject<T>(string key) where T : new()
+        public async Task<T?> GetObject<T>(string key)
         {
             string json = await Get(key);
-            T res = JsonSerializer.Deserialize<T>(json ?? "") ?? new T();
-            return res;
+            try
+            {
+                T? res = JsonSerializer.Deserialize<T>(json ?? "");
+                return res;
+            }
+            catch
+            {
+                return default;
+            }
         }
         public async Task SetToken(string token)
         {
