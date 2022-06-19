@@ -183,7 +183,7 @@ namespace TCBlazor.Client.Shared
             }
             else
             {
-                await onFreshTourLoaded();
+                //await onFreshTourLoaded();
             }
         }
         private async Task<bool> TryApplyOnServer(string tourId)

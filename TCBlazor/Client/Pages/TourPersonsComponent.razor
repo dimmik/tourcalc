@@ -135,11 +135,12 @@
                     Type="primary">
                                                      Got It
                                             </Button>
-    </Template>
+        </Template>
         };
     }
 
-    private bool IsSubmittingPerson = false;
+    private bool IsSubmittingPerson { get; set; } = false;
+    private bool Submitted { get; set; } = false;
 
     private RenderFragment ReceivedInfo(Person person)
     {
@@ -227,6 +228,15 @@
         };
     }
 
+    private async Task OnSubmit(Person pp, Func<Person, Task> onSubmit)
+    {
+        IsSubmittingPerson = true;
+        await onSubmit(pp);
+        //await Task.Delay(5000);
+        IsSubmittingPerson = false;
+        Submitted = true;
+    }
+
     private RenderFragment AddEditCodeBlock(Person person, Action onCloseButton, Func<Person, Task> onSubmit)
     {
         Person pp = EditingPersons.ContainsKey(person.GUID) ? EditingPersons[person.GUID] : new Person();
@@ -243,27 +253,28 @@
                 disabled=@IsSubmittingPerson
                                             @onkeyup=@(async (e) => {
                         if (e.Code == "Enter" || e.Code == "NumpadEnter"){
-                            IsSubmittingPerson = true;
-                            await onSubmit(pp);
-                            IsSubmittingPerson = false;
+                            await OnSubmit(pp, onSubmit);
                         }
                     }) 
                                             /> 
-                                    <button 
-        style="cursor:pointer;border:1px solid black;background-color:blue;color:white;" 
+                                    <Button 
+        Type="primary"
+        Size="small"
+        Loading=@IsSubmittingPerson
                                     @onclick=@(async () => {
-            IsSubmittingPerson = true;
-            await onSubmit(pp);
-            IsSubmittingPerson = false;
+            await OnSubmit(pp, onSubmit);
         })>
                                     submit
-                                    </button>
+                                    </Button>
                                     <span>&nbsp;|&nbsp;</span>
-                                    <button 
-                style="cursor:pointer;border:1px solid black;background-color:red;color:white;" 
+                                    <Button 
+                                    Type="primary"
+                                    Size="small"
+                                    Danger=@true
+                
                                     @onclick=@(() => onCloseButton())>
                                     cancel
-                                    </button>
+                                    </Button>
                                                                         <div>→ 
                                                                             <nobr><Select
                                                                                 @bind-Value="pp.ParentId"
