@@ -4,7 +4,8 @@
 
 @if (tcGlobal.Tour != null)
 {
-    <span style="cursor:pointer;color:black;background-color: @(UnsyncedItemNumber > 0 ? "lightpink" : "lightgreen")" @onclick="DoSync">Sync: @UnsyncedItemNumber 
+    <span style="cursor:pointer;color:black;background-color: @(UnsyncedItemNumber > 0 ? "lightpink" : "lightgreen")" @onclick="DoSync">
+        <nobr>S @UnsyncedItemNumber </nobr>
     </span>
 } else
 {
