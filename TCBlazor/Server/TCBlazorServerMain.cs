@@ -54,6 +54,21 @@ namespace Company.TCBlazor
 
             var app = builder.Build();
 
+            app.Use(
+                (ctx, next) =>
+                {
+                    ctx.Response.OnStarting(
+                        () =>
+                        {
+                            ctx.Response.Headers[HeaderNames.CacheControl] = "no-cache";
+                            return Task.CompletedTask;
+                        }
+                        );
+                    return next(ctx);
+                }
+
+                );
+
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
@@ -96,6 +111,9 @@ namespace Company.TCBlazor
                             "no-cache";
                 }
             });
+
+            
+
 
             app.Run();
         }
