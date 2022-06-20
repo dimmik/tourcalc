@@ -186,7 +186,7 @@ namespace TCBlazor.Client.Shared
             SerializableTourOperationContainer? qc = await ts.GetObject<SerializableTourOperationContainer>(GetUpdateQueueStorageKey(tourId));
             if (qc == null)
             {
-                http.ShowError("q is null");
+                //http.ShowError("q is null");
                 qc = new();
             }
             Queue<SerializableTourOperation>? q = new(qc.operations);
@@ -233,7 +233,7 @@ namespace TCBlazor.Client.Shared
             bool updatedOnServer = await TryApplyOnServer(tourId, q);
             if (!updatedOnServer)
             {
-                http.ShowError($"Failed to sync: {q.Count}");
+                http.ShowError($"Failed to sync: {q.Count} ops. Will sync once connection is restored.");
             }
             else
             {
@@ -247,7 +247,8 @@ namespace TCBlazor.Client.Shared
             if (tour == null)
             {
                 await StoreServerQueue(tourId, q);
-                http.ShowError("stored queue after tour is not loaded");
+                //http.ShowError("stored queue after tour is not loaded");
+                Console.WriteLine("stored queue after tour is not loaded");
                 return false;
             }
             Queue<SerializableTourOperation> updateQueue = q;
