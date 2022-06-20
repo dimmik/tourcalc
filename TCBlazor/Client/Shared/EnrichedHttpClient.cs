@@ -10,11 +10,13 @@ namespace TCBlazor.Client.Shared
     {
         private readonly HttpClient _httpClient;
         private readonly MessageService _messageService;
+        private readonly LocalLogger logger;
 
-        public EnrichedHttpClient(HttpClient httpClient, MessageService messageService)
+        public EnrichedHttpClient(HttpClient httpClient, MessageService messageService, LocalLogger logger)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _messageService = messageService ?? throw new ArgumentNullException(nameof(messageService));
+            this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
         public HttpClient Http => _httpClient;
 
@@ -25,7 +27,7 @@ namespace TCBlazor.Client.Shared
                 Stopwatch sw = Stopwatch.StartNew();
                 var s = await Http.GetStringAsync(url);
                 sw.Stop();
-                Console.WriteLine($"GET to {url} finished in {sw.Elapsed}");
+                logger.Log($"GET to {url} finished in {sw.Elapsed}");
                 return s;
             }
             catch (Exception e)
@@ -89,18 +91,19 @@ namespace TCBlazor.Client.Shared
                 }
                 //_messageService.Destroy();
                 sw.Stop();
-                Console.WriteLine($"{method} to {url} finished in {sw.Elapsed}");
+                logger.Log($"{method} to {url} finished in {sw.Elapsed}");
                 return t;
             } 
             catch (Exception e)
             {
-                if (showErrorMessages) ShowError($"Error: {e.Message}");
+                if (showErrorMessages) ShowError($"Error: {e.Message} ({e.StackTrace})");
                 return default;
             }
         }
         public void ShowError(string txt)
         {
             _messageService.Error(getMessage(txt));
+            logger.Log(txt);
         }
     }
 }

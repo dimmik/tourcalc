@@ -1,17 +1,19 @@
 ﻿using Microsoft.JSInterop;
 using System.Diagnostics;
-using System.Text.Json;
+using TCBlazor.Client.Shared;
 
 namespace TCBlazor.Client.Storage
 {
     public class TourcalcLocalStorage
     {
-        private IJSRuntime JS;
+        private readonly IJSRuntime JS;
         public readonly static string TokenKey = "__tc_token";
         public readonly static string UISettingsKey = "__tc_ui_settings";
-        public TourcalcLocalStorage(IJSRuntime js)
+        private readonly LocalLogger logger;
+        public TourcalcLocalStorage(IJSRuntime js, LocalLogger logger)
         {
             JS = js;
+            this.logger = logger;
         }
         public async Task<string> Get(string key)
         {
@@ -32,23 +34,23 @@ namespace TCBlazor.Client.Storage
             string json = Newtonsoft.Json.JsonConvert.SerializeObject(obj);
             await Set(key, json);
             sw.Stop();
-            Console.WriteLine($"Set object {key} in {sw.Elapsed}");
+            logger.Log($"Set object {key} in {sw.Elapsed}");
         }
         public async Task<T?> GetObject<T>(string key)
         {
             Stopwatch sw = Stopwatch.StartNew();
             string json = await Get(key);
-            Console.WriteLine($"j: {json}");
+            //Console.WriteLine($"j: {json}");
             try
             {
                 T? res = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json ?? "");
                 sw.Stop();
-                Console.WriteLine($"Get object {key} (null? {res == null}) in {sw.Elapsed}");
+                logger.Log($"Get object {key} (null? {res == null}) in {sw.Elapsed}");
                 return res;
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Error get obj: {e.Message}");
+                logger.Log($"Error get obj: {e.Message}");
                 return default;
             }
         }
