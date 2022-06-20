@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.WebUtilities;
+using Newtonsoft.Json;
 using System.Text;
-using System.Text.Json;
 using TCalc.Domain;
 using TCalc.Logic;
 using TCalc.Storage;
@@ -37,9 +37,9 @@ namespace TCBlazor.Client.Shared
                     var parts = token.Split('.');
                     var meaningful = parts[1];
                     var plain = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(meaningful));
-                    var authDataContainer = JsonSerializer.Deserialize<AuthDataContainer>(plain);
+                    var authDataContainer = Newtonsoft.Json.JsonConvert.DeserializeObject<AuthDataContainer>(plain);
                     string adStr = (authDataContainer?.AuthDataJson ?? "").Trim();
-                    ad = JsonSerializer.Deserialize<AuthData>(adStr);
+                    ad = Newtonsoft.Json.JsonConvert.DeserializeObject<AuthData>(adStr);
                     if (ad == null) throw new Exception("cannot get auth info from token");
                 } catch
                 {
@@ -131,7 +131,7 @@ namespace TCBlazor.Client.Shared
             var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Patch, tour);
             if (string.IsNullOrWhiteSpace(tid))
             {
-                throw new Exception("wrong tour id");
+                throw new Exception("wrong tour id returned");
             } else
             {
                 // it is updated fine. store locally as well
@@ -154,29 +154,36 @@ namespace TCBlazor.Client.Shared
             return tours;
         }
         // TODO make serializable. Store method name and params instead of action, and proces respectively
-        private readonly Dictionary<string, Queue<Func<Tour, Tour>>> tourServerUpdateQueues = new();
-        private readonly Dictionary<string, Queue<Func<Tour, Tour>>> tourLocalUpdateQueues = new();
-        private async Task EditTourData(string tourId, Func<Tour, Tour> process, Func<Task> onFreshTourLoaded)
+        private readonly Dictionary<string, Queue<SerializableTourOperation>> tourServerUpdateQueues = new();
+        private readonly Dictionary<string, Queue<SerializableTourOperation>> tourLocalUpdateQueues = new();
+        private async Task EditTourData(string tourId, SerializableTourOperation op, Func<Task> onFreshTourLoaded)
         {
             if (!tourServerUpdateQueues.ContainsKey(tourId)) tourServerUpdateQueues[tourId] = new();
             if (!tourLocalUpdateQueues.ContainsKey(tourId)) tourLocalUpdateQueues[tourId] = new();
-            tourServerUpdateQueues[tourId].Enqueue(process);
-            tourLocalUpdateQueues [tourId].Enqueue(process);
+            tourServerUpdateQueues[tourId].Enqueue(op);
+            tourLocalUpdateQueues[tourId].Enqueue(op);
 
             // update locally
-            Tour? tour = await ts.GetObject<Tour>(GetTourStorageKey(tourId));
-            if (tour != null)
-            {
-                Queue<Func<Tour, Tour>> localUpdateQueue = tourLocalUpdateQueues[tourId];
-                while (localUpdateQueue.TryDequeue(out var f))
-                {
-                    tour = f(tour);
-                }
-                await ts.SetObject(GetTourStorageKey(tourId), tour);
-            }
+            await UpdateLocally(tourId);
 
             _ = UpdateOnServer(tourId, onFreshTourLoaded);
         }
+
+        private async Task UpdateLocally(string tourId)
+        {
+            Tour? tour = await ts.GetObject<Tour>(GetTourStorageKey(tourId));
+            if (tour != null)
+            {
+                Queue<SerializableTourOperation> localUpdateQueue = tourLocalUpdateQueues[tourId];
+                while (localUpdateQueue.TryDequeue(out var op))
+                {
+                    var proc = op.ApplyOperationFunc(tourStorageProcessor);
+                    tour = proc(tour);
+                }
+                await ts.SetObject(GetTourStorageKey(tourId), tour);
+            }
+        }
+
         private async Task UpdateOnServer(string tourId, Func<Task> onFreshTourLoaded)
         {
             // try update on server
@@ -194,12 +201,13 @@ namespace TCBlazor.Client.Shared
         {
             Tour? tour = await LoadTourBare(tourId, () => { return Task.CompletedTask; }, forceLoadFromServer: true);
             if (tour == null) return false;
-            Queue<Func<Tour, Tour>> updateQueue = tourServerUpdateQueues[tourId];
-            Queue<Func<Tour, Tour>> backupQueue = new();
-            while (updateQueue.TryDequeue(out var f))
+            Queue<SerializableTourOperation> updateQueue = tourServerUpdateQueues[tourId];
+            Queue<SerializableTourOperation> backupQueue = new();
+            while (updateQueue.TryDequeue(out var op))
             {
-                backupQueue.Enqueue(f);
-                tour = f(tour);
+                backupQueue.Enqueue(op);
+                var proc = op.ApplyOperationFunc(tourStorageProcessor);
+                tour = proc(tour);
             }
             try
             {
@@ -218,13 +226,13 @@ namespace TCBlazor.Client.Shared
         {
             if (tourId == null) return;
             if (p == null) return;
-            await EditTourData(tourId, t => tourStorageProcessor.DeletePerson(t, p.GUID), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("DeletePerson", p.GUID, (string?)null), onFreshTourLoaded);
         }
         public async Task EditPerson(string? tourId, Person? p, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await EditTourData(tourId, (t) => tourStorageProcessor.UpdatePerson(t, p, p.GUID), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("UpdatePerson", p.GUID, p), onFreshTourLoaded);
         }
 
         
@@ -233,7 +241,7 @@ namespace TCBlazor.Client.Shared
         {
             if (tourId == null) return;
             if (p == null) return;
-            await EditTourData(tourId, t => tourStorageProcessor.AddPerson(t, p), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("AddPerson", null, p), onFreshTourLoaded);
         }
         #endregion
         #region Spendings
@@ -241,19 +249,19 @@ namespace TCBlazor.Client.Shared
         {
             if (tourId == null) return;
             if (s == null) return;
-            await EditTourData(tourId, t => tourStorageProcessor.DeleteSpending(t, s.GUID), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("DeleteSpending", s.GUID, (string?)null), onFreshTourLoaded);
         }
         public async Task EditSpending(string? tourId, Spending? s, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await EditTourData(tourId, t => tourStorageProcessor.UpdateSpending(t, s, s.GUID), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("UpdateSpending", s.GUID, s), onFreshTourLoaded);
         }
         public async Task AddSpending(string? tourId, Spending? s, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await EditTourData(tourId, t => tourStorageProcessor.AddSpending(t, s), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("AddSpending", null, s), onFreshTourLoaded);
         }
 
         #endregion
@@ -262,5 +270,51 @@ namespace TCBlazor.Client.Shared
     class AuthDataContainer
     {
         public string AuthDataJson { get; set; } = "";
+    }
+    public class SerializableTourOperation
+    {
+        public string OperationName { get; set; }
+        public string? ItemId { get; set; }
+        public string? ItemJson { get; set; }
+
+        public SerializableTourOperation(string operationName, string? itemId, string? itemJson)
+        {
+            OperationName = operationName;
+            ItemId = itemId;
+            ItemJson = itemJson;
+        }
+        public SerializableTourOperation(string operationName, string? itemId, AbstractItem item)
+        {
+            OperationName = operationName;
+            ItemId = itemId;
+            ItemJson = JsonConvert.SerializeObject(item);
+        }
+
+        public Func<Tour, Tour> ApplyOperationFunc(TourStorageProcessor tourStorageProcessor)
+        {
+            switch (OperationName)
+            {
+                case "AddSpending":
+                    Spending? sa = JsonConvert.DeserializeObject<Spending>(ItemJson);
+                    return t => tourStorageProcessor.AddSpending(t, sa);
+                case "EditSpending":
+                case "UpdateSpending":
+                    Spending? se = JsonConvert.DeserializeObject<Spending>(ItemJson);
+                    return t => tourStorageProcessor.UpdateSpending(t, se, ItemId);
+                case "DeleteSpending":
+                    return t => tourStorageProcessor.DeleteSpending(t, ItemId);
+                case "AddPerson":
+                    Person? pa = JsonConvert.DeserializeObject<Person>(ItemJson);
+                    return t => tourStorageProcessor.AddPerson(t, pa);
+                case "EditPerson":
+                case "UpdatePerson":
+                    Person? pe = JsonConvert.DeserializeObject<Person>(ItemJson);
+                    return t => tourStorageProcessor.UpdatePerson(t, pe, ItemId);
+                case "DeletePerson":
+                    return t => tourStorageProcessor.DeletePerson(t, ItemId);
+                default:
+                    return t => t;
+            }
+        }
     }
 }
