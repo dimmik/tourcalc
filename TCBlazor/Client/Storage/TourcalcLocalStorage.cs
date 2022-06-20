@@ -45,7 +45,7 @@ namespace TCBlazor.Client.Storage
                 Console.WriteLine($"Get object {key} in {sw.Elapsed}");
                 return res;
             }
-            catch
+            catch (Exception e)
             {
                 return default;
             }
