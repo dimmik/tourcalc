@@ -158,23 +158,42 @@ namespace TCBlazor.Client.Shared
         private readonly Dictionary<string, Queue<SerializableTourOperation>> tourLocalUpdateQueues = new();
         private async Task EditTourData(string tourId, SerializableTourOperation op, Func<Task> onFreshTourLoaded)
         {
-            if (!tourServerUpdateQueues.ContainsKey(tourId)) tourServerUpdateQueues[tourId] = new();
-            if (!tourLocalUpdateQueues.ContainsKey(tourId)) tourLocalUpdateQueues[tourId] = new();
-            tourServerUpdateQueues[tourId].Enqueue(op);
-            tourLocalUpdateQueues[tourId].Enqueue(op);
+            Queue<SerializableTourOperation> serverQueue = await GetServerQueue(tourId);
+            serverQueue.Enqueue(op);
+            Queue<SerializableTourOperation> localQueue = GetLocalQueue(tourId);
+            localQueue.Enqueue(op);
 
             // update locally
-            await UpdateLocally(tourId);
+            await UpdateLocally(tourId, localQueue);
 
-            _ = UpdateOnServer(tourId, onFreshTourLoaded);
+            // on server in background task
+            _ = UpdateOnServer(tourId, serverQueue, onFreshTourLoaded);
         }
 
-        private async Task UpdateLocally(string tourId)
+        private Queue<SerializableTourOperation> GetLocalQueue(string tourId)
+        {
+            if (!tourLocalUpdateQueues.ContainsKey(tourId)) tourLocalUpdateQueues[tourId] = new();
+            var localQueue = tourLocalUpdateQueues[tourId];
+            return localQueue;
+        }
+
+        private async Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId)
+        {
+            if (!tourServerUpdateQueues.ContainsKey(tourId)) tourServerUpdateQueues[tourId] = new();
+            var serverQueue = tourServerUpdateQueues[tourId];
+            return serverQueue;
+        }
+        private async Task StoreServerQueue(string tourId, Queue<SerializableTourOperation> q)
+        {
+            tourServerUpdateQueues[tourId] = q;
+        }
+
+        private async Task UpdateLocally(string tourId, Queue<SerializableTourOperation> q)
         {
             Tour? tour = await ts.GetObject<Tour>(GetTourStorageKey(tourId));
             if (tour != null)
             {
-                Queue<SerializableTourOperation> localUpdateQueue = tourLocalUpdateQueues[tourId];
+                Queue<SerializableTourOperation> localUpdateQueue = q;
                 while (localUpdateQueue.TryDequeue(out var op))
                 {
                     var proc = op.ApplyOperationFunc(tourStorageProcessor);
@@ -184,24 +203,24 @@ namespace TCBlazor.Client.Shared
             }
         }
 
-        private async Task UpdateOnServer(string tourId, Func<Task> onFreshTourLoaded)
+        private async Task UpdateOnServer(string tourId, Queue<SerializableTourOperation> q, Func<Task> onFreshTourLoaded)
         {
             // try update on server
-            bool updatedOnServer = await TryApplyOnServer(tourId);
+            bool updatedOnServer = await TryApplyOnServer(tourId, q);
             if (!updatedOnServer)
             {
-                http.ShowError($"Failed to sync: {tourServerUpdateQueues[tourId].Count}");
+                http.ShowError($"Failed to sync: {q.Count}");
             }
             else
             {
                 await onFreshTourLoaded();
             }
         }
-        private async Task<bool> TryApplyOnServer(string tourId)
+        private async Task<bool> TryApplyOnServer(string tourId, Queue<SerializableTourOperation> q)
         {
             Tour? tour = await LoadTourBare(tourId, () => { return Task.CompletedTask; }, forceLoadFromServer: true);
             if (tour == null) return false;
-            Queue<SerializableTourOperation> updateQueue = tourServerUpdateQueues[tourId];
+            Queue<SerializableTourOperation> updateQueue = q;
             Queue<SerializableTourOperation> backupQueue = new();
             while (updateQueue.TryDequeue(out var op))
             {
@@ -215,7 +234,8 @@ namespace TCBlazor.Client.Shared
                 return true;
             } catch (Exception e)
             {
-                tourServerUpdateQueues[tourId] = backupQueue;
+                // 
+                await StoreServerQueue(tourId, backupQueue);
                 // debugging. comment out
                 http.ShowError($"keeping queue of size {backupQueue.Count} ({e.Message})");
                 return false;
