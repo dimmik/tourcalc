@@ -242,7 +242,7 @@ namespace TCBlazor.Client.Shared
             if (tour == null)
             {
                 await StoreServerQueue(tourId, q);
-                //http.ShowError("stored queue after tour is not loaded");
+                http.ShowError("stored queue after tour is not loaded");
                 return false;
             }
             Queue<SerializableTourOperation> updateQueue = q;

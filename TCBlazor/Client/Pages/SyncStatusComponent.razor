@@ -4,13 +4,8 @@
 
 @if (tcGlobal.Tour != null)
 {
-    <Button Size="small" Loading="IsSyncing" @onclick="DoSync">Sync: @UnsyncedItemNumber 
-        @if (IsSyncing)
-        {
-            <span>...</span>
-        }
-
-    </Button>
+    <span style="cursor:pointer" @onclick="DoSync">Sync: @UnsyncedItemNumber 
+    </span>
 } else
 {
     <span>No tour</span>
@@ -45,12 +40,9 @@
     }
     private async Task DoSync()
     {
-        if (tcGlobal?.Tour != null)
-        {
-            IsSyncing = true;
-            await dataSync.Sync(tcGlobal.Tour.Id);
-            IsSyncing = false;
-        }
+        IsSyncing = true;
+        await dataSync.Sync(tcGlobal?.Tour?.Id ?? "n_a");
+        IsSyncing = false;
     }
 
 }
