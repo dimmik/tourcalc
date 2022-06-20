@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.WebUtilities;
 using Newtonsoft.Json;
+using System.Diagnostics;
 using System.Text;
 using TCalc.Domain;
 using TCalc.Logic;
@@ -82,6 +83,10 @@ namespace TCBlazor.Client.Shared
         {
             return $"__tour_{tourId}";
         }
+        private static string GetUpdateQueueStorageKey(string tourId)
+        {
+            return $"__update_q_{tourId}";
+        }
         public async Task<Tour?> LoadTourBare(string? id, Func<Task> onTourRefreshedFromServer, bool forceLoadFromServer = false)
         {
             if (id == null) return default;
@@ -103,7 +108,7 @@ namespace TCBlazor.Client.Shared
         private async Task<Tour?> LoadTourFromServerInBackground(string id, Tour? localTour, Func<Task> onTourRefreshedFromServer)
         {
             var token = await ts.GetToken();
-            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token);
+            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token, showErrorMessages: false);
             if (t != null && t.StateGUID != (localTour?.StateGUID ?? Guid.NewGuid().ToString()))
             {
                 // On success, AND if state differs - store the tour and execute onTourRefreshedFromServer
@@ -153,28 +158,51 @@ namespace TCBlazor.Client.Shared
             var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
             return tours;
         }
-        // TODO make serializable. Store method name and params instead of action, and proces respectively
-        private readonly Dictionary<string, Queue<SerializableTourOperation>> tourServerUpdateQueues = new();
+
         private readonly Dictionary<string, Queue<SerializableTourOperation>> tourLocalUpdateQueues = new();
         private async Task EditTourData(string tourId, SerializableTourOperation op, Func<Task> onFreshTourLoaded)
         {
-            if (!tourServerUpdateQueues.ContainsKey(tourId)) tourServerUpdateQueues[tourId] = new();
-            if (!tourLocalUpdateQueues.ContainsKey(tourId)) tourLocalUpdateQueues[tourId] = new();
-            tourServerUpdateQueues[tourId].Enqueue(op);
-            tourLocalUpdateQueues[tourId].Enqueue(op);
+            Queue<SerializableTourOperation> serverQueue = await GetServerQueue(tourId);
+            serverQueue.Enqueue(op);
+            Queue<SerializableTourOperation> localQueue = GetLocalQueue(tourId);
+            localQueue.Enqueue(op);
 
             // update locally
-            await UpdateLocally(tourId);
+            await UpdateLocally(tourId, localQueue);
 
-            _ = UpdateOnServer(tourId, onFreshTourLoaded);
+            // on server in background task
+            _ = UpdateOnServer(tourId, serverQueue, onFreshTourLoaded);
         }
 
-        private async Task UpdateLocally(string tourId)
+        private Queue<SerializableTourOperation> GetLocalQueue(string tourId)
+        {
+            if (!tourLocalUpdateQueues.ContainsKey(tourId)) tourLocalUpdateQueues[tourId] = new();
+            var localQueue = tourLocalUpdateQueues[tourId];
+            return localQueue;
+        }
+
+        public async Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId)
+        {
+            Queue<SerializableTourOperation>? q = await ts.GetObject<Queue<SerializableTourOperation>>(GetUpdateQueueStorageKey(tourId));
+            if (q == null)
+            {
+                //http.ShowError("q is null");
+                q = new();
+            }
+            return q;
+        }
+        private async Task StoreServerQueue(string tourId, Queue<SerializableTourOperation> q)
+        {
+            //http.ShowError($"storing queue of size {q.Count} -- {new StackTrace(true)}");
+            await ts.SetObject(GetUpdateQueueStorageKey(tourId), q);
+        }
+
+        private async Task UpdateLocally(string tourId, Queue<SerializableTourOperation> q)
         {
             Tour? tour = await ts.GetObject<Tour>(GetTourStorageKey(tourId));
             if (tour != null)
             {
-                Queue<SerializableTourOperation> localUpdateQueue = tourLocalUpdateQueues[tourId];
+                Queue<SerializableTourOperation> localUpdateQueue = q;
                 while (localUpdateQueue.TryDequeue(out var op))
                 {
                     var proc = op.ApplyOperationFunc(tourStorageProcessor);
@@ -184,38 +212,56 @@ namespace TCBlazor.Client.Shared
             }
         }
 
-        private async Task UpdateOnServer(string tourId, Func<Task> onFreshTourLoaded)
+        private async Task UpdateOnServer(string tourId, Queue<SerializableTourOperation> q, Func<Task> onFreshTourLoaded)
         {
             // try update on server
-            bool updatedOnServer = await TryApplyOnServer(tourId);
+            bool updatedOnServer = await TryApplyOnServer(tourId, q);
             if (!updatedOnServer)
             {
-                http.ShowError($"Failed to sync: {tourServerUpdateQueues[tourId].Count}");
+                http.ShowError($"Failed to sync: {q.Count}");
             }
             else
             {
                 await onFreshTourLoaded();
             }
         }
-        private async Task<bool> TryApplyOnServer(string tourId)
+        private async Task<bool> TryApplyOnServer(string tourId, Queue<SerializableTourOperation> q)
         {
             Tour? tour = await LoadTourBare(tourId, () => { return Task.CompletedTask; }, forceLoadFromServer: true);
-            if (tour == null) return false;
-            Queue<SerializableTourOperation> updateQueue = tourServerUpdateQueues[tourId];
-            Queue<SerializableTourOperation> backupQueue = new();
-            while (updateQueue.TryDequeue(out var op))
+            if (tour == null)
             {
-                backupQueue.Enqueue(op);
-                var proc = op.ApplyOperationFunc(tourStorageProcessor);
-                tour = proc(tour);
+                await StoreServerQueue(tourId, q);
+                //http.ShowError("stored queue after tour is not loaded");
+                return false;
             }
+            Queue<SerializableTourOperation> updateQueue = q;
+            // debugging. comment out
+            http.ShowError($"update queue of size {updateQueue.Count}");
+            Queue<SerializableTourOperation> backupQueue = new();
+            
             try
             {
+                while (updateQueue.TryDequeue(out var op))
+                {
+                    backupQueue.Enqueue(op);
+                    var proc = op.ApplyOperationFunc(tourStorageProcessor);
+                    try
+                    {
+                        tour = proc(tour);
+                    } catch (Exception e)
+                    {
+                        http.ShowError($"(tour is null: {tour == null}) Failed to apply {op.OperationName} (id: '{op.ItemId ?? "n/a"}'): {e.Message}. Skipping");
+                    }
+                }
                 await UpdateTour(tour.GUID, tour);
+                http.ShowError($"NOW update queue of size {updateQueue.Count}");
+                await StoreServerQueue(tourId, updateQueue); // should be empty here, so keep it empty
                 return true;
             } catch (Exception e)
             {
-                tourServerUpdateQueues[tourId] = backupQueue;
+                // 
+                http.ShowError($"Exception: NOW update queue of size {updateQueue.Count} ({e.Message})");
+                await StoreServerQueue(tourId, backupQueue);
                 // debugging. comment out
                 http.ShowError($"keeping queue of size {backupQueue.Count} ({e.Message})");
                 return false;
@@ -273,10 +319,14 @@ namespace TCBlazor.Client.Shared
     }
     public class SerializableTourOperation
     {
-        public string OperationName { get; set; }
+        public string OperationName { get; set; } = "";
         public string? ItemId { get; set; }
         public string? ItemJson { get; set; }
 
+        public SerializableTourOperation()
+        {
+
+        }
         public SerializableTourOperation(string operationName, string? itemId, string? itemJson)
         {
             OperationName = operationName;
@@ -296,25 +346,29 @@ namespace TCBlazor.Client.Shared
             {
                 case "AddSpending":
                     Spending? sa = JsonConvert.DeserializeObject<Spending>(ItemJson);
-                    return t => tourStorageProcessor.AddSpending(t, sa);
+                    return t => tourStorageProcessor.AddSpending(t, sa) ?? t;
                 case "EditSpending":
                 case "UpdateSpending":
                     Spending? se = JsonConvert.DeserializeObject<Spending>(ItemJson);
-                    return t => tourStorageProcessor.UpdateSpending(t, se, ItemId);
+                    return t => tourStorageProcessor.UpdateSpending(t, se, ItemId) ?? t;
                 case "DeleteSpending":
-                    return t => tourStorageProcessor.DeleteSpending(t, ItemId);
+                    return t => tourStorageProcessor.DeleteSpending(t, ItemId) ?? t;
                 case "AddPerson":
                     Person? pa = JsonConvert.DeserializeObject<Person>(ItemJson);
-                    return t => tourStorageProcessor.AddPerson(t, pa);
+                    return t => tourStorageProcessor.AddPerson(t, pa) ?? t;
                 case "EditPerson":
                 case "UpdatePerson":
                     Person? pe = JsonConvert.DeserializeObject<Person>(ItemJson);
-                    return t => tourStorageProcessor.UpdatePerson(t, pe, ItemId);
+                    return t => tourStorageProcessor.UpdatePerson(t, pe, ItemId) ?? t;
                 case "DeletePerson":
-                    return t => tourStorageProcessor.DeletePerson(t, ItemId);
+                    return t => tourStorageProcessor.DeletePerson(t, ItemId) ?? t;
                 default:
                     return t => t;
             }
         }
     }
+    /*public class SerializableTourOperationContainer
+    {
+        public List<SerializableTourOperation> operations { get; set; } = new();
+    }*/
 }

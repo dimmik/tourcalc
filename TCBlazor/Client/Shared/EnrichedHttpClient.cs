@@ -18,7 +18,7 @@ namespace TCBlazor.Client.Shared
         }
         public HttpClient Http => _httpClient;
 
-        public async Task<string> GetStringAsync(string url)
+        public async Task<string> GetStringAsync(string url, bool showErrorMessages = true)
         {
             try
             {
@@ -30,7 +30,7 @@ namespace TCBlazor.Client.Shared
             }
             catch (Exception e)
             {
-                ShowError(e.Message);
+                if (showErrorMessages) ShowError(e.Message);
                 throw;
             }
         }
@@ -42,13 +42,13 @@ namespace TCBlazor.Client.Shared
             };
         }
 
-        public async Task<T?> CallWithAuthToken<T>(string url, string token)
+        public async Task<T?> CallWithAuthToken<T>(string url, string token, bool showErrorMessages = true)
         {
-            T? r = await CallWithAuthToken<T>(url, token, HttpMethod.Get, null);
+            T? r = await CallWithAuthToken<T>(url, token, HttpMethod.Get, null, showErrorMessages);
             return r;
         }
 
-        public async Task<T?> CallWithAuthToken<T>(string url, string token, HttpMethod method, object? body)
+        public async Task<T?> CallWithAuthToken<T>(string url, string token, HttpMethod method, object? body, bool showErrorMessages = true)
         {
             try
             {
@@ -85,7 +85,7 @@ namespace TCBlazor.Client.Shared
                 else
                 {
                     var m = await resp.Content.ReadAsStringAsync();
-                    ShowError($"{(int)resp.StatusCode} {resp.StatusCode}: {m}");
+                    if (showErrorMessages) ShowError($"{(int)resp.StatusCode} {resp.StatusCode}: {m}");
                 }
                 //_messageService.Destroy();
                 sw.Stop();
@@ -94,7 +94,7 @@ namespace TCBlazor.Client.Shared
             } 
             catch (Exception e)
             {
-                ShowError($"Error: {e.Message}");
+                if (showErrorMessages) ShowError($"Error: {e.Message}");
                 return default;
             }
         }

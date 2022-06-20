@@ -39,7 +39,8 @@
                 TItemValue="string"
 		        TItem="string"
                 Placeholder="From"
-                DefaultActiveFirstItem="false"                
+                DefaultActiveFirstItem="false" 
+                AllowClear=@true
             >
                     <SelectOptions>
 			            @foreach(var p in tour.Persons)
@@ -140,6 +141,10 @@
         if (!TheSpending.ToAll && (TheSpending.ToGuid ?? new List<string>()).Count == 0)
         {
             err.Add("Spending should have recepients or be to all");
+        }
+        if (string.IsNullOrWhiteSpace(TheSpending.FromGuid))
+        {
+            err.Add("FROM is empty");
         }
         if (err.Count == 0)
         {
