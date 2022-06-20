@@ -16,11 +16,22 @@
             var q = await dataSvc.GetServerQueue(tourId);
             return q.Count;
         }
+        public bool isSyncing { get; set; } = false;
         public async Task Sync(string tourId)
         {
-            if (await dataSvc.Sync(tourId))
+            if (!isSyncing) // well, naive locking...
             {
-                OnTourSynced?.Invoke();
+                isSyncing = true;
+                try
+                {
+                    if (await dataSvc.Sync(tourId))
+                    {
+                        OnTourSynced?.Invoke();
+                    }
+                } finally
+                {
+                    isSyncing = false;
+                }
             }
         }
 

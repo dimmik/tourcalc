@@ -237,6 +237,7 @@ namespace TCBlazor.Client.Shared
         }
         private async Task<bool> TryApplyOnServer(string tourId, Queue<SerializableTourOperation> q)
         {
+            if (q == null || q.Count == 0) return false;
             Tour? tour = await LoadTourBare(tourId, () => { return Task.CompletedTask; }, forceLoadFromServer: true);
             if (tour == null)
             {
