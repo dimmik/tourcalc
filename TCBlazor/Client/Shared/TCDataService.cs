@@ -183,12 +183,13 @@ namespace TCBlazor.Client.Shared
 
         public async Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId)
         {
-            Queue<SerializableTourOperation>? q = await ts.GetObject<Queue<SerializableTourOperation>>(GetUpdateQueueStorageKey(tourId));
-            if (q == null)
+            SerializableTourOperationContainer? qc = await ts.GetObject<SerializableTourOperationContainer>(GetUpdateQueueStorageKey(tourId));
+            if (qc == null)
             {
                 http.ShowError("q is null");
-                q = new();
+                qc = new();
             }
+            Queue<SerializableTourOperation>? q = new(qc.operations);
             return q;
         }
         public delegate Task onserverqstored();
@@ -196,7 +197,11 @@ namespace TCBlazor.Client.Shared
         private async Task StoreServerQueue(string tourId, Queue<SerializableTourOperation> q)
         {
             //http.ShowError($"storing queue of size {q.Count} -- {new StackTrace(true)}");
-            await ts.SetObject(GetUpdateQueueStorageKey(tourId), q);
+            SerializableTourOperationContainer qc = new()
+            {
+                operations = q.ToList()
+            };
+            await ts.SetObject(GetUpdateQueueStorageKey(tourId), qc);
             OnServerQueueStored?.Invoke();
         }
 
@@ -378,8 +383,8 @@ namespace TCBlazor.Client.Shared
             }
         }
     }
-    /*public class SerializableTourOperationContainer
+    public class SerializableTourOperationContainer
     {
         public List<SerializableTourOperation> operations { get; set; } = new();
-    }*/
+    }
 }
