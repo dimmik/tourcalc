@@ -163,9 +163,11 @@ else
             var sp = tour
                 ?.Spendings
                 ?.Where(s => !s.Planned)
-                ?.OrderBy(s => s.DateCreated)
+                ?.OrderBy(s => string.IsNullOrWhiteSpace(s.Type) ? 0 : 1)
+                ?.ThenBy(s => s.DateCreated)
                 ?.LastOrDefault();
-            TheSpending.FromGuid = sp?.FromGuid ?? "";
+            TheSpending.FromGuid = "";// sp?.FromGuid ?? "";
+            TheSpending.Type = sp?.Type ?? "";
         }
     }
     private void LoadSpending()
