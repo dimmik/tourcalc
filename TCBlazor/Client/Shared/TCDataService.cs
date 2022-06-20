@@ -186,7 +186,7 @@ namespace TCBlazor.Client.Shared
             Queue<SerializableTourOperation>? q = await ts.GetObject<Queue<SerializableTourOperation>>(GetUpdateQueueStorageKey(tourId));
             if (q == null)
             {
-                //http.ShowError("q is null");
+                http.ShowError("q is null");
                 q = new();
             }
             return q;

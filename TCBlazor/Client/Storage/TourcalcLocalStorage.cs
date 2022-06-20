@@ -38,15 +38,17 @@ namespace TCBlazor.Client.Storage
         {
             Stopwatch sw = Stopwatch.StartNew();
             string json = await Get(key);
+            Console.WriteLine($"j: {json}");
             try
             {
                 T? res = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json ?? "");
                 sw.Stop();
-                Console.WriteLine($"Get object {key} in {sw.Elapsed}");
+                Console.WriteLine($"Get object {key} (null? {res == null}) in {sw.Elapsed}");
                 return res;
             }
             catch (Exception e)
             {
+                Console.WriteLine($"Error get obj: {e.Message}");
                 return default;
             }
         }
