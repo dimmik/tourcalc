@@ -205,11 +205,11 @@ namespace TCBlazor.Client.Shared
             {
                 await UpdateTour(tour.GUID, tour);
                 return true;
-            } catch
+            } catch (Exception e)
             {
                 tourServerUpdateQueues[tourId] = backupQueue;
                 // debugging. comment out
-                //http.ShowError($"keeping queue of size {backupQueue.Count}");
+                http.ShowError($"keeping queue of size {backupQueue.Count} ({e.Message})");
                 return false;
             }
         }
