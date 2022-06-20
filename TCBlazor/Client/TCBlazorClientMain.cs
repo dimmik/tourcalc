@@ -22,6 +22,7 @@ namespace Company.WebApplication1
                 .AddSingleton<TCGlobal>()
                 .AddScoped<TCDataService>()
                 .AddScoped<AuthSvc>()
+                .AddScoped<TCDataSyncService>()
                 ;
 
 

@@ -5,6 +5,7 @@
 @inject TCGlobal tcGlobal
 @inject TCDataService dataSvc
 @inject NavigationManager NavManager
+@inject TCDataSyncService dataSync
 
 @if (tour == null)
 {
@@ -103,10 +104,15 @@ else
     private bool ShowPlannedSpendings = false;
 
     public Tour? tour = null;
+    protected override void OnInitialized()
+    {
+        dataSync.OnTourSynced += OnFreshTourLoaded;
+    }
     protected override async Task OnParametersSetAsync()
     {
         await LoadTour();
         tcGlobal.Title = $"{tour?.Name ?? "n/a"}";
+        tcGlobal.Tour = tour;
         ShowPlannedSpendings = (tour?.IsFinalizing ?? false);
     }
     private async Task LoadTour()

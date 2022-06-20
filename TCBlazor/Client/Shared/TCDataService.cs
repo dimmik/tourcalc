@@ -95,7 +95,7 @@ namespace TCBlazor.Client.Shared
             if (t != null && !forceLoadFromServer) // found locally and we do not enforce loading from server
             {
                 // Then in background - load the tour from server
-                Task<Tour?> tourLoadTask = LoadTourFromServerInBackground(id, t, onTourRefreshedFromServer);
+                _ = LoadTourFromServerInBackground(id, t, onTourRefreshedFromServer);
                 return t;
             } else
             {
@@ -191,10 +191,13 @@ namespace TCBlazor.Client.Shared
             }
             return q;
         }
+        public delegate Task onserverqstored();
+        public onserverqstored OnServerQueueStored;
         private async Task StoreServerQueue(string tourId, Queue<SerializableTourOperation> q)
         {
             //http.ShowError($"storing queue of size {q.Count} -- {new StackTrace(true)}");
             await ts.SetObject(GetUpdateQueueStorageKey(tourId), q);
+            OnServerQueueStored?.Invoke();
         }
 
         private async Task UpdateLocally(string tourId, Queue<SerializableTourOperation> q)
@@ -212,6 +215,13 @@ namespace TCBlazor.Client.Shared
             }
         }
 
+        public async Task<bool> Sync(string tourId)
+        {
+            var q = await GetServerQueue(tourId);
+            bool ok = await TryApplyOnServer(tourId, q);
+            return ok;
+        }
+
         private async Task UpdateOnServer(string tourId, Queue<SerializableTourOperation> q, Func<Task> onFreshTourLoaded)
         {
             // try update on server
@@ -227,6 +237,7 @@ namespace TCBlazor.Client.Shared
         }
         private async Task<bool> TryApplyOnServer(string tourId, Queue<SerializableTourOperation> q)
         {
+            if (q == null || q.Count == 0) return false;
             Tour? tour = await LoadTourBare(tourId, () => { return Task.CompletedTask; }, forceLoadFromServer: true);
             if (tour == null)
             {
@@ -236,7 +247,7 @@ namespace TCBlazor.Client.Shared
             }
             Queue<SerializableTourOperation> updateQueue = q;
             // debugging. comment out
-            http.ShowError($"update queue of size {updateQueue.Count}");
+            //http.ShowError($"update queue of size {updateQueue.Count}");
             Queue<SerializableTourOperation> backupQueue = new();
             
             try
@@ -247,23 +258,23 @@ namespace TCBlazor.Client.Shared
                     var proc = op.ApplyOperationFunc(tourStorageProcessor);
                     try
                     {
-                        tour = proc(tour);
+                        if (tour != null) tour = proc(tour);
                     } catch (Exception e)
                     {
                         http.ShowError($"(tour is null: {tour == null}) Failed to apply {op.OperationName} (id: '{op.ItemId ?? "n/a"}'): {e.Message}. Skipping");
                     }
                 }
-                await UpdateTour(tour.GUID, tour);
-                http.ShowError($"NOW update queue of size {updateQueue.Count}");
+                await UpdateTour(tour?.GUID, tour);
+                //http.ShowError($"NOW update queue of size {updateQueue.Count}");
                 await StoreServerQueue(tourId, updateQueue); // should be empty here, so keep it empty
                 return true;
             } catch (Exception e)
             {
                 // 
-                http.ShowError($"Exception: NOW update queue of size {updateQueue.Count} ({e.Message})");
+                //http.ShowError($"Exception: NOW update queue of size {updateQueue.Count} ({e.Message})");
                 await StoreServerQueue(tourId, backupQueue);
                 // debugging. comment out
-                http.ShowError($"keeping queue of size {backupQueue.Count} ({e.Message})");
+                //http.ShowError($"keeping queue of size {backupQueue.Count} ({e.Message})");
                 return false;
             }
         }

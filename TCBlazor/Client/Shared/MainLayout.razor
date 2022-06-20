@@ -59,6 +59,7 @@
                             </span>&nbsp;&nbsp;
                         </div>
                         <div style="display: table-cell; align-content: flex-end; width: 35%; text-align: end;">
+                            <span><TCBlazor.Client.Pages.SyncStatusComponent/></span>
                             <span style="cursor:pointer; font-size: clamp(6px, 4vw, 18px); border:1px solid white" @onclick=@(async () => {
                                 await LogOut();
                                 NavManager.NavigateTo("/");

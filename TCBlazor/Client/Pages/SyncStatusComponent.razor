@@ -1,0 +1,56 @@
+﻿@inject TCDataSyncService dataSync
+@inject TCDataService dataSvc
+@inject TCGlobal tcGlobal
+
+@if (tcGlobal.Tour != null)
+{
+    <Button Size="small" Loading="IsSyncing" @onclick="DoSync">Sync: @UnsyncedItemNumber 
+        @if (IsSyncing)
+        {
+            <span>...</span>
+        }
+
+    </Button>
+} else
+{
+    <span>No tour</span>
+}
+
+@code {
+
+    private System.Threading.Timer? timer;
+
+    private bool IsSyncing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        dataSync.OnTourSynced += OnUpdatedAsync;
+        tcGlobal.OnChange += () => { _ = OnUpdatedAsync(); };
+        dataSvc.OnServerQueueStored += OnUpdatedAsync;
+
+        timer = new System.Threading.Timer(async (object? stateInfo) =>
+        {
+            await DoSync();
+            StateHasChanged();
+        }, new System.Threading.AutoResetEvent(false), 20000, 20000);
+
+        await OnUpdatedAsync();
+    }
+
+    private int UnsyncedItemNumber = 0;
+    private async Task OnUpdatedAsync()
+    {
+        UnsyncedItemNumber = await dataSync.CountOfUnsyncedOperations(tcGlobal?.Tour?.Id ?? "n_a");
+        StateHasChanged();
+    }
+    private async Task DoSync()
+    {
+        if (tcGlobal?.Tour != null)
+        {
+            IsSyncing = true;
+            await dataSync.Sync(tcGlobal.Tour.Id);
+            IsSyncing = false;
+        }
+    }
+
+}
