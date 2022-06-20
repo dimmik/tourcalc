@@ -4,6 +4,7 @@
 @inject IJSRuntime JsRuntime
 @inject TCDataService dataSvc
 @inject TCGlobal tcGlobal
+@inject TCDataSyncService dataSync
 
 
 <h3>Spending</h3>
@@ -14,6 +15,7 @@
 else 
 {
     tcGlobal.Title = $"{tour.Name} (s)";
+    tcGlobal.Tour = tour;
     <!--
 - Form for adding spending with choosing from
 - list of spendings, filtered by person and sorted by date desc
@@ -137,6 +139,7 @@ else
         {
             LoadSpending();
         }
+        dataSync.OnTourSynced += OnFreshTourLoaded;
         initialized = true;
     }
     private async Task LoadTour()

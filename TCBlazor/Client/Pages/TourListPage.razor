@@ -153,6 +153,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         tcGlobal.Title = "Tour List";
+        tcGlobal.Tour = null;
         await LoadTours();
     }
     private IEnumerable<Tour> GetTours()
