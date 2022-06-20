@@ -2,10 +2,10 @@
 @inject TCDataService dataSvc
 @inject TCGlobal tcGlobal
 
-@if (tcGlobal.Tour != null)
+@if (tcGlobal.Tour != null && UnsyncedItemNumber > 0)
 {
-    <span style="cursor:pointer;color:black;background-color: @(UnsyncedItemNumber > 0 ? "lightpink" : "lightyellow")" @onclick="DoSync">
-        <nobr>S @UnsyncedItemNumber </nobr>
+    <span style="cursor:pointer;color:black;background-color: lightpink" @onclick="DoSync">
+        @UnsyncedItemNumber
     </span>
 } else
 {
