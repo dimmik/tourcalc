@@ -15,11 +15,13 @@ namespace TCBlazor.Client.Shared
         private readonly TourcalcLocalStorage ts;
         private readonly EnrichedHttpClient http;
         private readonly TourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
+        private readonly LocalLogger logger;
 
-        public TCDataService(TourcalcLocalStorage ts, EnrichedHttpClient http)
+        public TCDataService(TourcalcLocalStorage ts, EnrichedHttpClient http, LocalLogger logger)
         {
             this.ts = ts ?? throw new ArgumentNullException(nameof(ts));
             this.http = http ?? throw new ArgumentNullException(nameof(http));
+            this.logger = logger;
         }
 
 
@@ -248,7 +250,7 @@ namespace TCBlazor.Client.Shared
             {
                 await StoreServerQueue(tourId, q);
                 //http.ShowError("stored queue after tour is not loaded");
-                Console.WriteLine("stored queue after tour is not loaded");
+                logger.Log("stored queue after tour is not loaded");
                 return false;
             }
             Queue<SerializableTourOperation> updateQueue = q;

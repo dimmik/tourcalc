@@ -15,6 +15,7 @@ namespace Company.WebApplication1
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
             builder.Services
+                .AddSingleton<LocalLogger>()
                 .AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
                 .AddAntDesign()
                 .AddSingleton<TourcalcLocalStorage>()
