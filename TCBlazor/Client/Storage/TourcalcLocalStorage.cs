@@ -63,12 +63,12 @@ namespace TCBlazor.Client.Storage
                 await SetUISettings(s);
                 return s;
             }
-            var settings = JsonSerializer.Deserialize<UISettings>(res) ?? new UISettings();
+            var settings = Newtonsoft.Json.JsonConvert.DeserializeObject<UISettings>(res) ?? new UISettings();
             return settings;
         }
         public async Task SetUISettings(UISettings s)
         {
-            await Set(UISettingsKey, JsonSerializer.Serialize(s));
+            await Set(UISettingsKey, Newtonsoft.Json.JsonConvert.SerializeObject(s));
         }
     }
 }
