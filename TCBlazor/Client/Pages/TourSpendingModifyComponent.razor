@@ -112,7 +112,7 @@
     public Tour tour { get; set; } = new Tour();
 
     [Parameter]
-    public Func<Spending, Task> OnSave { get; set; } = async (s) => { };
+    public Func<Spending, Task> OnSave { get; set; } = (s) => Task.CompletedTask;
 
     [Parameter]
     public Action OnCancel { get; set; } = () => { };

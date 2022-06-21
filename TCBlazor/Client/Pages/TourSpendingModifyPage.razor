@@ -163,7 +163,7 @@ else
     }
     private void LoadSpending()
     {
-        TheSpending = tour?.Spendings?.FirstOrDefault(s => s.GUID == SpendingId) ?? new Spending();
+        TheSpending = (tour?.Spendings?.FirstOrDefault(s => s.GUID == SpendingId) ?? new Spending()).SafeClone<Spending>();
     }
     private void FromGuidChanged(string g)
     {
