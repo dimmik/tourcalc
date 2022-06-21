@@ -96,7 +96,7 @@ namespace TCBlazor.Client.Shared
             } 
             catch (Exception e)
             {
-                if (showErrorMessages) ShowError($"Error: {e.Message} ({e.StackTrace})");
+                if (showErrorMessages) ShowError($"{url}: {e.Message}");
                 return default;
             }
         }
