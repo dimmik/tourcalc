@@ -164,7 +164,11 @@ else
     }
     private async Task LoadTours()
     {
-        tours = await dataSvc.GetTourList();
+        tours = await dataSvc.GetTourList(async () =>
+        {
+            tours = await dataSvc.GetTourList(() => Task.CompletedTask);
+            StateHasChanged();
+        });
     }
 
 }

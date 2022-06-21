@@ -150,14 +150,39 @@ namespace TCBlazor.Client.Shared
             if (tour == null) return;
             await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? CodeThatForSureIsNotUsed}", await ts.GetToken(), HttpMethod.Post, tour);
         }
-        public async Task<TourList?> GetTourList()
+        public async Task<TourList?> GetTourList(Func<Task> onTourListLoadedFromServer)
+        {
+            TourList? tl = await ts.GetObject<TourList>(GetTourListStorageKey());
+            if (tl == null)
+            {
+                tl = await GetTourListFromServer();
+                await ts.SetObject(GetTourListStorageKey(), tl);
+                return tl;
+            } 
+            _ = Task.Run(async () => {
+                var tl = await GetTourListFromServer();
+                if (tl != null)
+                {
+                    await ts.SetObject(GetTourListStorageKey(), tl);
+                    await onTourListLoadedFromServer();
+                }
+            });
+            return tl;
+        }
+
+        private string GetTourListStorageKey()
+        {
+            return "__tour_list";
+        }
+
+        public async Task<TourList?> GetTourListFromServer()
         {
             var token = await ts.GetToken();
             // TODO pagination, links, all the stuff
             var from = 0;
             var count = 1000;
             var code = "";
-            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token);
+            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, showErrorMessages: false);
             return tours;
         }
 
@@ -195,7 +220,7 @@ namespace TCBlazor.Client.Shared
             return q;
         }
         public delegate Task onserverqstored();
-        public onserverqstored OnServerQueueStored;
+        public onserverqstored? OnServerQueueStored;
         private async Task StoreServerQueue(string tourId, Queue<SerializableTourOperation> q)
         {
             //http.ShowError($"storing queue of size {q.Count} -- {new StackTrace(true)}");
