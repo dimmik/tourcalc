@@ -1,22 +1,28 @@
 ﻿@inject IJSRuntime JsRuntime
-
-<Form 
-        Model="TheSpending"
-        Layout="@FormLayout.Horizontal"
-        Size="@AntSizeLDSType.Small"
-        LabelColSpan="4"
-        WrapperColSpan="12"
-        
-
+<div style="text-align: center; width: 100%;">
+    <div
+        style="margin-left: auto; margin-right: auto;text-align:left; width: clamp(300px, 40vw, 500px); background-color: #e6ffff; padding: 5px; border-radius: 5px; border: 1px solid black;"
     >
-        <FormItem Label="Description" Style="margin-bottom: 1px" LabelStyle="padding: 0 !important">
-            <Input @bind-Value=@(TheSpending.Description)/>
-        </FormItem>
-        <FormItem Label="Amount" Style="margin-bottom: 1px;">
-            <Input @bind-Value=@(TheSpending.AmountInCents) />
-         </FormItem>
+<table style="width: 100%">
+    <thead>
+        <tr><th colspan="2" style="text-align: center">@TitleText</th></tr>
+    </thead>
+        <tr>
+            <td>Description:</td>
+            <td>
+                <Input @bind-Value=@(TheSpending.Description)/>
+            </td>
+        </tr>
+        <tr>
+            <td>Amount:</td>
+            <td>
+            <Input @bind-Value=@(TheSpending.AmountInCents) Type="number"/>
+            </td>
+         </tr>
 
-        <FormItem Label="Category" Style="margin-bottom: 1px;">
+        <tr>
+            <td>Category:</td>
+            <td>
             <Select
                 @bind-Value=@(TheSpending.Type)
                 TItemValue="string"
@@ -31,8 +37,12 @@
 			            }
 		            </SelectOptions>
             </Select>
-        </FormItem>
-        <FormItem Label="From" Style="margin-bottom: 1px">
+            </td>
+        </tr>
+        <tr>
+            <td>From:</td>
+            <td>
+
             <Select
                 OnSelectedItemChanged="OnFromSelectedChangedHandler"
                 @bind-Value=@(TheSpending.FromGuid)
@@ -49,11 +59,18 @@
 			            }
 		            </SelectOptions>
             </Select>
-        </FormItem>
-        <FormItem Label="To All" Style="margin-bottom: 1px">
+            </td>
+        </tr>
+        <tr>
+            <td>To All:</td>
+            <td>
+
             <Switch @bind-Value=@(TheSpending.ToAll)></Switch>
-        </FormItem>
-        <FormItem Label="To" Style="margin-bottom: 1px">
+            </td>
+        </tr>
+        <tr>
+            <td>To:</td>
+            <td>
             <Select Mode="multiple"
                 Placeholder="To..."
 		        @bind-Values="@_selectedValuesTo"
@@ -69,17 +86,23 @@
 			            }
 		            </SelectOptions>
             </Select>
-        </FormItem>
-        <FormItem Style="margin-bottom: 1px">
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+
                 <Button Type="@ButtonType.Primary" Loading=@ShowInProgress @onclick=@(async () => await SaveSpending())>
                     @($"{(IsItANewSpending() ? "Submit" : "Submit")}")
                 </Button>
                 <Button Danger=@true @onclick=@(() => OnCancel())>
                     Cancel
                 </Button>
+            </td>
+        </tr>
+</table>
+</div>
+</div>
 
-        </FormItem>
-    </Form>
 
 @code {
     [Parameter]
@@ -97,6 +120,9 @@
 
     [Parameter]
     public Action<string> OnFromChanged { get; set; } = (s) => { };
+
+    [Parameter]
+    public string TitleText { get; set; } = "NEW";
 
     private bool IsItANewSpending()
     {
@@ -170,19 +196,19 @@
     private RenderFragment CategoryDropdownRenderer(RenderFragment originNode)
     {
         RenderFragment customDropdownRender =
-            @<Template>
-                <div>
-                    @originNode
-                    <Divider Style="margin: 4px 0"></Divider>
-                    <div style="display: flex; flex-wrap: nowrap; padding: 8px">
-                        <Input Style="flex: auto" @bind-Value="@_cname"/>
-                        <a style="flex: none; padding: 8px; display: block; cursor: pointer" @onclick="AddCatToList">
-                            <Icon Type="plus" Theme="outline"></Icon>
-                            Add Category
-                        </a>
-                    </div>
-                </div>
-            </Template>;
+    @<Template>
+                                                    <div>
+                                                        @originNode
+                                                        <Divider Style="margin: 4px 0"></Divider>
+                                                        <div style="display: flex; flex-wrap: nowrap; padding: 8px">
+                                                            <Input Style="flex: auto" @bind-Value="@_cname"/>
+                                                            <a style="flex: none; padding: 8px; display: block; cursor: pointer" @onclick="AddCatToList">
+                                                                <Icon Type="plus" Theme="outline"></Icon>
+                                                                Add Category
+                                                            </a>
+                                                        </div>
+                                                    </div>
+    </Template>;
 
         return customDropdownRender;
     }

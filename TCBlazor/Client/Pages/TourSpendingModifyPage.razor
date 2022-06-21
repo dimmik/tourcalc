@@ -24,30 +24,18 @@ else
 <div>
 <h4><NavLink href=@($"tour/{TourId}")>&lt;&lt; @tour.Name</NavLink>
         </h4>
-            @if (mode == ComponentMode.Edit)
-            {
-                <b>Editing '@(TheSpending.Description)'</b>
-                <Button @onclick=@(() => {
-                    mode = ComponentMode.Add;
-                    InitNewSpending();
-                    StateHasChanged();
-                })
-                Type="@ButtonType.Primary"
-                >Add New</Button>
-        } else if (mode == ComponentMode.AddPlanned)
-        {
-                <b>Adding planned '@(TheSpending.Description)'</b>
-                           
-        } else
-        {
-                <b>Adding New Spending</b>
-            }
     <TourSpendingModifyComponent
         tour=@tour
         TheSpending=@TheSpending
         OnSave=@(async (s) => await SaveSpending(s))
         OnFromChanged=@((g) => FromGuidChanged(g))
         OnCancel="OnCancel"
+        TitleText=@(mode == ComponentMode.Edit 
+                        ? $"{TheSpending.Description}" 
+                        : mode == ComponentMode.AddPlanned
+                            ? $"PLANNED {TheSpending.Description}"
+                            : "NEW"
+                    )
         />
 </div>
 <TourSpendingsComponent 
