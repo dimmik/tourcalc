@@ -53,7 +53,7 @@
                 AllowClear=@true
             >
                     <SelectOptions>
-			            @foreach(var p in tour.Persons)
+			            @foreach(var p in TourPersons())
 			            {
 				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
 			            }
@@ -80,7 +80,7 @@
                 Disabled=@(TheSpending.ToAll)
 		        AllowClear>
 		            <SelectOptions>
-			            @foreach(var p in tour.Persons)
+			            @foreach(var p in TourPersons())
 			            {
 				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
 			            }
@@ -132,10 +132,21 @@
     private List<string> SpendingCategories = new List<string>();
 
 
+    private IEnumerable<Person> TourPersons()
+    {
+        IEnumerable<Person> res = tour?.Persons ?? new();
+        res = res.OrderBy(p => p.Name);
+        return res;
+    }
+
     protected override void OnParametersSet()
     {
         _selectedValuesTo = TheSpending.ToGuid;
-        SpendingCategories = (tour?.Spendings?.Where(s => !string.IsNullOrWhiteSpace(s.Type)).Select(s => s.Type)?.Distinct() ?? new string[0]).ToList();
+        SpendingCategories = (
+            tour?.Spendings?.Where(s => !string.IsNullOrWhiteSpace(s.Type))
+                ?.Select(s => s.Type)?.Distinct()
+                ?.OrderBy(s => s) ?? Enumerable.Empty<string>()
+            ).ToList();
     }
 
     IEnumerable<string> _selectedValuesTo = new List<string>();
