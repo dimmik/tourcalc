@@ -1,10 +1,13 @@
 ﻿@page "/tour/{tourId}/spending/edit/{spendingId}"
 @page "/tour/{tourId}/spending/add/{*personId}"
 
+@using TCBlazor.Client.Storage
+
 @inject IJSRuntime JsRuntime
 @inject TCDataService dataSvc
 @inject TCGlobal tcGlobal
 @inject TCDataSyncService dataSync
+@inject TourcalcLocalStorage ts
 
 <div>
     <div class="cool-header"  
@@ -85,11 +88,14 @@ else
     private Spending TheSpending = new Spending();
     private bool initialized = false;
 
+    private readonly static string whoamiKey = "__WhoAmI";
+
     private async Task SaveSpending(Spending s)
     {
         if (mode == ComponentMode.Add || mode == ComponentMode.AddPlanned)
         {
             await dataSvc.AddSpending(TourId, s, OnFreshTourLoaded);
+            await ts.Set(whoamiKey, s.FromGuid);
         }
         else
         {
@@ -110,9 +116,12 @@ else
 
     ComponentMode mode;
 
+    private string WhoAmI = ""; // from spending last ADDED by THIS USER
+
     protected override async Task OnInitializedAsync()
     {
         await LoadTour();
+        WhoAmI = await ts.Get(whoamiKey) ?? "";
         mode = SpendingId == null 
             ? ComponentMode.Add 
             : (!tour?.Spendings?.Any(s => !s.Planned && s.GUID == SpendingId) ?? false) 
@@ -155,7 +164,7 @@ else
                 ?.OrderBy(s => string.IsNullOrWhiteSpace(s.Type) ? 0 : 1)
                 ?.ThenBy(s => s.DateCreated)
                 ?.LastOrDefault();
-            TheSpending.FromGuid = "";// sp?.FromGuid ?? "";
+            TheSpending.FromGuid = (tour?.Persons ?? new()).Any(p => p.GUID == WhoAmI) ? WhoAmI : "";
             TheSpending.Type = sp?.Type ?? "";
         }
     }
