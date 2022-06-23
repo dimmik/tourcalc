@@ -6,6 +6,7 @@ using MongoDB.Driver;
 using TCalc.Domain;
 using System.Linq;
 using System.Web;
+using MongoDB.Bson.Serialization.Conventions;
 
 namespace TCalc.Storage.MongoDB
 {
@@ -15,8 +16,11 @@ namespace TCalc.Storage.MongoDB
 
         public MongoDbTourStorage(string url, string username, string password)
         {
-//            client = new MongoClient($"mongodb+srv://mongo:aAdmin001@dimmik-mongo-4su6a.azure.mongodb.net");
+            var conventionPack = new ConventionPack { new IgnoreExtraElementsConvention(true) };
+            ConventionRegistry.Register("IgnoreExtraElements", conventionPack, type => true);
+            //            client = new MongoClient($"mongodb+srv://mongo:aAdmin001@dimmik-mongo-4su6a.azure.mongodb.net");
             client = new MongoClient($"mongodb+srv://{HttpUtility.UrlEncode(username)}:{HttpUtility.UrlEncode(password)}@{url}?connect=replicaSet");
+            
             //check connectivity
             GetTour("none");
         }
