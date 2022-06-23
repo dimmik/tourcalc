@@ -21,14 +21,7 @@ else
 {
     tcGlobal.Title = $"{tour.Name} (s)";
     tcGlobal.Tour = tour;
-    <!--
-- Form for adding spending with choosing from
-- list of spendings, filtered by person and sorted by date desc
-
--->
 <div>
-<h4><NavLink href=@($"tour/{TourId}")>&lt;&lt; @tour.Name</NavLink>
-        </h4>
     <TourSpendingModifyComponent
         tour=@tour
         TheSpending=@TheSpending

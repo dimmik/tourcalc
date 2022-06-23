@@ -54,7 +54,7 @@
                             <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="">
                                 <span class="oi oi-home" aria-hidden="true"></span>
                             </a>&nbsp;&nbsp;
-                            <span style="color:white; font-size: clamp(6px, 4vw, 18px);">
+                            <span style="color:white; font-size: clamp(6px, 4vw, 18px);cursor:pointer;" @onclick="OnTitleClick">
                                 @(tcGlobal.Title.Length > 2000 ? $"{tcGlobal.Title.Substring(0, 17)}..." : tcGlobal.Title)
                             </span>&nbsp;&nbsp;
                         </div>
@@ -100,6 +100,13 @@
     private void OnTitleChange()
     {
         StateHasChanged();
+    }
+    private void OnTitleClick()
+    {
+        if (tcGlobal.Tour != null)
+        {
+            NavManager.NavigateTo($"/tour/{tcGlobal.Tour.Id}");
+        }
     }
     private async Task LogOut()
     {
