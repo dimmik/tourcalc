@@ -150,6 +150,10 @@ namespace TCBlazor.Client.Shared
             if (tour == null) return;
             await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? CodeThatForSureIsNotUsed}", await ts.GetToken(), HttpMethod.Post, tour);
         }
+        public async Task ClearTourList()
+        {
+            await ts.SetObject<TourList>(GetTourListStorageKey(), new());
+        }
         public async Task<TourList?> GetTourList(Func<Task> onTourListLoadedFromServer)
         {
             TourList? tl = await ts.GetObject<TourList>(GetTourListStorageKey());

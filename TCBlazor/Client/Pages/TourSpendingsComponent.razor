@@ -210,7 +210,7 @@
             .ThenBy(s => (Tour?.Persons ?? new List<Person>()).FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "") // then by name
             .ThenByDescending(s => s.AmountInCents) // then by amount
             ;
-        real = real.OrderBy(s => s.DateCreated);
+        real = real.OrderByDescending(s => s.DateCreated);
 
         var preprocessed = SpendingListPreProcessor((ShowPlanned ? planned : new Spending[0]).Concat(real).ToList());
         var sorted = FieldSort(preprocessed);
