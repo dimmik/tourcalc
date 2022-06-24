@@ -1,6 +1,5 @@
 ﻿<table>
-    <tr><td style="width: 160px; height: 160px; padding: 5px; vertical-align: top;">&nbsp;
-
+    <tr><td style="width: 160px; height: 160px; padding: 5px; vertical-align: top;">
     <div style="
         border-radius: 100%;
         width: 100%;
@@ -13,14 +12,14 @@
     "></div>
 
 </td>
-<td style="padding: 5px; font-size: x-small">
+<td style="padding: 5px; font-size: x-small; vertical-align:top;">
 @foreach (var acn in AnglesColorsAndNames)
 {
   var nm = acn.Item3;
   var color = acn.Item2;
   var perc = acn.Item1 * 100.0 / 360;
   <div>
-        <span style="width:7px;background-color:@color">&nbsp;&nbsp;&nbsp;</span><b>@nm</b> @($"{perc:0.0}%")
+        <span style="width:7px;background-color:@color">&nbsp;&nbsp;&nbsp;</span><b>&nbsp;@nm</b> @($"{perc:0.0}%")
   </div>
 }
 </td>
@@ -28,7 +27,7 @@
 </table>
 @code {
     [Parameter]
-    public List<(string name, int amount)> Data { get; set; } = new List<(string, int)>()
+    public IEnumerable<(string name, int amount)> Data { get; set; } = new List<(string, int)>()
         {
             ("one", 200),
             ("two", 200),
