@@ -14,7 +14,7 @@ namespace TCBlazor.Client.Shared
     {
         private readonly TourcalcLocalStorage ts;
         private readonly EnrichedHttpClient http;
-        private readonly TourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
+        private readonly ITourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
         private readonly LocalLogger logger;
 
         public TCDataService(TourcalcLocalStorage ts, EnrichedHttpClient http, LocalLogger logger)
@@ -388,25 +388,25 @@ namespace TCBlazor.Client.Shared
             ItemJson = JsonConvert.SerializeObject(item);
         }
 
-        public Func<Tour, Tour> ApplyOperationFunc(TourStorageProcessor tourStorageProcessor)
+        public Func<Tour, Tour> ApplyOperationFunc(ITourStorageProcessor tourStorageProcessor)
         {
             switch (OperationName)
             {
                 case "AddSpending":
-                    Spending? sa = JsonConvert.DeserializeObject<Spending>(ItemJson);
+                    Spending? sa = JsonConvert.DeserializeObject<Spending>(ItemJson ?? "");
                     return t => tourStorageProcessor.AddSpending(t, sa) ?? t;
                 case "EditSpending":
                 case "UpdateSpending":
-                    Spending? se = JsonConvert.DeserializeObject<Spending>(ItemJson);
+                    Spending? se = JsonConvert.DeserializeObject<Spending>(ItemJson ?? "");
                     return t => tourStorageProcessor.UpdateSpending(t, se, ItemId) ?? t;
                 case "DeleteSpending":
                     return t => tourStorageProcessor.DeleteSpending(t, ItemId) ?? t;
                 case "AddPerson":
-                    Person? pa = JsonConvert.DeserializeObject<Person>(ItemJson);
+                    Person? pa = JsonConvert.DeserializeObject<Person>(ItemJson ?? "");
                     return t => tourStorageProcessor.AddPerson(t, pa) ?? t;
                 case "EditPerson":
                 case "UpdatePerson":
-                    Person? pe = JsonConvert.DeserializeObject<Person>(ItemJson);
+                    Person? pe = JsonConvert.DeserializeObject<Person>(ItemJson ?? "");
                     return t => tourStorageProcessor.UpdatePerson(t, pe, ItemId) ?? t;
                 case "DeletePerson":
                     return t => tourStorageProcessor.DeletePerson(t, ItemId) ?? t;

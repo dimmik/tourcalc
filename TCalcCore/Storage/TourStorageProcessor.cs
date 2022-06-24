@@ -6,7 +6,7 @@ using TCalc.Domain;
 
 namespace TCalc.Storage
 {
-    public class TourStorageProcessor
+    public class TourStorageProcessor : ITourStorageProcessor
     {
         public Tour AddPerson(Tour tour, Person p)
         {
@@ -83,7 +83,8 @@ namespace TCalc.Storage
             if (removedSpending != null)
             {
                 t.Spendings.Remove(removedSpending);
-            } else
+            }
+            else
             {
                 return null;
             }
