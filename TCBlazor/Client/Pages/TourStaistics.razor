@@ -2,32 +2,23 @@
     1. spendings by category
     2. chart
 -->
-        <TableTemplate Items=@summary Context="itemItem"
-            ConditionalRowStyle=@((r, idx) => $"{(idx % 2 == 0 ? "background-color: lightgreen" : "background-color: lightblue")}")
-            >
-            <TableHeader>
-                <th>Category</th>
-                <th>Amount</th>
-                <th>Percent</th>
-                <th>###
-                </th>
-            </TableHeader>
-            <RowTemplate>
-                @{
-                    var item = itemItem.Item1;
-                }
-                <td>@item.Name</td>
-                <td>@item.Amount</td>
-                <td>@($"{item.Amount * 100.0 / summary.Select(s => s.Amount).Sum() : 0}%")</td>
-                <td><b>@(new string('—', (int)(item.Amount * 50.0 / summary.Select(s => s.Amount).Sum())))</b></td>
-            </RowTemplate>
-        </TableTemplate>
-
+<table><tr><td style="padding: 5px; vertical-align: top; font-size: x-small;">
+            <table>
+            @foreach (var s in summary)
+            {
+                <tr><td align="left">@s.Name: </td><td> <b>@s.Amount.ToString("N0")</b></td></tr>
+            }
+            <tr><td align="left"><b>TOTAL:</b> </td><td align="right"> <b style="font-size: small">@(summary.Sum(s => s.Amount).ToString("N0"))</b></td></tr>
+            </table>
+        </td>
+        <td style="padding: 5px; vertical-align: top;">
+        <PieChart Data="summary"/>
+</td></tr></table>
 @code {
     [Parameter]
     public Tour Tour { get; set; } = new Tour();
 
-    private IEnumerable<(string Name, long Amount)> summary = new List<(string Name, long Amount)>();
+    private IEnumerable<(string Name, int Amount)> summary = new List<(string Name, int Amount)>();
 
     //private string StringOfLen()
 
@@ -36,7 +27,7 @@
         summary = GetSpendingForStat();
     }
 
-    public IEnumerable<(string Name, long Amount)> GetSpendingForStat()
+    public IEnumerable<(string Name, int Amount)> GetSpendingForStat()
     {
         var ss = Tour.Spendings
         .Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type))
@@ -47,7 +38,7 @@
             if (!summary.ContainsKey(s.Type)) summary[s.Type] = 0;
             summary[s.Type] += s.AmountInCents;
         }
-        return summary.DistinctBy(s => s.Key).OrderByDescending(s => s.Value).Select(s => (s.Key, s.Value));
+        return summary.DistinctBy(s => s.Key).OrderByDescending(s => s.Value).Select(s => (s.Key, (int)s.Value));
     } 
 
 }
