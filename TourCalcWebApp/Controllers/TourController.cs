@@ -25,7 +25,7 @@ namespace TourCalcWebApp.Controllers
         private readonly ITcConfiguration Configuration;
         private readonly ITourStorage tourStorage;
 
-        private readonly TourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
+        private readonly ITourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
 
         public TourController(ITcConfiguration config, ITourStorage storage)
         {
