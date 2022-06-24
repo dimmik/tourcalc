@@ -1,0 +1,119 @@
+﻿<table>
+    <tr><td style="width: 160px; height: 160px; padding: 5px; vertical-align: top;">&nbsp;
+
+    <div style="
+        border-radius: 100%;
+        width: 100%;
+        aspect-ratio: 1;
+        background: conic-gradient(@(string.Join(", ", 
+                GetFromTo(AnglesColorsAndNames.Select(acn => acn.Item1)) // (0, 8), (8, 17), (17, 95) ...
+                .Zip(AnglesColorsAndNames)
+                .Select(acn => $"{acn.Second.Item2} {acn.First.Item1}deg {acn.First.Item2}deg")))
+            );
+    "></div>
+
+</td>
+<td style="padding: 5px; font-size: x-small">
+@foreach (var acn in AnglesColorsAndNames)
+{
+  var nm = acn.Item3;
+  var color = acn.Item2;
+  var perc = acn.Item1 * 100.0 / 360;
+  <div>
+        <span style="width:7px;background-color:@color">&nbsp;&nbsp;&nbsp;</span><b>@nm</b> @($"{perc:0.0}%")
+  </div>
+}
+</td>
+</tr>
+</table>
+@code {
+    [Parameter]
+    public List<(string name, int amount)> Data { get; set; } = new List<(string, int)>()
+        {
+            ("one", 200),
+            ("two", 200),
+            ("three", 2800),
+            ("four", 200),
+            ("five", 100),
+            ("five", 80),
+            ("five", 120),
+            ("five", 100),
+            ("four", 200),
+            ("five", 100),
+            ("five", 80),
+            ("five", 120),
+            ("five", 100),
+            ("four", 200),
+            ("five", 100),
+            ("five", 80),
+            ("five", 120),
+            ("five", 100),
+        };
+    private List<(int, string, string)> AnglesColorsAndNames { get; set; } = new();
+    protected override void OnParametersSet()
+    {
+        AnglesColorsAndNames = GetAnglesColorsAndNames().ToList();
+    }
+    private string[] colors = new[]
+    {
+        "blue",
+        "red",
+        "yellow",
+        "green",
+        "lightgreen",
+        "gold",
+        "pink",
+        "cyan",
+        "lightyellow",
+        "lightblue",
+        "lightgrey",
+        "lightcyan",
+        "indigo",
+        "magenta",
+        "maroon",
+        "MediumAquaMarine",
+        "MediumOrchid",
+        "Olive",
+        "PaleGreen",
+        "PowderBlue",
+    };
+    private IEnumerable<string> Colors()
+    {
+        int i = 0;
+        while (i < 10000)
+        {
+            yield return colors[i % colors.Length];
+            i++;
+        }
+    }
+    public IEnumerable<(int, int)> GetFromTo(IEnumerable<int> seq)
+    {
+        int i = 0;
+        foreach (var s in seq)
+        {
+            yield return (i, i + s);
+            i = i + s;
+        }
+    }
+    private IEnumerable<(int, string, string)> GetAnglesColorsAndNames()
+    {
+        var total = Data.Select(i => i.amount).Sum();
+        //Console.WriteLine($"total: {total}");
+        var a = Data
+            .Select(i => (int)((i.amount * 360 / total)))
+            .ToList();
+        if (a.Sum() < 360)
+        {
+            a[a.IndexOf(a.Max())] = a.Max() + (360 - a.Sum());
+        }
+        
+        var res = a
+        .Zip(Data.Select(i => i.name))
+        .OrderByDescending(i => i.First)
+        .Zip(Colors().Take(a.Count()))
+        .Select(i => (i.First.First, i.Second, i.First.Second)) // (angle, color, name)
+        ;
+        Console.WriteLine($"ac: {string.Join(",", res.Select(ac => $"a: {ac.First} c: {ac.Item2} n: {ac.Item3}"))}");
+        return res;
+    }
+}
