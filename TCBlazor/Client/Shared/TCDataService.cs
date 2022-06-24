@@ -152,7 +152,7 @@ namespace TCBlazor.Client.Shared
         }
         public async Task ClearTourList()
         {
-            await ts.SetObject<TourList>(GetTourListStorageKey(), new());
+            await ts.SetObject<TourList?>(GetTourListStorageKey(), null);
         }
         public async Task<TourList?> GetTourList(Func<Task> onTourListLoadedFromServer)
         {
