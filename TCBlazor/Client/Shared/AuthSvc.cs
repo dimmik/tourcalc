@@ -1,4 +1,5 @@
 ﻿using TCalcCore.Auth;
+using TCalcCore.Network;
 
 namespace TCBlazor.Client.Shared
 {

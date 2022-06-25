@@ -1,4 +1,6 @@
-﻿namespace TCBlazor.Client.Shared
+﻿using TCalcCore.Network;
+
+namespace TCBlazor.Client.Shared
 {
     public class TCDataSyncService
     {
