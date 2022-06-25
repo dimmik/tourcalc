@@ -5,18 +5,19 @@ using TCalc.Domain;
 using TCalc.Logic;
 using TCalc.Storage;
 using TCalcCore.Auth;
+using TCalcCore.Storage;
 using TCBlazor.Client.Storage;
 
 namespace TCBlazor.Client.Shared
 {
     public class TCDataService
     {
-        private readonly TourcalcLocalStorage ts;
+        private readonly ITourcalcLocalStorage ts;
         private readonly EnrichedHttpClient http;
         private readonly ITourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
         private readonly LocalLogger logger;
 
-        public TCDataService(TourcalcLocalStorage ts, EnrichedHttpClient http, LocalLogger logger)
+        public TCDataService(ITourcalcLocalStorage ts, EnrichedHttpClient http, LocalLogger logger)
         {
             this.ts = ts ?? throw new ArgumentNullException(nameof(ts));
             this.http = http ?? throw new ArgumentNullException(nameof(http));

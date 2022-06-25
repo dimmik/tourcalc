@@ -2,11 +2,12 @@
 @using TCBlazor.Client.Utils
 @using TCalcCore.Auth
 @using AntDesign
+@using TCalcCore.Storage
 
 @inherits LayoutComponentBase
 
 @inject IJSRuntime JS
-@inject TCBlazor.Client.Storage.TourcalcLocalStorage ts
+@inject ITourcalcLocalStorage ts
 @inject TCDataService dataSvc
 @inject AuthSvc auth
 @inject TCGlobal tcGlobal

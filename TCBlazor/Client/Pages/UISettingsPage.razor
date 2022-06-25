@@ -1,7 +1,9 @@
 ﻿@page "/settings"
 
 @using TCBlazor.Client.Storage
-@inject TourcalcLocalStorage ts
+@using TCalcCore.Storage
+@using TCalcCore.UI
+@inject ITourcalcLocalStorage ts
 <h3>UI Settings</h3>
 
 <DynaForm Item=@settings

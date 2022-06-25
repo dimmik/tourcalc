@@ -1,10 +1,13 @@
 ﻿using Microsoft.JSInterop;
 using System.Diagnostics;
+using TCalcCore.Storage;
+using TCalcCore.UI;
 using TCBlazor.Client.Shared;
+
 
 namespace TCBlazor.Client.Storage
 {
-    public class TourcalcLocalStorage
+    public class TourcalcLocalStorage : ITourcalcLocalStorage
     {
         private readonly IJSRuntime JS;
         public readonly static string TokenKey = "__tc_token";

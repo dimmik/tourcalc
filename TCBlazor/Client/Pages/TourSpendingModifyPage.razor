@@ -1,13 +1,13 @@
 ﻿@page "/tour/{tourId}/spending/edit/{spendingId}"
 @page "/tour/{tourId}/spending/add/{*personId}"
 
-@using TCBlazor.Client.Storage
+@using TCalcCore.Storage
 
 @inject IJSRuntime JsRuntime
 @inject TCDataService dataSvc
 @inject TCGlobal tcGlobal
 @inject TCDataSyncService dataSync
-@inject TourcalcLocalStorage ts
+@inject ITourcalcLocalStorage ts
 
 <div>
     <div class="cool-header"  

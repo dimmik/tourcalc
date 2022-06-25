@@ -1,12 +1,12 @@
 ﻿@page "/tourlist"
 
 @using TCalcCore.Auth
-@using TCBlazor.Client.Storage
+@using TCalcCore.Storage
 @using System.Text.Encodings.Web;
 @using System.Text.Json;
 @using System.Text.Unicode;
 
-@inject TourcalcLocalStorage ts
+@inject ITourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
 @inject TCGlobal tcGlobal
 @inject TCDataService dataSvc
