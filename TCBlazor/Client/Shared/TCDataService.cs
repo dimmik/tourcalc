@@ -16,12 +16,12 @@ namespace TCBlazor.Client.Shared
     public class TCDataService
     {
         private readonly ITourcalcLocalStorage ts;
-        private readonly IEnrichedHttpClient http;
+        private readonly EnrichedHttpClient http;
         private readonly ISimpleMessageShower messageShower;
         private readonly ITourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
         private readonly ILocalLogger logger;
 
-        public TCDataService(ITourcalcLocalStorage ts, IEnrichedHttpClient http, ISimpleMessageShower messageShower, ILocalLogger logger)
+        public TCDataService(ITourcalcLocalStorage ts, EnrichedHttpClient http, ISimpleMessageShower messageShower, ILocalLogger logger)
         {
             this.ts = ts ?? throw new ArgumentNullException(nameof(ts));
             this.http = http ?? throw new ArgumentNullException(nameof(http));

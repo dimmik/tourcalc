@@ -24,7 +24,7 @@ namespace Company.WebApplication1
                 .AddAntDesign()
                 .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
                 .AddSingleton<ITourcalcLocalStorage, TourcalcLocalStorage>()
-                .AddScoped<IEnrichedHttpClient, EnrichedHttpClient>()
+                .AddScoped<EnrichedHttpClient>()
                 .AddSingleton<TCGlobal>()
                 .AddScoped<TCDataService>()
                 .AddScoped<AuthSvc>()

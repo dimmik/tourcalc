@@ -9,7 +9,7 @@ using TCalcCore.UI;
 
 namespace TCalcCore.Network
 {
-    public class EnrichedHttpClient : IEnrichedHttpClient
+    public class EnrichedHttpClient
     {
         private readonly HttpClient _httpClient;
         private readonly ISimpleMessageShower _messageShower;
