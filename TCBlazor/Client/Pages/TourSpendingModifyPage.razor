@@ -1,13 +1,15 @@
 ﻿@page "/tour/{tourId}/spending/edit/{spendingId}"
 @page "/tour/{tourId}/spending/add/{*personId}"
 
-@using TCBlazor.Client.Storage
+@using TCalcCore.Storage
+@using TCalcCore.Network
+@using TCalcCore.UI
 
 @inject IJSRuntime JsRuntime
 @inject TCDataService dataSvc
 @inject TCGlobal tcGlobal
 @inject TCDataSyncService dataSync
-@inject TourcalcLocalStorage ts
+@inject ITourcalcLocalStorage ts
 
 <div>
     <div class="cool-header"  
@@ -155,7 +157,10 @@ else
         TheSpending.IsPartialWeighted = true;
         TheSpending.ToAll = true;
         TheSpending.ToGuid = new List<string>();
-        if (PersonId != null && !initialized) TheSpending.FromGuid = PersonId;
+        if (PersonId != null && !initialized){
+            TheSpending.FromGuid = PersonId;
+            TheSpending.Type = "Common"; // let us person who create a spending leave this as Common if he does not care. Later he will change
+        }
         if (PersonId == null && !initialized && (tour?.Spendings?.Any() ?? false))
         {
             var sp = tour

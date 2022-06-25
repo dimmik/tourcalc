@@ -1,34 +1,42 @@
 ﻿using Microsoft.AspNetCore.WebUtilities;
-using System.Diagnostics;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Threading.Tasks;
 using TCalc.Domain;
 using TCalc.Logic;
 using TCalc.Storage;
 using TCalcCore.Auth;
-using TCBlazor.Client.Storage;
+using TCalcCore.Logging;
+using TCalcCore.Storage;
+using TCalcCore.UI;
 
-namespace TCBlazor.Client.Shared
+namespace TCalcCore.Network
 {
     public class TCDataService
     {
-        private readonly TourcalcLocalStorage ts;
+        private readonly ITourcalcLocalStorage ts;
         private readonly EnrichedHttpClient http;
+        private readonly ISimpleMessageShower messageShower;
         private readonly ITourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
-        private readonly LocalLogger logger;
+        private readonly ILocalLogger logger;
 
-        public TCDataService(TourcalcLocalStorage ts, EnrichedHttpClient http, LocalLogger logger)
+        public TCDataService(ITourcalcLocalStorage ts, EnrichedHttpClient http, ISimpleMessageShower messageShower, ILocalLogger logger)
         {
             this.ts = ts ?? throw new ArgumentNullException(nameof(ts));
             this.http = http ?? throw new ArgumentNullException(nameof(http));
             this.logger = logger;
+            this.messageShower = messageShower;
         }
 
 
-        public async Task<AuthData?> GetAuthData(bool forceGetFromServer = false)
+        public async Task<AuthData> GetAuthData(bool forceGetFromServer = false)
         {
             var token = await ts.GetToken();
-            AuthData? ad;
-            if (forceGetFromServer || !token.Contains('.'))
+            AuthData ad;
+            if (forceGetFromServer || !token.Contains("."))
             {
                 ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token);
             } 
@@ -45,13 +53,13 @@ namespace TCBlazor.Client.Shared
                     if (ad == null) throw new Exception("cannot get auth info from token");
                 } catch
                 {
-                    ad = await http.CallWithAuthToken<AuthData?>("/api/Auth/whoami", token);
+                    ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token);
                 }
             }
             return ad;
         }
 
-        public async Task GetAndStoreToken(string? scope, string? code)
+        public async Task GetAndStoreToken(string scope, string code)
         {
             var url = $"/api/Auth/token/{scope ?? "code"}/{code ?? CodeThatForSureIsNotUsed}";
             var token = await http.GetStringAsync(url);
@@ -62,14 +70,14 @@ namespace TCBlazor.Client.Shared
             await ts.SetToken("");
         }
         private static readonly string CodeThatForSureIsNotUsed = "__trashNoTours__";
-        public async Task GetAndStoreTokenForCodeMd5(string? code)
+        public async Task GetAndStoreTokenForCodeMd5(string code)
         {
             var url = $"/api/Auth/token/code/{code ?? CodeThatForSureIsNotUsed}/md5";
             var token = await http.GetStringAsync(url);
             await ts.SetToken(token);
         }
 
-        public async Task<Tour?> LoadTour(string? id, Func<Task> onTourRefreshedFromServer)
+        public async Task<Tour> LoadTour(string id, Func<Task> onTourRefreshedFromServer)
         {
             if (id == null) return default;
 
@@ -88,11 +96,11 @@ namespace TCBlazor.Client.Shared
         {
             return $"__update_q_{tourId}";
         }
-        public async Task<Tour?> LoadTourBare(string? id, Func<Task> onTourRefreshedFromServer, bool forceLoadFromServer = false)
+        public async Task<Tour> LoadTourBare(string id, Func<Task> onTourRefreshedFromServer, bool forceLoadFromServer = false)
         {
             if (id == null) return default;
             // First get from local storage
-            Tour? t = await ts.GetObject<Tour?>(GetTourStorageKey(id));
+            Tour t = await ts.GetObject<Tour>(GetTourStorageKey(id));
             if (t != null && !forceLoadFromServer) // found locally and we do not enforce loading from server
             {
                 // Then in background - load the tour from server
@@ -106,7 +114,7 @@ namespace TCBlazor.Client.Shared
             }
         }
 
-        private async Task<Tour?> LoadTourFromServerInBackground(string id, Tour? localTour, Func<Task> onTourRefreshedFromServer)
+        private async Task<Tour> LoadTourFromServerInBackground(string id, Tour localTour, Func<Task> onTourRefreshedFromServer)
         {
             var token = await ts.GetToken();
             var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token, showErrorMessages: false);
@@ -119,22 +127,22 @@ namespace TCBlazor.Client.Shared
             return t;
         }
 
-        public async Task DeleteTour(Tour? tour)
+        public async Task DeleteTour(Tour tour)
         {
             if (tour == null) return;
             await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Delete, null);
         }
-        public async Task EditTourProps(Tour? tour, string? operation)
+        public async Task EditTourProps(Tour tour, string operation)
         {
             if (tour == null) return;
             if (operation == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/{operation}", await ts.GetToken(), HttpMethod.Patch, tour);
+            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/{operation}", await ts.GetToken(), new HttpMethod("PATCH"), tour);
         }
-        private async Task UpdateTour(string? tourId, Tour? tour)
+        private async Task UpdateTour(string tourId, Tour tour)
         {
             if (tour == null) return;
             if (tourId == null) return;
-            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Patch, tour);
+            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), new HttpMethod("PATCH"), tour);
             if (string.IsNullOrWhiteSpace(tid))
             {
                 throw new Exception("wrong tour id returned");
@@ -144,18 +152,18 @@ namespace TCBlazor.Client.Shared
                 await ts.SetObject(GetTourStorageKey(tour.Id), tour);
             }
         }
-        public async Task AddTour(Tour? tour, string? code)
+        public async Task AddTour(Tour tour, string code)
         {
             if (tour == null) return;
             await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? CodeThatForSureIsNotUsed}", await ts.GetToken(), HttpMethod.Post, tour);
         }
         public async Task ClearTourList()
         {
-            await ts.SetObject<TourList?>(GetTourListStorageKey(), null);
+            await ts.SetObject<TourList>(GetTourListStorageKey(), null);
         }
-        public async Task<TourList?> GetTourList(Func<Task> onTourListLoadedFromServer)
+        public async Task<TourList> GetTourList(Func<Task> onTourListLoadedFromServer)
         {
-            TourList? tl = await ts.GetObject<TourList>(GetTourListStorageKey());
+            TourList tl = await ts.GetObject<TourList>(GetTourListStorageKey());
             if (tl == null)
             {
                 tl = await GetTourListFromServer();
@@ -163,10 +171,10 @@ namespace TCBlazor.Client.Shared
                 return tl;
             } 
             _ = Task.Run(async () => {
-                var tl = await GetTourListFromServer();
-                if (tl != null)
+                var tli = await GetTourListFromServer();
+                if (tli != null)
                 {
-                    await ts.SetObject(GetTourListStorageKey(), tl);
+                    await ts.SetObject(GetTourListStorageKey(), tli);
                     await onTourListLoadedFromServer();
                 }
             });
@@ -178,18 +186,18 @@ namespace TCBlazor.Client.Shared
             return "__tour_list";
         }
 
-        public async Task<TourList?> GetTourListFromServer()
+        public async Task<TourList> GetTourListFromServer()
         {
             var token = await ts.GetToken();
             // TODO pagination, links, all the stuff
             var from = 0;
             var count = 1000;
             var code = "";
-            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, showErrorMessages: false);
+            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, showErrorMessages: true);
             return tours;
         }
 
-        private readonly Dictionary<string, Queue<SerializableTourOperation>> tourLocalUpdateQueues = new();
+        private readonly Dictionary<string, Queue<SerializableTourOperation>> tourLocalUpdateQueues = new Dictionary<string, Queue<SerializableTourOperation>>();
         private async Task EditTourData(string tourId, SerializableTourOperation op, Func<Task> onFreshTourLoaded)
         {
             Queue<SerializableTourOperation> serverQueue = await GetServerQueue(tourId);
@@ -206,28 +214,28 @@ namespace TCBlazor.Client.Shared
 
         private Queue<SerializableTourOperation> GetLocalQueue(string tourId)
         {
-            if (!tourLocalUpdateQueues.ContainsKey(tourId)) tourLocalUpdateQueues[tourId] = new();
+            if (!tourLocalUpdateQueues.ContainsKey(tourId)) tourLocalUpdateQueues[tourId] = new Queue<SerializableTourOperation>();
             var localQueue = tourLocalUpdateQueues[tourId];
             return localQueue;
         }
 
         public async Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId)
         {
-            SerializableTourOperationContainer? qc = await ts.GetObject<SerializableTourOperationContainer>(GetUpdateQueueStorageKey(tourId));
+            SerializableTourOperationContainer qc = await ts.GetObject<SerializableTourOperationContainer>(GetUpdateQueueStorageKey(tourId));
             if (qc == null)
             {
                 //http.ShowError("q is null");
-                qc = new();
+                qc = new SerializableTourOperationContainer();
             }
-            Queue<SerializableTourOperation>? q = new(qc.operations);
+            Queue<SerializableTourOperation> q = new Queue<SerializableTourOperation>(qc.operations);
             return q;
         }
         public delegate Task onserverqstored();
-        public onserverqstored? OnServerQueueStored;
+        public onserverqstored OnServerQueueStored;
         private async Task StoreServerQueue(string tourId, Queue<SerializableTourOperation> q)
         {
             //http.ShowError($"storing queue of size {q.Count} -- {new StackTrace(true)}");
-            SerializableTourOperationContainer qc = new()
+            SerializableTourOperationContainer qc = new SerializableTourOperationContainer()
             {
                 operations = q.ToList()
             };
@@ -237,7 +245,7 @@ namespace TCBlazor.Client.Shared
 
         private async Task UpdateLocally(string tourId, Queue<SerializableTourOperation> q)
         {
-            Tour? tour = await ts.GetObject<Tour>(GetTourStorageKey(tourId));
+            Tour tour = await ts.GetObject<Tour>(GetTourStorageKey(tourId));
             if (tour != null)
             {
                 Queue<SerializableTourOperation> localUpdateQueue = q;
@@ -263,7 +271,7 @@ namespace TCBlazor.Client.Shared
             bool updatedOnServer = await TryApplyOnServer(tourId, q);
             if (!updatedOnServer)
             {
-                http.ShowError($"Failed to sync: {q.Count} ops. Will sync once connection is restored.");
+                messageShower.ShowError($"Failed to sync: {q.Count} ops. Will sync once connection is restored.");
             }
             else
             {
@@ -273,7 +281,7 @@ namespace TCBlazor.Client.Shared
         private async Task<bool> TryApplyOnServer(string tourId, Queue<SerializableTourOperation> q)
         {
             if (q == null || q.Count == 0) return false;
-            Tour? tour = await LoadTourBare(tourId, () => { return Task.CompletedTask; }, forceLoadFromServer: true);
+            Tour tour = await LoadTourBare(tourId, () => { return Task.CompletedTask; }, forceLoadFromServer: true);
             if (tour == null)
             {
                 await StoreServerQueue(tourId, q);
@@ -284,7 +292,7 @@ namespace TCBlazor.Client.Shared
             Queue<SerializableTourOperation> updateQueue = q;
             // debugging. comment out
             //http.ShowError($"update queue of size {updateQueue.Count}");
-            Queue<SerializableTourOperation> backupQueue = new();
+            Queue<SerializableTourOperation> backupQueue = new Queue<SerializableTourOperation>();
             
             try
             {
@@ -297,7 +305,7 @@ namespace TCBlazor.Client.Shared
                         if (tour != null) tour = proc(tour);
                     } catch (Exception e)
                     {
-                        http.ShowError($"(tour is null: {tour == null}) Failed to apply {op.OperationName} (id: '{op.ItemId ?? "n/a"}'): {e.Message}. Skipping");
+                        messageShower.ShowError($"(tour is null: {tour == null}) Failed to apply {op.OperationName} (id: '{op.ItemId ?? "n/a"}'): {e.Message}. Skipping");
                     }
                 }
                 await UpdateTour(tour?.GUID, tour);
@@ -315,13 +323,13 @@ namespace TCBlazor.Client.Shared
             }
         }
         #region Persons
-        public async Task DeletePerson(string? tourId, Person? p, Func<Task> onFreshTourLoaded)
+        public async Task DeletePerson(string tourId, Person p, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("DeletePerson", p.GUID, (string?)null), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("DeletePerson", p.GUID, (string)null), onFreshTourLoaded);
         }
-        public async Task EditPerson(string? tourId, Person? p, Func<Task> onFreshTourLoaded)
+        public async Task EditPerson(string tourId, Person p, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (p == null) return;
@@ -330,7 +338,7 @@ namespace TCBlazor.Client.Shared
 
         
 
-        public async Task AddPerson(string? tourId, Person? p, Func<Task> onFreshTourLoaded)
+        public async Task AddPerson(string tourId, Person p, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (p == null) return;
@@ -338,19 +346,19 @@ namespace TCBlazor.Client.Shared
         }
         #endregion
         #region Spendings
-        public async Task DeleteSpending(string? tourId, Spending? s, Func<Task> onFreshTourLoaded)
+        public async Task DeleteSpending(string tourId, Spending s, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("DeleteSpending", s.GUID, (string?)null), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("DeleteSpending", s.GUID, (string)null), onFreshTourLoaded);
         }
-        public async Task EditSpending(string? tourId, Spending? s, Func<Task> onFreshTourLoaded)
+        public async Task EditSpending(string tourId, Spending s, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (s == null) return;
             await EditTourData(tourId, new SerializableTourOperation("UpdateSpending", s.GUID, s), onFreshTourLoaded);
         }
-        public async Task AddSpending(string? tourId, Spending? s, Func<Task> onFreshTourLoaded)
+        public async Task AddSpending(string tourId, Spending s, Func<Task> onFreshTourLoaded)
         {
             if (tourId == null) return;
             if (s == null) return;
@@ -363,5 +371,23 @@ namespace TCBlazor.Client.Shared
     class AuthDataContainer
     {
         public string AuthDataJson { get; set; } = "";
+    }
+    static class QueueExt
+    {
+        public static bool TryDequeue<T>(this Queue<T> q, out T elem)
+        {
+            if (q == null) // ???? or maybe throw an exception?..
+            {
+                elem = default;
+                return false;
+            }
+            if (q.Count == 0)
+            {
+                elem = default;
+                return false;
+            }
+            elem = q.Dequeue();
+            return true;
+        }
     }
 }

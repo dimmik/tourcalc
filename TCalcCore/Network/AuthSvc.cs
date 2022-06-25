@@ -1,6 +1,8 @@
-﻿using TCalcCore.Auth;
+﻿using System;
+using System.Threading.Tasks;
+using TCalcCore.Auth;
 
-namespace TCBlazor.Client.Shared
+namespace TCalcCore.Network
 {
     public class AuthSvc
     {
@@ -11,8 +13,8 @@ namespace TCBlazor.Client.Shared
             this.dataSvc = dataSvc ?? throw new ArgumentNullException(nameof(dataSvc));
         }
 
-        public AuthData? Auth { get; set; }
-        public async Task LogIn(string? scope, string? code)
+        public AuthData Auth { get; set; }
+        public async Task LogIn(string scope, string code)
         {
             await dataSvc.GetAndStoreToken(scope, code);
             await PickUpAuthInfo();

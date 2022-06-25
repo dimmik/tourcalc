@@ -1,24 +1,27 @@
-﻿using AntDesign;
-using Microsoft.AspNetCore.Components;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
+using System;
 using System.Diagnostics;
+using System.Net.Http;
 using System.Text;
+using System.Threading.Tasks;
+using TCalcCore.Logging;
+using TCalcCore.UI;
 
-namespace TCBlazor.Client.Shared
+namespace TCalcCore.Network
 {
     public class EnrichedHttpClient
     {
         private readonly HttpClient _httpClient;
-        private readonly MessageService _messageService;
-        private readonly LocalLogger logger;
+        private readonly ISimpleMessageShower _messageShower;
+        private readonly ILocalLogger logger;
 
-        public EnrichedHttpClient(HttpClient httpClient, MessageService messageService, LocalLogger logger)
+        public EnrichedHttpClient(HttpClient httpClient, ISimpleMessageShower messageShower, ILocalLogger logger)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-            _messageService = messageService ?? throw new ArgumentNullException(nameof(messageService));
+            _messageShower = messageShower ?? throw new ArgumentNullException(nameof(messageShower));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
-        public HttpClient Http => _httpClient;
+        private HttpClient Http => _httpClient;
 
         public async Task<string> GetStringAsync(string url, bool showErrorMessages = true)
         {
@@ -32,25 +35,19 @@ namespace TCBlazor.Client.Shared
             }
             catch (Exception e)
             {
-                if (showErrorMessages) ShowError(e.Message);
+                if (showErrorMessages) _messageShower.ShowError(e.Message);
                 throw;
             }
         }
-        private static RenderFragment getMessage(string message)
-        {
-            return __builder =>
-            {
-                __builder.AddContent(0, message);
-            };
-        }
+        
 
-        public async Task<T?> CallWithAuthToken<T>(string url, string token, bool showErrorMessages = true)
+        public async Task<T> CallWithAuthToken<T>(string url, string token, bool showErrorMessages = true)
         {
-            T? r = await CallWithAuthToken<T>(url, token, HttpMethod.Get, null, showErrorMessages);
+            T r = await CallWithAuthToken<T>(url, token, HttpMethod.Get, null, showErrorMessages);
             return r;
         }
 
-        public async Task<T?> CallWithAuthToken<T>(string url, string token, HttpMethod method, object? body, bool showErrorMessages = true)
+        public async Task<T> CallWithAuthToken<T>(string url, string token, HttpMethod method, object body, bool showErrorMessages = true)
         {
             try
             {
@@ -62,7 +59,7 @@ namespace TCBlazor.Client.Shared
                     request.Content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
                 }
                 var resp = await Http.SendAsync(request);
-                T? t = default;
+                T t = default;
                 if (resp.IsSuccessStatusCode)
                 {
                     var s = await resp.Content.ReadAsStringAsync();
@@ -87,23 +84,19 @@ namespace TCBlazor.Client.Shared
                 else
                 {
                     var m = await resp.Content.ReadAsStringAsync();
-                    if (showErrorMessages) ShowError($"{(int)resp.StatusCode} {resp.StatusCode}: {m}");
+                    if (showErrorMessages) _messageShower.ShowError($"{(int)resp.StatusCode} {resp.StatusCode}: {m}");
                 }
                 //_messageService.Destroy();
                 sw.Stop();
                 logger.Log($"{method} to {url} finished in {sw.Elapsed}");
                 return t;
-            } 
+            }
             catch (Exception e)
             {
-                if (showErrorMessages) ShowError($"{url}: {e.Message}");
+                if (showErrorMessages) _messageShower.ShowError($"{url}: {e.Message}");
                 return default;
             }
         }
-        public void ShowError(string txt)
-        {
-            _messageService.Error(getMessage(txt));
-            logger.Log(txt);
-        }
+        
     }
 }

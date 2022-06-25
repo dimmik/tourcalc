@@ -1,4 +1,4 @@
-﻿namespace TCBlazor.Client.Storage
+﻿namespace TCalcCore.UI
 {
     public class UISettings
     {

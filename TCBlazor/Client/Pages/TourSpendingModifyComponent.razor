@@ -143,10 +143,15 @@
     {
         _selectedValuesTo = TheSpending.ToGuid;
         SpendingCategories = (
-            tour?.Spendings?.Where(s => !string.IsNullOrWhiteSpace(s.Type))
+            tour?.Spendings
+                ?.Where(s => !s.Planned)
+                ?.Where(s => !string.IsNullOrWhiteSpace(s.Type))
                 ?.Select(s => s.Type)?.Distinct()
                 ?.OrderBy(s => s) ?? Enumerable.Empty<string>()
-            ).ToList();
+            )
+            .Concat(new[] { "Common" }) // add a common
+            .Distinct()
+            .ToList();
     }
 
     IEnumerable<string> _selectedValuesTo = new List<string>();

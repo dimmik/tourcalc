@@ -1,6 +1,8 @@
-﻿namespace TCBlazor.Client.Shared
+﻿using TCalcCore.Logging;
+
+namespace TCBlazor.Client.Shared
 {
-    public class LocalLogger
+    public class LocalLogger : ILocalLogger
     {
         public void Log(string msg)
         {
