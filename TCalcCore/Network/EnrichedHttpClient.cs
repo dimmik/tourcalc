@@ -1,19 +1,21 @@
-﻿using AntDesign;
-using Microsoft.AspNetCore.Components;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
+using System;
 using System.Diagnostics;
+using System.Net.Http;
 using System.Text;
-using TCalcCore.Network;
+using System.Threading.Tasks;
+using TCalcCore.Logging;
+using TCalcCore.UI;
 
-namespace TCBlazor.Client.Shared
+namespace TCalcCore.Network
 {
     public class EnrichedHttpClient : IEnrichedHttpClient
     {
         private readonly HttpClient _httpClient;
-        private readonly SimpleMessageShower _messageShower;
-        private readonly LocalLogger logger;
+        private readonly ISimpleMessageShower _messageShower;
+        private readonly ILocalLogger logger;
 
-        public EnrichedHttpClient(HttpClient httpClient, SimpleMessageShower messageShower, LocalLogger logger)
+        public EnrichedHttpClient(HttpClient httpClient, ISimpleMessageShower messageShower, ILocalLogger logger)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _messageShower = messageShower ?? throw new ArgumentNullException(nameof(messageShower));
@@ -39,13 +41,13 @@ namespace TCBlazor.Client.Shared
         }
         
 
-        public async Task<T?> CallWithAuthToken<T>(string url, string token, bool showErrorMessages = true)
+        public async Task<T> CallWithAuthToken<T>(string url, string token, bool showErrorMessages = true)
         {
-            T? r = await CallWithAuthToken<T>(url, token, HttpMethod.Get, null, showErrorMessages);
+            T r = await CallWithAuthToken<T>(url, token, HttpMethod.Get, null, showErrorMessages);
             return r;
         }
 
-        public async Task<T?> CallWithAuthToken<T>(string url, string token, HttpMethod method, object? body, bool showErrorMessages = true)
+        public async Task<T> CallWithAuthToken<T>(string url, string token, HttpMethod method, object body, bool showErrorMessages = true)
         {
             try
             {
@@ -57,7 +59,7 @@ namespace TCBlazor.Client.Shared
                     request.Content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
                 }
                 var resp = await Http.SendAsync(request);
-                T? t = default;
+                T t = default;
                 if (resp.IsSuccessStatusCode)
                 {
                     var s = await resp.Content.ReadAsStringAsync();

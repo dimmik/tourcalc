@@ -1,14 +1,16 @@
 ﻿using AntDesign;
 using Microsoft.AspNetCore.Components;
+using TCalcCore.Logging;
+using TCalcCore.UI;
 
 namespace TCBlazor.Client.Shared
 {
-    public class SimpleMessageShower
+    public class SimpleMessageShower : ISimpleMessageShower
     {
         private readonly MessageService _messageService;
-        private readonly LocalLogger logger;
+        private readonly ILocalLogger logger;
 
-        public SimpleMessageShower(MessageService messageService, LocalLogger logger)
+        public SimpleMessageShower(MessageService messageService, ILocalLogger logger)
         {
             _messageService = messageService;
             this.logger = logger;

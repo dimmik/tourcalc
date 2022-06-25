@@ -5,6 +5,8 @@ using TCBlazor.Client.Storage;
 using TCBlazor.Client.Shared;
 using TCalcCore.Storage;
 using TCalcCore.Network;
+using TCalcCore.Logging;
+using TCalcCore.UI;
 
 namespace Company.WebApplication1
 {
@@ -17,10 +19,10 @@ namespace Company.WebApplication1
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
             builder.Services
-                .AddSingleton<LocalLogger>()
+                .AddSingleton<ILocalLogger, LocalLogger>()
                 .AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
                 .AddAntDesign()
-                .AddScoped<SimpleMessageShower>()
+                .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
                 .AddSingleton<ITourcalcLocalStorage, TourcalcLocalStorage>()
                 .AddScoped<IEnrichedHttpClient, EnrichedHttpClient>()
                 .AddSingleton<TCGlobal>()
