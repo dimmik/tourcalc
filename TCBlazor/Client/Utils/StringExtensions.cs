@@ -9,7 +9,7 @@
             prepared = prepared.Replace("\r\n", "\n").Replace("\n", "<br/>");
             return prepared;
         }
-        static IEnumerable<string> ChunksUpto(string str, int maxChunkSize)
+        public static IEnumerable<string> ChunksUpto(string str, int maxChunkSize)
         {
             for (int i = 0; i < str.Length; i += maxChunkSize)
                 yield return str.Substring(i, Math.Min(maxChunkSize, str.Length - i));

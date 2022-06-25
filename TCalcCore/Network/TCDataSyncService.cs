@@ -1,11 +1,12 @@
-﻿using TCalcCore.Network;
+﻿
+using System.Threading.Tasks;
 
-namespace TCBlazor.Client.Shared
+namespace TCalcCore.Network
 {
     public class TCDataSyncService
     {
         public delegate Task OnTourSyncedDelegate();
-        public event OnTourSyncedDelegate? OnTourSynced;
+        public event OnTourSyncedDelegate OnTourSynced;
         private readonly TCDataService dataSvc;
 
         public TCDataSyncService(TCDataService dataSvc)
@@ -18,12 +19,12 @@ namespace TCBlazor.Client.Shared
             var q = await dataSvc.GetServerQueue(tourId);
             return q.Count;
         }
-        public bool isSyncing { get; set; } = false;
+        public volatile bool IsSyncing = false;
         public async Task Sync(string tourId)
         {
-            if (!isSyncing) // well, naive locking...
+            if (!IsSyncing) // well, naive locking...
             {
-                isSyncing = true;
+                IsSyncing = true;
                 try
                 {
                     if (await dataSvc.Sync(tourId))
@@ -32,7 +33,7 @@ namespace TCBlazor.Client.Shared
                     }
                 } finally
                 {
-                    isSyncing = false;
+                    IsSyncing = false;
                 }
             }
         }

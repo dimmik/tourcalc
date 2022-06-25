@@ -1,6 +1,6 @@
 ﻿using TCalc.Domain;
 
-namespace TCBlazor.Client.Shared
+namespace TCalcCore.UI
 {
     public class TCGlobal
     {
@@ -17,8 +17,8 @@ namespace TCBlazor.Client.Shared
                 }
             }
         }
-        private Tour? _tour;
-        public Tour? Tour
+        private Tour _tour;
+        public Tour Tour
         {
             get => _tour;
             set
@@ -32,6 +32,6 @@ namespace TCBlazor.Client.Shared
 
 
         public delegate void onchange();
-        public onchange? OnChange { get; set; } = null;
+        public onchange OnChange { get; set; } = null;
     }
 }

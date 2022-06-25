@@ -10,7 +10,6 @@ using TCalc.Logic;
 using TCalc.Storage;
 using TCalcCore.Auth;
 using TCalcCore.Logging;
-using TCalcCore.Network;
 using TCalcCore.Storage;
 using TCalcCore.UI;
 
@@ -377,9 +376,14 @@ namespace TCalcCore.Network
     {
         public static bool TryDequeue<T>(this Queue<T> q, out T elem)
         {
+            if (q == null) // ???? or maybe throw an exception?..
+            {
+                elem = default;
+                return false;
+            }
             if (q.Count == 0)
             {
-                elem = default(T);
+                elem = default;
                 return false;
             }
             elem = q.Dequeue();
