@@ -3,22 +3,23 @@ using Microsoft.AspNetCore.Components;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Text;
+using TCalcCore.Network;
 
 namespace TCBlazor.Client.Shared
 {
-    public class EnrichedHttpClient
+    public class EnrichedHttpClient : IEnrichedHttpClient
     {
         private readonly HttpClient _httpClient;
-        private readonly MessageService _messageService;
+        private readonly SimpleMessageShower _messageShower;
         private readonly LocalLogger logger;
 
-        public EnrichedHttpClient(HttpClient httpClient, MessageService messageService, LocalLogger logger)
+        public EnrichedHttpClient(HttpClient httpClient, SimpleMessageShower messageShower, LocalLogger logger)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-            _messageService = messageService ?? throw new ArgumentNullException(nameof(messageService));
+            _messageShower = messageShower ?? throw new ArgumentNullException(nameof(messageShower));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
-        public HttpClient Http => _httpClient;
+        private HttpClient Http => _httpClient;
 
         public async Task<string> GetStringAsync(string url, bool showErrorMessages = true)
         {
@@ -32,17 +33,11 @@ namespace TCBlazor.Client.Shared
             }
             catch (Exception e)
             {
-                if (showErrorMessages) ShowError(e.Message);
+                if (showErrorMessages) _messageShower.ShowError(e.Message);
                 throw;
             }
         }
-        private static RenderFragment getMessage(string message)
-        {
-            return __builder =>
-            {
-                __builder.AddContent(0, message);
-            };
-        }
+        
 
         public async Task<T?> CallWithAuthToken<T>(string url, string token, bool showErrorMessages = true)
         {
@@ -87,23 +82,19 @@ namespace TCBlazor.Client.Shared
                 else
                 {
                     var m = await resp.Content.ReadAsStringAsync();
-                    if (showErrorMessages) ShowError($"{(int)resp.StatusCode} {resp.StatusCode}: {m}");
+                    if (showErrorMessages) _messageShower.ShowError($"{(int)resp.StatusCode} {resp.StatusCode}: {m}");
                 }
                 //_messageService.Destroy();
                 sw.Stop();
                 logger.Log($"{method} to {url} finished in {sw.Elapsed}");
                 return t;
-            } 
+            }
             catch (Exception e)
             {
-                if (showErrorMessages) ShowError($"{url}: {e.Message}");
+                if (showErrorMessages) _messageShower.ShowError($"{url}: {e.Message}");
                 return default;
             }
         }
-        public void ShowError(string txt)
-        {
-            _messageService.Error(getMessage(txt));
-            logger.Log(txt);
-        }
+        
     }
 }

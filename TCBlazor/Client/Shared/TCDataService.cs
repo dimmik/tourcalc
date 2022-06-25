@@ -5,6 +5,7 @@ using TCalc.Domain;
 using TCalc.Logic;
 using TCalc.Storage;
 using TCalcCore.Auth;
+using TCalcCore.Network;
 using TCalcCore.Storage;
 using TCBlazor.Client.Storage;
 
@@ -13,15 +14,17 @@ namespace TCBlazor.Client.Shared
     public class TCDataService
     {
         private readonly ITourcalcLocalStorage ts;
-        private readonly EnrichedHttpClient http;
+        private readonly IEnrichedHttpClient http;
+        private readonly SimpleMessageShower messageShower;
         private readonly ITourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
         private readonly LocalLogger logger;
 
-        public TCDataService(ITourcalcLocalStorage ts, EnrichedHttpClient http, LocalLogger logger)
+        public TCDataService(ITourcalcLocalStorage ts, IEnrichedHttpClient http, SimpleMessageShower messageShower, LocalLogger logger)
         {
             this.ts = ts ?? throw new ArgumentNullException(nameof(ts));
             this.http = http ?? throw new ArgumentNullException(nameof(http));
             this.logger = logger;
+            this.messageShower = messageShower;
         }
 
 
@@ -186,7 +189,7 @@ namespace TCBlazor.Client.Shared
             var from = 0;
             var count = 1000;
             var code = "";
-            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, showErrorMessages: false);
+            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, showErrorMessages: true);
             return tours;
         }
 
@@ -264,7 +267,7 @@ namespace TCBlazor.Client.Shared
             bool updatedOnServer = await TryApplyOnServer(tourId, q);
             if (!updatedOnServer)
             {
-                http.ShowError($"Failed to sync: {q.Count} ops. Will sync once connection is restored.");
+                messageShower.ShowError($"Failed to sync: {q.Count} ops. Will sync once connection is restored.");
             }
             else
             {
@@ -298,7 +301,7 @@ namespace TCBlazor.Client.Shared
                         if (tour != null) tour = proc(tour);
                     } catch (Exception e)
                     {
-                        http.ShowError($"(tour is null: {tour == null}) Failed to apply {op.OperationName} (id: '{op.ItemId ?? "n/a"}'): {e.Message}. Skipping");
+                        messageShower.ShowError($"(tour is null: {tour == null}) Failed to apply {op.OperationName} (id: '{op.ItemId ?? "n/a"}'): {e.Message}. Skipping");
                     }
                 }
                 await UpdateTour(tour?.GUID, tour);
