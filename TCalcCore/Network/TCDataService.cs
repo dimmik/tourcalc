@@ -77,11 +77,11 @@ namespace TCalcCore.Network
             await ts.SetToken(token);
         }
 
-        public async Task<Tour> LoadTour(string id, Func<Task> onTourRefreshedFromServer)
+        public async Task<Tour> LoadTour(string id, Func<Task> onTourRefreshedFromServer, bool forceLoadFromServer = false)
         {
             if (id == null) return default;
 
-            var tour = await LoadTourBare(id, onTourRefreshedFromServer);
+            var tour = await LoadTourBare(id, onTourRefreshedFromServer, forceLoadFromServer);
             if (tour == null) return null;
             var calculator = new TourCalculator(tour);
             var calculated = calculator.SuggestFinalPayments();

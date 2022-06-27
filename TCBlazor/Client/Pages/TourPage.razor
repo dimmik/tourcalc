@@ -18,6 +18,11 @@ else
     <PageTitle>@tour.Name</PageTitle>
 <h3>@tour.Name 
     <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") stats</Button>
+    <span style="cursor:pointer;font-size:large;" @onclick=@(async () => {
+                    IsTourReloading = true;
+                    await LoadTour(forceLoadFromServer: true);
+                    IsTourReloading = false;
+                })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
     </h3>     
 @if (ShowStatistics)
 {
@@ -28,6 +33,7 @@ else
             <th>
                 <a href=@GetHref("persons")>Persons</a>
                 <a href=@GetHref("spendings")>Spendings</a>
+                
                 <Button Type="primary" Size="small" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
             </th>
         </TableHeader>
@@ -104,6 +110,7 @@ else
 
     private bool ShowStatistics = false;
     private bool ShowPlannedSpendings = false;
+    private bool IsTourReloading = false;
 
     public Tour? tour = null;
     protected override void OnInitialized()
@@ -117,9 +124,9 @@ else
         tcGlobal.Tour = tour;
         ShowPlannedSpendings = (tour?.IsFinalizing ?? false);
     }
-    private async Task LoadTour()
+    private async Task LoadTour(bool forceLoadFromServer = false)
     {
-        tour = await dataSvc.LoadTour(TourId, OnFreshTourLoaded);
+        tour = await dataSvc.LoadTour(TourId, OnFreshTourLoaded, forceLoadFromServer);
     }
     private async Task OnFreshTourLoaded()
     {
