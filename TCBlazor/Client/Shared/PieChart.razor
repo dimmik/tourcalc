@@ -7,7 +7,8 @@
         background: conic-gradient(@(string.Join(", ", 
                 GetFromTo(AnglesColorsAndNames.Select(acn => acn.Item1)) // (0, 8), (8, 17), (17, 95) ...
                 .Zip(AnglesColorsAndNames)
-                .Select(acn => $"{acn.Second.Item2} {acn.First.Item1}deg {acn.First.Item2}deg")))
+                .Select(acn => new {Color=acn.Second.Item2, FromDeg=acn.First.Item1, ToDeg=acn.First.Item2})
+                .Select(acn => $"{acn.Color} {acn.FromDeg}deg {acn.ToDeg}deg")))
             );
     "></div>
 
@@ -31,22 +32,6 @@
         {
             ("one", 200),
             ("two", 200),
-            ("three", 2800),
-            ("four", 200),
-            ("five", 100),
-            ("five", 80),
-            ("five", 120),
-            ("five", 100),
-            ("four", 200),
-            ("five", 100),
-            ("five", 80),
-            ("five", 120),
-            ("five", 100),
-            ("four", 200),
-            ("five", 100),
-            ("five", 80),
-            ("five", 120),
-            ("five", 100),
         };
     private List<(int, string, string)> AnglesColorsAndNames { get; set; } = new();
     protected override void OnParametersSet()
@@ -57,24 +42,25 @@
     {
         "blue",
         "red",
-        "yellow",
-        "green",
         "lightgreen",
-        "gold",
+        "green",
+        "yellow",
+        "orange",
+        "indigo",
         "pink",
         "cyan",
         "lightyellow",
+        "PaleGreen",
         "lightblue",
-        "lightgrey",
-        "lightcyan",
-        "indigo",
         "magenta",
+        "lightgrey",
+        "MediumOrchid",
+        "lightcyan",
         "maroon",
         "MediumAquaMarine",
-        "MediumOrchid",
         "Olive",
-        "PaleGreen",
         "PowderBlue",
+        "violet"
     };
     private IEnumerable<string> Colors()
     {
