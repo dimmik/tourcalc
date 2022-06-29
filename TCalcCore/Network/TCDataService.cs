@@ -177,21 +177,32 @@ namespace TCalcCore.Network
         {
             await ts.SetObject<TourList>(GetTourListStorageKey(), null);
         }
-        public async Task<TourList> GetTourList(Func<Task> onTourListLoadedFromServer)
+        public async Task<TourList> GetTourList(Func<TourList, bool, DateTimeOffset, Task> onTourListAvailable, bool forceFromServer)
         {
-            TourList tl = (await ts.GetObject<TourList>(GetTourListStorageKey())).val;
+            if (forceFromServer)
+            {
+                var tli = await GetTourListFromServer();
+                if (tli != null)
+                {
+                    await ts.SetObject(GetTourListStorageKey(), tli);
+                    await onTourListAvailable(tli, true, DateTimeOffset.Now);
+                }
+            }
+            var (tl, dt) = await ts.GetObject<TourList>(GetTourListStorageKey());
             if (tl == null)
             {
                 tl = await GetTourListFromServer();
                 await ts.SetObject(GetTourListStorageKey(), tl);
+                await onTourListAvailable(tl, true, DateTimeOffset.Now);
                 return tl;
-            } 
+            }
+            await onTourListAvailable(tl, false, dt);
             _ = Task.Run(async () => {
                 var tli = await GetTourListFromServer();
                 if (tli != null)
                 {
                     await ts.SetObject(GetTourListStorageKey(), tli);
-                    await onTourListLoadedFromServer();
+                    await onTourListAvailable(tli, true, DateTimeOffset.Now);
                 }
             });
             return tl;

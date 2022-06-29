@@ -8,11 +8,12 @@
 @using System.Text.Json;
 @using System.Text.Unicode;
 
+@using TCalcCore.Engine
+@inject TourcalcEngine engine
 
 @inject ITourcalcLocalStorage ts
 @inject IJSRuntime JsRuntime
 @inject TCGlobal tcGlobal
-@inject TCDataService dataSvc
 @inject AuthSvc auth
 
 @if (tours == null)
@@ -24,7 +25,7 @@ else
 {
     <h3>Tour List</h3>
 
-    <TableTemplate Items=@GetTours() Context="tourItem" TopPadding="30">
+    <TableTemplate Items=@GetToursFiltered() Context="tourItem" TopPadding="30">
     <TableHeader>
         <th>Tour Name
             @if (AddingTour)
@@ -99,8 +100,7 @@ else
     {
         if (!string.IsNullOrWhiteSpace(NewTourName) && !string.IsNullOrWhiteSpace(NewTourCode))
         {
-            await dataSvc.AddTour(new Tour() { Name = NewTourName }, NewTourCode);
-            await LoadTours();
+            _ = engine.RequestAddTour(new Tour() { Name = NewTourName }, NewTourCode);
             AddingTour = false;
             NewTourName = "";
         } else
@@ -109,12 +109,12 @@ else
         }
     }
 
-    private async Task CloneTour(Tour t)
+    private Task CloneTour(Tour t)
     {
         var cloned = t.SafeClone<Tour>();
         cloned.Name = $"clone of {t.Name}";
-        await dataSvc.AddTour(cloned, NewTourCode);
-        await LoadTours();
+        _ = engine.RequestAddTour(cloned, NewTourCode);
+        return Task.CompletedTask;
 
     }
     private async Task CopyTourJsonToCb(Tour t)
@@ -127,52 +127,51 @@ else
         await JsRuntime.InvokeVoidAsync("clipboardCopy.copyText", text);
     }
 
-    private async Task ChangeTourName(Tour tour)
+    private Task ChangeTourName(Tour tour)
     {
-        await dataSvc.EditTourProps(tour, "changename");
-        await LoadTours();        
+        _ = engine.RequestEditTourProps(tour, "changename");
+        return Task.CompletedTask;
     }
 
-    private async Task OnFinChange(Tour tour)
+    private Task OnFinChange(Tour tour)
     {
         tour.IsFinalizing = !tour.IsFinalizing;
-        await dataSvc.EditTourProps(tour, "finalizing");
-        await LoadTours();
+        _ = engine.RequestEditTourProps(tour, "finalizing");
+        return Task.CompletedTask;
     }
-    private async Task OnArchChange(Tour tour)
+    private Task OnArchChange(Tour tour)
     {
         tour.IsArchived = !tour.IsArchived;
-        await dataSvc.EditTourProps(tour, "archive");
-        await LoadTours();
+        _ = engine.RequestEditTourProps(tour, "archive");
+        return Task.CompletedTask;
     }
-    async Task OnDelete(Tour tour)
+    private async Task OnDelete(Tour tour)
     {
         bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete tour '{tour.Name}'");
         if (confirmed)
         {
-            await dataSvc.DeleteTour(tour);
-            await LoadTours();
+            _ = engine.RequestDeleteTour(tour);            
         }
     }
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
         tcGlobal.Title = "Tour List";
         tcGlobal.Tour = null;
-        await LoadTours();
+        engine.onTourListLoaded += OnTourListLoaded;
+        _ = engine.RequestTourListLoad();
+        return Task.CompletedTask;
     }
-    private IEnumerable<Tour> GetTours()
+    private Task OnTourListLoaded(TourList tourList, bool isFromServer, DateTimeOffset updatedDt)
+    {
+        tours = tourList;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+    private IEnumerable<Tour> GetToursFiltered()
     {
         var res = tours?.Tours ?? new Tour[0] ;
         if (!ShowArchived) res = res.Where(t => !t.IsArchived);
         return res;
-    }
-    private async Task LoadTours()
-    {
-        tours = await dataSvc.GetTourList(async () =>
-        {
-            tours = await dataSvc.GetTourList(() => Task.CompletedTask);
-            StateHasChanged();
-        });
     }
 
 }
