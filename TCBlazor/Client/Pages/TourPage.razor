@@ -29,7 +29,12 @@ else
     </h3>     
 @if (ShowStatistics)
 {
+    <div style="font-size:x-small; border: 1px solid black">
+        @(isFresh ? "From Server" : "Local") <b>@($"{storedDt:yyyy-MM-dd HH:mm:ss}")</b>
+    </div>
+    <div>
         <TourStaistics Tour=@tour/>
+    </div>
 }
     <TableTemplate Items=@(new string[1]) TopPadding="0">
         <TableHeader>
@@ -108,6 +113,8 @@ else
     private bool initialized = false;
 
     public Tour? tour = null;
+    private bool isFresh = false;
+    private DateTimeOffset storedDt = DateTimeOffset.Now;
     protected override void OnInitialized()
     {
         // subscribe to tour loaded event
@@ -115,8 +122,10 @@ else
         // send command to load tour with certain id
         _ = engine.RequestTourLoad(TourId);
     }
-    private Task OnTourLoaded(Tour t, bool isFromServer)
+    private Task OnTourLoaded(Tour t, bool isFromServer, DateTimeOffset updated)
     {
+        isFresh = isFromServer;
+        storedDt = updated;
         tour = t;
         tcGlobal.Title = $"{tour?.Name ?? "n/a"}";
         tcGlobal.Tour = tour;

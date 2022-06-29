@@ -8,7 +8,7 @@ namespace TCalcCore.Engine
 {
     public class TourcalcDelegates
     {
-        public delegate Task OnTourLoaded(Tour tour, bool isFromServer);
+        public delegate Task OnTourLoaded(Tour tour, bool isFromServer, DateTimeOffset updatedDt);
         public delegate Task OnTourPartSubmitting();
 
     }

@@ -160,7 +160,7 @@ else
         }
         return Task.CompletedTask;
     }
-    private async Task OnFreshTourLoaded(Tour t, bool isFresh)
+    private async Task OnFreshTourLoaded(Tour t, bool isFresh, DateTimeOffset updated)
     {
         tour = t;
         await Init();

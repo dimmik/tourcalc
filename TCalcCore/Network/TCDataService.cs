@@ -77,7 +77,7 @@ namespace TCalcCore.Network
             await ts.SetToken(token);
         }
 
-        public async Task<Tour> LoadTour(string id, Func<Tour, bool, Task> onTourAvailable, bool forceLoadFromServer = false, bool forceLoadFromLocalStorage = false)
+        public async Task<Tour> LoadTour(string id, Func<Tour, bool, DateTimeOffset, Task> onTourAvailable, bool forceLoadFromServer = false, bool forceLoadFromLocalStorage = false)
         {
             if (id == null) return default;
 
@@ -104,19 +104,19 @@ namespace TCalcCore.Network
         /// <param name="forceLoadFromServer"> ignored if forceLoadFromLocalStorage == true</param>
         /// <param name="forceLoadFromLocalStorage"></param>
         /// <returns></returns>
-        public async Task<Tour> LoadTourBare(string id, Func<Tour, bool, Task> onTourAvailable, bool forceLoadFromServer = false, bool forceLoadFromLocalStorage = false)
+        public async Task<Tour> LoadTourBare(string id, Func<Tour, bool, DateTimeOffset, Task> onTourAvailable, bool forceLoadFromServer = false, bool forceLoadFromLocalStorage = false)
         {
             if (id == null) return default;
             // First get from local storage
-            Tour t = (await ts.GetObject<Tour>(GetTourStorageKey(id))).val;
+            var (t, dt) = await ts.GetObject<Tour>(GetTourStorageKey(id));
             if (forceLoadFromLocalStorage)
             {
-                await onTourAvailable(t, false);
+                await onTourAvailable(t, false, dt);
                 return t;
             }
             if (t != null && !forceLoadFromServer) // found locally and we do not enforce loading from server
             {
-                await onTourAvailable(t, false);
+                await onTourAvailable(t, false, dt);
                 // Then in background - load the tour from server
                 _ = LoadTourFromServerInBackground(id, t, onTourAvailable);
                 return t;
@@ -128,7 +128,7 @@ namespace TCalcCore.Network
             }
         }
 
-        private async Task<Tour> LoadTourFromServerInBackground(string id, Tour localTour, Func<Tour, bool, Task> onTourAvailable)
+        private async Task<Tour> LoadTourFromServerInBackground(string id, Tour localTour, Func<Tour, bool, DateTimeOffset, Task> onTourAvailable)
         {
             var token = await ts.GetToken();
             var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token.val, showErrorMessages: false);
@@ -138,7 +138,7 @@ namespace TCalcCore.Network
             {
                 // On success (??? AND if state differs) - store the tour and execute onTourAvailable
                 await ts.SetObject(GetTourStorageKey(id), t);
-                await onTourAvailable(t, true);
+                await onTourAvailable(t, true, DateTimeOffset.Now);
             }
             return t;
         }
@@ -298,7 +298,7 @@ namespace TCalcCore.Network
         private async Task<bool> TryApplyOnServer(string tourId, Queue<SerializableTourOperation> q)
         {
             if (q == null || q.Count == 0) return false;
-            Tour tour = await LoadTourBare(tourId, (a, aa) => { return Task.CompletedTask; }, forceLoadFromServer: true);
+            Tour tour = await LoadTourBare(tourId, (a, aa, aaa) => { return Task.CompletedTask; }, forceLoadFromServer: true);
             if (tour == null)
             {
                 await StoreServerQueue(tourId, q);

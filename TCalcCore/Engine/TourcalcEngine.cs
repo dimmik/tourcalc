@@ -21,9 +21,9 @@ namespace TCalcCore.Engine
 
         public async Task RequestTourLoad(string tourId, bool forceLoadFromServer = false, bool forceLoadFromLocalStorage = false)
         {
-            _ = await dataSvc.LoadTour(tourId, async (t, isFromServer) => 
+            _ = await dataSvc.LoadTour(tourId, async (t, isFromServer, dt) => 
             {
-                await onTourLoaded?.Invoke(t, isFromServer);
+                await (onTourLoaded?.Invoke(t, isFromServer, dt) ?? Task.CompletedTask);
             }
             , forceLoadFromServer
             , forceLoadFromLocalStorage

@@ -246,12 +246,18 @@
                                                                                     </RowTemplate>
                                                                                 </TableTemplate>
                                                                             </div>
-    </Modal>
+        </Modal>
         };
     }
 
     private async Task OnSubmit(Person pp, Func<Person, Task> onSubmit)
     {
+        if (pp == null) return;
+        if (string.IsNullOrWhiteSpace(pp?.Name))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Person name should not be blank");
+            return;
+        }
         await onSubmit(pp);
         Submitted = true;
     }
