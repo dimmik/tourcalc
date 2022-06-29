@@ -229,7 +229,7 @@
     public RenderFragment<Spending>? EditActionTemplate { get; set; }
 
     [Parameter]
-    public Func<Spending, Task> OnSpendingDelete { get; set; } = async (s) => { };
+    public Func<Spending, Task> OnSpendingDelete { get; set; } = (s) => Task.CompletedTask;
 
     async Task OnSpendingDeleteClicked(Spending s)
     {
