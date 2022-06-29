@@ -46,7 +46,7 @@
                             </td>
                             <td align="center">
                                 <input disabled=@disabled type="checkbox" size="8" 
-                                    checked=@((bool)nn.pi.GetValue(Item)) 
+                                    checked=@((bool)(nn.pi.GetValue(Item) ?? (object)false)) 
                                     @onchange=@(async (e) => {
                                         nn.pi.SetValue(Item, e.Value ?? false);
                                         disabled = true;
@@ -63,18 +63,18 @@
 @code {
 
     [Parameter]
-    public TItem Item { get; set; }
+    public TItem? Item { get; set; }
 
     [Parameter]
-    public Func<TItem, Task> OnSave { get; set; } = (i) => Task.CompletedTask;
+    public Func<TItem?, Task> OnSave { get; set; } = (i) => Task.CompletedTask;
 
     bool disabled = false;
 
     public IEnumerable<(string name, PropertyInfo pi)> GetFields()
     {
-        var props = Item.GetType().GetProperties();
+        var props = Item?.GetType()?.GetProperties();
         List<(string, PropertyInfo)> l = new List<(string, PropertyInfo)>();
-        foreach (var p in props)
+        foreach (var p in (props ?? new PropertyInfo[0]))
         {
             if (p.CanRead && p.CanWrite)
             {

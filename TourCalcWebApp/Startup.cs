@@ -18,6 +18,7 @@ using Microsoft.OpenApi.Models;
 using TourCalcWebApp.Controllers;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
 
 namespace TourCalcWebApp
 {
@@ -62,7 +63,8 @@ namespace TourCalcWebApp
                     }
             );
 
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Latest)
+            services.AddMvc()
+                //.SetCompatibilityVersion(CompatibilityVersion.Latest)
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.WriteIndented = true;
@@ -182,12 +184,12 @@ namespace TourCalcWebApp
         
         }
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
             {
                // Microsoft.Extensions.Logging.Console.
-                app.UseWebpackDevMiddleware();
+                //app.UseWebpackDevMiddleware();
             }
             if (env.IsDevelopment() || Configuration.GetValue<bool>("UseDeveloperExceptionPage", false))
             {
@@ -217,12 +219,12 @@ namespace TourCalcWebApp
             //Use the new policy globally
             app.UseCors("mypolicy");
 
-            app.UseMvc(routes => {
+            /*app.UseMvc(routes => {
                 routes.MapRoute(
                     name: "default",
                     template: "/");
 //                routes.MapSpaFallbackRoute("spa-fallback", new { });
-            });
+            });*/
 
         }
     }

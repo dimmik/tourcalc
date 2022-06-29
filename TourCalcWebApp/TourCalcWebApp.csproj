@@ -8,6 +8,7 @@
   <NoWarn>$(NoWarn);1591</NoWarn>
   <VersionPrefix>1</VersionPrefix>
   <RuntimeIdentifiers>win10-x64;linux-x64;linux-arm64</RuntimeIdentifiers>
+  <OutputType>Library</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,9 +30,7 @@
   <ItemGroup>
     <PackageReference Include="BouncyCastle.NetCore" Version="1.8.8" />
     <PackageReference Include="LiteDB" Version="5.0.10" />
-    <PackageReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.6" />
-    <PackageReference Include="Microsoft.AspNetCore.Razor.Design" Version="2.2.0" PrivateAssets="All" />
     <PackageReference Include="Microsoft.AspNetCore.SpaServices" Version="3.1.16" />
     <PackageReference Include="Microsoft.AspNetCore.SpaServices.Extensions" Version="5.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0" />
