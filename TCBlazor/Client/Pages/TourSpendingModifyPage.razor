@@ -1,14 +1,12 @@
 ﻿@page "/tour/{tourId}/spending/edit/{spendingId}"
 @page "/tour/{tourId}/spending/add/{*personId}"
 
-@using TCalcCore.UI
 
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
 @inject IJSRuntime JsRuntime
 
-@inject TCGlobal tcGlobal
 
 <div>
     <div class="cool-header"  
@@ -23,8 +21,6 @@
 }
 else 
 {
-    tcGlobal.Title = $"{tour.Name} (s)";
-    tcGlobal.Tour = tour;
 <div>
     <TourSpendingModifyComponent
         tour=@tour

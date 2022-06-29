@@ -1,7 +1,5 @@
 ﻿@page "/tour/{tourId}"
 
-@using TCalcCore.UI
-@inject TCGlobal tcGlobal
 
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
@@ -124,8 +122,6 @@ else
         isFresh = isFromServer;
         storedDt = updated;
         tour = t;
-        tcGlobal.Title = $"{tour?.Name ?? "n/a"}";
-        tcGlobal.Tour = tour;
         if (!initialized)
         {
             ShowPlannedSpendings = (tour?.IsFinalizing ?? false);

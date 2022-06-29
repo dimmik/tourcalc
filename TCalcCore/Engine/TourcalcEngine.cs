@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using TCalc.Domain;
+using TCalc.Logic;
 using TCalcCore.Auth;
 using TCalcCore.Network;
 using TCalcCore.Storage;
@@ -39,7 +40,7 @@ namespace TCalcCore.Engine
         {
             _ = await dataSvc.LoadTour(tourId, async (t, isFromServer, dt) => 
             {
-                await (onTourLoaded?.Invoke(t, isFromServer, dt) ?? Task.CompletedTask);
+                await (onTourLoaded?.Invoke(t?.Calculated(), isFromServer, dt) ?? Task.CompletedTask);
             }
             , forceLoadFromServer
             , forceLoadFromLocalStorage
@@ -207,5 +208,14 @@ namespace TCalcCore.Engine
         }
         #endregion
 
+    }
+    static class TourExt
+    {
+        public static Tour Calculated(this Tour t)
+        {
+            var calculator = new TourCalculator(t);
+            var calculated = calculator.SuggestFinalPayments();
+            return calculated;
+        }
     }
 }

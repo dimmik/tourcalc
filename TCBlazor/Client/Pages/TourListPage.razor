@@ -4,8 +4,6 @@
 @using System.Text.Json;
 @using System.Text.Unicode;
 
-@using TCalcCore.UI
-@inject TCGlobal tcGlobal
 
 
 
@@ -154,8 +152,6 @@ else
     }
     protected override Task OnInitializedAsync()
     {
-        tcGlobal.Title = "Tour List";
-        tcGlobal.Tour = null;
         engine.onTourListLoaded += OnTourListLoaded;
         _ = engine.RequestTourListLoad();
         return Task.CompletedTask;

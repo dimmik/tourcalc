@@ -1,7 +1,6 @@
 ﻿@using TCBlazor.Client.Storage
 @using TCBlazor.Client.Utils
 @using AntDesign
-@using TCalcCore.UI
 
 @inherits LayoutComponentBase
 
@@ -10,7 +9,6 @@
 
 @inject IJSRuntime JS
 
-@inject TCGlobal tcGlobal
 @inject NavigationManager NavManager
 
 
@@ -56,7 +54,7 @@
                                 <span class="oi oi-home" aria-hidden="true"></span>
                             </a>&nbsp;&nbsp;
                             <span style="color:white; font-size: clamp(6px, 4vw, 18px);cursor:pointer;" @onclick="OnTitleClick">
-                                @(tcGlobal.Title.Length > 2000 ? $"{tcGlobal.Title.Substring(0, 17)}..." : tcGlobal.Title)
+                                @(Title.Length > 2000 ? $"{Title.Substring(0, 17)}..." : Title)
                             </span>&nbsp;&nbsp;
                         </div>
                         <div style="display: table-cell; align-content: flex-end; width: 35%; text-align: end;">
@@ -92,11 +90,14 @@
     private string? code;
 
     private bool LoggingIn = false;
+    private string Title = "Wait...";
+    private Tour? tour = null;
 
     protected override async Task OnInitializedAsync()
     {
+        engine.onTourLoaded += (t, a, aa) => { Title = t.Name; tour = t; StateHasChanged(); return Task.CompletedTask; };
+        engine.onTourListLoaded += (a, aa, aaa) => { Title = "Tour List"; tour = null; StateHasChanged(); return Task.CompletedTask; };
         await engine.PickUpAuthInfo();
-        tcGlobal.OnChange += OnTitleChange;
     }
     private void OnTitleChange()
     {
@@ -104,9 +105,9 @@
     }
     private void OnTitleClick()
     {
-        if (tcGlobal.Tour != null)
+        if (tour != null)
         {
-            NavManager.NavigateTo($"/tour/{tcGlobal.Tour.Id}");
+            NavManager.NavigateTo($"/tour/{tour.Id}");
         }
     }
     private async Task LogOut()
