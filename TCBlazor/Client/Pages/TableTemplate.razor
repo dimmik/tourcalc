@@ -21,6 +21,10 @@
                 <tr style=@(ConditionalRowStyle(item, idx))>@RowTemplate((item, itemIdx))</tr>
             }
         }
+        @if (NoDataRowTemplate is not null && !(Items?.Any() ?? false))
+        {
+            <tr>@NoDataRowTemplate</tr>
+        }
     </tbody>
 </table>
 
@@ -30,6 +34,9 @@
 
     [Parameter]
     public RenderFragment<(TItem, int)>? RowTemplate { get; set; }
+
+    [Parameter]
+    public RenderFragment? NoDataRowTemplate { get; set; } = null;
 
     [Parameter, AllowNull]
     public IEnumerable<TItem> Items { get; set; }

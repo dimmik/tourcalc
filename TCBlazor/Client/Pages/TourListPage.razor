@@ -44,6 +44,11 @@ else
         <th>Arch <input type="checkbox" @bind-value=@ShowArchived/></th>
         <th>Del</th>
     </TableHeader>
+
+    <NoDataRowTemplate>
+        <td colspan="4"><i>No Data</i></td>
+    </NoDataRowTemplate>
+
     <RowTemplate>
         @{
             var tour = tourItem.Item1;

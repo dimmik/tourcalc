@@ -58,6 +58,10 @@
         <th><span style="cursor:pointer;@(sortingField == SortingField.Amount ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Amount))>Amount</span></th>
         <th>Recepients</th>
     </TableHeader>
+    <NoDataRowTemplate>
+        <td colspan="4"><i>No Data</i></td>
+    </NoDataRowTemplate>
+
     <RowTemplate>
         @{
             var spending = spendingItem.Item1;

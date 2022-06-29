@@ -20,6 +20,9 @@
         <th>Received</th>
         <th>Debt</th>
     </TableHeader>
+    <NoDataRowTemplate>
+        <td colspan="5"><i>No Data</i></td>
+    </NoDataRowTemplate>
     <RowTemplate>
         @{
             var person = personItem.Item1;
