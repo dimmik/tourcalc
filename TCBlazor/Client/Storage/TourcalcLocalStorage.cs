@@ -31,7 +31,7 @@ namespace TCBlazor.Client.Storage
             try
             {
                 st = Newtonsoft.Json.JsonConvert.DeserializeObject<DateTimeOffset>(stored);
-            } catch (Exception e)
+            } catch (Exception)
             {
                 // nothing
             }

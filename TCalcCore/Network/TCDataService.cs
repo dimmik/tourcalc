@@ -340,7 +340,7 @@ namespace TCalcCore.Network
                 //http.ShowError($"NOW update queue of size {updateQueue.Count}");
                 await StoreServerQueue(tourId, updateQueue); // should be empty here, so keep it empty
                 return true;
-            } catch (Exception e)
+            } catch (Exception)
             {
                 // 
                 //http.ShowError($"Exception: NOW update queue of size {updateQueue.Count} ({e.Message})");

@@ -16,8 +16,7 @@
 
     private System.Threading.Timer? timer;
 
-    private bool IsSyncing = false;
-    private Tour tour = null;
+    private Tour? tour = null;
 
 
     protected override async Task OnInitializedAsync()
@@ -45,9 +44,7 @@
     }
     private async Task DoSync()
     {
-        IsSyncing = true;
         await engine.DataSync.Sync(tour?.Id ?? "n_a");
-        IsSyncing = false;
     }
 
 }
