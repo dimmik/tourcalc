@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using TCalc.Domain;
+using TCalcCore.Auth;
 using TCalcCore.Network;
+using TCalcCore.Storage;
+using TCalcCore.UI;
 using static TCalcCore.Engine.TourcalcDelegates;
 
 namespace TCalcCore.Engine
@@ -11,13 +15,25 @@ namespace TCalcCore.Engine
     public class TourcalcEngine
     {
         private readonly TCDataService dataSvc;
+        private readonly TCDataSyncService tcDataSyncSvc;
+        private readonly AuthSvc authSvc;
+        private readonly ITourcalcLocalStorage ts;
+
         public OnTourLoaded onTourLoaded;
         public OnTourListLoaded onTourListLoaded;
 
 
-        public TourcalcEngine(TCDataService dataSvc)
+        public TourcalcEngine(TCDataService dataSvc, AuthSvc authSvc, ITourcalcLocalStorage ts, TCDataSyncService tcDataSyncSvc)
         {
             this.dataSvc = dataSvc ?? throw new ArgumentNullException(nameof(dataSvc));
+            this.authSvc = authSvc ?? throw new ArgumentNullException(nameof(authSvc));
+            this.ts = ts ?? throw new ArgumentNullException(nameof(ts));
+            this.tcDataSyncSvc = tcDataSyncSvc;
+        }
+        public async Task<Tour> LoadFromServerAndReturnBareTour(string tourId)
+{
+            var t = await dataSvc.LoadTourBare(tourId, (a, aa, aaa) => { return Task.CompletedTask; }, forceLoadFromServer: true);
+            return t;
         }
         public async Task RequestTourLoad(string tourId, bool forceLoadFromServer = false, bool forceLoadFromLocalStorage = false)
         {
@@ -29,7 +45,46 @@ namespace TCalcCore.Engine
             , forceLoadFromLocalStorage
             );
         }
+        #region Data Services
+        public TCDataSyncService DataSync => tcDataSyncSvc;
+        public TCDataService DataSvc => dataSvc;
+        #endregion
+        #region UI settings
+        public async Task<UISettings> GetUISettings()
+        {
+            return (await ts.GetUISettings()).val;
+        }
+        public async Task SetUISettings(UISettings s)
+        {
+            await ts.SetUISettings(s);
+        }
+        private readonly static string whoamiKey = "__WhoAmI";
+        public async Task SetWhoAmI(string whoami)
+        {
+            await ts.Set(whoamiKey, whoami);
+        }
+        public async Task<string> GetWhoAmI()
+        {
+            return (await ts.Get(whoamiKey)).val;
+        }
+        #endregion
 
+        #region auth
+        public async Task LogIn(string scope, string code, bool md5Code = false)
+        {
+            await authSvc.LogIn(scope, code, md5Code);
+        }
+        public async Task LogOut()
+        {
+            await authSvc.LogOut();
+        }
+        public async Task PickUpAuthInfo()
+        {
+            await authSvc.PickUpAuthInfo();
+        }
+
+        public AuthData Auth => authSvc.Auth;
+        #endregion
 
         #region Tour List
         public async Task RequestTourListLoad(bool forceFromServer = false)
@@ -55,6 +110,12 @@ namespace TCalcCore.Engine
         {
             await dataSvc.DeleteTour(t);
             _ = RequestTourListLoad(forceFromServer: true);
+        }
+        public async Task RequestClearLocalTourList(bool reloadFromServer)
+        {
+            await dataSvc.ClearTourList();
+            if (reloadFromServer)
+                _ = RequestTourListLoad(forceFromServer: true);
         }
         #endregion
         #region on tour stored

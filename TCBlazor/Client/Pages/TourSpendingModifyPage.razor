@@ -1,8 +1,6 @@
 ﻿@page "/tour/{tourId}/spending/edit/{spendingId}"
 @page "/tour/{tourId}/spending/add/{*personId}"
 
-@using TCalcCore.Storage
-@using TCalcCore.Network
 @using TCalcCore.UI
 
 @using TCalcCore.Engine
@@ -11,8 +9,6 @@
 @inject IJSRuntime JsRuntime
 
 @inject TCGlobal tcGlobal
-@inject TCDataSyncService dataSync
-@inject ITourcalcLocalStorage ts
 
 <div>
     <div class="cool-header"  
@@ -98,7 +94,7 @@ else
         if (mode == ComponentMode.Add || mode == ComponentMode.AddPlanned)
         {
             _ = engine.RequestAddSpending(TourId, s);
-            await ts.Set(whoamiKey, s.FromGuid);
+            await engine.SetWhoAmI(s.FromGuid);
         }
         else
         {
@@ -130,7 +126,7 @@ else
     {
         if (!initialized)
         {
-            WhoAmI = (await ts.Get(whoamiKey)).val ?? "";
+            WhoAmI = await engine.GetWhoAmI() ?? "";
             mode = SpendingId == null
                 ? ComponentMode.Add
                 : (!tour?.Spendings?.Any(s => !s.Planned && s.GUID == SpendingId) ?? false)
@@ -144,7 +140,7 @@ else
             {
                 LoadSpending();
             }
-            dataSync.OnTourSynced += async () => await OnTourSynced(true);
+            engine.DataSync.OnTourSynced += async () => await OnTourSynced(true);
             initialized = true;
         }
     }

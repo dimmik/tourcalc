@@ -1,23 +1,21 @@
 ﻿@using TCBlazor.Client.Storage
 @using TCBlazor.Client.Utils
-@using TCalcCore.Auth
 @using AntDesign
-@using TCalcCore.Storage
-@using TCalcCore.Network
 @using TCalcCore.UI
 
 @inherits LayoutComponentBase
 
+@using TCalcCore.Engine
+@inject TourcalcEngine engine
+
 @inject IJSRuntime JS
-@inject ITourcalcLocalStorage ts
-@inject TCDataService dataSvc
-@inject AuthSvc auth
+
 @inject TCGlobal tcGlobal
 @inject NavigationManager NavManager
 
 
 <div class="page">
-@if (auth.Auth == null)
+@if (engine.Auth == null)
 { 
 //        <AntDesign.Modal
 //                Visible=@true
@@ -32,7 +30,7 @@
 
         if (!LoggingIn)
         {
-            @if (auth.Auth.Type == "None")
+            @if (engine.Auth.Type == "None")
             {
                 <AntDesign.Modal
                 Visible=@true
@@ -66,7 +64,7 @@
                             <span style="cursor:pointer; font-size: clamp(6px, 4vw, 18px); border:1px solid white" @onclick=@(async () => {
                                 await LogOut();
                                 NavManager.NavigateTo("/");
-                            })>Log Out@($"{(auth.Auth.IsMaster ? " Admin" : "")}")</span>
+                            })>Log Out@($"{(engine.Auth.IsMaster ? " Admin" : "")}")</span>
                             &nbsp;&nbsp;
                             <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="/settings">⚙</a>
                         </div>
@@ -97,7 +95,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await auth.PickUpAuthInfo();
+        await engine.PickUpAuthInfo();
         tcGlobal.OnChange += OnTitleChange;
     }
     private void OnTitleChange()
@@ -113,7 +111,7 @@
     }
     private async Task LogOut()
     {
-        await auth.LogOut();
+        await engine.LogOut();
     }
     private async Task LogIn()
     {
@@ -127,13 +125,13 @@
                 scope = scC[0];
                 c = scC[1];
             }
-            await auth.LogIn(scope, c);
+            await engine.LogIn(scope, c);
         } 
         catch
         {
             // TODO handle
         }
-        await dataSvc.ClearTourList();
+        await engine.RequestClearLocalTourList(reloadFromServer: false);
         LoggingIn = false;
     }
     RenderFragment dummyFooter =
