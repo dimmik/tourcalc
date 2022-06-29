@@ -7,6 +7,8 @@ using TCalcCore.Storage;
 using TCalcCore.Network;
 using TCalcCore.Logging;
 using TCalcCore.UI;
+using TCalc.Engine;
+using TCalcCore.Engine;
 
 namespace Company.WebApplication1
 {
@@ -29,6 +31,7 @@ namespace Company.WebApplication1
                 .AddScoped<TCDataService>()
                 .AddScoped<AuthSvc>()
                 .AddScoped<TCDataSyncService>()
+                .AddScoped<TourcalcEngine>()
                 ;
 
 

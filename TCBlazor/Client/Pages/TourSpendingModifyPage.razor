@@ -50,7 +50,7 @@ else
         .ThenByDescending(s => s.DateCreated)
     )
     OnSpendingDelete=@(async (s) => {
-                        await dataSvc.DeleteSpending(TourId, s, OnFreshTourLoaded);
+                        await dataSvc.DeleteSpending(TourId, s, OnTourStored);
                         await LoadTour();
                         StateHasChanged();
                     })
@@ -96,12 +96,12 @@ else
     {
         if (mode == ComponentMode.Add || mode == ComponentMode.AddPlanned)
         {
-            await dataSvc.AddSpending(TourId, s, OnFreshTourLoaded);
+            await dataSvc.AddSpending(TourId, s, OnTourStored);
             await ts.Set(whoamiKey, s.FromGuid);
         }
         else
         {
-            await dataSvc.EditSpending(TourId, s, OnFreshTourLoaded);
+            await dataSvc.EditSpending(TourId, s, OnTourStored);
         }
         await LoadTour();
         OnCancel();
@@ -136,17 +136,23 @@ else
         {
             LoadSpending();
         }
-        dataSync.OnTourSynced += OnFreshTourLoaded;
+        dataSync.OnTourSynced += OnTourStored;
         initialized = true;
     }
     private async Task LoadTour()
     {
         tour = await dataSvc.LoadTour(TourId, OnFreshTourLoaded);
     }
-    private async Task OnFreshTourLoaded()
+    private async Task OnTourStored()
     {
-        tour = await dataSvc.LoadTour(TourId, () => { return Task.CompletedTask; });
+        tour = await dataSvc.LoadTour(TourId, OnFreshTourLoaded);
         StateHasChanged();
+    }
+    private Task OnFreshTourLoaded(Tour t, bool isFresh)
+    {
+        tour = t;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
     private void InitNewSpending()
     {

@@ -77,11 +77,11 @@ namespace TCalcCore.Network
             await ts.SetToken(token);
         }
 
-        public async Task<Tour> LoadTour(string id, Func<Task> onTourRefreshedFromServer, bool forceLoadFromServer = false)
+        public async Task<Tour> LoadTour(string id, Func<Tour, bool, Task> onTourAvailable, bool forceLoadFromServer = false)
         {
             if (id == null) return default;
 
-            var tour = await LoadTourBare(id, onTourRefreshedFromServer, forceLoadFromServer);
+            var tour = await LoadTourBare(id, onTourAvailable, forceLoadFromServer);
             if (tour == null) return null;
             var calculator = new TourCalculator(tour);
             var calculated = calculator.SuggestFinalPayments();
@@ -96,33 +96,36 @@ namespace TCalcCore.Network
         {
             return $"__update_q_{tourId}";
         }
-        public async Task<Tour> LoadTourBare(string id, Func<Task> onTourRefreshedFromServer, bool forceLoadFromServer = false)
+        public async Task<Tour> LoadTourBare(string id, Func<Tour, bool, Task> onTourAvailable, bool forceLoadFromServer = false)
         {
             if (id == null) return default;
             // First get from local storage
             Tour t = await ts.GetObject<Tour>(GetTourStorageKey(id));
             if (t != null && !forceLoadFromServer) // found locally and we do not enforce loading from server
             {
+                await onTourAvailable(t, false);
                 // Then in background - load the tour from server
-                _ = LoadTourFromServerInBackground(id, t, onTourRefreshedFromServer);
+                _ = LoadTourFromServerInBackground(id, t, onTourAvailable);
                 return t;
             } else
             {
                 // if it is null, no tour in local storage = well, just load from server
-                t = await LoadTourFromServerInBackground(id, t, onTourRefreshedFromServer);
+                t = await LoadTourFromServerInBackground(id, t, onTourAvailable);
                 return t;
             }
         }
 
-        private async Task<Tour> LoadTourFromServerInBackground(string id, Tour localTour, Func<Task> onTourRefreshedFromServer)
+        private async Task<Tour> LoadTourFromServerInBackground(string id, Tour localTour, Func<Tour, bool, Task> onTourAvailable)
         {
             var token = await ts.GetToken();
             var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token, showErrorMessages: false);
-            if (t != null && t.StateGUID != (localTour?.StateGUID ?? Guid.NewGuid().ToString()))
+            if (t != null 
+                // && t.StateGUID != (localTour?.StateGUID ?? Guid.NewGuid().ToString()) // should we actually compare state ids? older ones all with empty state ids; on change in legacy - state id will become empty.
+                )
             {
-                // On success, AND if state differs - store the tour and execute onTourRefreshedFromServer
+                // On success (??? AND if state differs) - store the tour and execute onTourAvailable
                 await ts.SetObject(GetTourStorageKey(id), t);
-                await onTourRefreshedFromServer();
+                await onTourAvailable(t, true);
             }
             return t;
         }
@@ -198,7 +201,7 @@ namespace TCalcCore.Network
         }
 
         private readonly Dictionary<string, Queue<SerializableTourOperation>> tourLocalUpdateQueues = new Dictionary<string, Queue<SerializableTourOperation>>();
-        private async Task EditTourData(string tourId, SerializableTourOperation op, Func<Task> onFreshTourLoaded)
+        private async Task EditTourData(string tourId, SerializableTourOperation op, Func<Task> onTourStored)
         {
             Queue<SerializableTourOperation> serverQueue = await GetServerQueue(tourId);
             serverQueue.Enqueue(op);
@@ -209,7 +212,7 @@ namespace TCalcCore.Network
             await UpdateLocally(tourId, localQueue);
 
             // on server in background task
-            _ = UpdateOnServer(tourId, serverQueue, onFreshTourLoaded);
+            _ = UpdateOnServer(tourId, serverQueue, onTourStored);
         }
 
         private Queue<SerializableTourOperation> GetLocalQueue(string tourId)
@@ -265,7 +268,7 @@ namespace TCalcCore.Network
             return ok;
         }
 
-        private async Task UpdateOnServer(string tourId, Queue<SerializableTourOperation> q, Func<Task> onFreshTourLoaded)
+        private async Task UpdateOnServer(string tourId, Queue<SerializableTourOperation> q, Func<Task> onTourStored)
         {
             // try update on server
             bool updatedOnServer = await TryApplyOnServer(tourId, q);
@@ -275,13 +278,13 @@ namespace TCalcCore.Network
             }
             else
             {
-                await onFreshTourLoaded();
+                await onTourStored();
             }
         }
         private async Task<bool> TryApplyOnServer(string tourId, Queue<SerializableTourOperation> q)
         {
             if (q == null || q.Count == 0) return false;
-            Tour tour = await LoadTourBare(tourId, () => { return Task.CompletedTask; }, forceLoadFromServer: true);
+            Tour tour = await LoadTourBare(tourId, (a, aa) => { return Task.CompletedTask; }, forceLoadFromServer: true);
             if (tour == null)
             {
                 await StoreServerQueue(tourId, q);
@@ -323,46 +326,46 @@ namespace TCalcCore.Network
             }
         }
         #region Persons
-        public async Task DeletePerson(string tourId, Person p, Func<Task> onFreshTourLoaded)
+        public async Task DeletePerson(string tourId, Person p, Func<Task> onTourStored)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("DeletePerson", p.GUID, (string)null), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("DeletePerson", p.GUID, (string)null), onTourStored);
         }
-        public async Task EditPerson(string tourId, Person p, Func<Task> onFreshTourLoaded)
+        public async Task EditPerson(string tourId, Person p, Func<Task> onTourStored)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("UpdatePerson", p.GUID, p), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("UpdatePerson", p.GUID, p), onTourStored);
         }
 
         
 
-        public async Task AddPerson(string tourId, Person p, Func<Task> onFreshTourLoaded)
+        public async Task AddPerson(string tourId, Person p, Func<Task> onTourStored)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("AddPerson", null, p), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("AddPerson", null, p), onTourStored);
         }
         #endregion
         #region Spendings
-        public async Task DeleteSpending(string tourId, Spending s, Func<Task> onFreshTourLoaded)
+        public async Task DeleteSpending(string tourId, Spending s, Func<Task> onTourStored)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("DeleteSpending", s.GUID, (string)null), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("DeleteSpending", s.GUID, (string)null), onTourStored);
         }
-        public async Task EditSpending(string tourId, Spending s, Func<Task> onFreshTourLoaded)
+        public async Task EditSpending(string tourId, Spending s, Func<Task> onTourStored)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("UpdateSpending", s.GUID, s), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("UpdateSpending", s.GUID, s), onTourStored);
         }
-        public async Task AddSpending(string tourId, Spending s, Func<Task> onFreshTourLoaded)
+        public async Task AddSpending(string tourId, Spending s, Func<Task> onTourStored)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("AddSpending", null, s), onFreshTourLoaded);
+            await EditTourData(tourId, new SerializableTourOperation("AddSpending", null, s), onTourStored);
         }
 
         #endregion
