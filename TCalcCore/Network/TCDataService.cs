@@ -77,11 +77,11 @@ namespace TCalcCore.Network
             await ts.SetToken(token);
         }
 
-        public async Task<Tour> LoadTour(string id, Func<Tour, bool, Task> onTourAvailable, bool forceLoadFromServer = false)
+        public async Task<Tour> LoadTour(string id, Func<Tour, bool, Task> onTourAvailable, bool forceLoadFromServer = false, bool forceLoadFromLocalStorage = false)
         {
             if (id == null) return default;
 
-            var tour = await LoadTourBare(id, onTourAvailable, forceLoadFromServer);
+            var tour = await LoadTourBare(id, onTourAvailable, forceLoadFromServer, forceLoadFromLocalStorage);
             if (tour == null) return null;
             var calculator = new TourCalculator(tour);
             var calculated = calculator.SuggestFinalPayments();
@@ -96,11 +96,24 @@ namespace TCalcCore.Network
         {
             return $"__update_q_{tourId}";
         }
-        public async Task<Tour> LoadTourBare(string id, Func<Tour, bool, Task> onTourAvailable, bool forceLoadFromServer = false)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="onTourAvailable"></param>
+        /// <param name="forceLoadFromServer"> ignored if forceLoadFromLocalStorage == true</param>
+        /// <param name="forceLoadFromLocalStorage"></param>
+        /// <returns></returns>
+        public async Task<Tour> LoadTourBare(string id, Func<Tour, bool, Task> onTourAvailable, bool forceLoadFromServer = false, bool forceLoadFromLocalStorage = false)
         {
             if (id == null) return default;
             // First get from local storage
             Tour t = (await ts.GetObject<Tour>(GetTourStorageKey(id))).val;
+            if (forceLoadFromLocalStorage)
+            {
+                await onTourAvailable(t, false);
+                return t;
+            }
             if (t != null && !forceLoadFromServer) // found locally and we do not enforce loading from server
             {
                 await onTourAvailable(t, false);
@@ -201,7 +214,7 @@ namespace TCalcCore.Network
         }
 
         private readonly Dictionary<string, Queue<SerializableTourOperation>> tourLocalUpdateQueues = new Dictionary<string, Queue<SerializableTourOperation>>();
-        private async Task EditTourData(string tourId, SerializableTourOperation op, Func<Task> onTourStored)
+        private async Task EditTourData(string tourId, SerializableTourOperation op, Func<bool, Task> onTourStored)
         {
             Queue<SerializableTourOperation> serverQueue = await GetServerQueue(tourId);
             serverQueue.Enqueue(op);
@@ -209,7 +222,8 @@ namespace TCalcCore.Network
             localQueue.Enqueue(op);
 
             // update locally
-            await UpdateLocally(tourId, localQueue);
+            await UpdateLocally(tourId, localQueue); 
+            await onTourStored(false); // locally
 
             // on server in background task
             _ = UpdateOnServer(tourId, serverQueue, onTourStored);
@@ -268,7 +282,7 @@ namespace TCalcCore.Network
             return ok;
         }
 
-        private async Task UpdateOnServer(string tourId, Queue<SerializableTourOperation> q, Func<Task> onTourStored)
+        private async Task UpdateOnServer(string tourId, Queue<SerializableTourOperation> q, Func<bool, Task> onTourStored)
         {
             // try update on server
             bool updatedOnServer = await TryApplyOnServer(tourId, q);
@@ -278,7 +292,7 @@ namespace TCalcCore.Network
             }
             else
             {
-                await onTourStored();
+                await onTourStored(true);
             }
         }
         private async Task<bool> TryApplyOnServer(string tourId, Queue<SerializableTourOperation> q)
@@ -326,22 +340,19 @@ namespace TCalcCore.Network
             }
         }
         #region Persons
-        public async Task DeletePerson(string tourId, Person p, Func<Task> onTourStored)
+        public async Task DeletePerson(string tourId, Person p, Func<bool, Task> onTourStored)
         {
             if (tourId == null) return;
             if (p == null) return;
             await EditTourData(tourId, new SerializableTourOperation("DeletePerson", p.GUID, (string)null), onTourStored);
         }
-        public async Task EditPerson(string tourId, Person p, Func<Task> onTourStored)
+        public async Task EditPerson(string tourId, Person p, Func<bool, Task> onTourStored)
         {
             if (tourId == null) return;
             if (p == null) return;
             await EditTourData(tourId, new SerializableTourOperation("UpdatePerson", p.GUID, p), onTourStored);
         }
-
-        
-
-        public async Task AddPerson(string tourId, Person p, Func<Task> onTourStored)
+        public async Task AddPerson(string tourId, Person p, Func<bool, Task> onTourStored)
         {
             if (tourId == null) return;
             if (p == null) return;
@@ -349,19 +360,19 @@ namespace TCalcCore.Network
         }
         #endregion
         #region Spendings
-        public async Task DeleteSpending(string tourId, Spending s, Func<Task> onTourStored)
+        public async Task DeleteSpending(string tourId, Spending s, Func<bool, Task> onTourStored)
         {
             if (tourId == null) return;
             if (s == null) return;
             await EditTourData(tourId, new SerializableTourOperation("DeleteSpending", s.GUID, (string)null), onTourStored);
         }
-        public async Task EditSpending(string tourId, Spending s, Func<Task> onTourStored)
+        public async Task EditSpending(string tourId, Spending s, Func<bool, Task> onTourStored)
         {
             if (tourId == null) return;
             if (s == null) return;
             await EditTourData(tourId, new SerializableTourOperation("UpdateSpending", s.GUID, s), onTourStored);
         }
-        public async Task AddSpending(string tourId, Spending s, Func<Task> onTourStored)
+        public async Task AddSpending(string tourId, Spending s, Func<bool, Task> onTourStored)
         {
             if (tourId == null) return;
             if (s == null) return;

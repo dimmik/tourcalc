@@ -1,15 +1,16 @@
 ﻿@page "/tour/{tourId}"
-@using TCBlazor.Client.Storage;
+
 @using TCalcCore.Network
+@inject TCDataSyncService dataSync
+
 @using TCalcCore.UI
+@inject TCGlobal tcGlobal
+
 @using TCalcCore.Engine
+@inject TourcalcEngine engine
 
 @inject IJSRuntime JsRuntime
-@inject TCGlobal tcGlobal
-@inject TCDataService dataSvc
 @inject NavigationManager NavManager
-@inject TCDataSyncService dataSync
-@inject TourcalcEngine engine
 
 @if (tour == null)
 {
@@ -19,7 +20,7 @@ else
 {
     <PageTitle>@tour.Name</PageTitle>
 <h3>@tour.Name 
-    <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") stats</Button>
+    <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") info</Button>
     <span style="cursor:pointer;font-size:large;" @onclick=@(async () => {
                     IsTourReloading = true;
                     await engine.RequestTourLoad(TourId, forceLoadFromServer: true);
@@ -46,13 +47,14 @@ else
                 <TourPersonsComponent 
                     Tour=@tour
                     OnPersonDelete=@(async (p) => {
-                        await dataSvc.DeletePerson(tour.Id, p, OnTourStoredOnServer);
+                        _ = engine.RequestDeletePerson(tour.Id, p);
                     })
                     OnPersonEdit=@(async (p) => {
-                        await dataSvc.EditPerson(tour.Id, p, OnTourStoredOnServer);
+                        _ = engine.RequestEditPerson(tour.Id, p);
                     })
                     OnPersonAdd=@(async (p) => {
-                        await dataSvc.AddPerson(tour.Id, p, OnTourStoredOnServer);
+                        //await dataSvc.AddPerson(tour.Id, p, OnTourStored);
+                        _ = engine.RequestAddPerson(tour.Id, p);
                     })
                     />
                 <!--Spendings-->
@@ -66,7 +68,7 @@ else
                         StateHasChanged();
                     })
                     OnSpendingDelete=@(async (s) => {
-                        await dataSvc.DeleteSpending(tour.Id, s, OnTourStoredOnServer);
+                        _ = engine.RequestDeleteSpending(tour.Id, s);
                     })
                 >
                     <EditActionTemplate Context="s">
@@ -78,7 +80,7 @@ else
                                     {
                                         var ss = s.SafeClone<Spending>();
                                         ss.Type = "";
-                                        await dataSvc.AddSpending(tour.Id, ss, OnTourStoredOnServer);
+                                        _ = engine.RequestAddSpending(tour.Id, ss);
                                     }
                                 })>+</b>
                             }
@@ -103,6 +105,7 @@ else
     private bool ShowStatistics = false;
     private bool ShowPlannedSpendings = false;
     private bool IsTourReloading = false;
+    private bool initialized = false;
 
     public Tour? tour = null;
     protected override void OnInitialized()
@@ -117,13 +120,24 @@ else
         tour = t;
         tcGlobal.Title = $"{tour?.Name ?? "n/a"}";
         tcGlobal.Tour = tour;
-        ShowPlannedSpendings = (tour?.IsFinalizing ?? false);
+        if (!initialized)
+        {
+            ShowPlannedSpendings = (tour?.IsFinalizing ?? false);
+            initialized = true;
+        }
         StateHasChanged();
         return Task.CompletedTask;
     }
-    private Task OnTourStoredOnServer()
+    private Task OnTourStored(bool storedOnServer)
     {
-        _ = engine.RequestTourLoad(TourId, forceLoadFromServer: true);
+        if (storedOnServer)
+        {
+            _ = engine.RequestTourLoad(TourId, forceLoadFromServer: true);
+        } else
+        {
+            _ = engine.RequestTourLoad(TourId, forceLoadFromServer: false, forceLoadFromLocalStorage: true);
+        }
+        StateHasChanged();
         return Task.CompletedTask;
     }
     string GetId(string l) => $"{l}";
