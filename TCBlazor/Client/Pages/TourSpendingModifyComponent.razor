@@ -1,4 +1,5 @@
 ﻿@inject IJSRuntime JsRuntime
+@inject NavigationManager NavManager
 <div style="text-align: center; width: 100%;">
     <div
         style="margin-left: auto; margin-right: auto;text-align:left; width: clamp(300px, 40vw, 500px); background-color: #e6ffff; padding: 5px; border-radius: 5px; border: 1px solid black;"
@@ -90,13 +91,22 @@
         </tr>
         <tr>
             <td colspan="2">
-
+                <div style="display: table; width: 100%">
+                        <div style="display: table-cell; align-content: flex-start; width: 65%; text-align: start;">
                 <Button Type="@ButtonType.Primary" Loading=@ShowInProgress @onclick=@(async () => await SaveSpending())>
                     @($"{(IsItANewSpending() ? "Submit" : "Submit")}")
                 </Button>
                 <Button Danger=@true @onclick=@(() => OnCancel())>
                     Cancel
                 </Button>
+                   </div>
+                        <div style="display: table-cell; align-content: flex-end; width: 35%; text-align: end;">
+                            <Button Type="@ButtonType.Primary" Danger=@true 
+                                Shape="@ButtonShape.Circle"
+                                Icon="@IconType.Outline.Close"
+                                @onclick=@(() => NavManager.NavigateTo($"/tour/{tour.Id}"))/>
+                   </div>
+                </div>
             </td>
         </tr>
 </table>
