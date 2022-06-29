@@ -125,7 +125,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        settings = await ts.GetUISettings();
+        settings = (await ts.GetUISettings()).val;
     }
 
     protected override void OnParametersSet()

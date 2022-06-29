@@ -123,7 +123,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         await LoadTour();
-        WhoAmI = await ts.Get(whoamiKey) ?? "";
+        WhoAmI = (await ts.Get(whoamiKey)).val ?? "";
         mode = SpendingId == null 
             ? ComponentMode.Add 
             : (!tour?.Spendings?.Any(s => !s.Planned && s.GUID == SpendingId) ?? false) 

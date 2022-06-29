@@ -16,6 +16,6 @@
     private UISettings settings = new UISettings();
     protected override async Task OnInitializedAsync()
     {
-        settings = await ts.GetUISettings();
+        settings = (await ts.GetUISettings()).val;
     }
 }

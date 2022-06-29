@@ -36,15 +36,15 @@ namespace TCalcCore.Network
         {
             var token = await ts.GetToken();
             AuthData ad;
-            if (forceGetFromServer || !token.Contains("."))
+            if (forceGetFromServer || !token.val.Contains("."))
             {
-                ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token);
+                ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token.val);
             } 
             else
             {
                 try
                 {
-                    var parts = token.Split('.');
+                    var parts = token.val.Split('.');
                     var meaningful = parts[1];
                     var plain = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(meaningful));
                     var authDataContainer = Newtonsoft.Json.JsonConvert.DeserializeObject<AuthDataContainer>(plain);
@@ -53,7 +53,7 @@ namespace TCalcCore.Network
                     if (ad == null) throw new Exception("cannot get auth info from token");
                 } catch
                 {
-                    ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token);
+                    ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token.val);
                 }
             }
             return ad;
@@ -100,7 +100,7 @@ namespace TCalcCore.Network
         {
             if (id == null) return default;
             // First get from local storage
-            Tour t = await ts.GetObject<Tour>(GetTourStorageKey(id));
+            Tour t = (await ts.GetObject<Tour>(GetTourStorageKey(id))).val;
             if (t != null && !forceLoadFromServer) // found locally and we do not enforce loading from server
             {
                 await onTourAvailable(t, false);
@@ -118,7 +118,7 @@ namespace TCalcCore.Network
         private async Task<Tour> LoadTourFromServerInBackground(string id, Tour localTour, Func<Tour, bool, Task> onTourAvailable)
         {
             var token = await ts.GetToken();
-            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token, showErrorMessages: false);
+            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token.val, showErrorMessages: false);
             if (t != null 
                 // && t.StateGUID != (localTour?.StateGUID ?? Guid.NewGuid().ToString()) // should we actually compare state ids? older ones all with empty state ids; on change in legacy - state id will become empty.
                 )
@@ -133,19 +133,19 @@ namespace TCalcCore.Network
         public async Task DeleteTour(Tour tour)
         {
             if (tour == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), HttpMethod.Delete, null);
+            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", (await ts.GetToken()).val, HttpMethod.Delete, null);
         }
         public async Task EditTourProps(Tour tour, string operation)
         {
             if (tour == null) return;
             if (operation == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/{operation}", await ts.GetToken(), new HttpMethod("PATCH"), tour);
+            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/{operation}", (await ts.GetToken()).val, new HttpMethod("PATCH"), tour);
         }
         private async Task UpdateTour(string tourId, Tour tour)
         {
             if (tour == null) return;
             if (tourId == null) return;
-            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", await ts.GetToken(), new HttpMethod("PATCH"), tour);
+            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", (await ts.GetToken()).val, new HttpMethod("PATCH"), tour);
             if (string.IsNullOrWhiteSpace(tid))
             {
                 throw new Exception("wrong tour id returned");
@@ -158,7 +158,7 @@ namespace TCalcCore.Network
         public async Task AddTour(Tour tour, string code)
         {
             if (tour == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? CodeThatForSureIsNotUsed}", await ts.GetToken(), HttpMethod.Post, tour);
+            await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? CodeThatForSureIsNotUsed}", (await ts.GetToken()).val, HttpMethod.Post, tour);
         }
         public async Task ClearTourList()
         {
@@ -166,7 +166,7 @@ namespace TCalcCore.Network
         }
         public async Task<TourList> GetTourList(Func<Task> onTourListLoadedFromServer)
         {
-            TourList tl = await ts.GetObject<TourList>(GetTourListStorageKey());
+            TourList tl = (await ts.GetObject<TourList>(GetTourListStorageKey())).val;
             if (tl == null)
             {
                 tl = await GetTourListFromServer();
@@ -196,7 +196,7 @@ namespace TCalcCore.Network
             var from = 0;
             var count = 1000;
             var code = "";
-            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, showErrorMessages: true);
+            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token.val, showErrorMessages: true);
             return tours;
         }
 
@@ -224,7 +224,7 @@ namespace TCalcCore.Network
 
         public async Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId)
         {
-            SerializableTourOperationContainer qc = await ts.GetObject<SerializableTourOperationContainer>(GetUpdateQueueStorageKey(tourId));
+            SerializableTourOperationContainer qc = (await ts.GetObject<SerializableTourOperationContainer>(GetUpdateQueueStorageKey(tourId))).val;
             if (qc == null)
             {
                 //http.ShowError("q is null");
@@ -248,7 +248,7 @@ namespace TCalcCore.Network
 
         private async Task UpdateLocally(string tourId, Queue<SerializableTourOperation> q)
         {
-            Tour tour = await ts.GetObject<Tour>(GetTourStorageKey(tourId));
+            Tour tour = (await ts.GetObject<Tour>(GetTourStorageKey(tourId))).val;
             if (tour != null)
             {
                 Queue<SerializableTourOperation> localUpdateQueue = q;

@@ -30,7 +30,7 @@
             await dataSvc.GetAndStoreTokenForCodeMd5(transientAccessCode);
             await auth.PickUpAuthInfo();
         }
-        var settings = await ts.GetUISettings();
+        var settings = (await ts.GetUISettings()).val;
         var url = settings.Default_Tour_Page_Is_Add_Spending ? $"/tour/{tid}/spending/add/": $"/tour/{tid}";
         NavManager.NavigateTo(url);
     }
