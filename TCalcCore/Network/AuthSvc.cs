@@ -14,9 +14,15 @@ namespace TCalcCore.Network
         }
 
         public AuthData Auth { get; set; }
-        public async Task LogIn(string scope, string code)
+        public async Task LogIn(string scope, string code, bool md5Code)
         {
-            await dataSvc.GetAndStoreToken(scope, code);
+            if (!md5Code)
+            {
+                await dataSvc.GetAndStoreToken(scope, code);
+            } else
+            {
+                await dataSvc.GetAndStoreTokenForCodeMd5(code);
+            }
             await PickUpAuthInfo();
         }
         public async Task PickUpAuthInfo()

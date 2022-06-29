@@ -1,13 +1,13 @@
 ﻿@page "/tour/{tourId}"
-@using TCBlazor.Client.Storage;
-@using TCalcCore.Network
+
 @using TCalcCore.UI
+@inject TCGlobal tcGlobal
+
+@using TCalcCore.Engine
+@inject TourcalcEngine engine
 
 @inject IJSRuntime JsRuntime
-@inject TCGlobal tcGlobal
-@inject TCDataService dataSvc
 @inject NavigationManager NavManager
-@inject TCDataSyncService dataSync
 
 @if (tour == null)
 {
@@ -17,16 +17,21 @@ else
 {
     <PageTitle>@tour.Name</PageTitle>
 <h3>@tour.Name 
-    <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") stats</Button>
+    <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") info</Button>
     <span style="cursor:pointer;font-size:large;" @onclick=@(async () => {
                     IsTourReloading = true;
-                    await LoadTour(forceLoadFromServer: true);
+                    await engine.RequestTourLoad(TourId, forceLoadFromServer: true);
                     IsTourReloading = false;
                 })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
     </h3>     
 @if (ShowStatistics)
 {
+    <div style="font-size:x-small; border: 1px solid black">
+        @(isFresh ? "From Server" : "Local") <b>@($"{storedDt:yyyy-MM-dd HH:mm:ss}")</b>
+    </div>
+    <div>
         <TourStaistics Tour=@tour/>
+    </div>
 }
     <TableTemplate Items=@(new string[1]) TopPadding="0">
         <TableHeader>
@@ -44,19 +49,14 @@ else
                 <TourPersonsComponent 
                     Tour=@tour
                     OnPersonDelete=@(async (p) => {
-                        await dataSvc.DeletePerson(tour.Id, p, OnFreshTourLoaded);
-                        await LoadTour();
-                        StateHasChanged();
+                        _ = engine.RequestDeletePerson(tour.Id, p);
                     })
                     OnPersonEdit=@(async (p) => {
-                        await dataSvc.EditPerson(tour.Id, p, OnFreshTourLoaded);
-                        await LoadTour();
-                        StateHasChanged();
+                        _ = engine.RequestEditPerson(tour.Id, p);
                     })
                     OnPersonAdd=@(async (p) => {
-                        await dataSvc.AddPerson(tour.Id, p, OnFreshTourLoaded);
-                        await LoadTour();
-                        StateHasChanged();
+                        //await dataSvc.AddPerson(tour.Id, p, OnTourStored);
+                        _ = engine.RequestAddPerson(tour.Id, p);
                     })
                     />
                 <!--Spendings-->
@@ -70,9 +70,7 @@ else
                         StateHasChanged();
                     })
                     OnSpendingDelete=@(async (s) => {
-                        await dataSvc.DeleteSpending(tour.Id, s, OnFreshTourLoaded);
-                        await LoadTour();
-                        StateHasChanged();
+                        _ = engine.RequestDeleteSpending(tour.Id, s);
                     })
                 >
                     <EditActionTemplate Context="s">
@@ -84,9 +82,7 @@ else
                                     {
                                         var ss = s.SafeClone<Spending>();
                                         ss.Type = "";
-                                        await dataSvc.AddSpending(tour.Id, ss, OnFreshTourLoaded);
-                                        await LoadTour();
-                                        StateHasChanged();
+                                        _ = engine.RequestAddSpending(tour.Id, ss);
                                     }
                                 })>+</b>
                             }
@@ -111,27 +107,44 @@ else
     private bool ShowStatistics = false;
     private bool ShowPlannedSpendings = false;
     private bool IsTourReloading = false;
+    private bool initialized = false;
 
     public Tour? tour = null;
+    private bool isFresh = false;
+    private DateTimeOffset storedDt = DateTimeOffset.Now;
     protected override void OnInitialized()
     {
-        dataSync.OnTourSynced += OnFreshTourLoaded;
+        // subscribe to tour loaded event
+        engine.onTourLoaded += OnTourLoaded;
+        // send command to load tour with certain id
+        _ = engine.RequestTourLoad(TourId);
     }
-    protected override async Task OnParametersSetAsync()
+    private Task OnTourLoaded(Tour t, bool isFromServer, DateTimeOffset updated)
     {
-        await LoadTour();
+        isFresh = isFromServer;
+        storedDt = updated;
+        tour = t;
         tcGlobal.Title = $"{tour?.Name ?? "n/a"}";
         tcGlobal.Tour = tour;
-        ShowPlannedSpendings = (tour?.IsFinalizing ?? false);
-    }
-    private async Task LoadTour(bool forceLoadFromServer = false)
-    {
-        tour = await dataSvc.LoadTour(TourId, OnFreshTourLoaded, forceLoadFromServer);
-    }
-    private async Task OnFreshTourLoaded()
-    {
-        tour = await dataSvc.LoadTour(TourId, () => { return Task.CompletedTask; });
+        if (!initialized)
+        {
+            ShowPlannedSpendings = (tour?.IsFinalizing ?? false);
+            initialized = true;
+        }
         StateHasChanged();
+        return Task.CompletedTask;
+    }
+    private Task OnTourStored(bool storedOnServer)
+    {
+        if (storedOnServer)
+        {
+            _ = engine.RequestTourLoad(TourId, forceLoadFromServer: true);
+        } else
+        {
+            _ = engine.RequestTourLoad(TourId, forceLoadFromServer: false, forceLoadFromLocalStorage: true);
+        }
+        StateHasChanged();
+        return Task.CompletedTask;
     }
     string GetId(string l) => $"{l}";
     string GetHref(string l) => $"/tour/{TourId}#" + GetId(l);

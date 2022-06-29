@@ -1,14 +1,15 @@
 ﻿@page "/settings"
 
-@using TCBlazor.Client.Storage
-@using TCalcCore.Storage
 @using TCalcCore.UI
-@inject ITourcalcLocalStorage ts
+
+@using TCalcCore.Engine
+@inject TourcalcEngine engine
+
 <h3>UI Settings</h3>
 
 <DynaForm Item=@settings
           OnSave=@(async (s) => {
-                    await ts.SetUISettings(s);
+                    await engine.SetUISettings(s);
                 })
 />
 
@@ -16,6 +17,6 @@
     private UISettings settings = new UISettings();
     protected override async Task OnInitializedAsync()
     {
-        settings = await ts.GetUISettings();
+        settings = await engine.GetUISettings();
     }
 }

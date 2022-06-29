@@ -1,13 +1,7 @@
 ﻿@page "/goto/{transientAccessCode}/{tid}"
-@inject AuthSvc auth
 
-@using TCBlazor.Client.Storage
-@using TCalcCore.Storage
-@using TCalcCore.Network
-
-
-@inject TCDataService dataSvc
-@inject ITourcalcLocalStorage ts
+@using TCalcCore.Engine
+@inject TourcalcEngine engine
 
 @inject NavigationManager NavManager
 
@@ -21,17 +15,16 @@
     public string? tid {get; set;}
     protected override async Task OnInitializedAsync()
     {
-        //await dataSvc.GetAndStoreToken("code", transientAccessCode);
-        await auth.LogIn("code", transientAccessCode);
+        await engine.LogIn("code", transientAccessCode, md5Code: true);
         // now try to get a tour
-        var tt = await dataSvc.LoadTourBare(tid, () => { return Task.CompletedTask; }, forceLoadFromServer: true);
+        var tt = await engine.LoadFromServerAndReturnBareTour(tid);
         if (tt == null)
         {
-            await dataSvc.GetAndStoreTokenForCodeMd5(transientAccessCode);
-            await auth.PickUpAuthInfo();
+            await engine.LogIn("code", transientAccessCode, md5Code: false);
         }
-        var settings = await ts.GetUISettings();
-        var url = settings.Default_Tour_Page_Is_Add_Spending ? $"/tour/{tid}/spending/add/": $"/tour/{tid}";
+        await engine.PickUpAuthInfo();
+        var settings = await engine.GetUISettings();
+        var url = settings.Default_Tour_Page_Is_Add_Spending ? $"/tour/{tid}/spending/add/" : $"/tour/{tid}";
         NavManager.NavigateTo(url);
     }
 }

@@ -19,16 +19,32 @@ namespace TCBlazor.Client.Storage
             JS = js;
             this.logger = logger;
         }
-        public async Task<string> Get(string key)
+        private string GetStoredDatetimeKey(string key)
+        {
+            return $"{key}_stored_datetime";
+        }
+        public async Task<(string val, DateTimeOffset stored)> Get(string key)
         {
             var res = await JS.InvokeAsync<string>("localStorage.getItem", new object[] { key });
-            return res ?? "";
+            var stored = await JS.InvokeAsync<string>("localStorage.getItem", new object[] { GetStoredDatetimeKey(key) });
+            DateTimeOffset st = DateTimeOffset.Now;
+            try
+            {
+                st = Newtonsoft.Json.JsonConvert.DeserializeObject<DateTimeOffset>(stored);
+            } catch (Exception e)
+            {
+                // nothing
+            }
+            return (res ?? "", st);
         }
         public async Task Set(string key, string val)
         {
+            DateTimeOffset st = DateTimeOffset.Now;
+            string stored = Newtonsoft.Json.JsonConvert.SerializeObject(st);
             await JS.InvokeVoidAsync("localStorage.setItem", new object[] { key, val });
+            await JS.InvokeVoidAsync("localStorage.setItem", new object[] { GetStoredDatetimeKey(key), stored });
         }
-        public async Task<string> GetToken()
+        public async Task<(string val, DateTimeOffset stored)> GetToken()
         {
             return await Get(TokenKey);
         }
@@ -40,39 +56,39 @@ namespace TCBlazor.Client.Storage
             sw.Stop();
             logger.Log($"Set object {key} in {sw.Elapsed}");
         }
-        public async Task<T?> GetObject<T>(string key)
+        public async Task<(T? val, DateTimeOffset stored)> GetObject<T>(string key)
         {
             Stopwatch sw = Stopwatch.StartNew();
-            string json = await Get(key);
+            var (json, dt) = await Get(key);
             //Console.WriteLine($"j: {json}");
             try
             {
                 T? res = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json ?? "");
                 sw.Stop();
                 logger.Log($"Get object {key} (null? {res == null}) in {sw.Elapsed}");
-                return res;
+                return (res, dt);
             }
             catch (Exception e)
             {
                 logger.Log($"Error get obj: {e.Message}");
-                return default;
+                return (default, dt);
             }
         }
         public async Task SetToken(string token)
         {
             await Set(TokenKey, token);
         }
-        public async Task<UISettings> GetUISettings()
+        public async Task<(UISettings val, DateTimeOffset stored)> GetUISettings()
         {
-            var res = await Get(UISettingsKey);
+            var (res, stored) = await Get(UISettingsKey);
             if (string.IsNullOrWhiteSpace(res))
             {
                 var s = new UISettings();
                 await SetUISettings(s);
-                return s;
+                return (s, stored);
             }
             var settings = Newtonsoft.Json.JsonConvert.DeserializeObject<UISettings>(res) ?? new UISettings();
-            return settings;
+            return (settings, stored);
         }
         public async Task SetUISettings(UISettings s)
         {
