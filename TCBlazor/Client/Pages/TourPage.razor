@@ -47,15 +47,12 @@ else
                     Tour=@tour
                     OnPersonDelete=@(async (p) => {
                         await dataSvc.DeletePerson(tour.Id, p, OnTourStoredOnServer);
-                        await engine.RequestTourLoad(TourId, forceLoadFromServer: true);
                     })
                     OnPersonEdit=@(async (p) => {
                         await dataSvc.EditPerson(tour.Id, p, OnTourStoredOnServer);
-                        await engine.RequestTourLoad(TourId, forceLoadFromServer: true);
                     })
                     OnPersonAdd=@(async (p) => {
                         await dataSvc.AddPerson(tour.Id, p, OnTourStoredOnServer);
-                        await engine.RequestTourLoad(TourId, forceLoadFromServer: true);
                     })
                     />
                 <!--Spendings-->
@@ -70,7 +67,6 @@ else
                     })
                     OnSpendingDelete=@(async (s) => {
                         await dataSvc.DeleteSpending(tour.Id, s, OnTourStoredOnServer);
-                        await engine.RequestTourLoad(TourId, forceLoadFromServer: true);
                     })
                 >
                     <EditActionTemplate Context="s">
