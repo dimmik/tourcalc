@@ -245,17 +245,28 @@ namespace TCalcCore.Network
         
         private async Task StartStoreLoop(string tourId)
         {
-            while (!storeLoopCts.IsCancellationRequested)
+            bool doLoop = true;
+            while (!storeLoopCts.IsCancellationRequested && doLoop)
             {
                 bool interrupted = await WaitSomeTime(tourId, storeInterval);
                 //logger.Log($"({tourId}) Wait completed ({storeInterval}). Interrupted: {interrupted}");
                 var storeQ = await GetServerQueue(tourId);
-                //logger.Log($"({tourId}) stored queue {storeQ.Count}");
-                bool updated = await TryApplyOnServer(tourId, storeQ);
-                //logger.Log($"({tourId}) updated. Success? {updated}");
-                if (updated)
+                if (storeQ.Count == 0)
                 {
-                    await onTourStored(tourId, storedOnServer: true);
+                    doLoop = false;
+                    logger.Log($"({tourId}) stop the store loop due to queue is empty");
+                }
+                else
+                {
+                    //logger.Log($"({tourId}) stored queue {storeQ.Count}");
+                    bool updated = await TryApplyOnServer(tourId, storeQ);
+                    //logger.Log($"({tourId}) updated. Success? {updated}");
+                    if (updated)
+                    {
+                        await onTourStored(tourId, storedOnServer: true);
+                        doLoop = false;
+                        logger.Log($"({tourId}) stop the store loop after successful store");
+                    }
                 }
             }
         }
