@@ -4,6 +4,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using Newtonsoft.Json;
 using TCalc.Domain;
 using TCalcCore.Auth;
@@ -16,8 +17,11 @@ namespace ConsoleTest
     {
         static void Main(string[] args)
         {
-            var str = @"{""Type"":""AccessCode"",""IsMaster"":false,""AccessCodeMD5"":""1C0369EA42B2F746D3DF1E66BCB2DE46"",""TourIds"":[]}";
-            AuthData ad = System.Text.Json.JsonSerializer.Deserialize<AuthData>(str);
+            CancellationTokenSource cts = new CancellationTokenSource();
+            var t1 = cts.Token;
+            cts.Cancel();
+            var t2 = cts.Token;
+            cts.Cancel();
         }
         static void Maindddd(string[] args)
         {

@@ -23,20 +23,7 @@ namespace TCalcCore.Network
         public volatile bool IsSyncing = false;
         public async Task Sync(string tourId)
         {
-            if (!IsSyncing) // well, naive locking...
-            {
-                IsSyncing = true;
-                try
-                {
-                    if (await dataSvc.Sync(tourId))
-                    {
-                        OnTourSynced?.Invoke();
-                    }
-                } finally
-                {
-                    IsSyncing = false;
-                }
-            }
+            await dataSvc.Sync(tourId);
         }
 
     }
