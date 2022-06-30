@@ -27,11 +27,11 @@
         engine.onTourListLoaded += (t, a, aa) => { tour = null; StateHasChanged(); return Task.CompletedTask; };
         engine.DataSvc.OnServerQueueStored += OnUpdatedAsync;
 
-        timer = new System.Threading.Timer(async (object? stateInfo) =>
+        /*timer = new System.Threading.Timer(async (object? stateInfo) =>
         {
             await DoSync();
             StateHasChanged();
-        }, new System.Threading.AutoResetEvent(false), 20000, 20000);
+        }, new System.Threading.AutoResetEvent(false), 20000, 20000);*/
 
         await OnUpdatedAsync();
     }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using TCalc.Domain;
 using TCalc.Logic;
@@ -29,6 +30,9 @@ namespace TCalcCore.Network
             this.http = http ?? throw new ArgumentNullException(nameof(http));
             this.logger = logger;
             this.messageShower = messageShower;
+
+            // ensure not null
+            onTourStored += (a, aa) => Task.CompletedTask;
         }
 
 
@@ -223,21 +227,79 @@ namespace TCalcCore.Network
             var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token.val, showErrorMessages: true);
             return tours;
         }
+        public delegate Task OnTourStoredDelegate(string tourId, bool storedOnServer);
+        public OnTourStoredDelegate onTourStored;
 
         private readonly Dictionary<string, Queue<SerializableTourOperation>> tourLocalUpdateQueues = new Dictionary<string, Queue<SerializableTourOperation>>();
-        private async Task EditTourData(string tourId, SerializableTourOperation op, Func<bool, Task> onTourStored)
+        private async Task EditTourData(string tourId, SerializableTourOperation op)
         {
             Queue<SerializableTourOperation> serverQueue = await GetServerQueue(tourId);
             serverQueue.Enqueue(op);
+            await StoreServerQueue(tourId, serverQueue);
+
             Queue<SerializableTourOperation> localQueue = GetLocalQueue(tourId);
             localQueue.Enqueue(op);
 
             // update locally
             await UpdateLocally(tourId, localQueue); 
-            await onTourStored(false); // locally
+            await onTourStored(tourId, storedOnServer: false);
+
+            TriggerStoreLoop(tourId);
 
             // on server in background task
-            _ = UpdateOnServer(tourId, serverQueue, onTourStored);
+            //_ = UpdateOnServer(tourId, serverQueue, onTourStored);
+        }
+
+        private readonly Dictionary<string, Task> storeLoopTasks = new Dictionary<string, Task>();
+        private volatile CancellationTokenSource storeWaitCts = new CancellationTokenSource();
+        public volatile CancellationTokenSource storeLoopCts = new CancellationTokenSource();
+        private TimeSpan storeInterval = TimeSpan.FromSeconds(25);
+        public void TriggerStoreLoop(string tourId)
+        {
+            Task storeLoopTask = storeLoopTasks.ContainsKey(tourId) ? storeLoopTasks[tourId] : Task.CompletedTask;
+            // if loop is not running - run it
+            if (storeLoopTask == null || storeLoopTask.IsCompleted || storeLoopTask.IsFaulted)
+            {
+                storeLoopTask = StartStoreLoop(tourId);
+                storeLoopTasks[tourId] = storeLoopTask;
+            }
+            storeWaitCts.Cancel();
+        }
+        
+        private async Task StartStoreLoop(string tourId)
+        {
+            while (!storeLoopCts.IsCancellationRequested)
+            {
+                bool interrupted = await WaitSomeTime(tourId, storeInterval);
+                //logger.Log($"({tourId}) Wait completed ({storeInterval}). Interrupted: {interrupted}");
+                var storeQ = await GetServerQueue(tourId);
+                //logger.Log($"({tourId}) stored queue {storeQ.Count}");
+                bool updated = await TryApplyOnServer(tourId, storeQ);
+                //logger.Log($"({tourId}) updated. Success? {updated}");
+                if (updated)
+                {
+                    await onTourStored(tourId, storedOnServer: true);
+                }
+            }
+        }
+
+        private async Task<bool> WaitSomeTime(string tourId, TimeSpan interval)
+        {
+            try
+            {
+                await Task.Delay(interval, storeWaitCts.Token);
+                return false;
+            }
+            catch // requested a store event
+            {
+                // TODO: this does not seem thread-safe.
+                // Well. Let's count on that it is rare condition when the interruption comes simultaneously for two different loops
+                if (storeWaitCts.IsCancellationRequested)
+                {
+                    storeWaitCts = new CancellationTokenSource();
+                }
+                return true;
+            }
         }
 
         private Queue<SerializableTourOperation> GetLocalQueue(string tourId)
@@ -286,14 +348,13 @@ namespace TCalcCore.Network
             }
         }
 
-        public async Task<bool> Sync(string tourId)
+        public Task Sync(string tourId)
         {
-            var q = await GetServerQueue(tourId);
-            bool ok = await TryApplyOnServer(tourId, q);
-            return ok;
+            TriggerStoreLoop(tourId);
+            return Task.CompletedTask;
         }
 
-        private async Task UpdateOnServer(string tourId, Queue<SerializableTourOperation> q, Func<bool, Task> onTourStored)
+        private async Task zz_UpdateOnServer(string tourId, Queue<SerializableTourOperation> q, Func<bool, Task> onTourStored)
         {
             // try update on server
             bool updatedOnServer = await TryApplyOnServer(tourId, q);
@@ -356,43 +417,43 @@ namespace TCalcCore.Network
             }
         }
         #region Persons
-        public async Task DeletePerson(string tourId, Person p, Func<bool, Task> onTourStored)
+        public async Task DeletePerson(string tourId, Person p)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("DeletePerson", p.GUID, (string)null), onTourStored);
+            await EditTourData(tourId, new SerializableTourOperation("DeletePerson", p.GUID, (string)null));
         }
-        public async Task EditPerson(string tourId, Person p, Func<bool, Task> onTourStored)
+        public async Task EditPerson(string tourId, Person p)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("UpdatePerson", p.GUID, p), onTourStored);
+            await EditTourData(tourId, new SerializableTourOperation("UpdatePerson", p.GUID, p));
         }
-        public async Task AddPerson(string tourId, Person p, Func<bool, Task> onTourStored)
+        public async Task AddPerson(string tourId, Person p)
         {
             if (tourId == null) return;
             if (p == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("AddPerson", null, p), onTourStored);
+            await EditTourData(tourId, new SerializableTourOperation("AddPerson", null, p));
         }
         #endregion
         #region Spendings
-        public async Task DeleteSpending(string tourId, Spending s, Func<bool, Task> onTourStored)
+        public async Task DeleteSpending(string tourId, Spending s)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("DeleteSpending", s.GUID, (string)null), onTourStored);
+            await EditTourData(tourId, new SerializableTourOperation("DeleteSpending", s.GUID, (string)null));
         }
-        public async Task EditSpending(string tourId, Spending s, Func<bool, Task> onTourStored)
+        public async Task EditSpending(string tourId, Spending s)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("UpdateSpending", s.GUID, s), onTourStored);
+            await EditTourData(tourId, new SerializableTourOperation("UpdateSpending", s.GUID, s));
         }
-        public async Task AddSpending(string tourId, Spending s, Func<bool, Task> onTourStored)
+        public async Task AddSpending(string tourId, Spending s)
         {
             if (tourId == null) return;
             if (s == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("AddSpending", null, s), onTourStored);
+            await EditTourData(tourId, new SerializableTourOperation("AddSpending", null, s));
         }
 
         #endregion
