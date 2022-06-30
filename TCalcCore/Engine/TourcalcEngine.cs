@@ -117,7 +117,7 @@ namespace TCalcCore.Engine
         }
         public async Task RequestClearLocalTourList(bool reloadFromServer)
         {
-            await dataSvc.ClearTourList();
+            await dataSvc.ClearLocalCachedTourList();
             if (reloadFromServer)
                 _ = RequestTourListLoad(forceFromServer: true);
         }
