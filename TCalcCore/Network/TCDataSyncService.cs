@@ -1,4 +1,5 @@
 ﻿
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace TCalcCore.Network
@@ -17,7 +18,7 @@ namespace TCalcCore.Network
         public async Task<int> CountOfUnsyncedOperations(string tourId)
         {
             var q = await dataSvc.GetServerQueue(tourId);
-            return q.Count;
+            return q.Where(op => op.Failed).Count();
         }
         public volatile bool IsSyncing = false;
         public async Task Sync(string tourId)

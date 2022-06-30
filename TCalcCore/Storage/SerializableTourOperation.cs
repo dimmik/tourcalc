@@ -10,6 +10,7 @@ namespace TCalc.Storage
         public string OperationName { get; set; } = "";
         public string ItemId { get; set; }
         public string ItemJson { get; set; }
+        public bool Failed { get; set; } = false;
 
         public SerializableTourOperation()
         {

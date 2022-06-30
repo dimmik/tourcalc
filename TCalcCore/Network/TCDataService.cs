@@ -312,6 +312,10 @@ namespace TCalcCore.Network
             Tour tour = await LoadTourBare(tourId, (a, aa, aaa) => { return Task.CompletedTask; }, forceLoadFromServer: true);
             if (tour == null)
             {
+                foreach (var op in q)
+                {
+                    op.Failed = true;
+                }
                 await StoreServerQueue(tourId, q);
                 //http.ShowError("stored queue after tour is not loaded");
                 logger.Log("stored queue after tour is not loaded");
@@ -326,6 +330,7 @@ namespace TCalcCore.Network
             {
                 while (updateQueue.TryDequeue(out var op))
                 {
+                    op.Failed = true;
                     backupQueue.Enqueue(op);
                     var proc = op.ApplyOperationFunc(tourStorageProcessor);
                     try
