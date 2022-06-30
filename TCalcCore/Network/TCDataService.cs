@@ -254,6 +254,7 @@ namespace TCalcCore.Network
                 if (storeQ.Count == 0)
                 {
                     doLoop = false;
+                    logger.Log($"({tourId}) stop the store loop due to queue is empty");
                 }
                 else
                 {
@@ -264,6 +265,7 @@ namespace TCalcCore.Network
                     {
                         await onTourStored(tourId, storedOnServer: true);
                         doLoop = false;
+                        logger.Log($"({tourId}) stop the store loop after successful store");
                     }
                 }
             }
