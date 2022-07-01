@@ -2,6 +2,7 @@
 using System;
 using TCalc.Domain;
 using TCalc.Storage;
+using TCalcCore.Logging;
 
 namespace TCalc.Storage
 {
@@ -29,7 +30,7 @@ namespace TCalc.Storage
             ItemJson = JsonConvert.SerializeObject(item);
         }
 
-        public Func<Tour, Tour> ApplyOperationFunc(ITourStorageProcessor tourStorageProcessor)
+        public Func<Tour, Tour> ApplyOperationFunc(ITourStorageProcessor tourStorageProcessor, string context = "", ILocalLogger logger = null)
         {
             switch (OperationName)
             {
@@ -51,6 +52,18 @@ namespace TCalc.Storage
                     return t => tourStorageProcessor.UpdatePerson(t, pe, ItemId) ?? t;
                 case "DeletePerson":
                     return t => tourStorageProcessor.DeletePerson(t, ItemId) ?? t;
+                case "changename":
+                    Tour tcn = JsonConvert.DeserializeObject<Tour>(ItemJson ?? "");
+                    logger?.Log($"({context}) new name: {tcn.Name}");
+                    return t => { t.Name = tcn.Name; return t; };
+                case "finalizing":
+                    Tour tf = JsonConvert.DeserializeObject<Tour>(ItemJson ?? "");
+                    logger?.Log($"({context}) new finalizing: {tf.IsFinalizing}");
+                    return t => { t.IsFinalizing = tf.IsFinalizing; return t; };
+                case "archive":
+                    Tour ta = JsonConvert.DeserializeObject<Tour>(ItemJson ?? "");
+                    logger?.Log($"({context}) new archived: {ta.IsArchived}");
+                    return t => { t.IsArchived = ta.IsArchived; return t; };
                 default:
                     return t => t;
             }

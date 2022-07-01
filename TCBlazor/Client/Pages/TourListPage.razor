@@ -64,7 +64,8 @@ else
                     
                 } else
                 {
-                    <span><input type="text" @bind-value=@tour.Name @onfocusout=@(() => ChangeTourName(tour))/>
+                    <span>
+                        <input type="text" disabled=@InProgress @bind-value=@tour.Name @onfocusout=@(() => ChangeTourName(tour)) />
                         <span style="cursor:pointer;color:white;background-color:blue;border:1px solid black">save</span>
                         </span>
                 }
@@ -82,11 +83,13 @@ else
         </td>
         <td><input @key=@($"fin_{tour.Id}") type="checkbox" 
             checked=@tour.IsFinalizing 
+            disabled=@InProgress
             @onclick=@(() => OnFinChange(tour))
             />
         </td>
         <td><input @key=@($"arch_{tour.Id}") type="checkbox" 
             checked=@tour.IsArchived 
+            disabled=@InProgress
             @onclick=@(() => OnArchChange(tour))
             /></td>
         <td><span style="border:dashed; cursor:pointer;" @onclick=@(() => OnDelete(tour))>X</span></td>
@@ -102,6 +105,25 @@ else
     private string NewTourName = "";
     private string NewTourCode = defaultNoCode;//"باخوس";
     private const string defaultNoCode = "new";
+
+
+    protected override Task OnInitializedAsync()
+    {
+        engine.onTourListLoaded += OnTourListLoaded;
+        // Hehe. If we update tour from tourlist page - refresh the list from server after the tour is stored
+        engine.onTourLoaded += OnTourLoaded;
+        _ = engine.RequestTourListLoad();
+        return Task.CompletedTask;
+    }
+
+    private Task OnTourLoaded(Tour tour, bool fromSrv, DateTimeOffset updated)
+    {
+        if (fromSrv && InProgress)
+        {
+            _ = engine.RequestTourListLoad(forceFromServer: true);
+        }
+        return Task.CompletedTask;
+    }
 
     private async Task AddNewTour()
     {
@@ -148,7 +170,8 @@ else
     private Task ChangeTourName(Tour tour)
     {
         InProgress = true;
-        _ = engine.RequestEditTourProps(tour, "changename");
+        Tour t = new Tour() { Id = tour.Id, Name = tour.Name };
+        _ = engine.RequestEditTourProps(t, "changename");
         return Task.CompletedTask;
     }
 
@@ -156,14 +179,16 @@ else
     {
         InProgress = true;
         tour.IsFinalizing = !tour.IsFinalizing;
-        _ = engine.RequestEditTourProps(tour, "finalizing");
+        Tour t = new Tour() { Id = tour.Id, IsFinalizing = tour.IsFinalizing };
+        _ = engine.RequestEditTourProps(t, "finalizing");
         return Task.CompletedTask;
     }
     private Task OnArchChange(Tour tour)
     {
         InProgress = true;
         tour.IsArchived = !tour.IsArchived;
-        _ = engine.RequestEditTourProps(tour, "archive");
+        Tour t = new Tour() { Id = tour.Id, IsArchived = tour.IsArchived };
+        _ = engine.RequestEditTourProps(t, "archive");
         return Task.CompletedTask;
     }
     private async Task OnDelete(Tour tour)
@@ -174,12 +199,6 @@ else
             InProgress = true;
             _ = engine.RequestDeleteTour(tour);
         }
-    }
-    protected override Task OnInitializedAsync()
-    {
-        engine.onTourListLoaded += OnTourListLoaded;
-        _ = engine.RequestTourListLoad();
-        return Task.CompletedTask;
     }
     private Task OnTourListLoaded(TourList tourList, bool isFromServer, DateTimeOffset updatedDt)
     {
