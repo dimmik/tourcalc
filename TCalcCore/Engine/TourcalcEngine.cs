@@ -12,6 +12,7 @@ namespace TCalcCore.Engine
 {
     public class TourcalcEngine
     {
+        #region Props, Constructor, Delegates
         private readonly ITCDataService dataSvc;
         private readonly TCDataSyncService tcDataSyncSvc;
         private readonly AuthSvc authSvc;
@@ -30,6 +31,8 @@ namespace TCalcCore.Engine
 
             this.dataSvc.onTourStored += OnTourStored;
         }
+        #endregion
+        #region Load Tour
         public async Task<Tour> LoadFromServerAndReturnBareTour(string tourId)
 {
             var t = await dataSvc.LoadTourBare(tourId, (a, aa, aaa) => { return Task.CompletedTask; }, forceLoadFromServer: true);
@@ -46,6 +49,7 @@ namespace TCalcCore.Engine
             , forceLoadFromLocalStorage
             );
         }
+        #endregion
         #region Data Services
         public TCDataSyncService DataSync => tcDataSyncSvc;
         public ITCDataService DataSvc => dataSvc;
@@ -100,7 +104,9 @@ namespace TCalcCore.Engine
         public async Task RequestEditTourProps(Tour t, string action)
         {
             await dataSvc.EditTourProps(t, action);
-            _ = RequestTourListLoad(forceFromServer: true);
+            // Commented because actually we need to refresh tour list only if tour is stored on server
+            // Logic to be implemented on tour list view
+            //_ = RequestTourListLoad(forceFromServer: true);
         }
         public async Task RequestAddTour(Tour t, string code)
         {
