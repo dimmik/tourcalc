@@ -24,8 +24,12 @@ else
 
     <TableTemplate Items=@GetToursFiltered() Context="tourItem" TopPadding="30">
     <TableHeader>
-        <th>Tour Name
-            @if (AddingTour)
+        <th>@if (InProgress)
+            {
+                <span style="color: green;">&nbsp;[...wait...]&nbsp;</span>                
+            }
+        Tour Name
+        @if (AddingTour)
         {
             <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)><b>X</b></span>
             <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
@@ -94,15 +98,18 @@ else
     private TCalc.Domain.TourList? tours = null;
     private bool ShowArchived = false;
     private bool AddingTour = false;
+    private bool InProgress = false;
     private string NewTourName = "";
-    private string NewTourCode = "باخوس";
-
+    private string NewTourCode = defaultNoCode;//"باخوس";
+    private const string defaultNoCode = "new";
 
     private async Task AddNewTour()
     {
-        if (!string.IsNullOrWhiteSpace(NewTourName) && !string.IsNullOrWhiteSpace(NewTourCode))
+        var code = GetCode();
+        if (!string.IsNullOrWhiteSpace(NewTourName) && !string.IsNullOrWhiteSpace(code))
         {
-            _ = engine.RequestAddTour(new Tour() { Name = NewTourName }, NewTourCode);
+            InProgress = true;
+            _ = engine.RequestAddTour(new Tour() { Name = NewTourName }, code);
             AddingTour = false;
             NewTourName = "";
         } else
@@ -110,12 +117,21 @@ else
             await JsRuntime.InvokeVoidAsync("alert", $"Please specify tour name {((engine.Auth?.IsMaster ?? false) ? "and code" : "")}");
         }
     }
-
+    private string GetCode()
+    {
+        var code = NewTourCode;
+        if ((engine.Auth?.IsMaster ?? false) && code == defaultNoCode)
+        {
+            code = Guid.NewGuid().ToString();
+        }
+        return code;
+    }
     private Task CloneTour(Tour t)
     {
         var cloned = t.SafeClone<Tour>();
         cloned.Name = $"clone of {t.Name}";
-        _ = engine.RequestAddTour(cloned, NewTourCode);
+        InProgress = true;
+        _ = engine.RequestAddTour(cloned, GetCode());
         return Task.CompletedTask;
 
     }
@@ -131,18 +147,21 @@ else
 
     private Task ChangeTourName(Tour tour)
     {
+        InProgress = true;
         _ = engine.RequestEditTourProps(tour, "changename");
         return Task.CompletedTask;
     }
 
     private Task OnFinChange(Tour tour)
     {
+        InProgress = true;
         tour.IsFinalizing = !tour.IsFinalizing;
         _ = engine.RequestEditTourProps(tour, "finalizing");
         return Task.CompletedTask;
     }
     private Task OnArchChange(Tour tour)
     {
+        InProgress = true;
         tour.IsArchived = !tour.IsArchived;
         _ = engine.RequestEditTourProps(tour, "archive");
         return Task.CompletedTask;
@@ -152,7 +171,8 @@ else
         bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete tour '{tour.Name}'");
         if (confirmed)
         {
-            _ = engine.RequestDeleteTour(tour);            
+            InProgress = true;
+            _ = engine.RequestDeleteTour(tour);
         }
     }
     protected override Task OnInitializedAsync()
@@ -164,6 +184,7 @@ else
     private Task OnTourListLoaded(TourList tourList, bool isFromServer, DateTimeOffset updatedDt)
     {
         tours = tourList;
+        InProgress = false;
         StateHasChanged();
         return Task.CompletedTask;
     }

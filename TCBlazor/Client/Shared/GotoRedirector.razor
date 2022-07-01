@@ -25,6 +25,7 @@
         await engine.PickUpAuthInfo();
         var settings = await engine.GetUISettings();
         var url = settings.Default_Tour_Page_Is_Add_Spending ? $"/tour/{tid}/spending/add/" : $"/tour/{tid}";
+        await engine.RequestClearLocalTourList(reloadFromServer: false);
         NavManager.NavigateTo(url);
     }
 }
