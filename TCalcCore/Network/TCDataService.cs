@@ -20,6 +20,7 @@ namespace TCalcCore.Network
     {
         #region Constructor and properties
         private readonly ITourcalcLocalStorage ts;
+        // TODO abstract from http. Make it possible to have just local file storage if necessary
         private readonly EnrichedHttpClient http;
         private readonly ISimpleMessageShower messageShower;
         private readonly ITourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
@@ -141,8 +142,8 @@ namespace TCalcCore.Network
 
         private async Task<Tour> LoadTourFromServerInBackground(string id, Tour localTour, Func<Tour, bool, DateTimeOffset, Task> onTourAvailable)
         {
-            var token = await ts.GetToken();
-            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token.val, showErrorMessages: false);
+            var (token, _) = await ts.GetToken();
+            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token, showErrorMessages: false);
             if (t != null
                 // && t.StateGUID != (localTour?.StateGUID ?? Guid.NewGuid().ToString()) // should we actually compare state ids? older ones all with empty state ids; on change in legacy - state id will become empty.
                 )
