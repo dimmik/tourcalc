@@ -132,7 +132,7 @@ namespace TCalcCore.Network
         {
             if (id == null) return default;
             // First get from local storage
-            var (t, dt) = await ts.GetObject<Tour>(GetTourStorageKey(id));
+            var (t, dt) = await ts.GetObject<Tour>(GetTourStorageKey(id), () => default, storeDefaultValue: false, logger: logger);
             if (forceLoadFromLocalStorage)
             {
                 await onTourAvailable(t, false, dt);
@@ -197,7 +197,7 @@ namespace TCalcCore.Network
                     await onTourListAvailable(tli, true, DateTimeOffset.Now);
                 }
             }
-            var (tl, dt) = await ts.GetObject<TourList>(GetTourListStorageKey());
+            var (tl, dt) = await ts.GetObject<TourList>(GetTourListStorageKey(), () => default, storeDefaultValue: false, logger: logger);
             if (tl == null)
             {
                 tl = await GetTourListFromServer();
@@ -317,7 +317,11 @@ namespace TCalcCore.Network
         #region Server Queue
         public async Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId)
         {
-            SerializableTourOperationContainer qc = (await ts.GetObject<SerializableTourOperationContainer>(GetUpdateQueueStorageKey(tourId))).val;
+            var (qc, _) = await ts.GetObject<SerializableTourOperationContainer>(
+                GetUpdateQueueStorageKey(tourId), 
+                () => default, 
+                storeDefaultValue: false, 
+                logger: logger);
             if (qc == null)
             {
                 //http.ShowError("q is null");
@@ -373,7 +377,12 @@ namespace TCalcCore.Network
 
         private async Task UpdateLocally(string tourId, Queue<SerializableTourOperation> q)
         {
-            Tour tour = (await ts.GetObject<Tour>(GetTourStorageKey(tourId))).val;
+            var (tour, _) = await ts.GetObject<Tour>(
+                GetTourStorageKey(tourId), 
+                () => default, 
+                storeDefaultValue: false, 
+                logger: logger
+                );
             if (tour != null)
             {
                 Queue<SerializableTourOperation> localUpdateQueue = q;
