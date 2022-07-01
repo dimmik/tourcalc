@@ -205,17 +205,18 @@ namespace TCalcCore.Network
         }
         public async Task<TourList> GetTourListFromServer()
         {
-            var token = await ts.GetToken();
+            var (token, _) = await ts.GetToken();
             // TODO pagination, links, all the stuff
             var from = 0;
             var count = 1000;
             var code = "";
-            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token.val, showErrorMessages: true);
+            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, showErrorMessages: true);
             return tours;
         }
         #endregion
 
         #region Store Tour Loop
+        // TODO: move to separate class maybe
         private readonly Dictionary<string, Task> storeLoopTasks = new Dictionary<string, Task>();
         private volatile CancellationTokenSource storeWaitCts = new CancellationTokenSource();
         public volatile CancellationTokenSource storeLoopCts = new CancellationTokenSource();
