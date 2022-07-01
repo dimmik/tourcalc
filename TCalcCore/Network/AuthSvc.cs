@@ -6,9 +6,9 @@ namespace TCalcCore.Network
 {
     public class AuthSvc
     {
-        private readonly TCDataService dataSvc;
+        private readonly ITCDataService dataSvc;
 
-        public AuthSvc(TCDataService dataSvc)
+        public AuthSvc(ITCDataService dataSvc)
         {
             this.dataSvc = dataSvc ?? throw new ArgumentNullException(nameof(dataSvc));
         }

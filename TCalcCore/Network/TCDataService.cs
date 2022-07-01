@@ -16,7 +16,7 @@ using TCalcCore.UI;
 
 namespace TCalcCore.Network
 {
-    public class TCDataService
+    public class TCDataService : ITCDataService
     {
         #region Constructor and properties
         private readonly ITourcalcLocalStorage ts;
@@ -38,43 +38,29 @@ namespace TCalcCore.Network
         #endregion
 
         #region Misc keys, delegates, etc...
-        public delegate Task OnTourStoredDelegate(string tourId, bool storedOnServer);
-        public OnTourStoredDelegate onTourStored;
-        public delegate Task onserverqstored();
-        public onserverqstored OnServerQueueStored;
+        public IDataServiceDelegates.OnTourStoredDelegate onTourStored { get; set; }
+        public IDataServiceDelegates.onserverqstored OnServerQueueStored { get; set; }
 
-        private static string GetTourStorageKey(string tourId)
-        {
-            return $"__tour_{tourId}";
-        }
-        private static string GetUpdateQueueStorageKey(string tourId)
-        {
-            return $"__update_q_{tourId}";
-        }
-        public async Task ClearLocalCachedTourList()
-        {
-            await ts.SetObject<TourList>(GetTourListStorageKey(), null);
-        }
-        private string GetTourListStorageKey()
-        {
-            return "__tour_list";
-        }
+        private static string GetTourStorageKey(string tourId) => $"__tour_{tourId}";
+        private static string GetUpdateQueueStorageKey(string tourId) => $"__update_q_{tourId}";
+        private static string GetTourListStorageKey() => "__tour_list";
+        public async Task ClearLocalCachedTourList() => await ts.SetObject<TourList>(GetTourListStorageKey(), null);
         #endregion
 
         #region Authentication and Authorization
         public async Task<AuthData> GetAuthData(bool forceGetFromServer = false)
         {
-            var token = await ts.GetToken();
+            var (token, _) = await ts.GetToken();
             AuthData ad;
-            if (forceGetFromServer || !token.val.Contains("."))
+            if (forceGetFromServer || !token.Contains("."))
             {
-                ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token.val);
+                ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token);
             }
             else
             {
                 try
                 {
-                    var parts = token.val.Split('.');
+                    var parts = token.Split('.');
                     var meaningful = parts[1];
                     var plain = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(meaningful));
                     var authDataContainer = Newtonsoft.Json.JsonConvert.DeserializeObject<AuthDataContainer>(plain);
@@ -84,7 +70,7 @@ namespace TCalcCore.Network
                 }
                 catch
                 {
-                    ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token.val);
+                    ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token);
                 }
             }
             return ad;
@@ -318,9 +304,9 @@ namespace TCalcCore.Network
         public async Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId)
         {
             var (qc, _) = await ts.GetObject<SerializableTourOperationContainer>(
-                GetUpdateQueueStorageKey(tourId), 
-                () => default, 
-                storeDefaultValue: false, 
+                GetUpdateQueueStorageKey(tourId),
+                () => default,
+                storeDefaultValue: false,
                 logger: logger);
             if (qc == null)
             {
@@ -378,9 +364,9 @@ namespace TCalcCore.Network
         private async Task UpdateLocally(string tourId, Queue<SerializableTourOperation> q)
         {
             var (tour, _) = await ts.GetObject<Tour>(
-                GetTourStorageKey(tourId), 
-                () => default, 
-                storeDefaultValue: false, 
+                GetTourStorageKey(tourId),
+                () => default,
+                storeDefaultValue: false,
                 logger: logger
                 );
             if (tour != null)
@@ -417,7 +403,7 @@ namespace TCalcCore.Network
             }
             Queue<SerializableTourOperation> updateQueue = q;
             Queue<SerializableTourOperation> backupQueue = new Queue<SerializableTourOperation>();
-            
+
             try
             {
                 while (updateQueue.TryDequeue(out var op))
@@ -431,7 +417,8 @@ namespace TCalcCore.Network
                         {
                             tour = proc(tour);
                         }
-                    } catch (Exception e)
+                    }
+                    catch (Exception e)
                     {
                         messageShower.ShowError($"(tour is null: {tour == null}) Failed to apply {op.OperationName} (id: '{op.ItemId ?? "n/a"}'): {e.Message}. Skipping");
                     }
@@ -439,7 +426,8 @@ namespace TCalcCore.Network
                 await UpdateTour(tour?.GUID, tour);
                 await StoreServerQueue(tourId, updateQueue); // should be empty here, so keep it empty
                 return true;
-            } catch (Exception)
+            }
+            catch (Exception)
             {
                 await StoreServerQueue(tourId, backupQueue);
                 return false;

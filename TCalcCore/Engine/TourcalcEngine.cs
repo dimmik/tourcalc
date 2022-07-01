@@ -15,7 +15,7 @@ namespace TCalcCore.Engine
 {
     public class TourcalcEngine
     {
-        private readonly TCDataService dataSvc;
+        private readonly ITCDataService dataSvc;
         private readonly TCDataSyncService tcDataSyncSvc;
         private readonly AuthSvc authSvc;
         private readonly ITourcalcLocalStorage ts;
@@ -24,7 +24,7 @@ namespace TCalcCore.Engine
         public OnTourListLoaded onTourListLoaded;
 
 
-        public TourcalcEngine(TCDataService dataSvc, AuthSvc authSvc, ITourcalcLocalStorage ts, TCDataSyncService tcDataSyncSvc)
+        public TourcalcEngine(ITCDataService dataSvc, AuthSvc authSvc, ITourcalcLocalStorage ts, TCDataSyncService tcDataSyncSvc)
         {
             this.dataSvc = dataSvc ?? throw new ArgumentNullException(nameof(dataSvc));
             this.authSvc = authSvc ?? throw new ArgumentNullException(nameof(authSvc));
@@ -51,7 +51,7 @@ namespace TCalcCore.Engine
         }
         #region Data Services
         public TCDataSyncService DataSync => tcDataSyncSvc;
-        public TCDataService DataSvc => dataSvc;
+        public ITCDataService DataSvc => dataSvc;
         #endregion
         #region UI settings
         public async Task<UISettings> GetUISettings()

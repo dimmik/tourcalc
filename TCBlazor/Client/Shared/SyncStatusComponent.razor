@@ -14,14 +14,10 @@
 
 @code {
 
-    private System.Threading.Timer? timer;
-
     private Tour? tour = null;
-
 
     protected override async Task OnInitializedAsync()
     {
-        engine.DataSync.OnTourSynced += OnUpdatedAsync;
         //        tcGlobal.OnChange += () => { _ = OnUpdatedAsync(); }; // WHY?..
         engine.onTourLoaded += (t, a, aa) => { tour = t; StateHasChanged(); return Task.CompletedTask; };
         engine.onTourListLoaded += (t, a, aa) => { tour = null; StateHasChanged(); return Task.CompletedTask; };

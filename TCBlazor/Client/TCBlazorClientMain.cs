@@ -27,7 +27,7 @@ namespace Company.WebApplication1
                 .AddSingleton<ITourcalcLocalStorage, TourcalcLocalStorage>()
                 .AddScoped<EnrichedHttpClient>()
                 //.AddSingleton<TCGlobal>()
-                .AddScoped<TCDataService>()
+                .AddScoped<ITCDataService, TCDataService>()
                 .AddScoped<AuthSvc>()
                 .AddScoped<TCDataSyncService>()
                 .AddScoped<TourcalcEngine>()

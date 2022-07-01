@@ -7,10 +7,9 @@ namespace TCalcCore.Network
     public class TCDataSyncService
     {
         public delegate Task OnTourSyncedDelegate();
-        public event OnTourSyncedDelegate OnTourSynced;
-        private readonly TCDataService dataSvc;
+        private readonly ITCDataService dataSvc;
 
-        public TCDataSyncService(TCDataService dataSvc)
+        public TCDataSyncService(ITCDataService dataSvc)
         {
             this.dataSvc = dataSvc;
         }

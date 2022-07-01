@@ -135,21 +135,8 @@ else
             {
                 LoadSpending();
             }
-            engine.DataSync.OnTourSynced += async () => await OnTourSynced(true);
             initialized = true;
         }
-    }
-    private Task OnTourSynced(bool storedOnServer)
-    {
-        if (storedOnServer)
-        {
-            _ = engine.RequestTourLoad(TourId, forceLoadFromServer: true);
-        }
-        else
-        {
-            _ = engine.RequestTourLoad(TourId, forceLoadFromServer: false, forceLoadFromLocalStorage: true);
-        }
-        return Task.CompletedTask;
     }
     private async Task OnFreshTourLoaded(Tour t, bool isFresh, DateTimeOffset updated)
     {
