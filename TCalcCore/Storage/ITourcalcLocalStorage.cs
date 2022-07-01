@@ -30,6 +30,7 @@ namespace TCalcCore.Storage
             try
             {
                 T res = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json ?? "");
+                if (res == null) throw new ArgumentNullException("null json deserialized");
                 sw.Stop();
                 logger?.Log($"Get object {key} (null? {res == null}) in {sw.Elapsed}");
                 return (res, dt);
