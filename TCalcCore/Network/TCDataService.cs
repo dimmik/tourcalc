@@ -166,7 +166,8 @@ namespace TCalcCore.Network
         {
             if (tour == null) return;
             if (operation == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/{operation}", (await ts.GetToken()).val, new HttpMethod("PATCH"), tour);
+            await EditTourData(tour.Id, new SerializableTourOperation(operation, tour.Id, tour));
+            //await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/{operation}", (await ts.GetToken()).val, new HttpMethod("PATCH"), tour);
         }
         public async Task AddTour(Tour tour, string code)
         {
@@ -376,7 +377,7 @@ namespace TCalcCore.Network
                 Queue<SerializableTourOperation> localUpdateQueue = q;
                 while (localUpdateQueue.TryDequeue(out var op))
                 {
-                    var proc = op.ApplyOperationFunc(tourStorageProcessor);
+                    var proc = op.ApplyOperationFunc(tourStorageProcessor, "local", logger);
                     tour = proc(tour);
                 }
                 await ts.SetObject(GetTourStorageKey(tourId), tour);
@@ -412,7 +413,7 @@ namespace TCalcCore.Network
                 {
                     op.Failed = true;
                     backupQueue.Enqueue(op);
-                    var proc = op.ApplyOperationFunc(tourStorageProcessor);
+                    var proc = op.ApplyOperationFunc(tourStorageProcessor, "server", logger);
                     try
                     {
                         if (tour != null)
