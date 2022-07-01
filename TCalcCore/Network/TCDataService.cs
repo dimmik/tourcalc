@@ -69,7 +69,7 @@ namespace TCalcCore.Network
             if (forceGetFromServer || !token.val.Contains("."))
             {
                 ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token.val);
-            } 
+            }
             else
             {
                 try
@@ -81,7 +81,8 @@ namespace TCalcCore.Network
                     string adStr = (authDataContainer?.AuthDataJson ?? "").Trim();
                     ad = Newtonsoft.Json.JsonConvert.DeserializeObject<AuthData>(adStr);
                     if (ad == null) throw new Exception("cannot get auth info from token");
-                } catch
+                }
+                catch
                 {
                     ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token.val);
                 }
@@ -143,7 +144,8 @@ namespace TCalcCore.Network
                 // Then in background - load the tour from server
                 _ = LoadTourFromServerInBackground(id, t, onTourAvailable);
                 return t;
-            } else
+            }
+            else
             {
                 // if it is null, no tour in local storage = well, just load from server
                 t = await LoadTourFromServerInBackground(id, t, onTourAvailable);
@@ -155,7 +157,7 @@ namespace TCalcCore.Network
         {
             var token = await ts.GetToken();
             var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token.val, showErrorMessages: false);
-            if (t != null 
+            if (t != null
                 // && t.StateGUID != (localTour?.StateGUID ?? Guid.NewGuid().ToString()) // should we actually compare state ids? older ones all with empty state ids; on change in legacy - state id will become empty.
                 )
             {
@@ -204,7 +206,8 @@ namespace TCalcCore.Network
                 return tl;
             }
             await onTourListAvailable(tl, false, dt);
-            _ = Task.Run(async () => {
+            _ = Task.Run(async () =>
+            {
                 var tli = await GetTourListFromServer();
                 if (tli != null)
                 {
@@ -225,7 +228,7 @@ namespace TCalcCore.Network
             return tours;
         }
         #endregion
-        
+
         #region Store Tour Loop
         private readonly Dictionary<string, Task> storeLoopTasks = new Dictionary<string, Task>();
         private volatile CancellationTokenSource storeWaitCts = new CancellationTokenSource();
@@ -242,13 +245,13 @@ namespace TCalcCore.Network
             }
             storeWaitCts.Cancel();
         }
-        
+
         private async Task StartStoreLoop(string tourId)
         {
             bool doLoop = true;
             while (!storeLoopCts.IsCancellationRequested && doLoop)
             {
-                bool interrupted = await WaitSomeTime(tourId, storeInterval);
+                _ = await WaitSomeTime(storeInterval);
                 //logger.Log($"({tourId}) Wait completed ({storeInterval}). Interrupted: {interrupted}");
                 var storeQ = await GetServerQueue(tourId);
                 if (storeQ.Count == 0)
@@ -270,8 +273,8 @@ namespace TCalcCore.Network
                 }
             }
         }
-
-        private async Task<bool> WaitSomeTime(string tourId, TimeSpan interval)
+        private static int settingCtsIsInProgress = 0;
+        private async Task<bool> WaitSomeTime(TimeSpan interval)
         {
             try
             {
@@ -280,14 +283,23 @@ namespace TCalcCore.Network
             }
             catch // requested a store event
             {
-                // TODO: this does not seem too thread-safe.
-                // Well. Let's count on that it is rare condition when the interruption comes simultaneously for two different loops (two different tours are being edited at once)
-                if (storeWaitCts.IsCancellationRequested)
+                if (0 == Interlocked.Exchange(ref settingCtsIsInProgress, 1)) // is not used by other thread
                 {
-                    storeWaitCts = new CancellationTokenSource();
+                    //logger.Log("Lock acquired");
+                    if (storeWaitCts.IsCancellationRequested)
+                    {
+                        var newCts = new CancellationTokenSource();
+                        Interlocked.Exchange(ref storeWaitCts, newCts);
+                    }
+                    // release using
+                    Interlocked.Exchange(ref settingCtsIsInProgress, 0);
                 }
-                return true;
+                else
+                {
+                    logger.Log("Lock NOT acquired. Do nothing");
+                }
             }
+            return true;
         }
         #endregion
 
