@@ -20,16 +20,15 @@ namespace TCalcCore.Network
     {
         #region Constructor and properties
         private readonly ITourcalcLocalStorage ts;
-        // TODO abstract from http. Make it possible to have just local file storage if necessary
-        private readonly EnrichedHttpClient http;
         private readonly ISimpleMessageShower messageShower;
+        private readonly ITourRetriever tr;
         private readonly ITourStorageProcessor tourStorageProcessor = new TourStorageProcessor();
         private readonly ILocalLogger logger;
 
-        public TCDataService(ITourcalcLocalStorage ts, EnrichedHttpClient http, ISimpleMessageShower messageShower, ILocalLogger logger)
+        public TCDataService(ITourcalcLocalStorage ts, ITourRetriever tr, ISimpleMessageShower messageShower, ILocalLogger logger)
         {
             this.ts = ts ?? throw new ArgumentNullException(nameof(ts));
-            this.http = http ?? throw new ArgumentNullException(nameof(http));
+            this.tr = tr ?? throw new ArgumentNullException(nameof(tr));
             this.logger = logger;
             this.messageShower = messageShower;
 
@@ -55,7 +54,7 @@ namespace TCalcCore.Network
             AuthData ad;
             if (forceGetFromServer || !token.Contains("."))
             {
-                ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token);
+                ad = await tr.GetAuthData(token, (m) => { });
             }
             else
             {
@@ -71,7 +70,7 @@ namespace TCalcCore.Network
                 }
                 catch
                 {
-                    ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token);
+                    ad = await tr.GetAuthData(token, (m) => { });
                 }
             }
             return ad;
@@ -79,8 +78,7 @@ namespace TCalcCore.Network
 
         public async Task GetAndStoreToken(string scope, string code)
         {
-            var url = $"/api/Auth/token/{scope ?? "code"}/{code ?? CodeThatForSureIsNotUsed}";
-            var token = await http.GetStringAsync(url);
+            var token = await tr.GetToken(scope, code, false, m => { });
             await ts.SetToken(token);
         }
         public async Task ClearToken()
@@ -90,8 +88,7 @@ namespace TCalcCore.Network
         private static readonly string CodeThatForSureIsNotUsed = "__trashNoTours__";
         public async Task GetAndStoreTokenForCodeMd5(string code)
         {
-            var url = $"/api/Auth/token/code/{code ?? CodeThatForSureIsNotUsed}/md5";
-            var token = await http.GetStringAsync(url);
+            var token = await tr.GetToken("code", code, true, m => { });
             await ts.SetToken(token);
         }
         #endregion
@@ -143,7 +140,7 @@ namespace TCalcCore.Network
         private async Task<Tour> LoadTourFromServerInBackground(string id, Tour localTour, Func<Tour, bool, DateTimeOffset, Task> onTourAvailable)
         {
             var (token, _) = await ts.GetToken();
-            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{id}", token, showErrorMessages: false);
+            var t = await tr.GetTour(id, token, m => { });
             if (t != null
                 // && t.StateGUID != (localTour?.StateGUID ?? Guid.NewGuid().ToString()) // should we actually compare state ids? older ones all with empty state ids; on change in legacy - state id will become empty.
                 )
@@ -160,7 +157,8 @@ namespace TCalcCore.Network
         public async Task DeleteTour(Tour tour)
         {
             if (tour == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", (await ts.GetToken()).val, HttpMethod.Delete, null);
+            var (token, _) = await ts.GetToken();
+            await tr.DeleteTour(tour.Id, token, m => { });
         }
         public async Task EditTourProps(Tour tour, string operation)
         {
@@ -172,7 +170,8 @@ namespace TCalcCore.Network
         public async Task AddTour(Tour tour, string code)
         {
             if (tour == null) return;
-            await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? CodeThatForSureIsNotUsed}", (await ts.GetToken()).val, HttpMethod.Post, tour);
+            var (token, _) = await ts.GetToken();
+            await tr.AddTour(tour, code, token, m => { });
         }
         public async Task<TourList> GetTourList(Func<TourList, bool, DateTimeOffset, Task> onTourListAvailable, bool forceFromServer)
         {
@@ -208,11 +207,7 @@ namespace TCalcCore.Network
         public async Task<TourList> GetTourListFromServer()
         {
             var (token, _) = await ts.GetToken();
-            // TODO pagination, links, all the stuff
-            var from = 0;
-            var count = 1000;
-            var code = "";
-            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, showErrorMessages: true);
+            var tours = await tr.GetTourList(token, m => { });
             return tours;
         }
         #endregion
@@ -334,7 +329,8 @@ namespace TCalcCore.Network
         {
             if (tour == null) return;
             if (tourId == null) return;
-            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}", (await ts.GetToken()).val, new HttpMethod("PATCH"), tour);
+            var (token, _) = await ts.GetToken();
+            var tid = await tr.UpdateTour(tour.Id, tour, token, m => { });
             if (string.IsNullOrWhiteSpace(tid))
             {
                 throw new Exception("wrong tour id returned");
