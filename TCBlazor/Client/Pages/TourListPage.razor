@@ -119,7 +119,7 @@ else
 
     private Task OnTourLoaded(Tour tour, bool fromSrv, DateTimeOffset updated)
     {
-        if (fromSrv)
+        if (fromSrv && InProgress)
         {
             _ = engine.RequestTourListLoad(forceFromServer: true);
         }
