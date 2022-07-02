@@ -54,7 +54,7 @@ namespace TCalcCore.Network
             AuthData ad;
             if (forceGetFromServer || !token.Contains("."))
             {
-                ad = await tr.GetAuthData(token, (m) => { });
+                ad = await tr.GetAuthData(token, LogOnly);
             }
             else
             {
@@ -70,7 +70,7 @@ namespace TCalcCore.Network
                 }
                 catch
                 {
-                    ad = await tr.GetAuthData(token, (m) => { });
+                    ad = await tr.GetAuthData(token, LogOnly);
                 }
             }
             return ad;
@@ -78,17 +78,16 @@ namespace TCalcCore.Network
 
         public async Task GetAndStoreToken(string scope, string code)
         {
-            var token = await tr.GetToken(scope, code, false, m => { });
+            var token = await tr.GetToken(scope, code, false, LogOnly);
             await ts.SetToken(token);
         }
         public async Task ClearToken()
         {
             await ts.SetToken("");
         }
-        private static readonly string CodeThatForSureIsNotUsed = "__trashNoTours__";
         public async Task GetAndStoreTokenForCodeMd5(string code)
         {
-            var token = await tr.GetToken("code", code, true, m => { });
+            var token = await tr.GetToken("code", code, true, LogOnly);
             await ts.SetToken(token);
         }
         #endregion
@@ -140,7 +139,7 @@ namespace TCalcCore.Network
         private async Task<Tour> LoadTourFromServerInBackground(string id, Tour localTour, Func<Tour, bool, DateTimeOffset, Task> onTourAvailable)
         {
             var (token, _) = await ts.GetToken();
-            var t = await tr.GetTour(id, token, m => { });
+            var t = await tr.GetTour(id, token, LogOnly);
             if (t != null
                 // && t.StateGUID != (localTour?.StateGUID ?? Guid.NewGuid().ToString()) // should we actually compare state ids? older ones all with empty state ids; on change in legacy - state id will become empty.
                 )
@@ -158,7 +157,7 @@ namespace TCalcCore.Network
         {
             if (tour == null) return;
             var (token, _) = await ts.GetToken();
-            await tr.DeleteTour(tour.Id, token, m => { });
+            await tr.DeleteTour(tour.Id, token, LogAndShowAlert);
         }
         public async Task EditTourProps(Tour tour, string operation)
         {
@@ -171,7 +170,7 @@ namespace TCalcCore.Network
         {
             if (tour == null) return;
             var (token, _) = await ts.GetToken();
-            await tr.AddTour(tour, code, token, m => { });
+            await tr.AddTour(tour, code, token, LogAndShowAlert);
         }
         public async Task<TourList> GetTourList(Func<TourList, bool, DateTimeOffset, Task> onTourListAvailable, bool forceFromServer)
         {
@@ -207,8 +206,18 @@ namespace TCalcCore.Network
         public async Task<TourList> GetTourListFromServer()
         {
             var (token, _) = await ts.GetToken();
-            var tours = await tr.GetTourList(token, m => { });
+            var tours = await tr.GetTourList(token, LogAndShowAlert);
             return tours;
+        }
+
+        private void LogAndShowAlert(string m)
+        {
+            LogOnly(m);
+            messageShower.ShowError(m);
+        }
+        private void LogOnly(string m)
+        {
+            logger.Log(m);
         }
         #endregion
 
@@ -330,7 +339,7 @@ namespace TCalcCore.Network
             if (tour == null) return;
             if (tourId == null) return;
             var (token, _) = await ts.GetToken();
-            var tid = await tr.UpdateTour(tour.Id, tour, token, m => { });
+            var tid = await tr.UpdateTour(tour.Id, tour, token, LogOnly);
             if (string.IsNullOrWhiteSpace(tid))
             {
                 throw new Exception("wrong tour id returned");

@@ -21,31 +21,31 @@ namespace TCalcCore.Network
 
         public async Task<string> AddTour(Tour tour, string code, string token, Action<string> errorHandler)
         {
-            var tid = await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? CodeThatForSureIsNotUsed}", token, HttpMethod.Post, tour);
+            var tid = await http.CallWithAuthToken<string>($"/api/Tour/add/{code ?? CodeThatForSureIsNotUsed}", token, HttpMethod.Post, tour, errorHandler);
             return tid;
         }
 
         public async Task<string> DeleteTour(string tourId, string token, Action<string> errorHandler)
         {
-            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tourId}", token, HttpMethod.Delete, null);
+            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tourId}", token, HttpMethod.Delete, null, errorHandler);
             return tid;
         }
 
         public async Task<AuthData> GetAuthData(string token, Action<string> errorHandler)
         {
-            var ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token);
+            var ad = await http.CallWithAuthToken<AuthData>("/api/Auth/whoami", token, errorHandler);
             return ad;
         }
         private static readonly string CodeThatForSureIsNotUsed = "__trashNoTours__";
         public async Task<string> GetToken(string scope, string code, bool isMd5, Action<string> errorHandler)
         {
-            var token = await http.GetStringAsync($"/api/Auth/token/{scope ?? "code"}/{code ?? CodeThatForSureIsNotUsed}{(isMd5 ? "/md5" : "")}");
+            var token = await http.GetStringAsync($"/api/Auth/token/{scope ?? "code"}/{code ?? CodeThatForSureIsNotUsed}{(isMd5 ? "/md5" : "")}", errorHandler);
             return token;
         }
 
         public async Task<Tour> GetTour(string tourId, string token, Action<string> errorHandler)
         {
-            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{tourId}", token, showErrorMessages: false);
+            var t = await http.CallWithAuthToken<Tour>($"/api/Tour/{tourId}", token, errorHandler);
             return t;
         }
 
@@ -54,13 +54,13 @@ namespace TCalcCore.Network
             var from = 0;
             var count = 1000;
             var code = "";
-            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, showErrorMessages: true);
+            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, errorHandler);
             return tours;
         }
 
         public async Task<string> UpdateTour(string tourId, Tour tour, string token, Action<string> errorHandler)
         {
-            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tourId}", token, new HttpMethod("PATCH"), tour);
+            var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tourId}", token, new HttpMethod("PATCH"), tour, errorHandler);
             return tid;
         }
     }
