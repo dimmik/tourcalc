@@ -131,7 +131,7 @@ else
     private Task OnTourLoaded(Tour tour, bool fromSrv, DateTimeOffset updated)
     {
         //Console.WriteLine($"{guid} : OnTourLoaded in TourListPage");
-        if (fromSrv && InProgress)
+        if (fromSrv)
         {
             _ = engine.RequestTourListLoad(forceFromServer: true);
         }
