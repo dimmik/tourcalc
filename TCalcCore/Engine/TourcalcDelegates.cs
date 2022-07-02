@@ -11,6 +11,6 @@ namespace TCalcCore.Engine
         public delegate Task OnTourLoaded(Tour tour, bool isFromServer, DateTimeOffset updatedDt);
         public delegate Task OnTourListLoaded(TourList tours, bool isFromServer, DateTimeOffset updatedDt);
         public delegate Task OnTourPartSubmitting();
-        public delegate void OnMessageReceived(string type, string payload);
+        public delegate void OnMessageReceived(string type, object payload);
     }
 }

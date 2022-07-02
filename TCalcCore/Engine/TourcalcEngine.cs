@@ -36,7 +36,7 @@ namespace TCalcCore.Engine
 
         #region Messaging
         public OnMessageReceived onMessageReceived { get; set; }
-        public void SendMessage(string type, string payload)
+        public void SendMessage(string type, object payload)
         {
             Task.Run(() =>
             {
