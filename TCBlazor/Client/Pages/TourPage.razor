@@ -1,5 +1,6 @@
 ﻿@page "/tour/{tourId}"
 
+@implements IDisposable
 
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
@@ -118,6 +119,10 @@ else
         engine.onTourLoaded += OnTourLoaded;
         // send command to load tour with certain id
         _ = engine.RequestTourLoad(TourId);
+    }
+    public void Dispose()
+    {
+        engine.onTourLoaded -= OnTourLoaded;
     }
     private Task OnTourLoaded(Tour t, bool isFromServer, DateTimeOffset updated)
     {

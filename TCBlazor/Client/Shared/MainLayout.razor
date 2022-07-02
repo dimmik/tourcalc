@@ -3,6 +3,7 @@
 @using AntDesign
 
 @inherits LayoutComponentBase
+@implements IDisposable
 
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
@@ -96,22 +97,26 @@
 
     protected override async Task OnInitializedAsync()
     {
-        //engine.onTourLoaded += (t, a, aa) => { tour = t; StateHasChanged(); return Task.CompletedTask; };
-        //engine.onTourListLoaded += (a, aa, aaa) => { Title = "Tour List"; tour = null; StateHasChanged(); return Task.CompletedTask; };
-        engine.onMessageReceived += (type, payload) =>
-        {
-            if (type == "Title")
-            {
-                Title = payload as string ?? "";
-                StateHasChanged();
-            }
-            if (type == "Tour")
-            {
-                tour = payload as Tour;
-                StateHasChanged();
-            }
-        };
+        engine.onMessageReceived += OnMessageReceived;
         await engine.PickUpAuthInfo();
+    }
+    public void Dispose()
+    {
+        engine.onMessageReceived -= OnMessageReceived;
+    }
+    private Task OnMessageReceived(string type, object payload)
+    {
+        if (type == "Title")
+        {
+            Title = payload as string ?? "";
+            StateHasChanged();
+        }
+        if (type == "Tour")
+        {
+            tour = payload as Tour;
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
     }
     private void OnTitleChange()
     {

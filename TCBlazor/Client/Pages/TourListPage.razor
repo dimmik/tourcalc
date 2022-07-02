@@ -9,6 +9,8 @@
 
 @inject IJSRuntime JsRuntime
 
+@implements IDisposable
+
 @{
     engine.SendMessage("Title", "Tour List");
     engine.SendMessage("Tour", null);
@@ -106,19 +108,29 @@ else
     private string NewTourName = "";
     private string NewTourCode = defaultNoCode;//"باخوس";
     private const string defaultNoCode = "new";
+    //private string guid = Guid.NewGuid().ToString();
 
 
     protected override Task OnInitializedAsync()
     {
-        engine.onTourListLoaded += OnTourListLoaded;
-        // Hehe. If we update tour from tourlist page - refresh the list from server after the tour is stored
+        // If we update tour from tourlist page - refresh the list from server after the tour is stored
+        //engine.onTourLoaded
         engine.onTourLoaded += OnTourLoaded;
+        engine.onTourListLoaded += OnTourListLoaded;
+
         _ = engine.RequestTourListLoad();
         return Task.CompletedTask;
+    }
+    public void Dispose()
+    {
+        //Console.WriteLine($"{guid} : TourListPage disposed");
+        engine.onTourLoaded -= OnTourLoaded;
+        engine.onTourListLoaded -= OnTourListLoaded;
     }
 
     private Task OnTourLoaded(Tour tour, bool fromSrv, DateTimeOffset updated)
     {
+        //Console.WriteLine($"{guid} : OnTourLoaded in TourListPage");
         if (fromSrv && InProgress)
         {
             _ = engine.RequestTourListLoad(forceFromServer: true);

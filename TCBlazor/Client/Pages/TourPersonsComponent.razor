@@ -6,6 +6,8 @@
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavManager
 
+@implements IDisposable
+
 
 <TableTemplate 
     Items="@GetPersons()"  
@@ -99,6 +101,15 @@
         engine.onPersonEditFinish += SubmittingOff;
         engine.onPersonDeleteStart += SubmittingOn;
         engine.onPersonDeleteFinish += SubmittingOff;
+    }
+    public void Dispose()
+    {
+        engine.onPersonAddStart -= SubmittingOn;
+        engine.onPersonAddFinish -= SubmittingOff;
+        engine.onPersonEditStart -= SubmittingOn;
+        engine.onPersonEditFinish -= SubmittingOff;
+        engine.onPersonDeleteStart -= SubmittingOn;
+        engine.onPersonDeleteFinish -= SubmittingOff;
     }
     private Task SubmittingOn()
     {

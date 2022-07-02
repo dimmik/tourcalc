@@ -98,7 +98,7 @@
         .Zip(Colors().Take(a.Count()))
         .Select(i => (i.First.First, i.Second, i.First.Second)) // (angle, color, name)
         ;
-        Console.WriteLine($"ac: {string.Join(",", res.Select(ac => $"a: {ac.First} c: {ac.Item2} n: {ac.Item3}"))}");
+        //Console.WriteLine($"ac: {string.Join(",", res.Select(ac => $"a: {ac.First} c: {ac.Item2} n: {ac.Item3}"))}");
         return res;
     }
 }

@@ -7,6 +7,7 @@
 
 @inject IJSRuntime JsRuntime
 
+@implements IDisposable
 
 <div>
     <div class="cool-header"  
@@ -118,6 +119,10 @@ else
         engine.onTourLoaded += OnFreshTourLoaded;
         _ = engine.RequestTourLoad(TourId);
         return Task.CompletedTask;
+    }
+    public void Dispose()
+    {
+        engine.onTourLoaded -= OnFreshTourLoaded;
     }
     private async Task Init()
     {

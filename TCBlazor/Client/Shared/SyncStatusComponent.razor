@@ -1,6 +1,6 @@
 ﻿@using TCalcCore.Engine
 @inject TourcalcEngine engine
-
+@implements IDisposable
 
 @if (tour != null && UnsyncedItemNumber > 0)
 {
@@ -18,20 +18,30 @@
 
     protected override async Task OnInitializedAsync()
     {
-        //        tcGlobal.OnChange += () => { _ = OnUpdatedAsync(); }; // WHY?..
-        engine.onTourLoaded += (t, a, aa) => { tour = t; StateHasChanged(); return Task.CompletedTask; };
-        engine.onTourListLoaded += (t, a, aa) => { tour = null; StateHasChanged(); return Task.CompletedTask; };
+        engine.onTourLoaded += OnTourLoaded;
+        engine.onTourListLoaded += OnTourListLoaded;
         engine.DataSvc.OnServerQueueStored += OnUpdatedAsync;
-
-        /*timer = new System.Threading.Timer(async (object? stateInfo) =>
-        {
-            await DoSync();
-            StateHasChanged();
-        }, new System.Threading.AutoResetEvent(false), 20000, 20000);*/
 
         await OnUpdatedAsync();
     }
-
+    public void Dispose()
+    {
+        engine.onTourLoaded -= OnTourLoaded;
+        engine.onTourListLoaded -= OnTourListLoaded;
+        engine.DataSvc.OnServerQueueStored -= OnUpdatedAsync;
+    }
+    private Task OnTourLoaded(Tour t, bool a, DateTimeOffset aa)
+    {
+        tour = t;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+    private Task OnTourListLoaded(TourList t, bool a, DateTimeOffset aa)
+    {
+        tour = null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
     private int UnsyncedItemNumber = 0;
     private async Task OnUpdatedAsync()
     {
