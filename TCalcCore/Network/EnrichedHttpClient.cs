@@ -23,7 +23,7 @@ namespace TCalcCore.Network
         }
         private HttpClient Http => _httpClient;
 
-        public async Task<string> GetStringAsync(string url, bool showErrorMessages = true)
+        public async Task<string> GetStringAsync(string url, Action<string> onError)
         {
             try
             {
@@ -35,19 +35,19 @@ namespace TCalcCore.Network
             }
             catch (Exception e)
             {
-                if (showErrorMessages) _messageShower.ShowError(e.Message);
+                onError?.Invoke(e.Message);
                 throw;
             }
         }
         
 
-        public async Task<T> CallWithAuthToken<T>(string url, string token, bool showErrorMessages = true)
+        public async Task<T> CallWithAuthToken<T>(string url, string token, Action<string> onError)
         {
-            T r = await CallWithAuthToken<T>(url, token, HttpMethod.Get, null, showErrorMessages);
+            T r = await CallWithAuthToken<T>(url, token, HttpMethod.Get, null, onError);
             return r;
         }
 
-        public async Task<T> CallWithAuthToken<T>(string url, string token, HttpMethod method, object body, bool showErrorMessages = true)
+        public async Task<T> CallWithAuthToken<T>(string url, string token, HttpMethod method, object body, Action<string> onError)
         {
             try
             {
@@ -84,7 +84,7 @@ namespace TCalcCore.Network
                 else
                 {
                     var m = await resp.Content.ReadAsStringAsync();
-                    if (showErrorMessages) _messageShower.ShowError($"{(int)resp.StatusCode} {resp.StatusCode}: {m}");
+                    onError?.Invoke($"{(int)resp.StatusCode} {resp.StatusCode}: {m}");
                 }
                 //_messageService.Destroy();
                 sw.Stop();
@@ -93,7 +93,7 @@ namespace TCalcCore.Network
             }
             catch (Exception e)
             {
-                if (showErrorMessages) _messageShower.ShowError($"{url}: {e.Message}");
+                onError.Invoke($"{url}: {e.Message}");
                 return default;
             }
         }
