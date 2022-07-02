@@ -13,6 +13,7 @@
 }
 else
 {
+    engine.SendMessage("Title", tour.Name);
     <PageTitle>@tour.Name</PageTitle>
 <h3>@tour.Name 
     <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") info</Button>

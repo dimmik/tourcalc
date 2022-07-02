@@ -10,6 +10,7 @@ using static TCalcCore.Engine.TourcalcDelegates;
 
 namespace TCalcCore.Engine
 {
+    // TODO sort out synchronousity. Sometimes we await, sometimes run the task and forget. Need more consistency
     public class TourcalcEngine
     {
         #region Props, Constructor, Delegates
@@ -18,8 +19,8 @@ namespace TCalcCore.Engine
         private readonly AuthSvc authSvc;
         private readonly ITourcalcLocalStorage ts;
 
-        public OnTourLoaded onTourLoaded;
-        public OnTourListLoaded onTourListLoaded;
+        public OnTourLoaded onTourLoaded { get; set; }
+        public OnTourListLoaded onTourListLoaded { get; set; }
 
 
         public TourcalcEngine(ITCDataService dataSvc, AuthSvc authSvc, ITourcalcLocalStorage ts, TCDataSyncService tcDataSyncSvc)
@@ -32,6 +33,18 @@ namespace TCalcCore.Engine
             this.dataSvc.onTourStored += OnTourStored;
         }
         #endregion
+
+        #region Messaging
+        public OnMessageReceived onMessageReceived { get; set; }
+        public void SendMessage(string type, string payload)
+        {
+            Task.Run(() =>
+            {
+                onMessageReceived?.Invoke(type, payload);
+            });
+        }
+        #endregion
+
         #region Load Tour
         public async Task<Tour> LoadFromServerAndReturnBareTour(string tourId)
 {
@@ -50,10 +63,12 @@ namespace TCalcCore.Engine
             );
         }
         #endregion
+
         #region Data Services
         public TCDataSyncService DataSync => tcDataSyncSvc;
         public ITCDataService DataSvc => dataSvc;
         #endregion
+
         #region UI settings
         public async Task<UISettings> GetUISettings()
         {
@@ -126,6 +141,7 @@ namespace TCalcCore.Engine
                 _ = RequestTourListLoad(forceFromServer: true);
         }
         #endregion
+
         #region on tour stored
         private Task OnTourStored(string tourId, bool storedOnServer)
         {
@@ -140,6 +156,7 @@ namespace TCalcCore.Engine
             return Task.CompletedTask;
         }
         #endregion
+
         #region Persons
         public OnTourPartSubmitting onPersonAddStart;
         public OnTourPartSubmitting onPersonAddFinish;
@@ -170,6 +187,7 @@ namespace TCalcCore.Engine
             await (onPersonDeleteFinish?.Invoke() ?? Task.CompletedTask);
         }
         #endregion
+
         #region Spendings
         public OnTourPartSubmitting onSpendingAddStart;
         public OnTourPartSubmitting onSpendingAddFinish;

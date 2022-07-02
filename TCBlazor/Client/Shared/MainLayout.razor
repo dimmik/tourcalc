@@ -95,8 +95,16 @@
 
     protected override async Task OnInitializedAsync()
     {
-        engine.onTourLoaded += (t, a, aa) => { Title = t.Name; tour = t; StateHasChanged(); return Task.CompletedTask; };
-        engine.onTourListLoaded += (a, aa, aaa) => { Title = "Tour List"; tour = null; StateHasChanged(); return Task.CompletedTask; };
+        engine.onTourLoaded += (t, a, aa) => { tour = t; StateHasChanged(); return Task.CompletedTask; };
+        //engine.onTourListLoaded += (a, aa, aaa) => { Title = "Tour List"; tour = null; StateHasChanged(); return Task.CompletedTask; };
+        engine.onMessageReceived += (t, p) =>
+        {
+            if (t == "Title")
+            {
+                Title = p;
+                StateHasChanged();
+            }
+        };
         await engine.PickUpAuthInfo();
     }
     private void OnTitleChange()
