@@ -33,10 +33,11 @@
         @if (string.IsNullOrWhiteSpace(person.Metadata))
         {
             <td>
-                <span>&nbsp; @idx. <b>@((MarkupString)person.Name.AsBreakable(2))</b></span>
-                <PersonActionsBlock 
+                <PersonNameAndActions 
                     @key=@person.GUID
-                    Person="person"
+                    idx="idx"
+                    person="person"
+                    tour="Tour"
                     OnPersonDelete="OnPersonDelete"
                     OnPersonEdit=@((p) => {
                         p.Metadata = "Editing";
