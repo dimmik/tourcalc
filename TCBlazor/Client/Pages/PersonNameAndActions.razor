@@ -86,11 +86,11 @@
     private bool disabled = false;
     private bool deleting = false;
 
-    int triggerLength = 10;
+    int triggerLength = 12;
 
     RenderFragment TitleTemplate(bool deleting, int idx, Person person)
     {
-        var text = $"{(deleting ? "[..del..] " : "")}{idx}. {person.Name}".Trim();
+        var text = $"{(deleting ? "[..del..] " : "")}{idx:00}. {person.Name}".Trim();
         var len = text.Length;
         var style = "";
         if (len > triggerLength)
@@ -99,7 +99,7 @@
         }
         return __builder =>
         {
-            <span style="@style" @key="@($"name_{person.GUID}")">@((MarkupString)text.AsBreakable(3))</span>
+            <span style="font-family: monospace; @style" @key="@($"name_{person.GUID}")">@((MarkupString)text.AsBreakable(3))</span>
         };
     }
 }
