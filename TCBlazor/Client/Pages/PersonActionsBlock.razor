@@ -1,0 +1,39 @@
+﻿@using AntDesign
+@inject IJSRuntime JsRuntime
+
+@if (!open)
+{
+<Button Size="small" @onclick=@(() => open = true)>...</Button>
+} 
+@if (open)
+{
+    <span>
+        <Button Disabled=@disabled Size="small" @onclick=@(async () => await OnPersonEdit(Person))>Edit</Button>
+        <Button Disabled=@disabled Size="small" @onclick=@(async () => {
+            var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{Person.Name}'?");
+            if (ok){
+                disabled = true;
+                await OnPersonDelete(Person);
+            }
+        }) Danger>Delete</Button>
+        <Button Size="small" Type="@ButtonType.Primary" Danger=@true
+            Shape="@ButtonShape.Circle"
+            Icon="@IconType.Outline.Close"
+            @onclick=@(() => open = false) />
+    </span>
+}
+
+@code {
+    [Parameter]
+    public Person? Person { get; set; }
+
+    [Parameter]
+    public Func<Person, Task> OnPersonEdit { get; set; } = p => Task.CompletedTask;
+    [Parameter]
+    public Func<Person, Task> OnPersonDelete { get; set; } = p => Task.CompletedTask;
+
+
+    private bool open = false;
+    private bool disabled = false;
+
+}
