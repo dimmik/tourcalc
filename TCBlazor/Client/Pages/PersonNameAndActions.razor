@@ -3,10 +3,11 @@
 
 <span>
 
-    <Menu Mode=MenuMode.Vertical>
+    <Menu Mode=MenuMode.Vertical @key="@($"menu_{person.GUID}")">
         <SubMenu 
-            Key="@($"menu_{person.GUID}")" 
-            Title=@($"{(deleting ? "[..del..] " : "")}{idx}. {person.Name}")
+            Key="@($"submenu_{person.GUID}")" 
+            @key="@($"submenu_{person.GUID}")" 
+            TitleTemplate="TitleTemplate(deleting, idx, person)"
             Disabled=@disabled
             IsOpen=@disabled
         >
@@ -81,7 +82,24 @@
     public Func<Person, Task> OnPersonSpend { get; set; } = p => Task.CompletedTask;
 
 
-    private bool open = false;
+    //private bool open = false;
     private bool disabled = false;
     private bool deleting = false;
+
+    int triggerLength = 10;
+
+    RenderFragment TitleTemplate(bool deleting, int idx, Person person)
+    {
+        var text = $"{(deleting ? "[..del..] " : "")}{idx}. {person.Name}";
+        var len = text.Length;
+        var style = "";
+        if (len > triggerLength)
+        {
+            style = "font-size: clamp(6px, 2vw, 14px)";
+        }
+        return __builder =>
+        {
+            <span style="@style" @key="@($"name_{person.GUID}")">@((MarkupString)text.AsBreakable(3))</span>
+        };
+    }
 }
