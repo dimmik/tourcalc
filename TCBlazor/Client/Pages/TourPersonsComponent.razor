@@ -33,27 +33,27 @@
         @if (string.IsNullOrWhiteSpace(person.Metadata))
         {
             <td>
-                <span style="cursor:pointer; border: 1px solid lightgrey;" @onclick=@(async () => {
-                bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete person '{person.Name}'?");
-                if (confirmed)
-                {
-                    await OnPersonDelete(person);
-                }
-            })>
-                    <b>X</b>
-                </span>
-                <span>&nbsp; @idx. <b>@((MarkupString)person.Name.AsBreakable())</b></span>
-                &nbsp;<span style="font-size: x-small;cursor:pointer; color: blue; border: solid 1px black" @onclick=@(() => person.Metadata = "Editing")>edit</span>
-                &nbsp;|&nbsp;<NavLink href=@($"tour/{Tour?.GUID ?? "000"}/spending/add/{person.GUID}")>spend</NavLink> 
-                @if (!string.IsNullOrWhiteSpace(person.ParentId))
-                {
-                    <div>→ @(Tour?.Persons?.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</div>
-                }
+                <PersonNameAndActions 
+                    @key=@person.GUID
+                    idx="idx"
+                    person="person"
+                    tour="Tour"
+                    OnPersonDelete="OnPersonDelete"
+                    OnPersonEdit=@((p) => {
+                        p.Metadata = "Editing";
+                        StateHasChanged();
+                        return Task.CompletedTask;
+                    })
+                    OnPersonSpend=@((p) => {
+                        NavManager.NavigateTo($"tour/{Tour?.GUID ?? "000"}/spending/add/{p.GUID}");
+                        return Task.CompletedTask;
+                    })
+                    />
             </td>
             <td>@person.Weight</td>
             <td>@SpentInfo(person)</td>
             <td>@ReceivedInfo(person)</td>
-            <td><b style="color: @($"{(Debt(person) > 0 ? "red" : Debt(person) == 0 ? "black" : "green")}")">@Debt(person)</b></td>
+            <td style="@($"{(Debt(person) > 0 ? "background-color: lightpink" : Debt(person) == 0 ? "" : "background-color: lightgreen")}")"><b style="color: @($"{(Debt(person) > 0 ? "red" : Debt(person) == 0 ? "black" : "green")}")">@Debt(person)</b></td>
         } 
         else if (person.Metadata == "Editing")
         {
@@ -300,18 +300,16 @@
         Loading=@IsSubmittingPerson
                                     @onclick=@(async () => {
             await OnSubmit(pp, onSubmit);
-        })>
-                                    submit
-                                    </Button>
+        })>Save</Button>
                                     <span>&nbsp;|&nbsp;</span>
                                     <Button 
                                     Type="primary"
+                                    Shape="@ButtonShape.Circle"
+                                    Icon="@IconType.Outline.Close"
                                     Size="small"
                                     Danger=@true
                 
-                                    @onclick=@(() => onCloseButton())>
-                                    cancel
-                                    </Button>
+                                    @onclick=@(() => onCloseButton())/>
                                                                         <div>→ 
                                                                             <nobr><Select
                                                                                 @bind-Value="pp.ParentId"
