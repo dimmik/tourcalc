@@ -45,6 +45,7 @@ else
         (l) => l
         .Where(s => (string.IsNullOrWhiteSpace(TheSpending.FromGuid) || s.FromGuid == TheSpending.FromGuid))
         .OrderBy(s => s.Planned ? 0 : 1)
+        .ThenBy(s => s.Planned && (s.Description?.StartsWith("Family") ?? false) ? 0 : 1)
         .ThenByDescending(s => s.DateCreated)
     )
     OnSpendingDelete=@(async (s) => {
