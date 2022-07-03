@@ -90,7 +90,7 @@
 
     RenderFragment TitleTemplate(bool deleting, int idx, Person person)
     {
-        var text = $"{(deleting ? "[..del..] " : "")}{idx}. {person.Name}";
+        var text = $"{(deleting ? "[..del..] " : "")}{idx}. {person.Name}".Trim();
         var len = text.Length;
         var style = "";
         if (len > triggerLength)
