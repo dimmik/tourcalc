@@ -44,12 +44,16 @@
                         StateHasChanged();
                         return Task.CompletedTask;
                     })
+                    OnPersonSpend=@((p) => {
+                        NavManager.NavigateTo($"tour/{Tour?.GUID ?? "000"}/spending/add/{p.GUID}");
+                        return Task.CompletedTask;
+                    })
                     />
             </td>
             <td>@person.Weight</td>
             <td>@SpentInfo(person)</td>
             <td>@ReceivedInfo(person)</td>
-            <td><b style="color: @($"{(Debt(person) > 0 ? "red" : Debt(person) == 0 ? "black" : "green")}")">@Debt(person)</b></td>
+            <td style="@($"{(Debt(person) > 0 ? "background-color: lightpink" : Debt(person) == 0 ? "" : "background-color: lightgreen")}")"><b style="color: @($"{(Debt(person) > 0 ? "red" : Debt(person) == 0 ? "black" : "green")}")">@Debt(person)</b></td>
         } 
         else if (person.Metadata == "Editing")
         {
@@ -296,18 +300,16 @@
         Loading=@IsSubmittingPerson
                                     @onclick=@(async () => {
             await OnSubmit(pp, onSubmit);
-        })>
-                                    submit
-                                    </Button>
+        })>Save</Button>
                                     <span>&nbsp;|&nbsp;</span>
                                     <Button 
                                     Type="primary"
+                                    Shape="@ButtonShape.Circle"
+                                    Icon="@IconType.Outline.Close"
                                     Size="small"
                                     Danger=@true
                 
-                                    @onclick=@(() => onCloseButton())>
-                                    cancel
-                                    </Button>
+                                    @onclick=@(() => onCloseButton())/>
                                                                         <div>→ 
                                                                             <nobr><Select
                                                                                 @bind-Value="pp.ParentId"

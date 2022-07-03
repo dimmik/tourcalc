@@ -2,6 +2,35 @@
 @inject IJSRuntime JsRuntime
 
 <span>
+
+    <Menu Mode=MenuMode.Vertical>
+        <SubMenu 
+            Key="@($"menu_{person.GUID}")" 
+            Title=@($"{(deleting ? "[..del..] " : "")}{idx}. {person.Name}")
+            Disabled=@disabled
+            IsOpen=@disabled
+        >
+            <MenuItem Key="@($"edit_{person.GUID}")" OnClick=@(async () => await OnPersonEdit(person))>Edit @person.Name</MenuItem>
+            <MenuItem Key="@($"delete_{person.GUID}")" OnClick=@(async () => {
+                disabled = true;
+                var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
+                if (ok){
+                    deleting = true;
+                    await OnPersonDelete(person);
+                } else {
+                    disabled=false;
+                }
+            })
+            >
+                Delete @person.Name
+                </MenuItem>
+            <MenuItem Key="@($"delete_{person.GUID}")"
+                OnClick=@(async () => await OnPersonSpend(person))
+            >Spend @person.Name</MenuItem>
+        </SubMenu>
+    </Menu>
+    @{/*
+    <br/>
     @idx. <b>@((MarkupString)person.Name.AsBreakable(2))</b>
 @if (!open)
 {
@@ -29,7 +58,13 @@
         <br />
         <span style="font-size:xx-small">paid by <b style="color:green;">@(tour.Persons.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</b></span>
     }
+*/}
+    @if (!string.IsNullOrWhiteSpace(person.ParentId))
+    {
+        <span style="font-size:xx-small">&gt; paid by <b style="color:green;">@(tour.Persons.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</b></span>
+    }
 </span>
+
 @code {
     [Parameter]
     public int idx { get; set; }
@@ -42,9 +77,11 @@
     public Func<Person, Task> OnPersonEdit { get; set; } = p => Task.CompletedTask;
     [Parameter]
     public Func<Person, Task> OnPersonDelete { get; set; } = p => Task.CompletedTask;
+    [Parameter]
+    public Func<Person, Task> OnPersonSpend { get; set; } = p => Task.CompletedTask;
 
 
     private bool open = false;
     private bool disabled = false;
-
+    private bool deleting = false;
 }
