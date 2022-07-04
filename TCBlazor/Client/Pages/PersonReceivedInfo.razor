@@ -1,0 +1,56 @@
+﻿<span style="cursor:pointer;color:red;" @onclick=@(() => open = true)>@person.ReceivedInCents</span>
+<Modal Title="@($"Received for {person.Name}")"
+       Visible="@open"
+       Footer=@(footer(() => open = false))
+       OnOk=@(() => open = false)
+       OnCancel=@(() => open = false)
+       DestroyOnClose=@true
+       Closable=@true>
+        <div style="height: 55vh; overflow:scroll;">
+            <TableTemplate Items=@(person.ReceivedSendingInfo)
+                           Context="siItem"
+                           ConditionalRowStyle=@((spi, idx) => {
+                           if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
+                           {
+                           return "background-color: lightgreen";
+                           }
+                           if (!spi.IsSpendingToAll){
+                           return "background-color: lightblue";
+                           }
+                           return "background-color: white";
+                           })>
+                <RowTemplate>
+                    @{
+                        var si = siItem.Item1;
+                    }
+                    <td>@((MarkupString)si.From.AsBreakable(3))</td>
+                    <td>
+                        @si.ReceivedAmountInCents
+                        <span style="font-size: xx-small">@($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents: 0.00}")% of @si.TotalSpendingAmountInCents</span>
+                    </td>
+                    <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
+                </RowTemplate>
+            </TableTemplate>
+        </div>
+</Modal>
+
+
+@code {
+    [Parameter]
+    public Person person { get; set; } = new Person();
+    private bool open = false;
+
+    private RenderFragment footer(Action onOk)
+    {
+        return __builder =>
+        {
+    <Template>
+                            <Button OnClick=@((e) => onOk())
+                        Type="primary"
+                            >
+                                Got It
+                            </Button>
+    </Template>
+        };
+    }
+}

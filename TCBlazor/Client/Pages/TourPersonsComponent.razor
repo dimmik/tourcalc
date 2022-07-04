@@ -51,8 +51,8 @@
                     />
             </td>
             <td>@person.Weight</td>
-            <td>@SpentInfo(person)</td>
-            <td>@ReceivedInfo(person)</td>
+            <td><PersonSpentInfo person="person" @key=@($"psi_{person.GUID}")/></td>
+            <td><PersonReceivedInfo person="person" @key=@($"pri_{person.GUID}") /></td>
             <td style="@($"{(Debt(person) > 0 ? "background-color: lightpink" : Debt(person) == 0 ? "" : "background-color: lightgreen")}")"><b style="color: @($"{(Debt(person) > 0 ? "red" : Debt(person) == 0 ? "black" : "green")}")">@Debt(person)</b></td>
         } 
         else if (person.Metadata == "Editing")
@@ -84,9 +84,6 @@
     public Func<Person, Task> OnPersonDelete { get; set; } = p => Task.CompletedTask;
 
     Dictionary<string, Person> EditingPersons { get; set; } = new Dictionary<string, Person>();
-
-    Dictionary<string, bool> ReceivedInfoShown { get; set; } = new Dictionary<string, bool>();
-    Dictionary<string, bool> SpentInfoShown { get; set; } = new Dictionary<string, bool>();
 
     bool AddingPerson = false;
 
@@ -127,8 +124,6 @@
     protected override void OnParametersSet()
     {
         EditingPersons = GetPersons().Select(p => p.SafeClone<Person>()).ToDictionary(p => p.GUID);
-        ReceivedInfoShown = GetPersons().ToDictionary(k => k.GUID, v => false);
-        SpentInfoShown = GetPersons().ToDictionary(k => k.GUID, v => false);
     }
 
     private long Debt(Person p)
@@ -160,107 +155,8 @@
         return $"{PersonNameWithParentNamesRecursive(Tour?.Persons?.FirstOrDefault(pp => pp.GUID == (p?.ParentId ?? "")), level + 1)}{p?.Name ?? ""}";
     }
 
-    private RenderFragment footer(Action onOk)
-    {
-        return __builder =>
-        {
-    <Template>
-                                            <Button OnClick=@((e) => onOk())
-                    Type="primary">
-                                                     Got It
-                                            </Button>
-        </Template>
-        };
-    }
-
     private bool IsSubmittingPerson { get; set; } = false;
     private bool Submitted { get; set; } = false;
-
-    private RenderFragment ReceivedInfo(Person person)
-    {
-        bool visible = ReceivedInfoShown.ContainsKey(person.GUID) ? ReceivedInfoShown[person.GUID] : false;
-        return __builder =>
-        {
-    <span style="cursor:pointer" @onclick=@(() => ReceivedInfoShown[person.GUID] = true)>@person.ReceivedInCents</span>
-    <Modal Title="@($"Received for {person.Name}")"
-                        Visible="@visible"
-                        Footer=@(footer(() => ReceivedInfoShown[person.GUID] = false))
-                        OnOk=@(() => ReceivedInfoShown[person.GUID] = false)
-                        OnCancel=@(() => ReceivedInfoShown[person.GUID] = false)
-                        DestroyOnClose=@true
-                        Closable=@true
-                                                                                    >
-                                                                                    <div style="height: 55vh; overflow:scroll;">
-                                                                                        <TableTemplate Items=@(person.ReceivedSendingInfo) 
-                                Context="siItem"
-                                ConditionalRowStyle=@((spi, idx) => {
-                                    if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
-                                    {
-                                        return "background-color: lightgreen";
-                                    }
-                                    if (!spi.IsSpendingToAll){
-                                        return "background-color: lightblue";
-                                    }
-                                    return "background-color: white";
-                                })
-                                                                                        >
-                                                                                            <RowTemplate>
-                                                                                            @{
-                                                                    var si = siItem.Item1;
-                                                                                            }
-                                                                                                <td>@((MarkupString)si.From.AsBreakable(3))</td>
-                                                                                                <td>@si.ReceivedAmountInCents 
-                                                                                                    <span style="font-size: xx-small">@($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents : 0.00}")% of @si.TotalSpendingAmountInCents</span>
-                                                                                                </td>
-                                                                                                <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
-                                                                                            </RowTemplate>
-                                                                                        </TableTemplate>
-                                                                                    </div>
-    </Modal>
-        };
-    }
-    
-    private RenderFragment SpentInfo(Person person)
-    {
-        bool visible = SpentInfoShown.ContainsKey(person.GUID) ? SpentInfoShown[person.GUID] : false;
-        return __builder =>
-        {
-    <span style="cursor:pointer" @onclick=@(() => SpentInfoShown[person.GUID] = true)>@person.SpentInCents</span>
-    <Modal Title="@($"Spent for {person.Name}")"
-                Visible="@visible"
-                Footer=@(footer(() => SpentInfoShown[person.GUID] = false))
-                OnOk=@(() => SpentInfoShown[person.GUID] = false)
-                OnCancel=@(() => SpentInfoShown[person.GUID] = false)
-                DestroyOnClose=@true
-                Closable=@true
-                                                                            >
-                                                                            <div style="height: 55vh; overflow:scroll;">
-                                                                                <TableTemplate Items=@(person.SpentSendingInfo) 
-                        Context="siItem"
-                        ConditionalRowStyle=@((spi, idx) => {
-                            if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
-                            {
-                                return "background-color: lightgreen";
-                            }
-                            if (!spi.IsSpendingToAll){
-                                return "background-color: lightblue";
-                            }
-                            return "background-color: white";
-                        })
-                                                                                >
-                                                                                    <RowTemplate>
-                                                                                    @{
-                                                            var si = siItem.Item1;
-                                                                                    }
-                                                                                        <td>@((MarkupString)si.From.AsBreakable(3))</td>
-                                                                                        <td>@si.TotalSpendingAmountInCents</td>
-                                                                                        <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
-                                                                                    </RowTemplate>
-                                                                                </TableTemplate>
-                                                                            </div>
-        </Modal>
-        };
-    }
 
     private async Task OnSubmit(Person pp, Func<Person, Task> onSubmit)
     {
