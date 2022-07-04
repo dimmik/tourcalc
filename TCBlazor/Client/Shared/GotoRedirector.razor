@@ -17,14 +17,25 @@
     {
         await engine.LogIn("code", transientAccessCode, md5Code: true);
         // now try to get a tour
-        var tt = await engine.LoadFromServerAndReturnBareTour(tid);
+        Tour tt = await engine.LoadFromServerAndReturnBareTour(tid);
+        bool finalizing = false;
         if (tt == null)
         {
             await engine.LogIn("code", transientAccessCode, md5Code: false);
-        }
+            tt = await engine.LoadFromServerAndReturnBareTour(tid);
+        } 
+        finalizing = tt?.IsFinalizing ?? false;
         await engine.PickUpAuthInfo();
         var settings = await engine.GetUISettings();
-        var url = settings.Default_Tour_Page_Is_Add_Spending ? $"/tour/{tid}/spending/add/" : $"/tour/{tid}";
+
+        var spAddPage = $"/tour/{tid}/spending/add/";
+        var mainTourPage = $"/tour/{tid}";
+
+        var url = settings.Default_Tour_Page_Is_Add_Spending ? spAddPage : mainTourPage;
+        if (finalizing)
+        {
+            url = mainTourPage;
+        }
         await engine.RequestClearLocalTourList(reloadFromServer: false);
         NavManager.NavigateTo(url);
     }
