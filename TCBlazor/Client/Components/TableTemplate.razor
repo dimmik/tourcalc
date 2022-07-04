@@ -18,7 +18,7 @@
             }
             if (RowTemplate is not null)
             {
-                <tr style=@(ConditionalRowStyle(item, idx))>@RowTemplate((item, itemIdx))</tr>
+                <tr style="height: 1px;@(ConditionalRowStyle(item, idx))">@RowTemplate((item, itemIdx))</tr>
             }
         }
         @if (NoDataRowTemplate is not null && !(Items?.Any() ?? false))

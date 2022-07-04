@@ -1,4 +1,44 @@
-﻿<b style="color: @($"{(debt > 0 ? "red" : debt == 0 ? "black" : "green")}")">@debt</b>
+﻿<div 
+    style="@RowBg;height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
+    <b style="cursor:pointer;color: @RowFg"
+    @onclick=@(() => open = true)
+    >@debt</b>
+</div>
+<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Receive")}")"
+       Visible="@open"
+       Footer=@(footer(() => open = false))
+       OnOk=@(() => open = false)
+       OnCancel=@(() => open = false)
+       DestroyOnClose=@true
+       Closable=@true>
+    <div style="height: 55vh; overflow:scroll;">
+        <TableTemplate Items=@spendingToShow
+                       Context="spendingIdx"
+                       ConditionalRowStyle=@((a, aa) => RowBg)>
+            <RowTemplate>
+                @{
+                    var spending = spendingIdx.Item1;
+                }
+                <td>@spending.AmountInCents</td>
+                    @if (WillPay)
+                    {
+                        var nameTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0])?.Name ?? "m/a";   
+                        <td>
+                            To <b>@nameTo</b>
+                        </td>
+                    }
+                    @if (!WillPay)
+                    {
+                        var nameFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid)?.Name ?? "m/a";   
+                        <td>
+                            From <b>@nameFrom</b>
+                        </td>
+                    }
+            </RowTemplate>
+        </TableTemplate>
+    </div>
+</Modal>
+
 @code {
     [Parameter]
     public long debt { get; set; } = 0;
@@ -6,4 +46,58 @@
     public Tour tour { get; set; } = new();
     [Parameter]
     public Person person { get; set; } = new();
+    [Parameter]
+    public int minMeaningfulAmount { get; set; } = 0;
+
+
+
+    private bool open = false;
+
+    private bool WillPay;
+    private IEnumerable<Spending>? spendingToShow;
+
+    private string RowBg => WillPay && string.IsNullOrWhiteSpace(person.ParentId) ? "background-color: lightpink" : debt >= 0 ? "" : "background-color: lightgreen";
+    private string RowFg => WillPay && string.IsNullOrWhiteSpace(person.ParentId) ? "red" : debt >= 0 ? "black" : "green";
+
+    protected override void OnParametersSet()
+    {
+        (WillPay, spendingToShow) = GetPayOrReceiveSpendings();
+    }
+
+    private string RowBackground()
+    {
+        return WillPay && string.IsNullOrWhiteSpace(person.ParentId) ? "background-color: lightpink" : debt >= 0 ? "" : "background-color: lightgreen";
+    }
+
+    private (bool WillPay, IEnumerable<Spending> sp) GetPayOrReceiveSpendings()
+    {
+        IEnumerable<Spending> sp;
+        bool wp;
+        var spToPay = tour.Spendings.Where(s => s.Planned && s.FromGuid == person.GUID && s.AmountInCents > minMeaningfulAmount);
+        if (spToPay.Any())
+        {
+            wp = true;
+            sp = spToPay;
+        } else
+        {
+            sp = tour.Spendings.Where(s => s.Planned && s.ToGuid.Count == 1 && s.ToGuid[0] == person.GUID && s.AmountInCents > minMeaningfulAmount);
+            wp = false;
+        }
+        return (wp, sp);
+
+    }
+
+    private RenderFragment footer(Action onOk)
+    {
+        return __builder =>
+        {
+    <Template>
+                            <Button OnClick=@((e) => onOk())
+                    Type="primary">
+                                Got It
+                            </Button>
+    </Template>
+        };
+    }
+
 }
