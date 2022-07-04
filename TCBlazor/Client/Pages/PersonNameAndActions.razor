@@ -86,11 +86,11 @@
     private bool disabled = false;
     private bool deleting = false;
 
-    int triggerLength = 6;
+    int triggerLength = 9;
 
     RenderFragment TitleTemplate(bool deleting, int idx, Person person)
     {
-        var text = $"{(deleting ? "[..del..] " : "")}{idx:00}. {person.Name}".Trim();
+        var text = $"{(deleting ? "[..del..] " : "")}{person.Name}".Trim();
         var len = text.Length;
         var style = "";
         if (len > triggerLength)
