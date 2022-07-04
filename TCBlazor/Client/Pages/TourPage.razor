@@ -46,7 +46,7 @@ else
         <RowTemplate>
             <td>
                 <!--Persons-->
-                <b id=@GetId("persons")>Persons</b>
+                <b id=@GetId("persons")>Persons [@tour.Persons.Count]</b>
                 <TourPersonsComponent 
                     Tour=@tour
                     OnPersonDelete=@(async (p) => {
@@ -61,7 +61,7 @@ else
                     })
                     />
                 <!--Spendings-->
-                <b id=@GetId("spendings")>Spendings</b>
+                <b id=@GetId("spendings")>Spendings [@tour.Spendings.Where(s => !s.Planned).Count()]</b>
                 <TourSpendingsComponent 
                     Tour=@tour
                     ShowPlanned=@ShowPlannedSpendings
