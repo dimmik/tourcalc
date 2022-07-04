@@ -1,9 +1,11 @@
 ﻿@inject IJSRuntime _jsRuntime
+@inject ILocalLogger logger
+
 
 @if (_newVersionAvailable)
 {
-    <button type="button" class="btn btn-warning shadow floating-update-button" onclick="window.location.reload()">
-        Update available. Click to reload.
+    <button style="background-color: gold; color:forestgreen" onclick="window.location.reload()">
+        update
     </button>
 }
 
@@ -17,46 +19,28 @@
     }
     private async Task RegisterForUpdateAvailableNotification()
     {
-        Console.WriteLine(nameof(RegisterForUpdateAvailableNotification));
+        logger.Log(nameof(RegisterForUpdateAvailableNotification));
         await _jsRuntime.InvokeAsync<object>(
             identifier: "registerForUpdateAvailableNotification",
             DotNetObjectReference.Create(this),
             nameof(OnUpdateAvailable));
-        //ScheduleNextCheck();
     }
-    private Task? refreshTask;
-    private void ScheduleNextCheck()
-    {
-        TimeSpan interval = TimeSpan.FromMinutes(1);
-        Console.WriteLine($"wait {interval} ({DateTime.Now})");
-        refreshTask = Task.Delay(interval) // wait 3 min. TODO make 3. 1 for debug purposes
-            .ContinueWith(async (task) =>
-            {
-                Console.WriteLine("ScheduleNextCheck: Check again");
-                await RegisterForUpdateAvailableNotification();
-            }); // check for update again
 
-    }
-    private Task? t;
     [JSInvokable(nameof(OnUpdateAvailable))]
     public Task OnUpdateAvailable()
     {
-        Console.WriteLine($"Update available!!");
-
-
-        Console.WriteLine("update available. Show update button");
-        _newVersionAvailable = true;
-        StateHasChanged();
-
-        t = Task.Delay(TimeSpan.FromSeconds(15))
-        .ContinueWith(task =>
+        if (!_newVersionAvailable)
         {
-            Console.WriteLine("hide update button");
-            _newVersionAvailable = false;
-            StateHasChanged();
-        }) // remove the click here to update after 15s
-        ;
+            //logger.Log($"Update available");
 
+
+            logger.Log("Update available. Show update button!");
+            _newVersionAvailable = true;
+            StateHasChanged();
+        } else
+        {
+            //logger.Log("calling again. ignore");
+        }
 
 
         return Task.CompletedTask;
