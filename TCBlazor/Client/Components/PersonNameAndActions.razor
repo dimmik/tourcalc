@@ -14,7 +14,7 @@
             <MenuItem Key="@($"edit_{person.GUID}")" OnClick=@(async () => await OnPersonEdit(person))>Edit @person.Name</MenuItem>
             <MenuItem Key="@($"delete_{person.GUID}")" OnClick=@(async () => {
                 disabled = true;
-                var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
+                      var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
                 if (ok){
                     deleting = true;
                     await OnPersonDelete(person);

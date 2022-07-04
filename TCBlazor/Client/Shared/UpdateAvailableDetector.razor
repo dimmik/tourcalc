@@ -15,21 +15,49 @@
     {
         await RegisterForUpdateAvailableNotification();
     }
-
     private async Task RegisterForUpdateAvailableNotification()
     {
+        Console.WriteLine(nameof(RegisterForUpdateAvailableNotification));
         await _jsRuntime.InvokeAsync<object>(
             identifier: "registerForUpdateAvailableNotification",
             DotNetObjectReference.Create(this),
             nameof(OnUpdateAvailable));
+        //ScheduleNextCheck();
     }
+    private Task? refreshTask;
+    private void ScheduleNextCheck()
+    {
+        TimeSpan interval = TimeSpan.FromMinutes(1);
+        Console.WriteLine($"wait {interval} ({DateTime.Now})");
+        refreshTask = Task.Delay(interval) // wait 3 min. TODO make 3. 1 for debug purposes
+            .ContinueWith(async (task) =>
+            {
+                Console.WriteLine("ScheduleNextCheck: Check again");
+                await RegisterForUpdateAvailableNotification();
+            }); // check for update again
 
+    }
+    private Task? t;
     [JSInvokable(nameof(OnUpdateAvailable))]
     public Task OnUpdateAvailable()
     {
-        _newVersionAvailable = true;
+        Console.WriteLine($"Update available!!");
 
+
+        Console.WriteLine("update available. Show update button");
+        _newVersionAvailable = true;
         StateHasChanged();
+
+        t = Task.Delay(TimeSpan.FromSeconds(15))
+        .ContinueWith(task =>
+        {
+            Console.WriteLine("hide update button");
+            _newVersionAvailable = false;
+            StateHasChanged();
+        }) // remove the click here to update after 15s
+        ;
+
+
 
         return Task.CompletedTask;
     }
