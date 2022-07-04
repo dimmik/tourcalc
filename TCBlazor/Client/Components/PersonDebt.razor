@@ -1,6 +1,6 @@
 ﻿<div 
     style="@RowBg;height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
-    <b style="cursor:pointer;color: @RowFg"
+    <b style="cursor: pointer;@RowFg"
     @onclick=@(() => open = true)
     >@debt</b>
 </div>
@@ -14,24 +14,24 @@
     <div style="height: 55vh; overflow:scroll;">
         <TableTemplate Items=@spendingToShow
                        Context="spendingIdx"
-                       ConditionalRowStyle=@((a, aa) => RowBg)>
+                       ConditionalRowStyle=@((s, aa) => $"{SpendingBg(s)};{SpendingFg(s)}")>
             <RowTemplate>
                 @{
                     var spending = spendingIdx.Item1;
+                    var pTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0]) ?? new();
+                    var pFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid) ?? new();
                 }
                 <td>@spending.AmountInCents</td>
                     @if (WillPay)
                     {
-                        var nameTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0])?.Name ?? "m/a";   
                         <td>
-                            To <b>@nameTo</b>
+                            To <b>@pTo.Name</b>
                         </td>
                     }
                     @if (!WillPay)
                     {
-                        var nameFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid)?.Name ?? "m/a";   
                         <td>
-                            From <b>@nameFrom</b>
+                            From <b>@pFrom.Name</b>
                         </td>
                     }
             </RowTemplate>
@@ -56,17 +56,59 @@
     private bool WillPay;
     private IEnumerable<Spending>? spendingToShow;
 
-    private string RowBg => WillPay && string.IsNullOrWhiteSpace(person.ParentId) ? "background-color: lightpink" : debt >= 0 ? "" : "background-color: lightgreen";
-    private string RowFg => WillPay && string.IsNullOrWhiteSpace(person.ParentId) ? "red" : debt >= 0 ? "black" : "green";
+    private string RowBg => bgColors[DebtStatus()];
+    private string RowFg => fgColors[DebtStatus()];
+    private string SpendingBg(Spending spending)
+    {
+        return bgColors[DebtStatusOfSpending(spending)];
+    }
+    private string SpendingFg(Spending spending)
+    {
+        return fgColors[DebtStatusOfSpending(spending)];
+    }
 
     protected override void OnParametersSet()
     {
         (WillPay, spendingToShow) = GetPayOrReceiveSpendings();
     }
-
-    private string RowBackground()
+    private Dictionary<string, string> bgColors = new()
     {
-        return WillPay && string.IsNullOrWhiteSpace(person.ParentId) ? "background-color: lightpink" : debt >= 0 ? "" : "background-color: lightgreen";
+        {"JustOk", ""},
+        {"Pleasure", "background-color: lightgreen"},
+        {"Bankrupt", "background-color: lightpink"},
+    };
+    private Dictionary<string, string> fgColors = new()
+    {
+        {"JustOk", "color: black"},
+        {"Pleasure", "color: green"},
+        {"Bankrupt", "color: red"},
+    };
+    private string DebtStatusOfSpending(Spending spending)
+    {
+        var pTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0]) ?? new();
+        var pFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid) ?? new();
+        if (pTo.GUID == person.ParentId || pFrom.ParentId == person.GUID) return "JustOk"; // payment to parent
+        if (pFrom.GUID == person.GUID) return "Bankrupt"; // the person will pay
+        return "Pleasure"; // someone, not child, will pay me
+    }
+    private string DebtStatus() // "Pleasure" (will receive), "Bankrupt" (will spend) or "JustOk" (0, or accounts among themselves)
+    {
+        if (WillPay){ // will pay to someone
+            if (!string.IsNullOrWhiteSpace(person.ParentId)) // well, virtually, to my parent
+            {
+                return "JustOk";
+            }
+            return "Bankrupt";// AAAA, my money, and nobody covers me...
+        }
+        if (!WillPay) // I will receive money
+        {
+            if (debt >= 0) return "JustOk"; // all done
+            if (spendingToShow?.Any(s => (tour?.Persons?.FirstOrDefault(p => p.GUID == s.FromGuid)?.ParentId ?? "--") != person.GUID) ?? true) // anyone but my children is going to pay me]
+            {
+                return "Pleasure";
+            }
+        }
+        return "JustOk";
     }
 
     private (bool WillPay, IEnumerable<Spending> sp) GetPayOrReceiveSpendings()
