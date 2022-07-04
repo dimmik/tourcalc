@@ -1,0 +1,9 @@
+﻿<b style="color: @($"{(debt > 0 ? "red" : debt == 0 ? "black" : "green")}")">@debt</b>
+@code {
+    [Parameter]
+    public long debt { get; set; } = 0;
+    [Parameter]
+    public Tour tour { get; set; } = new();
+    [Parameter]
+    public Person person { get; set; } = new();
+}

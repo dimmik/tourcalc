@@ -53,7 +53,13 @@
             <td>@person.Weight</td>
             <td><PersonSpentInfo person="person" @key=@($"psi_{person.GUID}")/></td>
             <td><PersonReceivedInfo person="person" @key=@($"pri_{person.GUID}") /></td>
-            <td style="@($"{(Debt(person) > 0 ? "background-color: lightpink" : Debt(person) == 0 ? "" : "background-color: lightgreen")}")"><b style="color: @($"{(Debt(person) > 0 ? "red" : Debt(person) == 0 ? "black" : "green")}")">@Debt(person)</b></td>
+            <td align="center" valign="middle" style="@($"{(Debt(person) > 0 ? "background-color: lightpink" : Debt(person) == 0 ? "" : "background-color: lightgreen")}")">
+                <PersonDebt
+                    debt="Debt(person)"
+                    person="person"
+                    tour=@(Tour ?? new Tour())
+                    />
+            </td>
         } 
         else if (person.Metadata == "Editing")
         {
