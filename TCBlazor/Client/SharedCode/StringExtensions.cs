@@ -1,4 +1,4 @@
-﻿namespace TCBlazor.Client.Utils
+﻿namespace TCBlazor.Client.SharedCode
 {
     public static class StringExtensions
     {

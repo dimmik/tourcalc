@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using TCalcCore.Logging;
 using TCalcCore.UI;
 
-namespace TCBlazor.Client.Shared
+namespace TCBlazor.Client.SharedCode
 {
     public class SimpleMessageShower : ISimpleMessageShower
     {

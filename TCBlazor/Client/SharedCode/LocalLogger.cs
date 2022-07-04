@@ -1,6 +1,6 @@
 ﻿using TCalcCore.Logging;
 
-namespace TCBlazor.Client.Shared
+namespace TCBlazor.Client.SharedCode
 {
     public class LocalLogger : ILocalLogger
     {
