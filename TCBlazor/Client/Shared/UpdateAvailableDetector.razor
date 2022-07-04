@@ -1,0 +1,49 @@
+﻿@inject IJSRuntime _jsRuntime
+@inject ILocalLogger logger
+
+
+@if (_newVersionAvailable)
+{
+    <button style="background-color: gold; color:forestgreen" onclick="window.location.reload()">
+        update
+    </button>
+}
+
+@code {
+
+    private bool _newVersionAvailable = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RegisterForUpdateAvailableNotification();
+    }
+    private async Task RegisterForUpdateAvailableNotification()
+    {
+        logger.Log(nameof(RegisterForUpdateAvailableNotification));
+        await _jsRuntime.InvokeAsync<object>(
+            identifier: "registerForUpdateAvailableNotification",
+            DotNetObjectReference.Create(this),
+            nameof(OnUpdateAvailable));
+    }
+
+    [JSInvokable(nameof(OnUpdateAvailable))]
+    public Task OnUpdateAvailable()
+    {
+        if (!_newVersionAvailable)
+        {
+            //logger.Log($"Update available");
+
+
+            logger.Log("Update available. Show update button!");
+            _newVersionAvailable = true;
+            StateHasChanged();
+        } else
+        {
+            //logger.Log("calling again. ignore");
+        }
+
+
+        return Task.CompletedTask;
+    }
+
+}

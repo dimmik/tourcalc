@@ -7,15 +7,13 @@ self.addEventListener('activate', event => event.waitUntil(onActivate(event)));
 self.addEventListener('fetch', event => event.respondWith(onFetch(event)));
 
 const tcVersion = '#{Build.BuildNumber}#';
-const cacheNamePrefix = 'tc2-offline-cache-';
+const cacheNamePrefix = 'offline-cache-';
 const cacheName = `${cacheNamePrefix}#{Build.BuildNumber}#${self.assetsManifest.version}`;
 const offlineAssetsInclude = [ /\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff$/, /\.png$/, /\.jpe?g$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/ ];
 const offlineAssetsExclude = [ /^service-worker\.js$/ ];
 
 async function onInstall(event) {
     console.info('Service worker: Install');
-    // Activate the new service worker as soon as the old one is retired.
-    event.waitUntil(self.skipWaiting());
 
     // Fetch and cache all matching items from the assets manifest
     const assetsRequests = self.assetsManifest.assets
@@ -28,7 +26,6 @@ async function onInstall(event) {
 
 async function onActivate(event) {
     console.info('Service worker: Activate');
-    event.waitUntil(self.clients.claim());
 
     // Delete unused caches
     const cacheKeys = await caches.keys();

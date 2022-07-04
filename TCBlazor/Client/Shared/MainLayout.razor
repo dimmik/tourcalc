@@ -59,6 +59,7 @@
                         </div>
                         <div style="display: table-cell; align-content: flex-end; width: 35%; text-align: end;">
                             <span><SyncStatusComponent/></span>
+                            <UpdateAvailableDetector/>
                             <span style="cursor:pointer; font-size: clamp(6px, 4vw, 18px); border:1px solid white" @onclick=@(async () => {
                                 await LogOut();
                                 NavManager.NavigateTo("/");
@@ -86,6 +87,7 @@
 }
 </div>
 <AntContainer/>
+
 @code {
     private string? code;
 
