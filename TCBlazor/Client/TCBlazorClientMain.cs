@@ -1,13 +1,12 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using TCBlazor.Client;
-using TCBlazor.Client.Storage;
-using TCBlazor.Client.Shared;
 using TCalcCore.Storage;
 using TCalcCore.Network;
 using TCalcCore.Logging;
 using TCalcCore.UI;
 using TCalcCore.Engine;
+using TCBlazor.Client.SharedCode;
 
 namespace Company.WebApplication1
 {

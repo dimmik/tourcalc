@@ -6,7 +6,7 @@ using TCalcCore.UI;
 using TCBlazor.Client.Shared;
 
 
-namespace TCBlazor.Client.Storage
+namespace TCBlazor.Client.SharedCode
 {
     public class TourcalcLocalStorage : ITourcalcLocalStorage
     {
@@ -27,7 +27,8 @@ namespace TCBlazor.Client.Storage
             try
             {
                 st = Newtonsoft.Json.JsonConvert.DeserializeObject<DateTimeOffset>(stored);
-            } catch (Exception)
+            }
+            catch (Exception)
             {
                 // nothing
             }
