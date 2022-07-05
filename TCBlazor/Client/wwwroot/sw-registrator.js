@@ -23,7 +23,7 @@ window.updateAvailable = new Promise((resolve, reject) => {
           //console.info("installingServiceWorker.state: " + installingServiceWorker.state);
           //console.info("navigator.serviceWorker.controller: " + navigator.serviceWorker.controller);
           //console.info("!!navigator.serviceWorker.controller: " + (!!navigator.serviceWorker.controller));
-          //controllerOk = !!navigator.serviceWorker.controller;
+          controllerOk = !!navigator.serviceWorker.controller;
           if (controllerOk && (installingServiceWorker.state === 'installed' || installingServiceWorker.state === 'activated')) {
             //console.info("Calling resolve with " + controllerOk);
             resolve();
