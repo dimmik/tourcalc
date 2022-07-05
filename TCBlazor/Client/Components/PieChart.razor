@@ -27,6 +27,7 @@
                 <AntDesign.InputNumber Min="1000" Max="5000" Step="1" Style="margin:0 16px;" @bind-Value="@nextColorMultiplier"
                                    TValue="int"
                 OnChange=@(() => {UpdateColors(); StateHasChanged();}) />
+                <RadzenColorPicker @bind-Value=@color Change=@((v) => {UpdateColors(); StateHasChanged();}) />
 }
 </td>
 </tr>
@@ -73,6 +74,17 @@
         "violet"
     };
     (byte r, byte g, byte b) startColor = (0x35, 0x66, 0xee);
+
+    string color { get
+        {
+            return $"rgb({startColor.r},{startColor.g},{startColor.b})";
+        } set
+        {
+            var trimmed = value.Trim('r', 'g', 'b', 'a', '(', ')');
+            string[] rgb = trimmed.Split(',', ' ').Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+            startColor = (byte.Parse(rgb[0]), byte.Parse(rgb[1]), byte.Parse(rgb[2]));
+        } 
+    }
 
     //    (byte r, byte g, byte b) startColor = (240, 2, 158);
     private IEnumerable<string> Colors()
