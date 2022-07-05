@@ -4,7 +4,7 @@
     @onclick=@(() => open = true)
     >@debt</b>
 </div>
-<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Receive")}")"
+<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Receive")} {spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0  }")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -73,42 +73,45 @@
     }
     private Dictionary<string, string> bgColors = new()
     {
-        {"JustOk", ""},
-        {"Pleasure", "background-color: lightgreen"},
-        {"Bankrupt", "background-color: lightpink"},
+        {JustOk, ""},
+        {Pleasure, "background-color: lightgreen"},
+        {Bankrupt, "background-color: lightpink"},
     };
     private Dictionary<string, string> fgColors = new()
     {
-        {"JustOk", "color: black"},
-        {"Pleasure", "color: green"},
-        {"Bankrupt", "color: red"},
+        {JustOk, "color: black"},
+        {Pleasure, "color: green"},
+        {Bankrupt, "color: red"},
     };
+    const string JustOk = "JustOk";
+    const string Bankrupt = "Bankrupt";
+    const string Pleasure = "Pleasure";
     private string DebtStatusOfSpending(Spending spending)
     {
         var pTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0]) ?? new();
         var pFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid) ?? new();
-        if (pTo.GUID == person.ParentId || pFrom.ParentId == person.GUID) return "JustOk"; // payment to parent
-        if (pFrom.GUID == person.GUID) return "Bankrupt"; // the person will pay
-        return "Pleasure"; // someone, not child, will pay me
+        if (pTo.GUID == person.ParentId || pFrom.ParentId == person.GUID) return JustOk; // payment to parent
+        if (pFrom.GUID == person.GUID) return Bankrupt; // the person will pay
+        return Pleasure; // someone, not child, will pay me
     }
     private string DebtStatus() // "Pleasure" (will receive), "Bankrupt" (will spend) or "JustOk" (0, or accounts among themselves)
     {
         if (WillPay){ // will pay to someone
             if (!string.IsNullOrWhiteSpace(person.ParentId)) // well, virtually, to my parent
             {
-                return "JustOk";
+                return JustOk;
             }
-            return "Bankrupt";// AAAA, my money, and nobody covers me...
+            return Bankrupt;// AAAA, my money, and nobody covers me...
         }
         if (!WillPay) // I will receive money
         {
-            if (debt >= 0) return "JustOk"; // all done
+            if (debt >= 0) return JustOk; // all done
             if (spendingToShow?.Any(s => (tour?.Persons?.FirstOrDefault(p => p.GUID == s.FromGuid)?.ParentId ?? "--") != person.GUID) ?? true) // anyone but my children is going to pay me]
             {
-                return "Pleasure";
+                return Pleasure;
             }
         }
-        return "JustOk";
+        return JustOk;
     }
 
     private (bool WillPay, IEnumerable<Spending> sp) GetPayOrReceiveSpendings()
