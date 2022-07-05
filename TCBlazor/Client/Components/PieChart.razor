@@ -23,12 +23,11 @@
         <span style="width:7px;background-color:@color">&nbsp;&nbsp;&nbsp;</span><b>&nbsp;@nm</b> @($"{perc:0.0}%")
   </div>
 }
-@{/*
-            <Slider TValue="double" Min="1" Max="5" Step="0.001" @bind-Value="@multiplier" OnChange=@(d => {UpdateColors(); StateHasChanged();}) />
-            <AntDesign.InputNumber Min="1" Max="5" Step="0.001" Style="margin:0 16px;" @bind-Value="@multiplier" 
-            TValue="double"
+@if (ShowDebugUI){
+                <AntDesign.InputNumber Min="1000" Max="5000" Step="1" Style="margin:0 16px;" @bind-Value="@nextColorMultiplier"
+                                   TValue="int"
                 OnChange=@(() => {UpdateColors(); StateHasChanged();}) />
-*/}
+}
 </td>
 </tr>
 </table>
@@ -74,8 +73,8 @@
         "violet"
     };
     (byte r, byte g, byte b) startColor = (0x35, 0x66, 0xee);
-    
-//    (byte r, byte g, byte b) startColor = (240, 2, 158);
+
+    //    (byte r, byte g, byte b) startColor = (240, 2, 158);
     private IEnumerable<string> Colors()
     {
         int i = 0;
@@ -87,12 +86,16 @@
             i++;
         }
     }
-    private double multiplier = 1.641;
+    [Parameter]
+    public int nextColorMultiplier { get; set; } = 1641;
+    [Parameter]
+    public bool ShowDebugUI { get; set; } = false;
+
     private (byte r, byte g, byte b) nextColor((byte r, byte g, byte b) c)
     {
         int colorN = BitConverter.ToInt32(new byte[] { c.b, c.g, c.r, 0 });
         //Console.WriteLine($"c: {colorN} (shift: {shift})");
-        colorN = (int)(colorN * multiplier);
+        colorN = (int)(colorN * 1.0 * nextColorMultiplier / 1000);
         //Console.WriteLine($"c shifted: {colorN}");
         var bytes = BitConverter.GetBytes(colorN);
         return (bytes[2], bytes[1], bytes[0]);
@@ -106,16 +109,26 @@
             i = i + s;
         }
     }
+    private string guid = Guid.NewGuid().ToString();
     private IEnumerable<(int, string, string)> GetAnglesColorsAndNames()
     {
+        if (!Data.Any()) Data = new[] { ("n/a", 0) };
         var total = Data.Select(i => i.amount).Sum();
         //Console.WriteLine($"total: {total}");
         var a = Data
-            .Select(i => (int)((i.amount * 360 / total)))
+            .Select(i => (int)((i.amount * 360.0 / total)))
             .ToList();
         if (a.Sum() < 360)
         {
-            a[a.IndexOf(a.Max())] = a.Max() + (360 - a.Sum());
+            if (a.Any())
+            {
+                Console.WriteLine($"({guid}) Hmm... There ARE elements?.. {a.Count}");
+                a[a.IndexOf(a.Max())] = a.Max() + (360 - a.Sum());
+            } else
+            {
+                Console.WriteLine($"({guid}) Hmm... No elements?.. {a.Count}");
+
+            }
         }
         
         var res = a
