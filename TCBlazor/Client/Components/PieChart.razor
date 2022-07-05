@@ -122,12 +122,11 @@
         {
             if (a.Any())
             {
-                Console.WriteLine($"({guid}) Hmm... There ARE elements?.. {a.Count}");
+               // Console.WriteLine($"({guid}) Hmm... There ARE elements?.. {a.Count}");
                 a[a.IndexOf(a.Max())] = a.Max() + (360 - a.Sum());
             } else
             {
-                Console.WriteLine($"({guid}) Hmm... No elements?.. {a.Count}");
-
+                Console.WriteLine($"({guid}) Hmm... No elements?.. {a.Count} Magic...");
             }
         }
         
