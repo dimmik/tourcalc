@@ -24,8 +24,8 @@
   </div>
 }
 @{/*
-            <Slider TValue="double" Min="1" Max="5" Step="0.005" @bind-Value="@multiplier" OnChange=@(d => {UpdateColors(); StateHasChanged();}) />
-            <AntDesign.InputNumber Min="1" Max="5" Step="0.005" Style="margin:0 16px;" @bind-Value="@multiplier" 
+            <Slider TValue="double" Min="1" Max="5" Step="0.001" @bind-Value="@multiplier" OnChange=@(d => {UpdateColors(); StateHasChanged();}) />
+            <AntDesign.InputNumber Min="1" Max="5" Step="0.001" Style="margin:0 16px;" @bind-Value="@multiplier" 
             TValue="double"
                 OnChange=@(() => {UpdateColors(); StateHasChanged();}) />
 */}
@@ -74,6 +74,7 @@
         "violet"
     };
     (byte r, byte g, byte b) startColor = (0x35, 0x66, 0xee);
+    
 //    (byte r, byte g, byte b) startColor = (240, 2, 158);
     private IEnumerable<string> Colors()
     {
@@ -86,7 +87,7 @@
             i++;
         }
     }
-    private double multiplier = 1.63;
+    private double multiplier = 1.641;
     private (byte r, byte g, byte b) nextColor((byte r, byte g, byte b) c)
     {
         int colorN = BitConverter.ToInt32(new byte[] { c.b, c.g, c.r, 0 });
