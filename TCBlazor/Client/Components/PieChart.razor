@@ -23,6 +23,12 @@
         <span style="width:7px;background-color:@color">&nbsp;&nbsp;&nbsp;</span><b>&nbsp;@nm</b> @($"{perc:0.0}%")
   </div>
 }
+@{/*
+            <Slider TValue="double" Min="1" Max="5" Step="0.005" @bind-Value="@multiplier" OnChange=@(d => {UpdateColors(); StateHasChanged();}) />
+            <AntDesign.InputNumber Min="1" Max="5" Step="0.005" Style="margin:0 16px;" @bind-Value="@multiplier" 
+            TValue="double"
+                OnChange=@(() => {UpdateColors(); StateHasChanged();}) />
+*/}
 </td>
 </tr>
 </table>
@@ -35,6 +41,10 @@
         };
     private List<(int, string, string)> AnglesColorsAndNames { get; set; } = new();
     protected override void OnParametersSet()
+    {
+        UpdateColors();
+    }
+    private void UpdateColors()
     {
         AnglesColorsAndNames = GetAnglesColorsAndNames().ToList();
     }
@@ -63,14 +73,28 @@
         "Aquamarine",
         "violet"
     };
+    (byte r, byte g, byte b) startColor = (0x35, 0x66, 0xee);
+//    (byte r, byte g, byte b) startColor = (240, 2, 158);
     private IEnumerable<string> Colors()
     {
         int i = 0;
+        (byte r, byte g, byte b) c = startColor;
         while (i < 10000)
         {
-            yield return colors[i % colors.Length];
+            yield return $"rgb({c.r},{c.g},{c.b})";
+            c = nextColor(c);
             i++;
         }
+    }
+    private double multiplier = 1.63;
+    private (byte r, byte g, byte b) nextColor((byte r, byte g, byte b) c)
+    {
+        int colorN = BitConverter.ToInt32(new byte[] { c.b, c.g, c.r, 0 });
+        //Console.WriteLine($"c: {colorN} (shift: {shift})");
+        colorN = (int)(colorN * multiplier);
+        //Console.WriteLine($"c shifted: {colorN}");
+        var bytes = BitConverter.GetBytes(colorN);
+        return (bytes[2], bytes[1], bytes[0]);
     }
     public IEnumerable<(int, int)> GetFromTo(IEnumerable<int> seq)
     {
