@@ -5,6 +5,7 @@ using Microsoft.Net.Http.Headers;
 using TCalc.Storage;
 using TCalcCore.Storage;
 using TCalcStorage.Storage;
+using TCalcStorage.Storage.MongoDB;
 using TourCalcWebApp;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Controllers;
@@ -37,6 +38,14 @@ namespace Company.TCBlazor
             if (providerType.ToLower() == "InMemory".ToLower())
             {
                 builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
+            else if (providerType.ToLower() == "MongoDb".ToLower())
+                {
+                    var url = Configuration.GetValue<string>("MongoDbUrl");
+                    var username = Configuration.GetValue<string>("MongoDbUsername");
+                    var password = Configuration.GetValue<string>("MongoDbPassword");
+                    var provider = new MongoDbLogStorage(url, username, password);
+                    builder.Services.AddSingleton<ILogStorage>(provider);
+                }
             } else
             {
                 // for now - just dumb
