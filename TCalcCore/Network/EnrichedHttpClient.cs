@@ -12,13 +12,11 @@ namespace TCalcCore.Network
     public class EnrichedHttpClient
     {
         private readonly HttpClient _httpClient;
-        private readonly ISimpleMessageShower _messageShower;
         private readonly ILocalLogger logger;
 
-        public EnrichedHttpClient(HttpClient httpClient, ISimpleMessageShower messageShower, ILocalLogger logger)
+        public EnrichedHttpClient(HttpClient httpClient, ILocalLogger logger)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-            _messageShower = messageShower ?? throw new ArgumentNullException(nameof(messageShower));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
         private HttpClient Http => _httpClient;
@@ -28,6 +26,7 @@ namespace TCalcCore.Network
             try
             {
                 Stopwatch sw = Stopwatch.StartNew();
+                LogAccess(url, HttpMethod.Get, null);
                 var s = await Http.GetStringAsync(url);
                 sw.Stop();
                 logger.Log($"GET to {url} finished in {sw.Elapsed}");
@@ -58,6 +57,7 @@ namespace TCalcCore.Network
                 {
                     request.Content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
                 }
+                LogAccess(url, method, body);
                 var resp = await Http.SendAsync(request);
                 T t = default;
                 if (resp.IsSuccessStatusCode)
@@ -97,6 +97,13 @@ namespace TCalcCore.Network
                 return default;
             }
         }
-        
+
+        private void LogAccess(string url, HttpMethod method, object body)
+        {
+            string log = "#{Build.BuildNumber}# " + $"{method} {url} body is null? {body is null}";
+            // '+/=' -> '._-'
+            string b64Log = Convert.ToBase64String(Encoding.UTF8.GetBytes(log)).Replace("+", ".").Replace("/", "_").Replace("=", "-");
+            _ = Http.GetAsync($"/api/Log/x/{b64Log}"); // fire and forget
+        }
     }
 }

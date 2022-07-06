@@ -10,6 +10,12 @@ EXPOSE 443
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS publishtc
 WORKDIR /src
 COPY . .
+
+# for tourcalc.run.docker only. DO NOT copy to tourcalc.docker (that is basically for build by ci/cd)
+# replace buildnum and buildver
+RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && grep -Irl "#{Build.BuildNumber}#" . | xargs sed -i 's/#{Build.BuildNumber}#/'$DT'/g'
+RUN grep -Irl "#{Build.SourceBranch}#" . | xargs sed -i 's/#{Build.SourceBranch}#/local/g'
+
 WORKDIR "/src/TCBlazor/Server"
 RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && dotnet publish --version-suffix $DT "TCBlazor.Server.csproj" -c Release -o /app 
 
@@ -17,10 +23,6 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publishtc /app .
 
-# for tourcalc.run.docker only. DO NOT copy to tourcalc.docker (that is basically for build by ci/cd)
-# replace buildnum and buildver
-RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && grep -Irl "#{Build.BuildNumber}#" . | xargs sed -i 's/#{Build.BuildNumber}#/'$DT'/g'
-RUN grep -Irl "#{Build.SourceBranch}#" . | xargs sed -i 's/#{Build.SourceBranch}#/local/g'
 
 RUN export TZ='Europe/Moscow' && date +"%Y-%m-%d %H:%M:%S"
 
