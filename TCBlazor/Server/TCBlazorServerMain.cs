@@ -38,15 +38,16 @@ namespace Company.TCBlazor
             if (providerType.ToLower() == "InMemory".ToLower())
             {
                 builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
+            } 
             else if (providerType.ToLower() == "MongoDb".ToLower())
-                {
-                    var url = Configuration.GetValue<string>("MongoDbUrl");
-                    var username = Configuration.GetValue<string>("MongoDbUsername");
-                    var password = Configuration.GetValue<string>("MongoDbPassword");
-                    var provider = new MongoDbLogStorage(url, username, password);
-                    builder.Services.AddSingleton<ILogStorage>(provider);
-                }
-            } else
+            {
+                var url = Configuration.GetValue<string>("MongoDbUrl");
+                var username = Configuration.GetValue<string>("MongoDbUsername");
+                var password = Configuration.GetValue<string>("MongoDbPassword");
+                var provider = new MongoDbLogStorage(url, username, password);
+                builder.Services.AddSingleton<ILogStorage>(provider);
+            }
+            else
             {
                 // for now - just dumb
                 builder.Services.AddSingleton<ILogStorage, VoidLogStorage>();
