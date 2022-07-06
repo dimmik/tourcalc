@@ -20,6 +20,14 @@ namespace Company.TCBlazor
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders =
+                    ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            });
+
+
             // Add services to the container.
             var assembly = typeof(TourController).Assembly;
             builder.Services.AddControllers()
@@ -72,14 +80,6 @@ namespace Company.TCBlazor
                         .SetIsOriginAllowed(hostName => true));
                 }
             );
-
-
-            // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
-            builder.Services.Configure<ForwardedHeadersOptions>(options =>
-            {
-                options.ForwardedHeaders =
-                    ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-            });
 
             var app = builder.Build();
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
