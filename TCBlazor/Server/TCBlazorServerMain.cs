@@ -74,13 +74,16 @@ namespace Company.TCBlazor
             );
 
 
-            var app = builder.Build();
-
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
-            app.UseForwardedHeaders(new ForwardedHeadersOptions
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
             {
-                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+                options.ForwardedHeaders =
+                    ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
             });
+
+            var app = builder.Build();
+            // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
+            app.UseForwardedHeaders();
 
             app.Use(
                 (ctx, next) =>
