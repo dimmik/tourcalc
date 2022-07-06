@@ -12,23 +12,45 @@
     <span>loading...</span>
 } else
 {
-    @foreach (var le in logEntries)
-    {
-        <p>@le.Timestamp -- @le.Msg -- @le.Ip -- @le.UserAgent</p>
-    }
+    <ul>
+        <li>Hours Ago From: <AntDesign.InputNumber @bind-Value="hoursAgoFrom" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> </li>
+        <li>Hours Ago To: <AntDesign.InputNumber @bind-Value="hoursAgoTo" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> </li>
+    </ul>
+    <TableTemplate Items="logEntries" Context="logItem">
+        <TableHeader>
+            <td>When</td>
+            <td>IP</td>
+            <td>Message</td>
+            <td>User Agent</td>
+        </TableHeader>
+        <NoDataRowTemplate>
+            <td colspan="4"><i>No Data</i></td>
+        </NoDataRowTemplate>
+        <RowTemplate>
+            @{
+                var log = logItem.Item1;
+            }
+            <td>@($"{log.Timestamp:yyyy-MM-dd HH:mm:ss}")</td>
+            <td>@log.Ip</td>
+            <td>@log.Msg</td>
+            <td><span style="font-size: xx-small">@log.UserAgent</span></td>
+        </RowTemplate>
+    </TableTemplate>
 }
-
 
 @code {
     private IEnumerable<RLogEntry>? logEntries;
 
+    int hoursAgoFrom = 30 * 24;
+    int hoursAgoTo = 0;
+
     protected override async Task OnInitializedAsync()
     {
-        await loadLogEntries();
+        await LoadLogEntries();
     }
-    private async Task loadLogEntries()
+    private async Task LoadLogEntries()
     {
         var (token, _) = await ts.GetToken();
-        logEntries = await http.CallWithAuthToken<IEnumerable<RLogEntry>>("/api/Log/logs", token, (m) => { });
+        logEntries = await http.CallWithAuthToken<IEnumerable<RLogEntry>>($"/api/Log/logs?hoursAgoFrom={hoursAgoFrom}&hoursAgoTo={hoursAgoTo}", token, (m) => { });
     }
 }
