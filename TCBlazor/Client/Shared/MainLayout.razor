@@ -64,6 +64,10 @@
                                 await LogOut();
                                 NavManager.NavigateTo("/");
                             })>Log Out@($"{(engine.Auth.IsMaster ? " Admin" : "")}")</span>
+                            @if (engine.Auth.IsMaster)
+                            {
+                                <Button OnClick=@(() => NavManager.NavigateTo("/logs"))>Logs</Button>
+                            }
                             &nbsp;&nbsp;
                             <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="/settings">⚙</a>
                         </div>

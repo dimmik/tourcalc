@@ -16,6 +16,7 @@
         <li>Hours Ago From: <AntDesign.InputNumber @bind-Value="hoursAgoFrom" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> </li>
         <li>Hours Ago To: <AntDesign.InputNumber @bind-Value="hoursAgoTo" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> </li>
     </ul>
+    <b>Total @(logEntries.Count())</b>
     <TableTemplate Items="logEntries" Context="logItem">
         <TableHeader>
             <td>When</td>
