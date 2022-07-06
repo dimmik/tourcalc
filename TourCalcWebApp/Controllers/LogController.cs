@@ -36,7 +36,7 @@ namespace TourCalcWebApp.Controllers
             _storage.StoreLog(logEntity);
         }
         [HttpGet("logs")]
-        public async Task<IEnumerable<RLogEntry>> GetLogs([FromQuery]int hoursAgoFrom = int.MaxValue, [FromQuery] int hoursAgoTo = 0)
+        public async Task<IEnumerable<RLogEntry>> GetLogs([FromQuery]int hoursAgoFrom = int.MaxValue, [FromQuery]int hoursAgoTo = 0)
         {
             AuthData authData = AuthHelper.GetAuthData(User, _config);
             if (!authData.IsMaster) return new List<RLogEntry>();

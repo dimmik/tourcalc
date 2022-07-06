@@ -14,6 +14,7 @@ namespace TCalcStorage.Storage
         public Task<IEnumerable<RLogEntry>> GetLogEntries(int hoursAgoFrom = int.MaxValue, int hoursAgoTo = 0)
         {
             var now = DateTimeOffset.Now;
+            if (hoursAgoFrom > 24 * 365 * 100) hoursAgoFrom = 24 * 365 * 100;
             var res = _logs.Where(l => (l.Timestamp > (now - TimeSpan.FromHours(hoursAgoFrom))) && l.Timestamp < (now - TimeSpan.FromHours(hoursAgoTo)));
             return Task.FromResult(res);
         }

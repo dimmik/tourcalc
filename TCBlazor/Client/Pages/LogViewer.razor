@@ -1,0 +1,34 @@
+﻿@page "/logs"
+
+@using TCalcCore.Storage
+@using TCalcCore.Network
+@inject EnrichedHttpClient http
+@inject ITourcalcLocalStorage ts
+
+<h3>LogViewer</h3>
+
+@if (logEntries is null)
+{
+    <span>loading...</span>
+} else
+{
+    @foreach (var le in logEntries)
+    {
+        <p>@le.Timestamp -- @le.Msg -- @le.Ip -- @le.UserAgent</p>
+    }
+}
+
+
+@code {
+    private IEnumerable<RLogEntry>? logEntries;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await loadLogEntries();
+    }
+    private async Task loadLogEntries()
+    {
+        var (token, _) = await ts.GetToken();
+        logEntries = await http.CallWithAuthToken<IEnumerable<RLogEntry>>("/api/Log/logs", token, (m) => { });
+    }
+}

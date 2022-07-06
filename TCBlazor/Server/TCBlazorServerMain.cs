@@ -33,7 +33,15 @@ namespace Company.TCBlazor
             var Configuration = new TcConfiguration(builder.Configuration);
             builder.Services.AddSingleton<ITcConfiguration>(Configuration);
             builder.Services.AddSingleton<ITourStorage, TourCalcStorage>();
-            builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
+            var providerType = Configuration.GetValue("StorageType", "InMemory");
+            if (providerType.ToLower() == "InMemory".ToLower())
+            {
+                builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
+            } else
+            {
+                // for now - just dumb
+                builder.Services.AddSingleton<ILogStorage, VoidLogStorage>();
+            }
             SetupAuth(builder.Services, Configuration);
 
             builder.Services.AddSingleton(new StartupInfo());

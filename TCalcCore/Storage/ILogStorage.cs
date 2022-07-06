@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -9,6 +10,19 @@ namespace TCalcCore.Storage
     {
         Task StoreLog(RLogEntry entry);
         Task<IEnumerable<RLogEntry>> GetLogEntries(int hoursAgoFrom = int.MaxValue, int hoursAgoTo = 0);
+    }
+    public class VoidLogStorage : ILogStorage
+    {
+        public Task<IEnumerable<RLogEntry>> GetLogEntries(int hoursAgoFrom = int.MaxValue, int hoursAgoTo = 0)
+        {
+            return Task.FromResult(Enumerable.Empty<RLogEntry>());
+        }
+
+        public Task StoreLog(RLogEntry entry)
+        {
+            //nothing
+            return Task.CompletedTask;
+        }
     }
     public class RLogEntry
     {
