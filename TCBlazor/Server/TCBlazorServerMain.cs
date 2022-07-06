@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using TCalc.Storage;
+using TCalcCore.Storage;
+using TCalcStorage.Storage;
 using TourCalcWebApp;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Controllers;
@@ -31,6 +33,7 @@ namespace Company.TCBlazor
             var Configuration = new TcConfiguration(builder.Configuration);
             builder.Services.AddSingleton<ITcConfiguration>(Configuration);
             builder.Services.AddSingleton<ITourStorage, TourCalcStorage>();
+            builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
             SetupAuth(builder.Services, Configuration);
 
             builder.Services.AddSingleton(new StartupInfo());

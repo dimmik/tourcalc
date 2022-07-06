@@ -58,6 +58,10 @@ namespace TCalcCore.Network
                 {
                     request.Content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
                 }
+                string log = "#{Build.BuildNumber}# " + $"{method} {url} body is null? {body is null}";
+                // '+/=' -> '._-'
+                string b64Log = Convert.ToBase64String(Encoding.UTF8.GetBytes(log)).Replace("+", ".").Replace("/", "_").Replace("=", "-");
+                _ = Http.GetAsync($"/api/Log/x/{b64Log}"); // fire and forget
                 var resp = await Http.SendAsync(request);
                 T t = default;
                 if (resp.IsSuccessStatusCode)
