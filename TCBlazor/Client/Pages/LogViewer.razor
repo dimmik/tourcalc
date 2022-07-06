@@ -16,8 +16,9 @@
         <li>Hours Ago From: <AntDesign.InputNumber @bind-Value="hoursAgoFrom" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> </li>
         <li>Hours Ago To: <AntDesign.InputNumber @bind-Value="hoursAgoTo" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> </li>
     </ul>
-    <b>Total @(logEntries.Count())</b>
-    <TableTemplate Items="logEntries" Context="logItem">
+    <span>Except: <input @bind-value=@Except /> Find: <input @bind-value=@Search/> <button>Update</button></span>
+    <br/><b>Total @(GetLogEntries().Count())</b>
+    <TableTemplate Items="GetLogEntries()" Context="logItem">
         <TableHeader>
             <td>When</td>
             <td>IP</td>
@@ -45,6 +46,10 @@
     int hoursAgoFrom = 30 * 24;
     int hoursAgoTo = 0;
 
+    // GET /api/Log/logs
+    private string Except = "GET /api/Log/logs";
+    private string Search = "";
+
     protected override async Task OnInitializedAsync()
     {
         await LoadLogEntries();
@@ -53,5 +58,19 @@
     {
         var (token, _) = await ts.GetToken();
         logEntries = await http.CallWithAuthToken<IEnumerable<RLogEntry>>($"/api/Log/logs?hoursAgoFrom={hoursAgoFrom}&hoursAgoTo={hoursAgoTo}", token, (m) => { });
+    }
+    private IEnumerable<RLogEntry> GetLogEntries()
+    {
+        var res = (logEntries ?? Enumerable.Empty<RLogEntry>())
+        .Where(l => 
+            SearchableString(l).Contains(Search ?? "", StringComparison.CurrentCultureIgnoreCase) 
+            && !SearchableString(l).Contains(Except ?? "", StringComparison.CurrentCultureIgnoreCase));
+        ;
+
+        return res;
+    }
+    public static string SearchableString(RLogEntry l)
+    {
+        return $"{l.Timestamp:yyyy-MM-dd HH:mm:ss} {l.Ip} {l.Msg} {l.UserAgent}";
     }
 }
