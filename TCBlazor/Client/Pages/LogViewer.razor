@@ -31,7 +31,7 @@
             @{
                 var log = logItem.Item1;
             }
-            <td>@($"{log.Timestamp:yyyy-MM-dd HH:mm:ss}")</td>
+            <td>@($"{log.Timestamp.ToLocalTime():yyyy-MM-dd HH:mm:ss}")</td>
             <td>@log.Ip</td>
             <td>@log.Msg</td>
             <td><span style="font-size: xx-small">@log.UserAgent</span></td>
