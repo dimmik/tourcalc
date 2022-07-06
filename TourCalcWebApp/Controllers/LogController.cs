@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TCalcCore.Auth;
@@ -34,6 +35,12 @@ namespace TourCalcWebApp.Controllers
             string userAgent = Request.Headers["User-Agent"].ToString() ?? "No User Agent";
             var logEntity = new RLogEntry(msg, ip, userAgent);
             _storage.StoreLog(logEntity);
+        }
+        [HttpGet("headers")]
+        public string GetHeaders()
+        {
+            var h = string.Join(Environment.NewLine, Request.Headers.Select(h => $"{h.Key}: {h.Value}"));
+            return h;
         }
         [HttpGet("logs")]
         public async Task<IEnumerable<RLogEntry>> GetLogs([FromQuery]int hoursAgoFrom = int.MaxValue, [FromQuery]int hoursAgoTo = 0)
