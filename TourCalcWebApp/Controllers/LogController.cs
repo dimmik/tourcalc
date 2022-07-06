@@ -30,8 +30,8 @@ namespace TourCalcWebApp.Controllers
         {
             //  '._-' -> '+/='
             string msg = Encoding.UTF8.GetString(Convert.FromBase64String(log.Replace(".", "+").Replace("_", "/").Replace("-", "=")));
-            string ip = HttpContext.Connection.RemoteIpAddress.ToString();
-            string userAgent = Request.Headers["User-Agent"];
+            string ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+            string userAgent = Request.Headers["User-Agent"].ToString() ?? "No User Agent";
             var logEntity = new RLogEntry(msg, ip, userAgent);
             _storage.StoreLog(logEntity);
         }
