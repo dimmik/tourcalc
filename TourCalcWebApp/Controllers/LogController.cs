@@ -31,7 +31,7 @@ namespace TourCalcWebApp.Controllers
         {
             //  '._-' -> '+/='
             string msg = Encoding.UTF8.GetString(Convert.FromBase64String(log.Replace(".", "+").Replace("_", "/").Replace("-", "=")));
-            string ip = $"{HttpContext.Request.Headers["X-Forwarded-For"]}({HttpContext.Connection.RemoteIpAddress})";
+            string ip = $"{HttpContext.Request.Headers["X-Forwarded-For"]} ({HttpContext.Connection.RemoteIpAddress})";
             string userAgent = Request.Headers["User-Agent"].ToString() ?? "No User Agent";
             var logEntity = new RLogEntry(msg, ip, userAgent);
             _storage.StoreLog(logEntity);
@@ -47,7 +47,8 @@ namespace TourCalcWebApp.Controllers
         {
             AuthData authData = AuthHelper.GetAuthData(User, _config);
             if (!authData.IsMaster) return new List<RLogEntry>();
-            return await _storage.GetLogEntries(hoursAgoFrom, hoursAgoTo);
+            var list = await _storage.GetLogEntries(hoursAgoFrom, hoursAgoTo);
+            return list.OrderByDescending(l => l.Timestamp);
         }
     }
     
