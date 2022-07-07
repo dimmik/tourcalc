@@ -1,4 +1,5 @@
-﻿<table>
+﻿@using ColorSequenceGenerator
+<table>
     <tr><td style="width: 160px; height: 160px; padding: 5px; vertical-align: top;">
     <div style="
         border-radius: 100%;
@@ -34,11 +35,23 @@
 </table>
 @code {
     [Parameter]
-    public IEnumerable<(string name, int amount)> Data { get; set; } = new List<(string, int)>()
+    public IEnumerable<(string name, int amount)> Data { get; set; } = new List<(string, int)>();
+    [Parameter]
+    public int nextColorMultiplier
+    {
+        get
         {
-            ("one", 200),
-            ("two", 200),
-        };
+            return (int)(csg.Magic * 1000);
+        }
+        set
+        {
+            csg.Magic = value * 1.0 / 1000;
+        }
+    }
+    [Parameter]
+    public bool ShowDebugUI { get; set; } = false;
+
+
     private List<(int, string, string)> AnglesColorsAndNames { get; set; } = new();
     protected override void OnParametersSet()
     {
@@ -48,70 +61,22 @@
     {
         AnglesColorsAndNames = GetAnglesColorsAndNames().ToList();
     }
-    private string[] colors = new[]
-    {
-        "royalblue",
-        "red",
-        "lightgreen",
-        "yellow",
-        "green",
-        "orange",
-        "indigo",
-        "pink",
-        "cyan",
-        "lightyellow",
-        "PaleGreen",
-        "lightblue",
-        "magenta",
-        "lightgrey",
-        "MediumOrchid",
-        "lightcyan",
-        "maroon",
-        "MediumAquaMarine",
-        "Olive",
-        "PowderBlue",
-        "Aquamarine",
-        "violet"
-    };
-    (byte r, byte g, byte b) startColor = (0x35, 0x66, 0xee);
-
     string color { get
         {
-            return $"rgb({startColor.r},{startColor.g},{startColor.b})";
+            return $"rgb({csg.Seed.Red},{csg.Seed.Green},{csg.Seed.Blue})";
         } set
         {
             var trimmed = value.Trim('r', 'g', 'b', 'a', '(', ')');
             string[] rgb = trimmed.Split(',', ' ').Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
-            startColor = (byte.Parse(rgb[0]), byte.Parse(rgb[1]), byte.Parse(rgb[2]));
+            csg.Seed = new RGB(byte.Parse(rgb[0]), byte.Parse(rgb[1]), byte.Parse(rgb[2]));
         } 
     }
-
-    //    (byte r, byte g, byte b) startColor = (240, 2, 158);
+    private readonly ColorSequenceGenerator csg = new();
     private IEnumerable<string> Colors()
     {
-        int i = 0;
-        (byte r, byte g, byte b) c = startColor;
-        while (i < 10000)
-        {
-            yield return $"rgb({c.r},{c.g},{c.b})";
-            c = nextColor(c);
-            i++;
-        }
+        return csg.ColorSequence().Select(c => c.ToString());
     }
-    [Parameter]
-    public int nextColorMultiplier { get; set; } = 1641;
-    [Parameter]
-    public bool ShowDebugUI { get; set; } = false;
 
-    private (byte r, byte g, byte b) nextColor((byte r, byte g, byte b) c)
-    {
-        int colorN = BitConverter.ToInt32(new byte[] { c.b, c.g, c.r, 0 });
-        //Console.WriteLine($"c: {colorN} (shift: {shift})");
-        colorN = (int)(colorN * 1.0 * nextColorMultiplier / 1000);
-        //Console.WriteLine($"c shifted: {colorN}");
-        var bytes = BitConverter.GetBytes(colorN);
-        return (bytes[2], bytes[1], bytes[0]);
-    }
     public IEnumerable<(int, int)> GetFromTo(IEnumerable<int> seq)
     {
         int i = 0;
@@ -126,7 +91,6 @@
     {
         if (!Data.Any()) Data = new[] { ("n/a", 0) };
         var total = Data.Select(i => i.amount).Sum();
-        //Console.WriteLine($"total: {total}");
         var a = Data
             .Select(i => (int)((i.amount * 360.0 / total)))
             .ToList();
@@ -134,7 +98,6 @@
         {
             if (a.Any())
             {
-               // Console.WriteLine($"({guid}) Hmm... There ARE elements?.. {a.Count}");
                 a[a.IndexOf(a.Max())] = a.Max() + (360 - a.Sum());
             } else
             {
@@ -148,7 +111,6 @@
         .Zip(Colors().Take(a.Count()))
         .Select(i => (i.First.First, i.Second, i.First.Second)) // (angle, color, name)
         ;
-        //Console.WriteLine($"ac: {string.Join(",", res.Select(ac => $"a: {ac.First} c: {ac.Item2} n: {ac.Item3}"))}");
         return res;
     }
 }
