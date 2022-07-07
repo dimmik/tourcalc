@@ -16,7 +16,38 @@
         <li>Hours Ago From: <AntDesign.InputNumber @bind-Value="hoursAgoFrom" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> </li>
         <li>Hours Ago To: <AntDesign.InputNumber @bind-Value="hoursAgoTo" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> </li>
     </ul>
-    <span>Except: <input @bind-value=@Except /> Find: <input @bind-value=@Search/> <button>Update</button></span>
+    <table style="border: 1px solid blue">
+        <tr>
+            <th style="border: 1px solid red">
+                Except
+            </th>
+            <th style="border: 1px solid green">
+                Search <Switch @bind-Value="IsSearchAnd" CheckedChildren="All" UnCheckedChildren="Any"/>
+            </th>
+        </tr>
+        <tr>
+            <td style="border: 1px solid red">
+                @foreach (var ex in Except.Keys)
+                {
+                    <Tag Closable OnClose=@(() => Except.Remove(ex))>@ex</Tag>
+                }
+            </td>
+            <td style="border: 1px solid green">
+                @foreach (var ex in Search.Keys)
+                {
+                    <Tag Closable OnClose=@(() => Search.Remove(ex))>@ex</Tag>
+                }
+            </td>
+        </tr>
+                <tr>
+            <td style="border: 1px solid red">
+                <input @bind-value=@exAdd /> <button @onclick=@(() => { Except[exAdd] = true; exAdd = ""; })>+</button>                
+            </td>
+            <td style="border: 1px solid green">
+                <input @bind-value=@seAdd /> <button @onclick=@(() => { Search[seAdd] = true; seAdd = ""; })>+</button>
+            </td>
+        </tr>
+    </table>
     <br/><b>Total @(GetLogEntries().Count())</b>
     <TableTemplate Items="GetLogEntries()" Context="logItem">
         <TableHeader>
@@ -46,9 +77,15 @@
     int hoursAgoFrom = 30 * 24;
     int hoursAgoTo = 0;
 
+    private string exAdd = "";
+    private string seAdd = "";
+
     // GET /api/Log/logs
-    private string Except = "GET /api/Log/logs";
-    private string Search = "";
+    private SortedDictionary<string, bool> Except = new(){
+        {"GET /api/Log/logs", true }
+    };
+    private SortedDictionary<string, bool> Search = new();
+    private bool IsSearchAnd = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -63,8 +100,12 @@
     {
         var res = (logEntries ?? Enumerable.Empty<RLogEntry>())
         .Where(l => 
-            SearchableString(l).Contains(Search ?? "", StringComparison.CurrentCultureIgnoreCase) 
-            && !SearchableString(l).Contains(Except ?? "", StringComparison.CurrentCultureIgnoreCase));
+            (!Search.Keys.Any() || (IsSearchAnd 
+                ? Search.Keys.All(s => SearchableString(l).Contains(s)) 
+                : Search.Keys.Any(s => SearchableString(l).Contains(s)))
+             )
+             && !Except.Keys.Any(s => SearchableString(l).Contains(s)) 
+        )
         ;
 
         return res;
@@ -73,4 +114,5 @@
     {
         return $"{l.Timestamp:yyyy-MM-dd HH:mm:ss} {l.Ip} {l.Msg} {l.UserAgent}";
     }
+    
 }
