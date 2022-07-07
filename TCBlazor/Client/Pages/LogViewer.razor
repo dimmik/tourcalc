@@ -13,8 +13,16 @@
 } else
 {
     <ul>
-        <li>Hours Ago From: <AntDesign.InputNumber @bind-Value="hoursAgoFrom" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> </li>
+        <li>Hours Ago From: <AntDesign.InputNumber @bind-Value="hoursAgoFrom" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> 
+            
+        </li>
         <li>Hours Ago To: <AntDesign.InputNumber @bind-Value="hoursAgoTo" TValue="int" OnChange=@(() => LoadLogEntries().ContinueWith((t) => StateHasChanged()))/> </li>
+        <li><RangePicker ShowTime="@true"
+               @bind-Value="dateFromTo"
+               Format="yyyy-MM-dd HH:00:00"
+               Disabled="new bool[] { false, false }"
+               OnChange="(args) => dateFromTo = args.Dates"
+               /></li>
     </ul>
     <table style="border: 1px solid blue">
         <tr>
@@ -73,6 +81,31 @@
 
 @code {
     private IEnumerable<RLogEntry>? logEntries;
+
+    private DateTime?[] _dateFromTo = new DateTime?[2];
+
+    DateTime?[] dateFromTo { 
+        get
+        {
+            var now = DateTime.Now;
+            _dateFromTo[0] = now - TimeSpan.FromHours(hoursAgoFrom);
+            _dateFromTo[1] = now - TimeSpan.FromHours(hoursAgoTo);
+            return _dateFromTo;
+        } 
+        set
+        {
+            if (value == null || value.Length != 2) return;
+            var from = value[0];
+            var to = value[1];
+            var diff1 = (DateTime.Now - from);
+            var diff2 = (DateTime.Now - to);
+            if (diff1 is not null && diff2 is not null)
+            {
+                hoursAgoFrom = (int)Math.Floor(diff1.Value.TotalHours);
+                hoursAgoTo = (int)Math.Floor(diff2.Value.TotalHours);
+                _ = LoadLogEntries().ContinueWith((t) => StateHasChanged());
+            }
+        } }
 
     int hoursAgoFrom = 30 * 24;
     int hoursAgoTo = 0;
