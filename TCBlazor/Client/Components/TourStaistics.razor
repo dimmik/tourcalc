@@ -22,8 +22,8 @@
                 @if (settings.Show_Debug_UI)
                 {
                     <SimplePieChart Data="summary"
-                        ColorSequenceGenerator="new ColorSequenceGenerator.ColorSequenceGenerator(){ Magic = settings.Magic_Piechart_Color_Scheme_Number * 1.0 / 1000 }">
-                        <ExtraControls Context="csg">
+                        ColorSequenceGenerator="csg">
+                        <ExtraControls>
                             Current Seed color: <span style="color: @csg.Seed">@csg.Seed</span>
                             @{
                                 if (Magic == -1) Magic = (int)(csg.Magic * 1000);
@@ -38,6 +38,7 @@
                                                var trimmed = Seed.Trim('r', 'g', 'b', 'a', '(', ')');
                                                var rgb = trimmed.Split(',', ' ').Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => byte.Parse(s)).ToArray();
                                                csg.Seed = new ColorSequenceGenerator.RGB(rgb[0], rgb[1], rgb[2]);
+                                               //StateHasChanged();
                                           }
                                 )/>
                         </ExtraControls>
@@ -67,6 +68,7 @@
 
     private int Magic = -1;
     private string? Seed = null;
+    private ColorSequenceGenerator.ColorSequenceGenerator csg;
 
     private UISettings settings = new();
     //private string StringOfLen()
@@ -75,6 +77,7 @@
     {
         settings = await engine.GetUISettings();
         summary = GetSpendingForStat();
+        csg = new ColorSequenceGenerator.ColorSequenceGenerator() { Magic = settings.Magic_Piechart_Color_Scheme_Number * 1.0 / 1000 };
     }
 
     protected override void OnParametersSet()
