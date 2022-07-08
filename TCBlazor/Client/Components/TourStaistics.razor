@@ -19,20 +19,16 @@
             </table>
         </td>
         <td style="padding: 5px; vertical-align: top;">
-                @if (settings.Show_Debug_UI)
-                {
-                    <SimplePieChart Data="summary"
-                        ColorSequenceGenerator="csg">
-                        <ExtraControls>
-                            Current Seed color: <span style="color: @csg.Seed">@csg.Seed</span>
-                            @{
-                                if (Magic == -1) Magic = (int)(csg.Magic * 1000);
-                                if (Seed == null) Seed = csg.Seed.ToString("rgb");
-                            }
-                            <RadzenNumeric Min="1000" Max="5000" Step="1" Style="margin:0 16px;" @bind-Value="@Magic"
-                                                   TValue="int"
-                                                   Change=@(i => csg.Magic = Magic * 1.0 / 1000)
-                                                    />
+            <SimplePieChart Data="summary"
+                ColorSequenceGenerator="csg"
+                RenderExtraControls="settings.Show_Debug_UI">
+                <ExtraControls>
+                    Current Seed color: <span style="color: @csg.Seed">@csg.Seed</span>
+                    @{
+                        if (Magic == -1) Magic = (int)(csg.Magic * 1000);
+                        if (Seed == null) Seed = csg.Seed.ToString("rgb");
+                    }
+                    <RadzenNumeric Step="1" @bind-Value="@Magic" TValue="int" Change=@(i => csg.Magic = Magic * 1.0 / 1000)/>
                             <RadzenColorPicker @bind-Value=@Seed 
                             Change=@(c => {
                                                var trimmed = Seed.Trim('r', 'g', 'b', 'a', '(', ')');
@@ -41,21 +37,8 @@
                                                //StateHasChanged();
                                           }
                                 )/>
-                        </ExtraControls>
-                </SimplePieChart>
-            } else
-            {
-                <SimplePieChart 
-                    Data="summary" 
-                    ColorSequenceGenerator="new ColorSequenceGenerator.ColorSequenceGenerator(){ Magic = settings.Magic_Piechart_Color_Scheme_Number * 1.0 / 1000 }"/>
-            }
-            @{/*
-                <PieChart 
-                Data="summary" 
-                nextColorMultiplier=@(settings.Magic_Piechart_Color_Scheme_Number)
-                ShowDebugUI=@(settings.Show_Debug_UI)
-                />
-            */}
+                </ExtraControls>
+            </SimplePieChart>
 </td></tr></table>
 @code {
     [Parameter]
@@ -68,7 +51,7 @@
 
     private int Magic = -1;
     private string? Seed = null;
-    private ColorSequenceGenerator.ColorSequenceGenerator csg;
+    private ColorSequenceGenerator.ColorSequenceGenerator csg = new ColorSequenceGenerator.ColorSequenceGenerator();
 
     private UISettings settings = new();
     //private string StringOfLen()
