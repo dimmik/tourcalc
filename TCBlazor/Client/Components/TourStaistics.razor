@@ -29,14 +29,7 @@
                         if (Seed == null) Seed = csg.Seed.ToString("rgb");
                     }
                     <RadzenNumeric Step="1" @bind-Value="@Magic" TValue="int" Change=@(i => csg.Magic = Magic * 1.0 / 1000)/>
-                            <RadzenColorPicker @bind-Value=@Seed 
-                            Change=@(c => {
-                                               var trimmed = Seed.Trim('r', 'g', 'b', 'a', '(', ')');
-                                               var rgb = trimmed.Split(',', ' ').Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => byte.Parse(s)).ToArray();
-                                               csg.Seed = new ColorSequenceGenerator.RGB(rgb[0], rgb[1], rgb[2]);
-                                               //StateHasChanged();
-                                          }
-                                )/>
+                    <RadzenColorPicker @bind-Value=@Seed Change=@(c => csg.Seed = Seed)/>
                 </ExtraControls>
             </SimplePieChart>
 </td></tr></table>
