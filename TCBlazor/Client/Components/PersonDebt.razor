@@ -4,7 +4,7 @@
     @onclick=@(() => open = true)
     >@debt</b>
 </div>
-<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Receive")} {spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0  }")"
+<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0")  }")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -15,6 +15,20 @@
         <TableTemplate Items=@spendingToShow
                        Context="spendingIdx"
                        ConditionalRowStyle=@((s, aa) => $"{SpendingBg(s)};{SpendingFg(s)}")>
+            <TableHeader>
+                <th colspan="2">Total 
+                    @if (WillPay)
+                    {
+                        <span style="color:red">PAY</span>
+                    } else
+                    {
+                        <span style = "color:green">Collect</span>
+                    }
+                    :
+                    <b>@((spendingToShow?.Where(s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0"))</b>
+                </th>
+
+            </TableHeader>
             <RowTemplate>
                 @{
                     var spending = spendingIdx.Item1;
