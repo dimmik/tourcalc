@@ -39,7 +39,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      - name: platforms: linux/amd64,linux/arm64 Build and push Docker image 
+      - name: linux/amd64,linux/arm64 Build and push Docker image 
         uses: docker/build-push-action@v3
         with:
           platforms: linux/amd64,linux/arm64
