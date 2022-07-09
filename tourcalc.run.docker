@@ -39,3 +39,6 @@ ENTRYPOINT ["dotnet", "TCBlazor.Server.dll"]
 
 # DEV alltogether 
 # podman build -f tourcalc.run.docker -t tourcalcdev:dev --no-cache . && podman stop tourcalcdev && podman rm tourcalcdev && podman run -d -p 127.0.0.1:8082:80 --env-file ~/config/tourcalc.env --name tourcalcdev localhost/tourcalcdev:dev
+
+# run and deploy
+# git pull && podman build -f tourcalc.run.docker -t tourcalcdev:dev --no-cache . && podman stop tourcalcdev && podman rm tourcalcdev && podman run -d -p 127.0.0.1:8082:80 --env-file ~/config/tourcalc.env --name tourcalcdev localhost/tourcalcdev:dev && export TZ='Europe/Moscow' && date +"%Y-%m-%d %H:%M:%S"
