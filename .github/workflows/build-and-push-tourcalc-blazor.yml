@@ -52,5 +52,5 @@ jobs:
           context: .
           file: tourcalc.run.docker
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-blazor-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-blazor-${{ steps.current-time.outputs.formattedTime }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:blazor-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:blazor-${{ steps.current-time.outputs.formattedTime }}
           labels: io.containers.autoupdate=registry
