@@ -16,16 +16,16 @@
                        Context="spendingIdx"
                        ConditionalRowStyle=@((s, aa) => $"{SpendingBg(s)};{SpendingFg(s)}")>
             <TableHeader>
-                <th colspan="2">Total 
-                    @if (WillPay)
-                    {
-                        <span style="color:red">PAY</span>
-                    } else
-                    {
-                        <span style = "color:green">Collect</span>
+                <th colspan="2">
+                    @{
+                        var amount = (spendingToShow?.Where(s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0);
                     }
-                    :
-                    <b>@((spendingToShow?.Where(s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0"))</b>
+                    @if (amount != 0) 
+                    {
+                        <span>
+                            Total @(WillPay ? "PAY" : "Collect") <b style="color:@(WillPay ? "red" : "green")">@(amount.ToString("N0"))</b>
+                        </span>
+                    }
                 </th>
 
             </TableHeader>
@@ -35,7 +35,7 @@
                     var pTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0]) ?? new();
                     var pFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid) ?? new();
                 }
-                <td>@spending.AmountInCents</td>
+                <td><b>@spending.AmountInCents.ToString("N0")</b></td>
                     @if (WillPay)
                     {
                         <td>
@@ -151,10 +151,10 @@
         return __builder =>
         {
     <Template>
-                            <Button OnClick=@((e) => onOk())
+                                <Button OnClick=@((e) => onOk())
                     Type="primary">
-                                Got It
-                            </Button>
+                                    Got It
+                                </Button>
     </Template>
         };
     }
