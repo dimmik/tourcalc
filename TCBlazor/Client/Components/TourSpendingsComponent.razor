@@ -65,7 +65,8 @@
     <RowTemplate>
         @{
             var spending = spendingItem.Item1;
-            var idx = spendingItem.Item2;
+            var idxUp = spendingItem.Item2;
+            var idx = nonPlannedShownSpendingCount - idxUp + 1;
         }
         <td>
             @if (!spending.Planned)
@@ -206,7 +207,7 @@
         }
         return seq;
     }
-
+    private int nonPlannedShownSpendingCount = 0;
     public IEnumerable<Spending> GetSpendingSorted()
     {
         IEnumerable<Spending> res = (Tour?.Spendings ?? new List<Spending>());
@@ -222,6 +223,7 @@
         var preprocessed = SpendingListPreProcessor((ShowPlanned ? planned : new Spending[0]).Concat(real).ToList());
         var sorted = FieldSort(preprocessed);
         var filtered = FieldFilter(sorted);
+        nonPlannedShownSpendingCount = filtered.Count(s => !s.Planned);
         return filtered;
     }
 
