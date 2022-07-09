@@ -1,4 +1,7 @@
 name: Create and publish a Docker image
+concurrency: 
+  group: tourcalc-blazor
+  cancel-in-progress: true
 
 on:
   push:
