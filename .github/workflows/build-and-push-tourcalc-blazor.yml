@@ -45,5 +45,5 @@ jobs:
           context: .
           file: tourcalc.run.docker
           push: true
-          tags: ghcr.io/${{ env.IMAGE_NAME }}:blazor-latest,ghcr.io/${{ env.IMAGE_NAME }}:blazor-${{ steps.current-time.outputs.formattedTime }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:blazor-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:blazor-${{ steps.current-time.outputs.formattedTime }}
           labels: ${{ steps.meta.outputs.labels }}
