@@ -1,4 +1,4 @@
-﻿<span style="cursor:pointer;color:green;" @onclick=@(() => open = true)>@person.SpentInCents</span>
+﻿<span style="cursor:pointer;color:green; font-weight: bold" @onclick=@(() => open = true)>@person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
 <Modal Title="@($"Spent for {person.Name}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
@@ -24,7 +24,7 @@
                         var si = siItem.Item1;
                     }
                     <td>@((MarkupString)si.From.AsBreakable(3))</td>
-                    <td>@si.TotalSpendingAmountInCents</td>
+                    <td>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</td>
                     <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
                 </RowTemplate>
             </TableTemplate>

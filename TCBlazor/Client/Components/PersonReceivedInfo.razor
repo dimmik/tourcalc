@@ -1,4 +1,4 @@
-﻿<span style="cursor:pointer;color:red;" @onclick=@(() => open = true)>@person.ReceivedInCents</span>
+﻿<span style="cursor:pointer;color:red; font-weight: bold" @onclick=@(() => open = true)>@person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
 <Modal Title="@($"Received for {person.Name}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
@@ -25,8 +25,11 @@
                     }
                     <td>@((MarkupString)si.From.AsBreakable(3))</td>
                     <td>
-                        @si.ReceivedAmountInCents
-                        <span style="font-size: xx-small">@($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents: 0.00}")% of @si.TotalSpendingAmountInCents</span>
+                        @si.ReceivedAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
+                        <span style="font-size: xx-small">
+                            @($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents: 0.00}")% 
+                            of @si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
+                        </span>
                     </td>
                     <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
                 </RowTemplate>

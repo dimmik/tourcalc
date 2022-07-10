@@ -4,7 +4,7 @@
     @onclick=@(() => open = true)
     >@debt</b>
 </div>
-<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0", nfi)  }")"
+<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0", GlobConsts.NumGroupSpaceSeparated)  }")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -23,7 +23,8 @@
                     @if (amount != 0) 
                     {
                         <span>
-                            Total @(WillPay ? "PAY" : "Collect") <b style="color:@(WillPay ? "red" : "green")">@(amount.ToString("N0", nfi))</b>
+                            Total @(WillPay ? "PAY" : "Collect")
+                            <b style="color:@(WillPay ? "red" : "green")">@(amount.ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
                         </span>
                     }
                 </th>
@@ -35,7 +36,7 @@
                     var pTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0]) ?? new();
                     var pFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid) ?? new();
                 }
-                <td><b>@spending.AmountInCents.ToString("N0", nfi)</b></td>
+                <td><b>@spending.AmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b></td>
                     @if (WillPay)
                     {
                         <td>
@@ -63,7 +64,7 @@
     [Parameter]
     public int minMeaningfulAmount { get; set; } = 0;
 
-    private static System.Globalization.NumberFormatInfo nfi = new() { NumberGroupSeparator = " " };
+    
 
     private bool open = false;
 
