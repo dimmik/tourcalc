@@ -1,5 +1,5 @@
 #### build UI
-FROM docker.io/library/node:latest AS build-React-UI
+FROM --platform=$BUILDPLATFORM  docker.io/library/node:latest AS build-React-UI
 WORKDIR /src
 COPY ./TourCalcWebApp ./TourCalcWebApp
 RUN ls
