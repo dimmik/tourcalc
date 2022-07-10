@@ -69,7 +69,6 @@ export default class TourUI extends React.Component {
         } else {
             return (<TourTable tourid={this.props.tourid} />)
         }
-
     }
 }
 /*const useStyles = makeStyles(theme => ({
