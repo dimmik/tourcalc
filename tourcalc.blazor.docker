@@ -6,8 +6,8 @@ EXPOSE 443
 
 
 
-#### Build and publish backend
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS publishtc
+#### Build and publish backend (on linux/amd64 for performance reasons)
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:6.0 AS publishtc
 WORKDIR /src
 COPY . .
 
