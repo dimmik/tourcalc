@@ -6,6 +6,8 @@
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
+@using System.Globalization
+
 <!--
     1. spendings by category
     2. chart
@@ -14,9 +16,9 @@
             <table>
             @foreach (var s in summary)
             {
-                <tr><td align="left">@s.Name: </td><td> <b>@s.Amount.ToString("N0")</b></td></tr>
+                <tr><td align="left">@s.Name: </td><td> <b>@s.Amount.ToString("N0", nfi)</b></td></tr>
             }
-            <tr><td align="left"><b>TOTAL:</b> </td><td align="right"> <b style="font-size: small">@(summary.Sum(s => s.Amount).ToString("N0"))</b></td></tr>
+            <tr><td align="left"><b>TOTAL:</b> </td><td align="right"> <b style="font-size: small">@(summary.Sum(s => s.Amount).ToString("N0", nfi))</b></td></tr>
             </table>
         </td>
         <td style="padding: 5px; vertical-align: top;">
@@ -49,6 +51,9 @@
 
     private UISettings settings = new();
     //private string StringOfLen()
+
+    private static NumberFormatInfo nfi = new() { NumberGroupSeparator = " " };
+
 
     protected override async Task OnInitializedAsync()
     {
