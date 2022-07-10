@@ -1,8 +1,7 @@
 ﻿<div 
     style="@RowBg;height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
     <b style="cursor: pointer;@RowFg"
-    @onclick=@(() => open = true)
-    >@debt</b>
+       @onclick=@(() => open = true)><nobr>@debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</nobr></b>
 </div>
 <Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0", GlobConsts.NumGroupSpaceSeparated)  }")"
        Visible="@open"
