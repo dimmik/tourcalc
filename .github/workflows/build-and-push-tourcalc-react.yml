@@ -1,6 +1,6 @@
-name: Blazor -- Create and publish a Docker image
+name: React -- Create and publish a Docker image
 concurrency: 
-  group: tourcalc-blazor
+  group: tourcalc-react
   cancel-in-progress: true
 
 on:
@@ -53,7 +53,7 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           context: .
-          file: tourcalc.blazor.docker
+          file: tourcalc.react.docker
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:blazor-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:blazor-${{ steps.current-time.outputs.formattedTime }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:react-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:react-${{ steps.current-time.outputs.formattedTime }}
           labels: io.containers.autoupdate=registry
