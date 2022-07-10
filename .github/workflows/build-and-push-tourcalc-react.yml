@@ -4,8 +4,10 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches: ['feature/blazorr']
+  workflow_run:
+    workflows: ["Blazor -- Create and publish a Docker image"]
+    types:
+      - completed
 
 env:
   REGISTRY: ghcr.io
@@ -13,6 +15,7 @@ env:
 
 jobs:
   build-and-push-image:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
