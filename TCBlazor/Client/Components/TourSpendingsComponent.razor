@@ -4,6 +4,8 @@
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavManager
 
+@using AntDesign.Select
+
 <TableTemplate 
     Items=@(GetSpendingSorted()) 
     Context="spendingItem" 
@@ -30,6 +32,7 @@
             <span style="cursor:pointer;@(sortingField == SortingField.Date ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Date))>Dt&nbsp;</span>
             <span style="cursor:pointer;@(sortingField == SortingField.Type ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Type))>Cat&nbsp;</span>
             &nbsp; <span style="cursor: pointer" @onclick=@(() => OnToggleShowPlanned?.Invoke())>[@(ShowPlanned ? "-" : "+")]</span>
+            @{/*
             <Select
                 @bind-Value=@(filterCategory)
                 TItemValue="string"
@@ -40,6 +43,28 @@
                 DropdownMatchSelectWidth=@false
                 >
                 <SelectOptions>
+			            @foreach(var c in (Tour?
+                                .Spendings?
+                                .Where(s => !s.Planned)?
+                                .Select(s => s.Type)?.Where(cc => !string.IsNullOrWhiteSpace(cc)) ?? new string[0])
+                                .Distinct())
+			            {
+				            <SelectOption TItemValue="string" TItem="string" Value=@c Label=@c />
+			            }
+		            </SelectOptions>
+            </Select>*/}
+            <Select Mode="multiple"
+                Placeholder="Categories"
+		        @bind-Values="@filterCategories"
+		        TItemValue="string"
+		        TItem="string"
+                Style="width:100%;"
+                DropdownMatchSelectWidth=@false
+                HideSelected=@false
+                Size="small"
+                MaxTagCount="@ResponsiveTag.Responsive"
+		        AllowClear>
+		            <SelectOptions>
 			            @foreach(var c in (Tour?
                                 .Spendings?
                                 .Where(s => !s.Planned)?
@@ -194,13 +219,18 @@
         }
         return seq;
     }
-    private string filterCategory = "";
+    //private string filterCategory = "";
+    IEnumerable<string> filterCategories = new List<string>();
 
     private IEnumerable<Spending> FieldFilter(IEnumerable<Spending> seq)
     {
-        if (!string.IsNullOrWhiteSpace(filterCategory))
+        //if (!string.IsNullOrWhiteSpace(filterCategory))
+        //{
+        //    return seq.Where(s => s.Type == filterCategory);
+        //}
+        if (filterCategories != null && filterCategories.Any())
         {
-            return seq.Where(s => s.Type == filterCategory);
+            return seq.Where(s => filterCategories.Contains(s.Type));
         }
         return seq;
     }
