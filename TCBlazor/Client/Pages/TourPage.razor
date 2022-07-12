@@ -26,6 +26,8 @@ else
                     await engine.RequestTourLoad(TourId, forceLoadFromServer: true);
                     IsTourReloading = false;
                 })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
+                <Button Type="primary" Size="large" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
+
     </h3>     
 @if (ShowStatistics)
 {
@@ -37,18 +39,19 @@ else
     </div>
 }
     <TableTemplate Items=@(new string[1]) TopPadding="0">
-        <TableHeader>
-            <th>
-                <a href=@GetHref("persons")>Persons</a>
-                <a href=@GetHref("spendings")>Spendings</a>
-                
-                <Button Type="primary" Size="small" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
-            </th>
-        </TableHeader>
-        <RowTemplate>
+         <RowTemplate>
             <td>
-                <!--Persons-->
-                <b id=@GetId("persons")>Persons [@tour.Persons.Count]</b>
+                <div style="width: 100%; display: table">
+                    <div style="display: table-cell; width: 30%; align-content: flex-start; text-align: start;">
+                        <!--Persons-->
+                        <b id=@GetId("persons")>Persons [@tour.Persons.Count]</b>
+                    </div>
+                    <div style="display: table-cell; width: 70%; align-content: flex-end; text-align: end;">
+                        <a href=@GetHref("spendings")>Spendings</a>
+                        <Button Type="primary" Size="small" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
+                    </div>
+                </div>
+
                 <TourPersonsComponent 
                     Tour=@tour
                     OnPersonDelete=@(async (p) => {
@@ -63,7 +66,15 @@ else
                     })
                     />
                 <!--Spendings-->
-                <b id=@GetId("spendings")>Spendings [@tour.Spendings.Where(s => !s.Planned).Count()]</b>
+                <div style="width: 100%; display: table">
+                <div style="display: table-cell; width: 30%; align-content: flex-start; text-align: start;">
+                    <b id=@GetId("spendings")>Spendings [@tour.Spendings.Where(s => !s.Planned).Count()]</b>
+                </div>
+                <div style="display: table-cell; width: 70%; align-content: flex-end; text-align: end;">
+                    <a href=@GetHref("persons")>Persons</a>
+                    <Button Type="primary" Size="small" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
+                </div>
+                </div>
                 <TourSpendingsComponent 
                     Tour=@tour
                     ShowPlanned=@ShowPlannedSpendings
