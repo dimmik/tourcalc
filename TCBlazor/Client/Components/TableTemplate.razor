@@ -4,7 +4,7 @@
 <table class="table">
     @if (TableHeader is not null)
     {
-        <thead style="@(StickyHeader ? "position: sticky; top: {TopPadding}px; background-color: white;" : "")">
+        <thead style="background-color: @HeaderBgColor; @(StickyHeader ? "position: sticky; top: {TopPadding}px;" : "")">
             <tr>@TableHeader</tr>
         </thead>
     }
@@ -46,6 +46,9 @@
 
     [Parameter]
     public bool StickyHeader { get; set; } = false;
+
+    [Parameter]
+    public string HeaderBgColor { get; set; } = "white";
 
     [Parameter]
     public Func<TItem, int, string> ConditionalRowStyle { get; set; } = (i, idx) => "";
