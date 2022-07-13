@@ -8,7 +8,7 @@ using TCalcCore.UI;
 using TCalcCore.Engine;
 using TCBlazor.Client.SharedCode;
 
-namespace Company.WebApplication1
+namespace TCBlazor.Client
 {
     public class TCBlazorClientMain
     {
@@ -18,7 +18,7 @@ namespace Company.WebApplication1
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
-            builder.Services
+            /*builder.Services
                 .AddSingleton<ILocalLogger, LocalLogger>()
                 .AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
                 .AddAntDesign()
@@ -31,11 +31,26 @@ namespace Company.WebApplication1
                 .AddScoped<AuthSvc>()
                 .AddScoped<TCDataSyncService>()
                 .AddScoped<TourcalcEngine>()
-                ;
-
+                ;*/
+            AddTCServices(builder.Services, builder.HostEnvironment.BaseAddress);
 
 
             await builder.Build().RunAsync();
+        }
+        public static void AddTCServices(IServiceCollection svc, string baseAddress)
+        {
+            svc.AddSingleton<ILocalLogger, LocalLogger>()
+                .AddScoped(sp => new HttpClient())
+                .AddAntDesign()
+                .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
+                .AddScoped<ITourcalcLocalStorage, TourcalcLocalStorage>()
+                .AddScoped<EnrichedHttpClient>()
+                .AddScoped<ITourRetriever, HttpBasedTourRetriever>()
+                .AddScoped<ITCDataService, TCDataService>()
+                .AddScoped<AuthSvc>()
+                .AddScoped<TCDataSyncService>()
+                .AddScoped<TourcalcEngine>()
+                ;
         }
     }
 }

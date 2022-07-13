@@ -1,0 +1,89 @@
+﻿@page
+@using TCBlazor.Client
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script>
+        //alert("aaa");
+        function BlazorScrollToId(id) {
+            //alert("ddddd");
+            const element = document.getElementById(id);
+            if (element instanceof HTMLElement) {
+                //alert("htmlelement")
+                element.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                    inline: "nearest"
+                });
+            }
+        }
+        function backToTop() {
+            document.getElementById("app").scrollIntoView();
+        }
+        window.clipboardCopy = {
+            copyText: function (text) {
+                navigator.clipboard.writeText(text).then(function () {
+                    alert("Copied to clipboard!");
+                })
+                    .catch(function (error) {
+                        alert(error);
+                    });
+            }
+        };
+    </script>
+    <style>
+        /* Use a more specific selector if possible */
+        *[id] {
+            scroll-margin-top: 1rem;
+        }
+        /* less fat menu */
+        div .ant-menu-submenu-title {
+            height: 16px !important;
+            line-height: 16px !important;
+            padding: 0px 8px 0px 4px !important;
+            margin: 1px 0px 1px 0px !important;
+        }
+
+        .ant-menu-submenu-arrow {
+            right: 8px !important;
+            width: 3px !important;
+        }
+    </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=100.0, minimum-scale=0.01" />
+    <title>Tourcalc</title>
+    <base href="/" />
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="TCBlazor.Client.styles.css" rel="stylesheet" />
+    <link href="manifest.json" rel="manifest" />
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+
+    <link href="_content/AntDesign/css/ant-design-blazor.css" rel="stylesheet" />
+    <script src="_content/AntDesign/js/ant-design-blazor.js"></script>
+
+    <link rel="stylesheet" href="_content/Radzen.Blazor/css/default-base.css">
+    <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
+
+</head>
+
+<body>
+    <component type="typeof(App)" render-mode="WebAssemblyPrerendered" />
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="sw-registrator.js"></script>
+    <div style="font-size:xx-small">v #{Build.BuildNumber}#</div>
+</body>
+<!--#{Build.SourceBranch}# "#{Build.BuildNumber}# -->
+</html>
+
+

@@ -12,7 +12,7 @@ using TourCalcWebApp.Auth;
 using TourCalcWebApp.Controllers;
 using TourCalcWebApp.Storage;
 
-namespace Company.TCBlazor
+namespace TCBlazor.Server
 {
     public class TCBlazorServerMain
     {
@@ -81,6 +81,8 @@ namespace Company.TCBlazor
                 }
             );
 
+            TCBlazor.Client.TCBlazorClientMain.AddTCServices(builder.Services, "/");
+
             var app = builder.Build();
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
             app.UseForwardedHeaders();
@@ -134,14 +136,18 @@ namespace Company.TCBlazor
             app.MapRazorPages();
             app.MapControllers();
             app.Map("api/{**any}", HandleApiFallback);
-            app.MapFallbackToFile("{**any}", "index.html", new StaticFileOptions
+            app.MapFallbackToPage("/_Host");
+            if (false)
             {
-                OnPrepareResponse = ctx =>
+                app.MapFallbackToFile("{**any}", "index.html", new StaticFileOptions
                 {
+                    OnPrepareResponse = ctx =>
+                    {
                         ctx.Context.Response.Headers[HeaderNames.CacheControl] =
-                            "no-cache";
-                }
-            });
+                        "no-cache";
+                    }
+                });
+            }
 
             
 
