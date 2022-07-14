@@ -7,6 +7,7 @@ using TCalc.Storage;
 using TCalcCore.Storage;
 using TCalcStorage.Storage;
 using TCalcStorage.Storage.MongoDB;
+using TCBlazor.Server.Pages;
 using TourCalcWebApp;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Controllers;
@@ -81,7 +82,7 @@ namespace TCBlazor.Server
                 }
             );
 
-            TCBlazor.Client.TCBlazorClientMain.AddTCServices(builder.Services, "/");
+            TCBlazor.Client.TCBlazorClientMain.AddTCServices(builder.Services, new tcls(), new PrerenderingContext());
 
             var app = builder.Build();
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)

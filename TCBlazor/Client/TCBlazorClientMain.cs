@@ -7,6 +7,7 @@ using TCalcCore.Logging;
 using TCalcCore.UI;
 using TCalcCore.Engine;
 using TCBlazor.Client.SharedCode;
+using TCBlazor.Shared;
 
 namespace TCBlazor.Client
 {
@@ -32,24 +33,32 @@ namespace TCBlazor.Client
                 .AddScoped<TCDataSyncService>()
                 .AddScoped<TourcalcEngine>()
                 ;*/
-            AddTCServices(builder.Services, builder.HostEnvironment.BaseAddress);
+            AddTCServices(builder.Services, null, new PrerenderingContext());
 
 
             await builder.Build().RunAsync();
         }
-        public static void AddTCServices(IServiceCollection svc, string baseAddress)
+        public static void AddTCServices(IServiceCollection svc, ITourcalcLocalStorage? tlsImpl, IPrerenderingContext ctx)
         {
             svc.AddSingleton<ILocalLogger, LocalLogger>()
+                .AddSingleton(ctx)
                 .AddScoped(sp => new HttpClient())
                 .AddAntDesign()
-                .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
-                .AddScoped<ITourcalcLocalStorage, TourcalcLocalStorage>()
+                .AddScoped<ISimpleMessageShower, SimpleMessageShower>();
+                if (tlsImpl != null) {
+                    svc.AddScoped<ITourcalcLocalStorage>((s) => tlsImpl);
+                } else
+                {
+                    svc.AddScoped<ITourcalcLocalStorage, TourcalcLocalStorage>();
+                }
+                svc
                 .AddScoped<EnrichedHttpClient>()
                 .AddScoped<ITourRetriever, HttpBasedTourRetriever>()
                 .AddScoped<ITCDataService, TCDataService>()
                 .AddScoped<AuthSvc>()
                 .AddScoped<TCDataSyncService>()
                 .AddScoped<TourcalcEngine>()
+
                 ;
         }
     }
