@@ -33,17 +33,24 @@ namespace TCBlazor.Client
                 .AddScoped<TCDataSyncService>()
                 .AddScoped<TourcalcEngine>()
                 ;*/
-            AddTCServices(builder.Services, null, new PrerenderingContext());
+            AddTCServices(builder.Services, null, new PrerenderingContext(), builder.HostEnvironment.BaseAddress);
 
 
             await builder.Build().RunAsync();
         }
-        public static void AddTCServices(IServiceCollection svc, ITourcalcLocalStorage? tlsImpl, IPrerenderingContext ctx)
+        public static void AddTCServices(IServiceCollection svc, ITourcalcLocalStorage? tlsImpl, IPrerenderingContext ctx, string url)
         {
             svc.AddSingleton<ILocalLogger, LocalLogger>()
-                .AddSingleton(ctx)
-                .AddScoped(sp => new HttpClient())
-                .AddAntDesign()
+                .AddSingleton(ctx);
+            if (url == null)
+            {
+                svc.AddScoped(sp => new HttpClient());
+            } else
+            {
+                svc.AddScoped(sp => new HttpClient { BaseAddress = new Uri(url) });
+            }
+
+            svc.AddAntDesign()
                 .AddScoped<ISimpleMessageShower, SimpleMessageShower>();
                 if (tlsImpl != null) {
                     svc.AddScoped<ITourcalcLocalStorage>((s) => tlsImpl);

@@ -82,7 +82,7 @@ namespace TCBlazor.Server
                 }
             );
 
-            TCBlazor.Client.TCBlazorClientMain.AddTCServices(builder.Services, new tcls(), new PrerenderingContext());
+            TCBlazor.Client.TCBlazorClientMain.AddTCServices(builder.Services, new tcls(), new PrerenderingContext(), null);
 
             var app = builder.Build();
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
