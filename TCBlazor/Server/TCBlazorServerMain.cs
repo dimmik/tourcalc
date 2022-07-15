@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -172,8 +174,16 @@ namespace TCBlazor.Server
         private static HttpClient GetHttpClient(IServiceProvider provider)
         {
             HttpClient client = new();
-            var uriHelper = provider.GetRequiredService<NavigationManager>();
-            client.BaseAddress = new Uri(uriHelper.BaseUri);
+            var srv = provider.GetRequiredService<IServer>();
+            var addr = srv.Features.Get<IServerAddressesFeature>()?.Addresses?.OrderByDescending(a => a)?.FirstOrDefault();
+            if (addr != null)
+            {
+                client.BaseAddress = new Uri(addr);
+                Console.WriteLine($"HttpClient baseaddr: {addr}");
+            } else
+            {
+                Console.WriteLine($"HttpClient baseaddr is null");
+            }
             return client;
         }
 
