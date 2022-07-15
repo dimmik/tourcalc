@@ -178,8 +178,14 @@ namespace TCBlazor.Server
             var addr = srv.Features.Get<IServerAddressesFeature>()?.Addresses?.OrderByDescending(a => a)?.FirstOrDefault();
             if (addr != null)
             {
-                client.BaseAddress = new Uri(addr);
-                Console.WriteLine($"HttpClient baseaddr: {addr}");
+                var url = new Uri(addr);
+                var scheme = url.Scheme;
+                var port = url.Port;
+                var host = url.Host;
+                if (host.ToLower() != "localhost" && host.ToLower() != "127.0.0.1") host = "localhost";
+                var finalAddr = $"{scheme}://{host}:{port}";
+                client.BaseAddress = new Uri(finalAddr);
+                Console.WriteLine($"HttpClient baseaddr: {finalAddr}");
             } else
             {
                 Console.WriteLine($"HttpClient baseaddr is null");
