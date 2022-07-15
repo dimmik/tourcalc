@@ -8,6 +8,8 @@ using TCalcCore.UI;
 using TCalcCore.Engine;
 using TCBlazor.Client.SharedCode;
 using TCBlazor.Shared;
+using TCalcCore.Auth;
+using TCBlazor.Client.Shared;
 
 namespace TCBlazor.Client
 {
@@ -16,7 +18,8 @@ namespace TCBlazor.Client
         public static async Task Main(string[] args)
         {
             var builder = WebAssemblyHostBuilder.CreateDefault(args);
-            builder.RootComponents.Add<App>("#app");
+            // server-rendered component now
+            //builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
             /*builder.Services
@@ -24,6 +27,7 @@ namespace TCBlazor.Client
                 .AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
                 .AddAntDesign()
                 .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
+                .AddScoped<ITokenStorage, CookieTokenStorage>()
                 .AddSingleton<ITourcalcLocalStorage, TourcalcLocalStorage>()
                 .AddScoped<EnrichedHttpClient>()
                 .AddScoped<ITourRetriever, HttpBasedTourRetriever>()
@@ -34,11 +38,12 @@ namespace TCBlazor.Client
                 .AddScoped<TourcalcEngine>()
                 ;*/
             AddTCServices(builder.Services, null, new PrerenderingContext(), builder.HostEnvironment.BaseAddress);
+            builder.Services.AddScoped<ITokenStorage, CookieTokenStorage>();
 
 
             await builder.Build().RunAsync();
         }
-        public static void AddTCServices(IServiceCollection svc, ITourcalcLocalStorage? tlsImpl, IPrerenderingContext ctx, string url)
+        public static void AddTCServices(IServiceCollection svc, ITourcalcLocalStorage? tlsImpl, IPrerenderingContext ctx, string? url)
         {
             svc.AddSingleton<ILocalLogger, LocalLogger>()
                 .AddSingleton(ctx);
@@ -49,6 +54,7 @@ namespace TCBlazor.Client
             {
                 svc.AddScoped(sp => new HttpClient { BaseAddress = new Uri(url) });
             }
+
 
             svc.AddAntDesign()
                 .AddScoped<ISimpleMessageShower, SimpleMessageShower>();

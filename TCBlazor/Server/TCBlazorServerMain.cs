@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using TCalc.Storage;
+using TCalcCore.Auth;
 using TCalcCore.Storage;
 using TCalcStorage.Storage;
 using TCalcStorage.Storage.MongoDB;
@@ -83,6 +84,8 @@ namespace TCBlazor.Server
             );
 
             TCBlazor.Client.TCBlazorClientMain.AddTCServices(builder.Services, new tcls(), new PrerenderingContext(), null);
+            builder.Services.AddHttpContextAccessor();
+            builder.Services.AddScoped<ITokenStorage, ServerSideCookiesTokenStorage>();
 
             var app = builder.Build();
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
