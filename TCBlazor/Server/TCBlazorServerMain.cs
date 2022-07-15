@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -51,7 +52,7 @@ namespace TCBlazor.Server
             if (providerType.ToLower() == "InMemory".ToLower())
             {
                 builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
-            } 
+            }
             else if (providerType.ToLower() == "MongoDb".ToLower())
             {
                 var url = Configuration.GetValue<string>("MongoDbUrl");
@@ -70,7 +71,8 @@ namespace TCBlazor.Server
             builder.Services.AddSingleton(new StartupInfo());
 
             builder.Services.AddCors(
-                options => {
+                options =>
+                {
                     options.AddPolicy("mypolicy",
                         builder => builder
                         .AllowAnyMethod()
@@ -90,7 +92,7 @@ namespace TCBlazor.Server
             // specific to server
             svc.AddHttpContextAccessor();
             svc.AddScoped<ITokenStorage, ServerSideCookiesTokenStorage>();
-            svc.AddScoped(sp => new HttpClient());
+            svc.AddScoped((p) => GetHttpClient(p));
             svc.AddScoped<ITokenStorage, ServerSideCookiesTokenStorage>();
             svc.AddScoped<ITourcalcLocalStorage, ServerSideTourcalcLocalStorage>();
             svc.AddSingleton<IPrerenderingContext, ServerSidePrerenderingContext>();
@@ -119,12 +121,12 @@ namespace TCBlazor.Server
             if (app.Environment.IsDevelopment())
             {
                 app.UseWebAssemblyDebugging();
-                app.MapGet("/debug/routes", (IEnumerable<EndpointDataSource> endpointSources) => 
-                    {
-                        return string.Join("\n", endpointSources.SelectMany(source => source.Endpoints));
-                    }
+                app.MapGet("/debug/routes", (IEnumerable<EndpointDataSource> endpointSources) =>
+                {
+                    return string.Join("\n", endpointSources.SelectMany(source => source.Endpoints));
+                }
                 );
-            
+
             }
             else
             {
@@ -161,11 +163,20 @@ namespace TCBlazor.Server
                 });
             }*/
 
-            
+
 
 
             app.Run();
         }
+
+        private static HttpClient GetHttpClient(IServiceProvider provider)
+        {
+            HttpClient client = new();
+            var uriHelper = provider.GetRequiredService<NavigationManager>();
+            client.BaseAddress = new Uri(uriHelper.BaseUri);
+            return client;
+        }
+
         private static Task HandleApiFallback(HttpContext context)
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;

@@ -113,18 +113,18 @@
         if (type == "Title")
         {
             Title = payload as string ?? "";
-            StateHasChanged();
+            InvokeAsync( StateHasChanged );
         }
         if (type == "Tour")
         {
             tour = payload as Tour;
-            StateHasChanged();
+            InvokeAsync( StateHasChanged );
         }
         return Task.CompletedTask;
     }
     private void OnTitleChange()
     {
-        StateHasChanged();
+        InvokeAsync( StateHasChanged );
     }
     private void OnTitleClick()
     {
