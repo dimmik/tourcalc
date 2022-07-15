@@ -8,7 +8,9 @@ using TCalcCore.Auth;
 using TCalcCore.Storage;
 using TCalcStorage.Storage;
 using TCalcStorage.Storage.MongoDB;
+using TCBlazor.Client;
 using TCBlazor.Server.Pages;
+using TCBlazor.Shared;
 using TourCalcWebApp;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Controllers;
@@ -83,9 +85,15 @@ namespace TCBlazor.Server
                 }
             );
 
-            TCBlazor.Client.TCBlazorClientMain.AddTCServices(builder.Services, new tcls(), new PrerenderingContext(), null);
-            builder.Services.AddHttpContextAccessor();
-            builder.Services.AddScoped<ITokenStorage, ServerSideCookiesTokenStorage>();
+            var svc = builder.Services;
+            svc.UseCommonTourcalcServices();
+            // specific to server
+            svc.AddHttpContextAccessor();
+            svc.AddScoped<ITokenStorage, ServerSideCookiesTokenStorage>();
+            svc.AddScoped(sp => new HttpClient());
+            svc.AddScoped<ITokenStorage, ServerSideCookiesTokenStorage>();
+            svc.AddScoped<ITourcalcLocalStorage, ServerSideTourcalcLocalStorage>();
+            svc.AddSingleton<IPrerenderingContext, ServerSidePrerenderingContext>();
 
             var app = builder.Build();
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
@@ -141,7 +149,7 @@ namespace TCBlazor.Server
             app.MapControllers();
             app.Map("api/{**any}", HandleApiFallback);
             app.MapFallbackToPage("/_Host");
-            if (false)
+            /*if (false)
             {
                 app.MapFallbackToFile("{**any}", "index.html", new StaticFileOptions
                 {
@@ -151,7 +159,7 @@ namespace TCBlazor.Server
                         "no-cache";
                     }
                 });
-            }
+            }*/
 
             
 

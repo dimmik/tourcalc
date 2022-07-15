@@ -8,11 +8,11 @@ using TCBlazor.Client.Shared;
 
 namespace TCBlazor.Client.SharedCode
 {
-    public class TourcalcLocalStorage : ITourcalcLocalStorage
+    public class ClientSideTourcalcLocalStorage : ITourcalcLocalStorage
     {
         private readonly IJSRuntime JS;
         private readonly ILocalLogger logger;
-        public TourcalcLocalStorage(IJSRuntime js, ILocalLogger logger)
+        public ClientSideTourcalcLocalStorage(IJSRuntime js, ILocalLogger logger)
         {
             JS = js;
             this.logger = logger;

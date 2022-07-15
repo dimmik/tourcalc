@@ -2,7 +2,7 @@
 
 namespace TCBlazor.Server
 {
-    public class PrerenderingContext : IPrerenderingContext
+    public class ServerSidePrerenderingContext : IPrerenderingContext
     {
         public bool IsServerRender => true;
     }

@@ -9,7 +9,6 @@ using TCalcCore.Engine;
 using TCBlazor.Client.SharedCode;
 using TCBlazor.Shared;
 using TCalcCore.Auth;
-using TCBlazor.Client.Shared;
 
 namespace TCBlazor.Client
 {
@@ -22,27 +21,20 @@ namespace TCBlazor.Client
             //builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
-            /*builder.Services
-                .AddSingleton<ILocalLogger, LocalLogger>()
-                .AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
-                .AddAntDesign()
-                .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
-                .AddScoped<ITokenStorage, CookieTokenStorage>()
-                .AddSingleton<ITourcalcLocalStorage, TourcalcLocalStorage>()
-                .AddScoped<EnrichedHttpClient>()
-                .AddScoped<ITourRetriever, HttpBasedTourRetriever>()
-                //.AddSingleton<TCGlobal>()
-                .AddScoped<ITCDataService, TCDataService>()
-                .AddScoped<AuthSvc>()
-                .AddScoped<TCDataSyncService>()
-                .AddScoped<TourcalcEngine>()
-                ;*/
-            AddTCServices(builder.Services, null, new PrerenderingContext(), builder.HostEnvironment.BaseAddress);
-            builder.Services.AddScoped<ITokenStorage, CookieTokenStorage>();
+            var svc = builder.Services;
+            svc.UseCommonTourcalcServices();
 
+            // specific to client
+            svc.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+            svc.AddScoped<ITokenStorage, ClientSideCookieTokenStorage>();
+            svc.AddScoped<ITourcalcLocalStorage, ClientSideTourcalcLocalStorage>();
+            svc.AddSingleton<IPrerenderingContext, ClientSidePrerenderingContext>();
 
             await builder.Build().RunAsync();
         }
+
+        
+
         public static void AddTCServices(IServiceCollection svc, ITourcalcLocalStorage? tlsImpl, IPrerenderingContext ctx, string? url)
         {
             svc.AddSingleton<ILocalLogger, LocalLogger>()
@@ -62,7 +54,7 @@ namespace TCBlazor.Client
                     svc.AddScoped<ITourcalcLocalStorage>((s) => tlsImpl);
                 } else
                 {
-                    svc.AddScoped<ITourcalcLocalStorage, TourcalcLocalStorage>();
+                    svc.AddScoped<ITourcalcLocalStorage, ClientSideTourcalcLocalStorage>();
                 }
                 svc
                 .AddScoped<EnrichedHttpClient>()
