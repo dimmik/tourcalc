@@ -608,10 +608,10 @@ class TourTable extends React.Component {
             //return <div><pre>Tour: {JSON.stringify(this.state.tour, null, 2)}}</pre></div>
         }
         function TPersons() {
-            return <div> persons: <pre>{JSON.stringify(this.state.tour.persons, null, 2)}}</pre></div>
+            return <div> persons: <pre>{JSON.stringify(this.state.tour.persons, null, 2)}</pre></div>
         }
         function TSpendings() {
-            return <div> spendings: <pre>{JSON.stringify(this.state.tour.spendings, null, 2)}}</pre></div>
+            return <div> spendings: <pre>{JSON.stringify(this.state.tour.spendings, null, 2)}</pre></div>
         }
     }
 
