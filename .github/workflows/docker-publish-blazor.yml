@@ -1,13 +1,12 @@
-name: React -- Create and publish a Docker image
+name: Blazor -- Create and publish a Docker image
 concurrency: 
-  group: tourcalc-react
+  group: tourcalc-blazor
   cancel-in-progress: true
 
 on:
-  workflow_run:
-    workflows: ["Blazor -- Create and publish a Docker image"]
-    types:
-      - completed
+  push:
+# run from prod branch
+    branches: ['prod']
 
 env:
   REGISTRY: ghcr.io
@@ -15,7 +14,6 @@ env:
 
 jobs:
   build-and-push-image:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -56,7 +54,7 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           context: .
-          file: tourcalc.react.docker
+          file: tourcalc.blazor.docker
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:react-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:react-${{ steps.current-time.outputs.formattedTime }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:blazor-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:blazor-${{ steps.current-time.outputs.formattedTime }}
           labels: io.containers.autoupdate=registry
