@@ -13,7 +13,6 @@ namespace TCalcCore.Storage
     }
     public static class ITourcalcLocalStorageExt
     {
-        private static string GetTokenKey() => "__tc_token";
         private static string GetUISettingsKey() => "__tc_ui_settings";
 
         public static async Task<(T val, DateTimeOffset stored)> GetObject<T>(
@@ -45,14 +44,6 @@ namespace TCalcCore.Storage
                 }
                 return (val, dt);
             }
-        }
-        public static async Task<(string val, DateTimeOffset stored)> GetToken(this ITourcalcLocalStorage ts)
-        {
-            return await ts.Get(GetTokenKey());
-        }
-        public static async Task SetToken(this ITourcalcLocalStorage ts, string token)
-        {
-            await ts.Set(GetTokenKey(), token);
         }
         public static async Task<(UISettings val, DateTimeOffset stored)> GetUISettings(this ITourcalcLocalStorage ts)
         {

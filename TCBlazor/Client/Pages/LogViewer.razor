@@ -2,8 +2,9 @@
 
 @using TCalcCore.Storage
 @using TCalcCore.Network
+@using TCalcCore.Auth
 @inject EnrichedHttpClient http
-@inject ITourcalcLocalStorage ts
+@inject ITokenStorage tokenStorage
 
 <h3>LogViewer</h3>
 
@@ -126,7 +127,7 @@
     }
     private async Task LoadLogEntries()
     {
-        var (token, _) = await ts.GetToken();
+        var token = await tokenStorage.GetToken();
         logEntries = await http.CallWithAuthToken<IEnumerable<RLogEntry>>($"/api/Log/logs?hoursAgoFrom={hoursAgoFrom}&hoursAgoTo={hoursAgoTo}", token, (m) => { });
     }
     private IEnumerable<RLogEntry> GetLogEntries()

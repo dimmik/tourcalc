@@ -7,6 +7,8 @@ using TCalcCore.Logging;
 using TCalcCore.UI;
 using TCalcCore.Engine;
 using TCBlazor.Client.SharedCode;
+using TCalcCore.Auth;
+using TCBlazor.Client.Shared;
 
 namespace Company.WebApplication1
 {
@@ -23,6 +25,7 @@ namespace Company.WebApplication1
                 .AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
                 .AddAntDesign()
                 .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
+                .AddScoped<ITokenStorage, CookieTokenStorage>()
                 .AddSingleton<ITourcalcLocalStorage, TourcalcLocalStorage>()
                 .AddScoped<EnrichedHttpClient>()
                 .AddScoped<ITourRetriever, HttpBasedTourRetriever>()
