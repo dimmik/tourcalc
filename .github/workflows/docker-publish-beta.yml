@@ -1,6 +1,6 @@
-name: BETA Blazor -- Create and publish a Docker image
+name: BETA Build -- Create and publish a Docker image
 concurrency: 
-  group: tourcalc-blazor
+  group: tourcalc-beta
   cancel-in-progress: true
 
 on:
@@ -56,5 +56,5 @@ jobs:
           context: .
           file: tourcalc.blazor.docker
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta-blazor-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta-blazor-${{ steps.current-time.outputs.formattedTime }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta-${{ steps.current-time.outputs.formattedTime }}
           labels: io.containers.autoupdate=registry
