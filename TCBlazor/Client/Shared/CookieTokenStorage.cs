@@ -2,20 +2,20 @@
 using Microsoft.JSInterop;
 using TCalcCore.Logging;
 
-namespace TCBlazor.Client.SharedCode
+namespace TCBlazor.Client.Shared
 {
-    public class ClientSideCookieTokenStorage : ITokenStorage
+    public class CookieTokenStorage : ITokenStorage
     {
 
         private readonly IJSRuntime JS;
         private readonly ILocalLogger logger;
-        public ClientSideCookieTokenStorage(IJSRuntime js, ILocalLogger logger)
+        public CookieTokenStorage(IJSRuntime js, ILocalLogger logger)
         {
             JS = js;
             this.logger = logger;
         }
 
-        private readonly string TokenCookieName = "__tc_token";
+        private string TokenCookieName = "__tc_token";
 
         public async Task<string> GetToken()
         {

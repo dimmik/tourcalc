@@ -217,7 +217,7 @@ else
     {
         tours = tourList;
         InProgress = false;
-        InvokeAsync( StateHasChanged );
+        StateHasChanged();
         return Task.CompletedTask;
     }
     private IEnumerable<Tour> GetToursFiltered()
