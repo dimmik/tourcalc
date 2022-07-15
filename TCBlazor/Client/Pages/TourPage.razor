@@ -84,7 +84,7 @@ else
                     OnToggleShowPlanned=@(() => {
                         // TODO works slow. Think about it
                         ShowPlannedSpendings = !ShowPlannedSpendings;
-                        StateHasChanged();
+                        InvokeAsync( StateHasChanged );
                     })
                     OnSpendingDelete=@(async (s) => {
                         _ = engine.RequestDeleteSpending(tour.Id, s);
@@ -154,7 +154,7 @@ else
             ShowPlannedSpendings = (tour?.IsFinalizing ?? false);
             initialized = true;
         }
-        StateHasChanged();
+        InvokeAsync( StateHasChanged );
         return Task.CompletedTask;
     }
     private Task OnTourStored(bool storedOnServer)
@@ -166,7 +166,7 @@ else
         {
             _ = engine.RequestTourLoad(TourId, forceLoadFromServer: false, forceLoadFromLocalStorage: true);
         }
-        StateHasChanged();
+        InvokeAsync( StateHasChanged );
         return Task.CompletedTask;
     }
     string GetId(string l) => $"{l}";

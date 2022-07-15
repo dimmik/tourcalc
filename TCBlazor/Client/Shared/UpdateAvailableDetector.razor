@@ -40,7 +40,7 @@
 
             logger.Log("Update available. Show update button!");
             _newVersionAvailable = true;
-            StateHasChanged();
+            InvokeAsync( StateHasChanged );
         } else
         {
             //logger.Log("calling again. ignore");

@@ -33,20 +33,20 @@
     private Task OnTourLoaded(Tour t, bool a, DateTimeOffset aa)
     {
         tour = t;
-        StateHasChanged();
+        InvokeAsync( StateHasChanged );
         return Task.CompletedTask;
     }
     private Task OnTourListLoaded(TourList t, bool a, DateTimeOffset aa)
     {
         tour = null;
-        StateHasChanged();
+        InvokeAsync( StateHasChanged );
         return Task.CompletedTask;
     }
     private int UnsyncedItemNumber = 0;
     private async Task OnUpdatedAsync()
     {
         UnsyncedItemNumber = await engine.DataSync.CountOfUnsyncedOperations(tour?.Id ?? "n_a");
-        StateHasChanged();
+        InvokeAsync( StateHasChanged );
     }
     private async Task DoSync()
     {
