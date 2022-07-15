@@ -24,7 +24,11 @@ namespace TCBlazor.Server
 
         public Task SetToken(string token)
         {
-            // nothing
+            HttpContext? context = httpContextAccessor.HttpContext;
+            if (context != null)
+            {
+                context.Response.Cookies.Append(TokenCookieName, token, new CookieOptions() { Expires = DateTimeOffset.Now + TimeSpan.FromDays(365)});
+            }
             return Task.CompletedTask;
         }
     }
