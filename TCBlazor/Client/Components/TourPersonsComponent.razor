@@ -39,7 +39,7 @@
                     OnPersonDelete="OnPersonDelete"
                     OnPersonEdit=@((p) => {
                         p.Metadata = "Editing";
-                        StateHasChanged();
+                        InvokeAsync( StateHasChanged );
                         return Task.CompletedTask;
                     })
                     OnPersonSpend=@((p) => {
@@ -116,13 +116,13 @@
     private Task SubmittingOn()
     {
         IsSubmittingPerson = true; 
-        StateHasChanged(); 
+        InvokeAsync( StateHasChanged ); 
         return Task.CompletedTask;
     }
     private Task SubmittingOff()
     {
         IsSubmittingPerson = false; 
-        StateHasChanged(); 
+        InvokeAsync( StateHasChanged ); 
         return Task.CompletedTask;
     }
 

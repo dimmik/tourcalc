@@ -1,5 +1,7 @@
 ﻿@inject IJSRuntime _jsRuntime
 @inject ILocalLogger logger
+@using TCBlazor.Shared
+@inject IPrerenderingContext PrerenderingContext
 
 
 @if (_newVersionAvailable)
@@ -20,10 +22,12 @@
     private async Task RegisterForUpdateAvailableNotification()
     {
         logger.Log(nameof(RegisterForUpdateAvailableNotification));
+        if (!PrerenderingContext.IsServerRender){
         await _jsRuntime.InvokeAsync<object>(
             identifier: "registerForUpdateAvailableNotification",
             DotNetObjectReference.Create(this),
             nameof(OnUpdateAvailable));
+        }
     }
 
     [JSInvokable(nameof(OnUpdateAvailable))]
@@ -36,7 +40,7 @@
 
             logger.Log("Update available. Show update button!");
             _newVersionAvailable = true;
-            StateHasChanged();
+            InvokeAsync( StateHasChanged );
         } else
         {
             //logger.Log("calling again. ignore");

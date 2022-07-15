@@ -7,38 +7,64 @@ using TCalcCore.Logging;
 using TCalcCore.UI;
 using TCalcCore.Engine;
 using TCBlazor.Client.SharedCode;
+using TCBlazor.Shared;
 using TCalcCore.Auth;
-using TCBlazor.Client.Shared;
 
-namespace Company.WebApplication1
+namespace TCBlazor.Client
 {
     public class TCBlazorClientMain
     {
         public static async Task Main(string[] args)
         {
             var builder = WebAssemblyHostBuilder.CreateDefault(args);
-            builder.RootComponents.Add<App>("#app");
+            // server-rendered component now
+            //builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
-            builder.Services
-                .AddSingleton<ILocalLogger, LocalLogger>()
-                .AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
-                .AddAntDesign()
-                .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
-                .AddScoped<ITokenStorage, CookieTokenStorage>()
-                .AddSingleton<ITourcalcLocalStorage, TourcalcLocalStorage>()
+            var svc = builder.Services;
+            svc.UseCommonTourcalcServices();
+
+            // specific to client
+            svc.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+            svc.AddScoped<ITokenStorage, ClientSideCookieTokenStorage>();
+            svc.AddScoped<ITourcalcLocalStorage, ClientSideTourcalcLocalStorage>();
+            svc.AddSingleton<IPrerenderingContext, ClientSidePrerenderingContext>();
+
+            await builder.Build().RunAsync();
+        }
+
+        
+
+        public static void AddTCServices(IServiceCollection svc, ITourcalcLocalStorage? tlsImpl, IPrerenderingContext ctx, string? url)
+        {
+            svc.AddSingleton<ILocalLogger, LocalLogger>()
+                .AddSingleton(ctx);
+            if (url == null)
+            {
+                svc.AddScoped(sp => new HttpClient());
+            } else
+            {
+                svc.AddScoped(sp => new HttpClient { BaseAddress = new Uri(url) });
+            }
+
+
+            svc.AddAntDesign()
+                .AddScoped<ISimpleMessageShower, SimpleMessageShower>();
+                if (tlsImpl != null) {
+                    svc.AddScoped<ITourcalcLocalStorage>((s) => tlsImpl);
+                } else
+                {
+                    svc.AddScoped<ITourcalcLocalStorage, ClientSideTourcalcLocalStorage>();
+                }
+                svc
                 .AddScoped<EnrichedHttpClient>()
                 .AddScoped<ITourRetriever, HttpBasedTourRetriever>()
-                //.AddSingleton<TCGlobal>()
                 .AddScoped<ITCDataService, TCDataService>()
                 .AddScoped<AuthSvc>()
                 .AddScoped<TCDataSyncService>()
                 .AddScoped<TourcalcEngine>()
+
                 ;
-
-
-
-            await builder.Build().RunAsync();
         }
     }
 }

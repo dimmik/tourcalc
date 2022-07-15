@@ -3,6 +3,9 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 
+@using TCBlazor.Shared
+@inject IPrerenderingContext renderCtx
+
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
@@ -108,23 +111,23 @@
     {
         engine.onMessageReceived -= OnMessageReceived;
     }
-    private Task OnMessageReceived(string type, object payload)
+    private async Task OnMessageReceived(string type, object payload)
     {
         if (type == "Title")
         {
             Title = payload as string ?? "";
-            StateHasChanged();
+            await InvokeAsync( StateHasChanged );
         }
         if (type == "Tour")
         {
             tour = payload as Tour;
-            StateHasChanged();
+            await InvokeAsync( StateHasChanged );
         }
-        return Task.CompletedTask;
+        //return Task.CompletedTask;
     }
     private void OnTitleChange()
     {
-        StateHasChanged();
+        InvokeAsync( StateHasChanged );
     }
     private void OnTitleClick()
     {
