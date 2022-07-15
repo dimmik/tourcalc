@@ -1,18 +1,23 @@
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using TCalc.Storage;
+using TCalcCore.Auth;
 using TCalcCore.Storage;
 using TCalcStorage.Storage;
 using TCalcStorage.Storage.MongoDB;
+using TCBlazor.Client;
+using TCBlazor.Server.Pages;
+using TCBlazor.Shared;
 using TourCalcWebApp;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Controllers;
 using TourCalcWebApp.Storage;
 
-namespace Company.TCBlazor
+namespace TCBlazor.Server
 {
     public class TCBlazorServerMain
     {
@@ -47,7 +52,7 @@ namespace Company.TCBlazor
             if (providerType.ToLower() == "InMemory".ToLower())
             {
                 builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
-            } 
+            }
             else if (providerType.ToLower() == "MongoDb".ToLower())
             {
                 var url = Configuration.GetValue<string>("MongoDbUrl");
@@ -66,7 +71,8 @@ namespace Company.TCBlazor
             builder.Services.AddSingleton(new StartupInfo());
 
             builder.Services.AddCors(
-                options => {
+                options =>
+                {
                     options.AddPolicy("mypolicy",
                         builder => builder
                         .AllowAnyMethod()
@@ -80,6 +86,16 @@ namespace Company.TCBlazor
                         .SetIsOriginAllowed(hostName => true));
                 }
             );
+
+            var svc = builder.Services;
+            svc.UseCommonTourcalcServices();
+            // specific to server
+            svc.AddHttpContextAccessor();
+            svc.AddScoped<ITokenStorage, ServerSideCookiesTokenStorage>();
+            svc.AddScoped((p) => GetHttpClient(p));
+            svc.AddScoped<ITokenStorage, ServerSideCookiesTokenStorage>();
+            svc.AddScoped<ITourcalcLocalStorage, ServerSideTourcalcLocalStorage>();
+            svc.AddSingleton<IPrerenderingContext, ServerSidePrerenderingContext>();
 
             var app = builder.Build();
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
@@ -105,12 +121,12 @@ namespace Company.TCBlazor
             if (app.Environment.IsDevelopment())
             {
                 app.UseWebAssemblyDebugging();
-                app.MapGet("/debug/routes", (IEnumerable<EndpointDataSource> endpointSources) => 
-                    {
-                        return string.Join("\n", endpointSources.SelectMany(source => source.Endpoints));
-                    }
+                app.MapGet("/debug/routes", (IEnumerable<EndpointDataSource> endpointSources) =>
+                {
+                    return string.Join("\n", endpointSources.SelectMany(source => source.Endpoints));
+                }
                 );
-            
+
             }
             else
             {
@@ -134,20 +150,33 @@ namespace Company.TCBlazor
             app.MapRazorPages();
             app.MapControllers();
             app.Map("api/{**any}", HandleApiFallback);
-            app.MapFallbackToFile("{**any}", "index.html", new StaticFileOptions
+            app.MapFallbackToPage("/_Host");
+            /*if (false)
             {
-                OnPrepareResponse = ctx =>
+                app.MapFallbackToFile("{**any}", "index.html", new StaticFileOptions
                 {
+                    OnPrepareResponse = ctx =>
+                    {
                         ctx.Context.Response.Headers[HeaderNames.CacheControl] =
-                            "no-cache";
-                }
-            });
+                        "no-cache";
+                    }
+                });
+            }*/
 
-            
+
 
 
             app.Run();
         }
+
+        private static HttpClient GetHttpClient(IServiceProvider provider)
+        {
+            HttpClient client = new();
+            var uriHelper = provider.GetRequiredService<NavigationManager>();
+            client.BaseAddress = new Uri(uriHelper.BaseUri);
+            return client;
+        }
+
         private static Task HandleApiFallback(HttpContext context)
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
