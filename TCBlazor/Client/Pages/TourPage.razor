@@ -10,9 +10,6 @@
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavManager
 
-@using TCBlazor.Shared
-@inject IPrerenderingContext renderCtx
-
 @if (tour == null)
 {
     <span>Tour loading...</span>
@@ -84,7 +81,7 @@ else
                     OnToggleShowPlanned=@(() => {
                         // TODO works slow. Think about it
                         ShowPlannedSpendings = !ShowPlannedSpendings;
-                        InvokeAsync( StateHasChanged );
+                        StateHasChanged();
                     })
                     OnSpendingDelete=@(async (s) => {
                         _ = engine.RequestDeleteSpending(tour.Id, s);
@@ -129,12 +126,8 @@ else
     public Tour? tour = null;
     private bool isFresh = false;
     private DateTimeOffset storedDt = DateTimeOffset.Now;
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        if (renderCtx.IsServerRender)
-        {
-            tour = await engine.LoadFromServerAndReturnBareTour(TourId);
-        }
         // subscribe to tour loaded event
         engine.onTourLoaded += OnTourLoaded;
         // send command to load tour with certain id
@@ -154,7 +147,7 @@ else
             ShowPlannedSpendings = (tour?.IsFinalizing ?? false);
             initialized = true;
         }
-        InvokeAsync( StateHasChanged );
+        StateHasChanged();
         return Task.CompletedTask;
     }
     private Task OnTourStored(bool storedOnServer)
@@ -166,7 +159,7 @@ else
         {
             _ = engine.RequestTourLoad(TourId, forceLoadFromServer: false, forceLoadFromLocalStorage: true);
         }
-        InvokeAsync( StateHasChanged );
+        StateHasChanged();
         return Task.CompletedTask;
     }
     string GetId(string l) => $"{l}";
