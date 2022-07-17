@@ -103,7 +103,9 @@ namespace TCalc.Logic
                     });
                 }
             }
-            return (long)Math.Round(res);
+            var sum = person.ReceivedSendingInfo.Select(rsi => rsi.ReceivedAmountInCents).Sum();
+            //var ress = (long)Math.Round(res);
+            return sum;
         }
         public Tour Calculate(bool includePlanned = false)
         {

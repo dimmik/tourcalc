@@ -1,7 +1,7 @@
 ﻿<span style="cursor:pointer;color:red; font-weight: bold" @onclick=@(() => open = true)>
     <nobr>@person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</nobr>
 </span>
-<Modal Title="@($"Received for {person.Name}")"
+<Modal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -22,8 +22,13 @@
                            return "background-color: white";
                            })>
                 <RowTemplate>
-                    @{
-                        var si = siItem.Item1;
+                @{
+                    var si = siItem.Item1;
+                    if (siItem.Item2 == 1)
+                    {
+                        subtotal = 0;
+                    }
+                    subtotal += si.ReceivedAmountInCents;
                     }
                     <td>@((MarkupString)si.From.AsBreakable(3))</td>
                     <td>
@@ -33,7 +38,10 @@
                             of @si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
                         </span>
                     </td>
-                    <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
+                    <td>
+                        @((MarkupString)si.SpendingDescription.AsBreakable()) 
+                        <span style="font-size: xx-small; font-weight: bold">&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
+                    </td>
                 </RowTemplate>
             </TableTemplate>
         </div>
@@ -45,17 +53,23 @@
     public Person person { get; set; } = new Person();
     private bool open = false;
 
+    private long subtotal = 0;
+
     private RenderFragment footer(Action onOk)
     {
         return __builder =>
         {
-                <Template>
-                    <Button OnClick=@((e) => onOk())
+    <Template>
+                        <Button OnClick=@((e) => onOk())
                         Type="primary"
-                            >
-                                Got It
-                    </Button>
-                </Template>
+                                >
+                                    Got It
+                        </Button>
+    </Template>
         };
+    }
+    protected override void OnParametersSet()
+    {
+        subtotal = 0;
     }
 }
