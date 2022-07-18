@@ -12,6 +12,15 @@
     Context="personItem" 
     TopPadding="30"
     ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
+    ConditionalRowStyle=@((p, idx) => 
+    {
+        if (string.IsNullOrWhiteSpace(p.ParentId)){
+            return "background-color: white";
+        } else {
+            return $"background-color: lightgrey";
+        }
+        //return "";
+    })
 >
     <TableHeader>
         <th>Person Name</th>
