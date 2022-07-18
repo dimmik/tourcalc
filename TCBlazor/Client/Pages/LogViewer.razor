@@ -135,10 +135,10 @@
         var res = (logEntries ?? Enumerable.Empty<RLogEntry>())
         .Where(l => 
             (!Search.Keys.Any() || (IsSearchAnd 
-                ? Search.Keys.All(s => SearchableString(l).Contains(s)) 
-                : Search.Keys.Any(s => SearchableString(l).Contains(s)))
+                ? Search.Keys.All(s => SearchableString(l).Contains(s.ToLower())) 
+                : Search.Keys.Any(s => SearchableString(l).Contains(s.ToLower())))
              )
-             && !Except.Keys.Any(s => SearchableString(l).Contains(s)) 
+             && !Except.Keys.Any(s => SearchableString(l).Contains(s.ToLower())) 
         )
         ;
 
@@ -146,7 +146,7 @@
     }
     public static string SearchableString(RLogEntry l)
     {
-        return $"{l.Timestamp:yyyy-MM-dd HH:mm:ss} {l.Ip} {l.Msg} {l.UserAgent}";
+        return $"{l.Timestamp.ToLocalTime():yyyy-MM-dd HH:mm:ss} {l.Ip} {l.Msg} {l.UserAgent}".ToLower();
     }
     
 }
