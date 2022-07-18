@@ -55,13 +55,14 @@ namespace TCalc.Logic
         {
             person.ReceivedSendingInfo.Clear();
             double res = 0;
+            const long _magnitude_ = 10000000;
             foreach (Spending spending in CurrentTour.Spendings.Where(s => includePlanned || !s.Planned))
             {
-                var amount = 0d;
+                long amount = 0L;
                 bool isApplicable = false;
                 if (spending.ToAll)
                 {
-                    amount += spending.AmountInCents * person.Weight * 1.0 / TotalWeight;
+                    amount += spending.AmountInCents * person.Weight * _magnitude_ / TotalWeight;
                     isApplicable = true;
                 } else
                 {
@@ -76,10 +77,10 @@ namespace TCalc.Logic
                                 spendingWeight += pWeight;
                             }
                             if (spendingWeight == 0) spendingWeight = 1;
-                            amount += spending.AmountInCents * person.Weight * 1.0 / spendingWeight * 1.0;
+                            amount += spending.AmountInCents * person.Weight * _magnitude_ / spendingWeight;
                         } else
                         {
-                            amount += spending.AmountInCents * 1.0 / spending.ToGuid.Count;
+                            amount += spending.AmountInCents * _magnitude_ / spending.ToGuid.Count;
                         }
                         isApplicable = true;
                     }
@@ -89,7 +90,8 @@ namespace TCalc.Logic
                     res += amount;
                     person.ReceivedSendingInfo.Add(new SpendingInfo()
                     {
-                        ReceivedAmountInCents = (long)Math.Round(amount),
+                        ReceivedAmountInCents = (amount + (_magnitude_ / 2)) / _magnitude_,
+                        
                         TotalSpendingAmountInCents = spending.AmountInCents,
                         From = CurrentTour.Persons.FirstOrDefault(p => p.GUID == spending.FromGuid)?.Name ?? "n/a",
                         IsSpendingToAll = spending.ToAll,
@@ -104,7 +106,21 @@ namespace TCalc.Logic
                 }
             }
             var sum = person.ReceivedSendingInfo.Select(rsi => rsi.ReceivedAmountInCents).Sum();
-            //var ress = (long)Math.Round(res);
+            long ress = (long)((res + (_magnitude_ / 2)) / _magnitude_);
+            var diff = ress - sum;
+            if (diff != 0)
+            {
+                person.ReceivedSendingInfo.Add(new SpendingInfo()
+                {
+                    From = "System",
+                    SpendingDescription = $"Distribution Rounding Error: {diff}",
+                    ReceivedAmountInCents = diff,
+                    IsSpendingToAll = false,
+                    ToNames = new[] { person.Name },
+                    TotalSpendingAmountInCents = diff
+                });
+                sum = person.ReceivedSendingInfo.Select(rsi => rsi.ReceivedAmountInCents).Sum();
+            }
             return sum;
         }
         public Tour Calculate(bool includePlanned = false)
