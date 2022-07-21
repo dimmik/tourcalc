@@ -15,9 +15,9 @@
     ConditionalRowStyle=@((p, idx) => 
     {
         if (string.IsNullOrWhiteSpace(p.ParentId)){
-            return "background-color: #f0fff1";
+            return "background-color: #ffffff";
         } else {
-            return $"background-color: lightgrey";
+            return $"background-color: #bbffbb";
         }
         //return "";
     })
@@ -76,7 +76,7 @@
         {
             if (!AddingPerson)
             {
-                <td colspan="5"><span style="cursor:pointer" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</span>
+                <td colspan="5"><Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
                 </td>
             } else
             {
