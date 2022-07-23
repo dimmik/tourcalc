@@ -36,6 +36,7 @@ else
         {
             <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)><b>X</b></span>
             <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
+            <TextArea placeholder="Tour Json (optional)" @bind-value="NewTourJson"></TextArea>
                 @if (engine.Auth?.IsMaster ?? false)
                     {
                         <span>c: <input type="text" placeholder="code" size="3" @bind-value=@NewTourCode/></span>
@@ -106,6 +107,7 @@ else
     private bool AddingTour = false;
     private bool InProgress = false;
     private string NewTourName = "";
+    private string NewTourJson = "";
     private string NewTourCode = defaultNoCode;//"باخوس";
     private const string defaultNoCode = "new";
     //private string guid = Guid.NewGuid().ToString();
@@ -144,9 +146,20 @@ else
         if (!string.IsNullOrWhiteSpace(NewTourName) && !string.IsNullOrWhiteSpace(code))
         {
             InProgress = true;
-            _ = engine.RequestAddTour(new Tour() { Name = NewTourName }, code);
+            Tour t = new();
+            if (!string.IsNullOrWhiteSpace(NewTourJson))
+            {
+                try
+                {
+                    t = JsonSerializer.Deserialize<Tour>(NewTourJson) ?? t;
+                }
+                catch { }
+            }
+            t.Name = NewTourName;
+            _ = engine.RequestAddTour(t, code);
             AddingTour = false;
             NewTourName = "";
+            NewTourJson = "";
         } else
         {
             await JsRuntime.InvokeVoidAsync("alert", $"Please specify tour name {((engine.Auth?.IsMaster ?? false) ? "and code" : "")}");
