@@ -10,6 +10,7 @@ RUN ls -Rla /src/TourCalcWebApp/wwwroot/assets
 
 # update our latest blazor with react UI
 FROM ghcr.io/dimmik/tourcalc:blazor-latest
+ARG BUILD_TYPE=na
 WORKDIR /app
 #RUN dotnet --version
 EXPOSE 80
@@ -20,7 +21,8 @@ COPY --from=build-React-UI /src/TourCalcWebApp/wwwroot /app/wwwroot
 ## build version
 RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && grep -Irl "#{Build.BuildNumber}#" . | xargs sed -i 's/#{Build.BuildNumber}#/'$DT'/g'
 RUN grep -Irl "#{Build.SourceBranch}#" . | xargs sed -i 's/#{Build.SourceBranch}#/local/g'
+RUN grep -Irl '#{BuildType}#' . | xargs sed -i 's/#{BuildType}#/'${BUILD_TYPE}'/g'
 
-RUN ls -Rla /app/wwwroot
+#RUN ls -Rla /app/wwwroot
 
 ENTRYPOINT ["dotnet", "TCBlazor.Server.dll"]
