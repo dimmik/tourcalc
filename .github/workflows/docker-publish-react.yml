@@ -60,4 +60,5 @@ jobs:
           file: tourcalc.react.docker
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:react-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:react-${{ steps.current-time.outputs.formattedTime }}
+          build-args: BUILD_TYPE=prodR
           labels: io.containers.autoupdate=registry

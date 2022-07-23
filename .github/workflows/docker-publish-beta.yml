@@ -57,4 +57,5 @@ jobs:
           file: tourcalc.blazor.docker
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta-${{ steps.current-time.outputs.formattedTime }}
+          build-args: BUILD_TYPE=betaB
           labels: io.containers.autoupdate=registry
