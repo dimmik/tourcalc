@@ -35,7 +35,7 @@ else
         @if (AddingTour)
         {
             <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)><b>X</b></span>
-            <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
+            <Input type="text" placeholder="New Tour Name" @bind-Value=@NewTourName/>
             <TextArea placeholder="Tour Json (optional)" @bind-value="NewTourJson"></TextArea>
                 @if (engine.Auth?.IsMaster ?? false)
                     {
