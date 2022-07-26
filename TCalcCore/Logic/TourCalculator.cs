@@ -174,7 +174,7 @@ namespace TCalc.Logic
                     p.ReceivedSendingInfo.Add(new SpendingInfo()
                     {
                         From = "System",
-                        SpendingDescription = $"Rounding Error - add {-diff} to received of highest creditor",
+                        SpendingDescription = $"Rounding Error - add {diff} to received of highest creditor",
                         ReceivedAmountInCents = diff,
                         IsSpendingToAll = false,
                         ToNames = new[] { p.Name },
