@@ -146,27 +146,15 @@
         return Math.Abs(p.Debt()) > settings.MinimumMeaningfulDebt ? p.Debt() : 0;
     }
 
-    
+
     private IEnumerable<Person> GetPersons()
     {
         return new[] { new Person() { Name = "", Metadata = "Adding", GUID = "New" } }.Concat(GetSortedTourPersons());
     }
+
     private IEnumerable<Person> GetSortedTourPersons()
     {
-        IEnumerable<Person> pers = (Tour?.Persons ?? new List<Person>());
-        var res = pers.OrderBy(p =>
-        {
-            var name = PersonNameWithParentNamesRecursive(p);
-            return name;
-        });
-        return res;
-    }
-    private string PersonNameWithParentNamesRecursive(Person? p, int level = 0)
-    {
-        if (level > 50) return "";
-        if (p == null) return "";
-        if (string.IsNullOrWhiteSpace(p?.ParentId)) return p?.Name ?? "";
-        return $"{PersonNameWithParentNamesRecursive(Tour?.Persons?.FirstOrDefault(pp => pp.GUID == (p?.ParentId ?? "")), level + 1)}{p?.Name ?? ""}";
+        return Tour?.Persons?.SortedByNameAndDependency() ?? Enumerable.Empty<Person>();
     }
 
     private bool IsSubmittingPerson { get; set; } = false;
