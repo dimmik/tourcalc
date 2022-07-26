@@ -56,7 +56,7 @@
                     <SelectOptions>
 			            @foreach(var p in TourPersons())
 			            {
-				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@PersonLabel(p) />
 			            }
 		            </SelectOptions>
             </Select>
@@ -83,7 +83,7 @@
 		            <SelectOptions>
 			            @foreach(var p in TourPersons())
 			            {
-				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@PersonLabel(p) />
 			            }
 		            </SelectOptions>
             </Select>
@@ -142,10 +142,16 @@
     private List<string> SpendingCategories = new List<string>();
 
 
+    private string PersonLabel(Person p)
+    {
+        if (string.IsNullOrWhiteSpace(p.ParentId)) return p.Name;
+        return $"> {p.Name}";
+    }
+
     private IEnumerable<Person> TourPersons()
     {
         IEnumerable<Person> res = tour?.Persons ?? new();
-        res = res.OrderBy(p => p.Name);
+        res = res.SortedByNameAndDependency();
         return res;
     }
 
