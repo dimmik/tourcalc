@@ -61,7 +61,11 @@
                         </span>
                     </td>
                     <td>
-                        <span style="font-size: xx-small; font-style:italic">(@si.Type)</span>
+                        @if (!string.IsNullOrWhiteSpace(si.Type))
+                        {
+                            <span style="font-size: xx-small; font-style:italic; background-color: yellow; color: green">(@si.Type)</span>
+                            <span>&nbsp;</span>
+                        }
                         @((MarkupString)si.SpendingDescription.AsBreakable()) 
                         <span style="font-size: xx-small; font-weight: bold">&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
                     </td>

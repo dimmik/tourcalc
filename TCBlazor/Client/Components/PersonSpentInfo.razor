@@ -1,7 +1,7 @@
 ﻿<span style="cursor:pointer;color:green; font-weight: bold" @onclick=@(() => open = true)>
     <nobr>@person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</nobr>
 </span>
-<Modal Title="@($"Spent for {person.Name}")"
+<Modal Title="@($"Spent for {person.Name} {person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -47,7 +47,12 @@
                     }
                     <td>@((MarkupString)si.From.AsBreakable(3))</td>
                     <td>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</td>
-                    <td><span style="font-size: xx-small; font-style:italic">(@si.Type)</span>
+                    <td>
+                        @if (!string.IsNullOrWhiteSpace(si.Type))
+                        {
+                            <span style="font-size: xx-small; font-style:italic; background-color: yellow; color: green">(@si.Type)</span>
+                            <span>&nbsp;</span>
+                        }
                         @((MarkupString)si.SpendingDescription.AsBreakable())</td>
                 </RowTemplate>
                 <NoDataRowTemplate>
