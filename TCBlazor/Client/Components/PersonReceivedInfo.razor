@@ -9,6 +9,28 @@
        DestroyOnClose=@true
        Closable=@true>
         <div style="height: 55vh; overflow:scroll;">
+            @{
+                var data = person.ReceivedSendingInfo
+                        .Where(si => !string.IsNullOrWhiteSpace(si.Type))
+                        .Select(si => (si.Type, si.ReceivedAmountInCents))
+                        .Aggregate(new Dictionary<string, long>(), (d, si) => {
+                                if (!d.ContainsKey(si.Type)) d[si.Type] = 0;
+                                d[si.Type] += si.ReceivedAmountInCents;
+                                return d;
+                            }
+                        )
+                        .Select(dkv => (dkv.Key, (int)dkv.Value));
+            }
+            @if (data.Any()){
+                <div style="width:75%; margin: 0 auto; border: 1px solid #dddddd">
+                    <SimpleBlazorPieChart.SimplePieChart
+                    Width="100px"
+                    Data=@data
+                    ></SimpleBlazorPieChart.SimplePieChart>
+                </div>
+            }
+
+
             <TableTemplate Items=@(person.ReceivedSendingInfo)
                            Context="siItem"
                            ConditionalRowStyle=@((spi, idx) => {
@@ -39,10 +61,14 @@
                         </span>
                     </td>
                     <td>
+                        <span style="font-size: xx-small; font-style:italic">(@si.Type)</span>
                         @((MarkupString)si.SpendingDescription.AsBreakable()) 
                         <span style="font-size: xx-small; font-weight: bold">&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
                     </td>
                 </RowTemplate>
+                <NoDataRowTemplate>
+                    <td colspan="3"><i>No Data</i></td>
+                </NoDataRowTemplate>
             </TableTemplate>
         </div>
 </Modal>
