@@ -9,6 +9,26 @@
        DestroyOnClose=@true
        Closable=@true>
         <div style="height: 55vh; overflow:scroll;">
+            @{
+                var data = person.SpentSendingInfo
+                        .Where(si => !string.IsNullOrWhiteSpace(si.Type))
+                        .Select(si => (si.Type, si.TotalSpendingAmountInCents))
+                        .Aggregate(new Dictionary<string, long>(), (d, si) => {
+                                if (!d.ContainsKey(si.Type)) d[si.Type] = 0;
+                                d[si.Type] += si.TotalSpendingAmountInCents;
+                                return d;
+                            }
+                        )
+                        .Select(dkv => (dkv.Key, (int)dkv.Value));
+            }
+            @if (data.Any()){
+                <div style="width:75%; margin: 0 auto; border: 1px solid #dddddd">
+                    <SimpleBlazorPieChart.SimplePieChart
+                    Width="100px"
+                    Data=@data
+                    ></SimpleBlazorPieChart.SimplePieChart>
+                </div>
+            }
             <TableTemplate Items=@(person.SpentSendingInfo)
                            Context="siItem"
                            ConditionalRowStyle=@((spi, idx) => {
@@ -27,8 +47,12 @@
                     }
                     <td>@((MarkupString)si.From.AsBreakable(3))</td>
                     <td>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</td>
-                    <td>@((MarkupString)si.SpendingDescription.AsBreakable())</td>
+                    <td><span style="font-size: xx-small; font-style:italic">(@si.Type)</span>
+                        @((MarkupString)si.SpendingDescription.AsBreakable())</td>
                 </RowTemplate>
+                <NoDataRowTemplate>
+                    <td colspan="3"><i>No Data</i></td>
+                </NoDataRowTemplate>
             </TableTemplate>
         </div>
 </Modal>
@@ -41,10 +65,10 @@
         return __builder =>
         {
     <Template>
-                        <Button OnClick=@((e) => onOk())
+                                    <Button OnClick=@((e) => onOk())
                         Type="primary">
-                            Got It
-                        </Button>
+                                        Got It
+                                    </Button>
     </Template>
         };
     }
