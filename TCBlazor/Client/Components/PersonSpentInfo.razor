@@ -44,6 +44,11 @@
                 <RowTemplate>
                     @{
                         var si = siItem.Item1;
+                        if (siItem.Item2 == 1)
+                        {
+                            subtotal = 0;
+                        }
+                        subtotal += si.TotalSpendingAmountInCents;
                     }
                     <td>@((MarkupString)si.From.AsBreakable(3))</td>
                     <td>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</td>
@@ -53,7 +58,9 @@
                             <span style="font-size: xx-small; font-style:italic; background-color: yellow; color: green">(@si.Type)</span>
                             <span>&nbsp;</span>
                         }
-                        @((MarkupString)si.SpendingDescription.AsBreakable())</td>
+                        @((MarkupString)si.SpendingDescription.AsBreakable())
+                        <span style="font-size: xx-small; font-weight: bold">&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
+                    </td>
                 </RowTemplate>
                 <NoDataRowTemplate>
                     <td colspan="3"><i>No Data</i></td>
@@ -65,6 +72,7 @@
     [Parameter]
     public Person person { get; set; } = new Person();
     private bool open = false;
+    private long subtotal = 0;
     private RenderFragment footer(Action onOk)
     {
         return __builder =>
