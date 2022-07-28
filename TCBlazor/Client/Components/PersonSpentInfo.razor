@@ -50,8 +50,8 @@
                         }
                         subtotal += si.TotalSpendingAmountInCents;
                     }
-                    <td>@((MarkupString)si.From.AsBreakable(3))</td>
-                    <td>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</td>
+
+                <td><b>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b></td>
                     <td>
                         @if (!string.IsNullOrWhiteSpace(si.Type))
                         {
@@ -63,7 +63,7 @@
                     </td>
                 </RowTemplate>
                 <NoDataRowTemplate>
-                    <td colspan="3"><i>No Data</i></td>
+                    <td colspan="2"><i>No Data</i></td>
                 </NoDataRowTemplate>
             </TableTemplate>
         </div>

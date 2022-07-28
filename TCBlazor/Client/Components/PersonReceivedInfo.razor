@@ -54,7 +54,7 @@
                     }
                     <td>@((MarkupString)si.From.AsBreakable(3))</td>
                     <td>
-                        @si.ReceivedAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
+                    <b>@si.ReceivedAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b>
                         <span style="font-size: xx-small">
                             @($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents: 0.00}")% 
                             of @si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
