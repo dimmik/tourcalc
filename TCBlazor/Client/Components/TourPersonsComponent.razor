@@ -23,7 +23,7 @@
     })
 >
     <TableHeader>
-        <th>Person Name (@windowWidth)
+        <th>Person Name @{/*(@windowWidth)*/}
             @if (ShowWeightSpentReceived)
             {
                 <Button Size="small" @onclick=@(() => ShowWeightSpentReceived = false)>&lt;</Button>
@@ -117,6 +117,7 @@
     bool AddingPerson = false;
 
     bool ShowWeightSpentReceived = false;
+    int ShowWeightSpentReceivedWindowWidthBoundary = 450;
     int tableColspan => ShowWeightSpentReceived ? 5 : 2;
 
     int windowWidth = 0;
@@ -126,9 +127,11 @@
     protected override async Task OnInitializedAsync()
     {
         settings = await engine.GetUISettings();
+
         var dim = await JsRuntime.InvokeAsync<BrowserDimension>("getDimensions");
         windowWidth = dim.Width;
-//        Console.WriteLine($"Width: {windowWidth}");
+        ShowWeightSpentReceived = windowWidth > ShowWeightSpentReceivedWindowWidthBoundary;
+
         engine.onPersonAddStart += SubmittingOn;
         engine.onPersonAddFinish += SubmittingOff;
         engine.onPersonEditStart += SubmittingOn;
@@ -201,39 +204,39 @@
         pp.Metadata = "";
         return __builder =>
         {
-        <td>
-                                                    @if (IsSubmittingPerson)
+    <td>
+                                                        @if (IsSubmittingPerson)
                 {
-                                                        <div>submitting...</div>
+                                                            <div>submitting...</div>
                 }
-                                                       <input @bind-value=@(pp.Name) 
+                                                           <input @bind-value=@(pp.Name) 
                 size=7 
                 disabled=@IsSubmittingPerson
-                                                        @onkeyup=@(async (e) => {
+                                                            @onkeyup=@(async (e) => {
                         if (e.Code == "Enter" || e.Code == "NumpadEnter"){
                             await OnSubmit(pp, onSubmit);
                         }
                     }) 
-                                                        /> 
-                                                <Button 
+                                                            /> 
+                                                    <Button 
         Type="primary"
         Size="small"
         Loading=@IsSubmittingPerson
-                                                @onclick=@(async () => {
+                                                    @onclick=@(async () => {
             await OnSubmit(pp, onSubmit);
         })>Save</Button>
-                                                <span>&nbsp;|&nbsp;</span>
-                                                <Button 
+                                                    <span>&nbsp;|&nbsp;</span>
+                                                    <Button 
                                     Type="primary"
                                     Shape="@ButtonShape.Circle"
                                     Icon="@IconType.Outline.Close"
                                     Size="small"
                                     Danger=@true
                 
-                                                @onclick=@(() => onCloseButton())/>
-                                                                                    <div>→ 
-                                                                                        <nobr><Select
-                                                                                            @bind-Value="pp.ParentId"
+                                                    @onclick=@(() => onCloseButton())/>
+                                                                                        <div>→ 
+                                                                                            <nobr><Select
+                                                                                                @bind-Value="pp.ParentId"
                     TItemValue="string"
 		            TItem="string"
                     Placeholder="Payer"
@@ -242,19 +245,19 @@
                     DropdownMatchSelectWidth=@false
                     AllowClear=@true
                     DefaultActiveFirstItem="true"
-                                                                                            EnableSearch
-                                                                                        >
-                                                                                            <SelectOptions>
-                                                                                                @foreach (var p in (Tour?.Persons ?? new List<Person>()).Where(ppp => ppp.GUID != pp.GUID))
+                                                                                                EnableSearch
+                                                                                            >
+                                                                                                <SelectOptions>
+                                                                                                    @foreach (var p in (Tour?.Persons ?? new List<Person>()).Where(ppp => ppp.GUID != pp.GUID))
                             {
-                                                                                                    <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+                                                                                                        <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
                             }
-                                                                                            </SelectOptions>
-                                                                                        </Select>
-                                                                                        </nobr>
-                                                                                    </div>
-        </td>
-        <td colspan="@(tableColspan - 1)"><input @bind-value=@(pp.Weight) size="3" disabled=@IsSubmittingPerson/></td>
+                                                                                                </SelectOptions>
+                                                                                            </Select>
+                                                                                            </nobr>
+                                                                                        </div>
+    </td>
+    <td colspan="@(tableColspan - 1)"><input @bind-value=@(pp.Weight) size="3" disabled=@IsSubmittingPerson/></td>
         };
 
         
