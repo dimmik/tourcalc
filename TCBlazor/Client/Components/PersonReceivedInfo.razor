@@ -1,4 +1,4 @@
-﻿<Button style="color:red; font-weight: bold" @onclick=@(() => open = true)>
+﻿<Button Size="small" Style="color:red; font-weight: bold" @onclick=@(() => open = true)>
     <nobr>@person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</nobr>
 </Button>
 <Modal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)}")"
