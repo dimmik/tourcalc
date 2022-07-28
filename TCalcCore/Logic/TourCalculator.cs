@@ -143,7 +143,8 @@ namespace TCalc.Logic
             if (!creditors.Any() && !debtors.Any()) return;
             var sumCredit = -creditors.Sum(c => c.Debt());
             var sumDebit = debtors.Sum(c => c.Debt());
-            var diff = sumCredit - sumDebit;
+            long diff = sumCredit - sumDebit;
+            if (diff == 0) return;
             // find one that will go to 0 with this diff
             var zeroedPerson = CurrentTour.Persons.Where(p => p.Debt() + diff == 0);
             if (zeroedPerson.Any())
