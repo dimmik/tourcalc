@@ -1,6 +1,6 @@
-﻿<span style="cursor:pointer;color:green; font-weight: bold" @onclick=@(() => open = true)>
-    <nobr>@person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</nobr>
-</span>
+﻿<Button  Size="small" Style="color:green; font-weight: bold" @onclick=@(() => open = true)>
+    @person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
+</Button>
 <Modal Title="@($"Spent for {person.Name} {person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
