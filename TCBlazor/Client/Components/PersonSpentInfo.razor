@@ -1,6 +1,13 @@
-﻿<Button  Size="small" Style="color:green; font-weight: bold" @onclick=@(() => open = true)>
-    @person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
-</Button>
+﻿
+
+<div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
+    <Button  Size="small" Style="color:green; font-weight: bold" @onclick=@(() => open = true)>
+        @person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
+    </Button>
+</div>
+
+
+
 <Modal Title="@($"Spent for {person.Name} {person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
