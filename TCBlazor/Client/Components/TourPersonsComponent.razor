@@ -26,10 +26,10 @@
         <th>Person Name @{/*(@windowWidth)*/}
             @if (ShowWeightSpentReceived)
             {
-                <Button Size="small" @onclick=@(() => ShowWeightSpentReceived = false)>&lt;</Button>
+                <Button Size="small" @onclick=@(() => {ShowWeightSpentReceived = false; IsSpendReceivedSwitchedManually = true;})>&lt;</Button>
             } else
             {
-                <Button Size="small" @onclick=@(() => ShowWeightSpentReceived = true)>&gt;</Button>
+                <Button Size="small" @onclick=@(() => {ShowWeightSpentReceived = true; IsSpendReceivedSwitchedManually = true;})>&gt;</Button>
             }
 
         </th>
@@ -117,6 +117,7 @@
     bool AddingPerson = false;
 
     bool ShowWeightSpentReceived = true;
+    bool IsSpendReceivedSwitchedManually = false;
     int tableColspan => ShowWeightSpentReceived ? 5 : 2;
 
     int windowWidth = 0;
