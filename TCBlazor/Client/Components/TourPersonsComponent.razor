@@ -71,13 +71,13 @@
             </td>
             @if (ShowWeightSpentReceived)
             {
-                <td style="padding:0; height: inherit;">
+                <td align="center" valign="middle" style="padding:0; height: inherit;">
                     <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
                         @person.Weight
                     </div>
                 </td>
-                <td style="padding:0; height: inherit;"><PersonSpentInfo person="person" @key=@($"psi_{person.GUID}")/></td>
-                <td style="padding:0; height: inherit;"><PersonReceivedInfo person="person" @key=@($"pri_{person.GUID}") /></td>
+                <td align="center" valign="middle" style="padding:0; height: inherit;"><PersonSpentInfo person="person" @key=@($"psi_{person.GUID}")/></td>
+                <td align="center" valign="middle" style="padding:0; height: inherit;"><PersonReceivedInfo person="person" @key=@($"pri_{person.GUID}") /></td>
             }
             <td align="center" valign="middle" style="padding:0; height: inherit;">
                 <PersonDebt @key=@($"debt_{person.GUID}")

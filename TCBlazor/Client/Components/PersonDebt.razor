@@ -1,6 +1,6 @@
 ﻿<div style="@RowBg;height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
-    <Button Size="small" Style=@($"{RowFg};font-weight:bold")
-       @onclick=@(() => open = true)>@debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</Button>
+    <Button Size="small" Style=@($"{RowFg};font-weight:bold") @onclick=@(() => open = true)>
+       @debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</Button>
 </div>
 <Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0", GlobConsts.NumGroupSpaceSeparated)  }")"
        Visible="@open"

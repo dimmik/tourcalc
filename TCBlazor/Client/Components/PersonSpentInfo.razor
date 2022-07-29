@@ -1,7 +1,7 @@
 ﻿
 
 <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
-    <Button  Size="small" Style="color:green; font-weight: bold" @onclick=@(() => open = true)>
+    <Button Size="small" Style="color:green; font-weight: bold" @onclick=@(() => open = true)>
         @person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
     </Button>
 </div>
