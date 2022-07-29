@@ -116,8 +116,7 @@
 
     bool AddingPerson = false;
 
-    bool ShowWeightSpentReceived = false;
-    int ShowWeightSpentReceivedWindowWidthBoundary = 450;
+    bool ShowWeightSpentReceived = true;
     int tableColspan => ShowWeightSpentReceived ? 5 : 2;
 
     int windowWidth = 0;
@@ -127,10 +126,12 @@
     protected override async Task OnInitializedAsync()
     {
         settings = await engine.GetUISettings();
-
-        var dim = await JsRuntime.InvokeAsync<BrowserDimension>("getDimensions");
-        windowWidth = dim.Width;
-        ShowWeightSpentReceived = windowWidth > ShowWeightSpentReceivedWindowWidthBoundary;
+        if (settings.Collapse_Columns_In_Person_List_On_Smaller_Screen)
+        {
+            var dim = await JsRuntime.InvokeAsync<BrowserDimension>("getDimensions");
+            windowWidth = dim.Width;
+            ShowWeightSpentReceived = windowWidth > settings.Smaller_Screen_Width;
+        }
 
         engine.onPersonAddStart += SubmittingOn;
         engine.onPersonAddFinish += SubmittingOff;
