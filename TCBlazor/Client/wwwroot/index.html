@@ -59,6 +59,18 @@
             };
         };
         // /window size
+        // resize
+        window.browserResize = {
+            registerResizeCallback: function () {
+                //alert("registered");
+                window.addEventListener("resize", browserResize.resized);
+            },
+            resized: function () {
+                DotNet.invokeMethodAsync("TCBlazor.Client", 'OnBrowserResize').then(data => data);
+            }
+        }
+        window.browserResize.registerResizeCallback();
+        // /resize
 
     </script>
     <style>

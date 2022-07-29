@@ -26,10 +26,10 @@
         <th>Person Name @{/*(@windowWidth)*/}
             @if (ShowWeightSpentReceived)
             {
-                <Button Size="small" @onclick=@(() => ShowWeightSpentReceived = false)>&lt;</Button>
+                <Button Size="small" @onclick=@(() => {ShowWeightSpentReceived = false; IsSpendReceivedSwitchedManually = true;})>&lt;</Button>
             } else
             {
-                <Button Size="small" @onclick=@(() => ShowWeightSpentReceived = true)>&gt;</Button>
+                <Button Size="small" @onclick=@(() => {ShowWeightSpentReceived = true; IsSpendReceivedSwitchedManually = true;})>&gt;</Button>
             }
 
         </th>
@@ -116,8 +116,8 @@
 
     bool AddingPerson = false;
 
-    bool ShowWeightSpentReceived = false;
-    int ShowWeightSpentReceivedWindowWidthBoundary = 450;
+    bool ShowWeightSpentReceived = true;
+    bool IsSpendReceivedSwitchedManually = false;
     int tableColspan => ShowWeightSpentReceived ? 5 : 2;
 
     int windowWidth = 0;
@@ -127,17 +127,28 @@
     protected override async Task OnInitializedAsync()
     {
         settings = await engine.GetUISettings();
-
-        var dim = await JsRuntime.InvokeAsync<BrowserDimension>("getDimensions");
-        windowWidth = dim.Width;
-        ShowWeightSpentReceived = windowWidth > ShowWeightSpentReceivedWindowWidthBoundary;
-
+        await OnResize();
+        BrowserResizeService.OnResize += OnResize;
         engine.onPersonAddStart += SubmittingOn;
         engine.onPersonAddFinish += SubmittingOff;
         engine.onPersonEditStart += SubmittingOn;
         engine.onPersonEditFinish += SubmittingOff;
         engine.onPersonDeleteStart += SubmittingOn;
         engine.onPersonDeleteFinish += SubmittingOff;
+    }
+    private async Task OnResize()
+    {
+        if (settings.Collapse_Columns_In_Person_List_On_Smaller_Screen && !IsSpendReceivedSwitchedManually)
+        {
+            var dim = await JsRuntime.InvokeAsync<BrowserDimension>("getDimensions");
+            windowWidth = dim.Width;
+            var newShowWeightSpentReceived = windowWidth > settings.Smaller_Screen_Width;
+            if (newShowWeightSpentReceived != ShowWeightSpentReceived)
+            {
+                ShowWeightSpentReceived = newShowWeightSpentReceived;
+                StateHasChanged();
+            }
+        }
     }
     public void Dispose()
     {
@@ -147,6 +158,7 @@
         engine.onPersonEditFinish -= SubmittingOff;
         engine.onPersonDeleteStart -= SubmittingOn;
         engine.onPersonDeleteFinish -= SubmittingOff;
+        BrowserResizeService.OnResize -= OnResize;
     }
     private Task SubmittingOn()
     {
