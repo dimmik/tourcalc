@@ -148,8 +148,8 @@
     [Parameter]
     public Action? OnToggleShowPlanned { get; set; } = null;
 
-    [Parameter]
-    public bool ShowMassChange { get; set; } = true;
+    public bool ShowMassChange = false;
+
     private bool MassChangeCat = false;
     private Dictionary<string, bool> MassChangeIds = new();
     private string NewCategory = "";
@@ -184,6 +184,7 @@
     protected override async Task OnInitializedAsync()
     {
         settings = await engine.GetUISettings();
+        ShowMassChange = settings.Show_Mass_Spending_Change;
     }
 
     protected override void OnParametersSet()

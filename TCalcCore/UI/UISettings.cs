@@ -9,6 +9,7 @@
         public string NotAProp = "";*/
         public bool Default_Tour_Page_Is_Add_Spending { get; set; } = true;
         public bool Show_Debug_UI { get; set; } = false;
+        public bool Show_Mass_Spending_Change { get; set; } = false;
         public bool Collapse_Columns_In_Person_List_On_Smaller_Screen { get; set; } = true;
         public int Smaller_Screen_Width { get; set; } = 500;
     }
