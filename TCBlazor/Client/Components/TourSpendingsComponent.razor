@@ -48,6 +48,7 @@
             
             <Select Mode="multiple"
                 Placeholder="Categories"
+                DataSource="TourCategories"
 		        @bind-Values="@filterCategories"
 		        TItemValue="string"
 		        TItem="string"
@@ -56,18 +57,8 @@
                 HideSelected=@false
                 Size="small"
                 MaxTagCount="@ResponsiveTag.Responsive"
-		        AllowClear>
-		            <SelectOptions>
-			            @foreach(var c in (Tour?
-                                .Spendings?
-                                .Where(s => !s.Planned)?
-                                .Select(s => s.Type)?.Where(cc => !string.IsNullOrWhiteSpace(cc)) ?? new string[0])
-                                .Distinct())
-			            {
-				            <SelectOption TItemValue="string" TItem="string" Value=@c Label=@c />
-			            }
-		            </SelectOptions>
-            </Select>
+                IgnoreItemChanges="false"
+		        AllowClear/>
             </th>
         <th><span style="cursor:pointer;@(sortingField == SortingField.From ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.From))>From</span></th>
         <th><span style="cursor:pointer;@(sortingField == SortingField.Amount ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Amount))>Amount</span></th>
@@ -139,6 +130,7 @@
 </TableTemplate>
 
 @code {
+    string guid = Guid.NewGuid().ToString();
     [Parameter]
     public Tour? Tour { get; set; } = null;
 
@@ -148,11 +140,47 @@
     [Parameter]
     public Action? OnToggleShowPlanned { get; set; } = null;
 
+    [Parameter]
+    public Func<IEnumerable<Spending>, IEnumerable<Spending>> SpendingListPreProcessor { get; set; } = (s) => s;
+
+    private IEnumerable<string> TourCategories = Enumerable.Empty<string>();
+
     public bool ShowMassChange = false;
 
     private bool MassChangeCat = false;
     private Dictionary<string, bool> MassChangeIds = new();
     private string NewCategory = "";
+
+    private UISettings settings = new UISettings();
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await engine.GetUISettings();
+        ShowMassChange = settings.Show_Mass_Spending_Change;
+
+    }
+    private void UpdateTourCategories()
+    {
+        TourCategories = (Tour?.Spendings?
+                                .Where(s => !s.Planned)?
+                                .Select(s => s.Type)?.Where(cc => !string.IsNullOrWhiteSpace(cc))
+                                ?? new string[0])
+
+                                .Distinct();
+        Console.WriteLine($"Cats: {string.Join(", ", TourCategories)}");
+        filterCategories = filterCategories.Intersect(TourCategories);
+        guid = Guid.NewGuid().ToString();
+    }
+    protected override void OnParametersSet()
+    {
+        //ShowPlanned = Tour?.IsFinalizing ?? false;
+        UpdateTourCategories();
+        if (OnToggleShowPlanned == null)
+        {
+            OnToggleShowPlanned = () => ShowPlanned = !ShowPlanned;
+        }
+        InitSortPredicates();
+    }
 
     private async Task DoMassChange()
     {
@@ -174,27 +202,8 @@
         }
         MassChangeIds.Clear();
         MassChangeCat = false;
-    }
-
-
-
-
-    private UISettings settings = new UISettings();
-
-    protected override async Task OnInitializedAsync()
-    {
-        settings = await engine.GetUISettings();
-        ShowMassChange = settings.Show_Mass_Spending_Change;
-    }
-
-    protected override void OnParametersSet()
-    {
-        //ShowPlanned = Tour?.IsFinalizing ?? false;
-        if (OnToggleShowPlanned == null)
-        {
-            OnToggleShowPlanned = () => ShowPlanned = !ShowPlanned;
-        }
-        InitSortPredicates();
+        //UpdateTourCategories();
+        StateHasChanged();
     }
 
     private void InitSortPredicates()
@@ -205,8 +214,6 @@
         sortPredicates[SortingField.Date] = (s) => $"{s.DateCreated: yyyyMMdd_HHmmss}";
         sortPredicates[SortingField.Type] = (s) => string.IsNullOrWhiteSpace(s.Type) ? new string(Char.MaxValue, 1) : s.Type;
     }
-    [Parameter]
-    public Func<IEnumerable<Spending>, IEnumerable<Spending>> SpendingListPreProcessor { get; set; } = (s) => s;
 
     private SortingField? sortingField = null;
     private SortingType sortingType = SortingType.Asc;
