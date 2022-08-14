@@ -30,14 +30,9 @@
 		        TItem="string"
                 AllowClear=@true
                 DropdownRender=@CategoryDropdownRenderer
-                >
-                <SelectOptions>
-			            @foreach(var c in SpendingCategories)
-			            {
-				            <SelectOption TItemValue="string" TItem="string" Value=@c Label=@c />
-			            }
-		            </SelectOptions>
-            </Select>
+                DataSource="SpendingCategories"
+                IgnoreItemChanges="false"
+                />
             </td>
         </tr>
         <tr>
