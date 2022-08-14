@@ -168,12 +168,9 @@
                 toChange.Add(sp);
             }
         }
-        foreach (var sp in toChange)
+        if (Tour != null)
         {
-            if (Tour != null)
-            {
-                _ = engine.RequestEditSpending(Tour.Id, sp);
-            }
+            _ = engine.RequestEditSpending(Tour.Id, toChange.ToArray());
         }
         MassChangeIds.Clear();
         MassChangeCat = false;
