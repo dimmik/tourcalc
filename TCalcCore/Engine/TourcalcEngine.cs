@@ -202,10 +202,10 @@ namespace TCalcCore.Engine
             await dataSvc.AddSpending(tourId, s);
             await (onSpendingAddFinish?.Invoke() ?? Task.CompletedTask);
         }
-        public async Task RequestEditSpending(string tourId, Spending s)
+        public async Task RequestEditSpending(string tourId, params Spending[] ss)
         {
             await (onSpendingEditStart?.Invoke() ?? Task.CompletedTask);
-            await dataSvc.EditSpending(tourId, s);
+            await dataSvc.EditSpending(tourId, ss);
             await (onSpendingEditFinish?.Invoke() ?? Task.CompletedTask);
         }
         public async Task RequestDeleteSpending(string tourId, Spending s)

@@ -21,7 +21,7 @@ namespace TCalcCore.Network
         Task DeleteSpending(string tourId, Spending s);
         Task DeleteTour(Tour tour);
         Task EditPerson(string tourId, Person p);
-        Task EditSpending(string tourId, Spending s);
+        Task EditSpending(string tourId, params Spending[] ss);
         Task EditTourProps(Tour tour, string operation);
         Task GetAndStoreToken(string scope, string code);
         Task GetAndStoreTokenForCodeMd5(string code);

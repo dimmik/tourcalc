@@ -6,6 +6,7 @@
 
 @using AntDesign.Select
 
+
 <TableTemplate 
     Items=@(GetSpendingSorted()) 
     Context="spendingItem" 
@@ -31,28 +32,20 @@
                         
             <span style="cursor:pointer;@(sortingField == SortingField.Date ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Date))>Dt&nbsp;</span>
             <span style="cursor:pointer;@(sortingField == SortingField.Type ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Type))>Cat&nbsp;</span>
+            @if (ShowMassChange)
+            {
+                <Button Size="small" @onclick=@(() => MassChangeCat = !MassChangeCat)>mass change cats</Button>
+                @if (MassChangeIds.Values.Where(v => v).Any())
+                {
+                    <div style="border: 1px solid green">
+                        Change Category of @MassChangeIds.Values.Where(v => v).Count() spendings to 
+                        <input @bind-value="NewCategory"/>
+                        <Button @onclick=@(() => DoMassChange())>Apply</Button>
+                    </div>
+                }
+            }
             &nbsp; <span style="cursor: pointer" @onclick=@(() => OnToggleShowPlanned?.Invoke())>[@(ShowPlanned ? "-" : "+")]</span>
-            @{/*
-            <Select
-                @bind-Value=@(filterCategory)
-                TItemValue="string"
-		        TItem="string"
-                AllowClear=@true
-                Placeholder="Cat filter"
-                Style="display:inline-block"
-                DropdownMatchSelectWidth=@false
-                >
-                <SelectOptions>
-			            @foreach(var c in (Tour?
-                                .Spendings?
-                                .Where(s => !s.Planned)?
-                                .Select(s => s.Type)?.Where(cc => !string.IsNullOrWhiteSpace(cc)) ?? new string[0])
-                                .Distinct())
-			            {
-				            <SelectOption TItemValue="string" TItem="string" Value=@c Label=@c />
-			            }
-		            </SelectOptions>
-            </Select>*/}
+            
             <Select Mode="multiple"
                 Placeholder="Categories"
 		        @bind-Values="@filterCategories"
@@ -98,8 +91,13 @@
                 <b>X&nbsp;</b>
                 </span>
                 <span>&nbsp;@idx. </span>
+                @if (MassChangeCat)
+                {
+                    <Checkbox @key=@($"massck_{spending.GUID}")
+                          Value=@(MassChangeIds.ContainsKey(spending.GUID) ? MassChangeIds[spending.GUID] : false)
+                          OnChange=@((c) => MassChangeIds[spending.GUID] = c)></Checkbox>
+                }
             }
-            
             @((MarkupString)spending.Description.AsBreakable())
             <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
                 @if (!spending.Planned)
@@ -150,11 +148,43 @@
     [Parameter]
     public Action? OnToggleShowPlanned { get; set; } = null;
 
+    public bool ShowMassChange = false;
+
+    private bool MassChangeCat = false;
+    private Dictionary<string, bool> MassChangeIds = new();
+    private string NewCategory = "";
+
+    private async Task DoMassChange()
+    {
+        var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Change {MassChangeIds.Keys.Count()} spendings category to {NewCategory}?");
+        if (!ok) return;
+        List<Spending> toChange = new();
+        foreach (var sid in MassChangeIds.Keys)
+        {
+            Spending? sp = Tour?.Spendings?.Where(s => s.GUID == sid)?.FirstOrDefault();
+            if (sp != null)
+            {
+                sp.Type = NewCategory;
+                toChange.Add(sp);
+            }
+        }
+        if (Tour != null)
+        {
+            _ = engine.RequestEditSpending(Tour.Id, toChange.ToArray());
+        }
+        MassChangeIds.Clear();
+        MassChangeCat = false;
+    }
+
+
+
+
     private UISettings settings = new UISettings();
 
     protected override async Task OnInitializedAsync()
     {
         settings = await engine.GetUISettings();
+        ShowMassChange = settings.Show_Mass_Spending_Change;
     }
 
     protected override void OnParametersSet()

@@ -353,14 +353,17 @@ namespace TCalcCore.Network
             }
         }
 
-        private async Task EditTourData(string tourId, SerializableTourOperation op)
+        private async Task EditTourData(string tourId, params SerializableTourOperation[] ops)
         {
             Queue<SerializableTourOperation> serverQueue = await GetServerQueue(tourId);
-            serverQueue.Enqueue(op);
+            Queue<SerializableTourOperation> localQueue = GetLocalQueue(tourId);
+            foreach (var op in ops)
+            {
+                serverQueue.Enqueue(op);
+                localQueue.Enqueue(op);
+            }
             await StoreServerQueue(tourId, serverQueue);
 
-            Queue<SerializableTourOperation> localQueue = GetLocalQueue(tourId);
-            localQueue.Enqueue(op);
 
             // update locally
             await UpdateLocally(tourId, localQueue);
@@ -473,11 +476,15 @@ namespace TCalcCore.Network
             if (s == null) return;
             await EditTourData(tourId, new SerializableTourOperation("DeleteSpending", s.GUID, (string)null));
         }
-        public async Task EditSpending(string tourId, Spending s)
+        public async Task EditSpending(string tourId, params Spending[] ss)
         {
             if (tourId == null) return;
-            if (s == null) return;
-            await EditTourData(tourId, new SerializableTourOperation("UpdateSpending", s.GUID, s));
+            List<SerializableTourOperation> ops = new List<SerializableTourOperation>();
+            foreach (var s in ss)
+            {
+                if (s != null) ops.Add(new SerializableTourOperation("UpdateSpending", s.GUID, s));
+            }
+            await EditTourData(tourId, ops.ToArray());
         }
         public async Task AddSpending(string tourId, Spending s)
         {
