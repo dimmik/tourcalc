@@ -45,14 +45,16 @@ else
                     <div style="display: table-cell; width: 30%; align-content: flex-start; text-align: start;">
                         <!--Persons-->
                         <b id=@GetId("persons")>Persons [@tour.Persons.Count]</b>
+                        <Button Type="primary" Ghost Size="small" @onclick=@(() => ShowPersons = !ShowPersons)>@(ShowPersons ? "hide" : "show")</Button>
                     </div>
                     <div style="display: table-cell; width: 70%; align-content: flex-end; text-align: end;">
                         <a href=@GetHref("spendings")>Spendings</a>
                         <Button Type="primary" Size="small" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
                     </div>
                 </div>
-
-                <TourPersonsComponent 
+                @if (ShowPersons)
+                {
+                    <TourPersonsComponent 
                     Tour=@tour
                     OnPersonDelete=@(async (p) => {
                         _ = engine.RequestDeletePerson(tour.Id, p);
@@ -65,49 +67,53 @@ else
                         _ = engine.RequestAddPerson(tour.Id, p);
                     })
                     />
+                }
                 <!--Spendings-->
                 <div style="width: 100%; display: table">
                 <div style="display: table-cell; width: 30%; align-content: flex-start; text-align: start;">
                     <b id=@GetId("spendings")>Spendings [@tour.Spendings.Where(s => !s.Planned).Count()]</b>
+                    <Button Type="primary" Ghost Size="small" @onclick=@(() => ShowSpendings = !ShowSpendings)>@(ShowSpendings ? "hide" : "show")</Button>
                 </div>
                 <div style="display: table-cell; width: 70%; align-content: flex-end; text-align: end;">
                     <a href=@GetHref("persons")>Persons</a>
                     <Button Type="primary" Size="small" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
                 </div>
                 </div>
-                <TourSpendingsComponent 
-                    Tour=@tour
-                    ShowPlanned=@ShowPlannedSpendings
-                    OnToggleShowPlanned=@(() => {
-                        // TODO works slow. Think about it
-                        ShowPlannedSpendings = !ShowPlannedSpendings;
-                        StateHasChanged();
-                    })
-                    OnSpendingDelete=@(async (s) => {
-                        _ = engine.RequestDeleteSpending(tour.Id, s);
-                    })
-                >
-                    <EditActionTemplate Context="s">
-                            @if (s.Planned)
-                            {
-                                <b style="font-size: x-large; cursor:pointer;" @onclick=@(async () => {
-                                    bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Add planned '{s.Description}' : {s.AmountInCents}?");
-                                    if (confirmed)
-                                    {
-                                        var ss = s.SafeClone<Spending>();
-                                        ss.Type = "";
-                                        _ = engine.RequestAddSpending(tour.Id, ss);
-                                    }
-                                })>+</b>
-                            }
-                            else
-                            {
-                            <NavLink href=@($"/tour/{tour.Id}/spending/edit/{s.GUID}")>&nbsp; 
-                                <span style="border:solid 1px black">edit</span>                    
-                            </NavLink>
-                            }
-                    </EditActionTemplate>
-                </TourSpendingsComponent>
+                @if (ShowSpendings){
+                    <TourSpendingsComponent 
+                        Tour=@tour
+                        ShowPlanned=@ShowPlannedSpendings
+                        OnToggleShowPlanned=@(() => {
+                            // TODO works slow. Think about it
+                            ShowPlannedSpendings = !ShowPlannedSpendings;
+                            StateHasChanged();
+                        })
+                        OnSpendingDelete=@(async (s) => {
+                            _ = engine.RequestDeleteSpending(tour.Id, s);
+                        })
+                    >
+                        <EditActionTemplate Context="s">
+                                @if (s.Planned)
+                                {
+                                    <b style="font-size: x-large; cursor:pointer;" @onclick=@(async () => {
+                                        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Add planned '{s.Description}' : {s.AmountInCents}?");
+                                        if (confirmed)
+                                        {
+                                            var ss = s.SafeClone<Spending>();
+                                            ss.Type = "";
+                                            _ = engine.RequestAddSpending(tour.Id, ss);
+                                        }
+                                    })>+</b>
+                                }
+                                else
+                                {
+                                <NavLink href=@($"/tour/{tour.Id}/spending/edit/{s.GUID}")>&nbsp; 
+                                    <span style="border:solid 1px black">edit</span>                    
+                                </NavLink>
+                                }
+                        </EditActionTemplate>
+                    </TourSpendingsComponent>
+                }
             </td>
         </RowTemplate>
 
@@ -122,6 +128,9 @@ else
     private bool ShowPlannedSpendings = false;
     private bool IsTourReloading = false;
     private bool initialized = false;
+
+    private bool ShowPersons = true;
+    private bool ShowSpendings = true;
 
     public Tour? tour = null;
     private bool isFresh = false;
