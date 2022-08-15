@@ -10,7 +10,8 @@
     1. spendings by category
     2. chart
 -->
-<table><tr><td style="padding: 5px; vertical-align: top; font-size: x-small;">
+<table><tr>
+        @{/*<td style="padding: 5px; vertical-align: top; font-size: x-small;">
             <table>
             @foreach (var s in summary)
             {
@@ -21,7 +22,7 @@
                 </b></td>
             </tr>
             </table>
-        </td>
+        </td>*/}
         <td style="padding: 5px; vertical-align: top;">
             <SimplePieChart Data="summary"
                 ColorSequenceGenerator="csg"
@@ -38,7 +39,8 @@
                     <RadzenColorPicker @bind-Value=@Seed Change=@(c => csg.Seed = Seed)/>
                 </ExtraControls>
             </SimplePieChart>
-</td></tr></table>
+        </td>
+</tr></table>
 @code {
     [Parameter]
     public Tour Tour { get; set; } = new Tour();
