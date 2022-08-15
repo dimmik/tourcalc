@@ -30,6 +30,8 @@
             @if (data.Any()){
                 <div style="width:75%; margin: 0 auto; border: 1px solid #dddddd">
                     <SimpleBlazorPieChart.SimplePieChart
+                    ShowSubcategories=@true
+                    ShowAbsoluteNumbers=@true
                     Width="100px"
                     Data=@data
                     ></SimpleBlazorPieChart.SimplePieChart>
