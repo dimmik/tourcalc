@@ -167,7 +167,7 @@
                                 ?? new string[0])
 
                                 .Distinct();
-        Console.WriteLine($"Cats: {string.Join(", ", TourCategories)}");
+        //Console.WriteLine($"Cats: {string.Join(", ", TourCategories)}");
         filterCategories = filterCategories.Intersect(TourCategories);
         guid = Guid.NewGuid().ToString();
     }
