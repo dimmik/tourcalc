@@ -176,7 +176,7 @@
 
                                 .Distinct();
         //Console.WriteLine($"Cats: {string.Join(", ", TourCategories)}");
-        filterCategories = filterCategories.Intersect(TourCategories);
+        filterCategories = (filterCategories ?? new List<string>()).Intersect(TourCategories ?? new List<string>());
         guid = Guid.NewGuid().ToString();
     }
     protected override void OnParametersSet()
@@ -265,7 +265,7 @@
         return seq;
     }
     //private string filterCategory = "";
-    IEnumerable<string> filterCategories = new List<string>();
+    IEnumerable<string>? filterCategories = new List<string>();
 
     private IEnumerable<Spending> FieldFilter(IEnumerable<Spending> seq)
     {
