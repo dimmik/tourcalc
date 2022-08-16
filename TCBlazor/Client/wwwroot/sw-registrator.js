@@ -1,3 +1,12 @@
+window.sw_reg = null;
+window.manualCheckRegistration = () => {
+    if (window.sw_reg) {
+        console.info("sw_reg is not null");
+        window.sw_reg.update();
+    } else {
+        console.info("sw_reg is null");
+    }
+}
 window.updateAvailable = new Promise((resolve, reject) => {
   //console.info("in promise updateAvailable");
   if (!('serviceWorker' in navigator)) {
@@ -5,12 +14,14 @@ window.updateAvailable = new Promise((resolve, reject) => {
     console.error(errorMessage);
     reject(errorMessage);
     return;
-  }
+    }
+  
   //console.info("ServiceWorker is available");
   navigator.serviceWorker.register('/service-worker.js')
     .then(registration => {
       console.info(`Service worker registration successful (scope: ${registration.scope})`);
-
+      window.sw_reg = registration;
+      
       setInterval(() => {
           //console.info('Check for update');
           registration.update();

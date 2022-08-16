@@ -2,7 +2,11 @@
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
+@inject IJSRuntime JsRuntime
+
 <h3>UI Settings</h3>
+
+<Button @onclick=@(() => JsRuntime.InvokeVoidAsync("window.manualCheckRegistration"))>Check Update</Button>
 
 <DynaForm Item=@settings
           OnSave=@(async (s) => {
