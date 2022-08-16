@@ -110,8 +110,11 @@
             else 
             {
                 <span style="font-size:xx-small">
+                    @if (spending.ToGuid.Count > 1){
+                        <span>[<b>@spending.ToGuid.Count</b>]&nbsp;</span>
+                    }
                     @(
-                        (MarkupString)string.Join(",",
+                        (MarkupString)string.Join(", ",
                             spending
                             .ToGuid
                             .Select(g => (Tour?.Persons ?? new List<Person>())
