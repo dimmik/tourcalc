@@ -173,8 +173,9 @@
                                 .Where(s => !s.Planned)?
                                 .Select(s => s.Type)?.Where(cc => !string.IsNullOrWhiteSpace(cc))
                                 ?? new string[0])
-
-                                .Distinct();
+                                .Distinct()
+                                .OrderBy(s => s)
+                                ;
         //Console.WriteLine($"Cats: {string.Join(", ", TourCategories)}");
         filterCategories = (filterCategories ?? new List<string>()).Intersect(TourCategories ?? new List<string>());
         guid = Guid.NewGuid().ToString();
