@@ -43,7 +43,8 @@ else
     Tour=@tour 
     SpendingListPreProcessor=@(
         (l) => l
-        .Where(s => (string.IsNullOrWhiteSpace(TheSpending.FromGuid) || s.FromGuid == TheSpending.FromGuid))
+        .Where(s => (string.IsNullOrWhiteSpace(TheSpending.FromGuid) 
+             || (!settings.In_Add_Spending_Page_Filter_by_Chosen_Payer || s.FromGuid == TheSpending.FromGuid)))
         .OrderBy(s => s.Planned ? 0 : 1)
         .ThenBy(s => s.Planned && (s.Description?.StartsWith("Family") ?? false) ? 0 : 1)
         .ThenByDescending(s => s.DateCreated)
@@ -87,6 +88,7 @@ else
     private Spending TheSpending = new Spending();
     private bool initialized = false;
 
+    private UISettings settings = new UISettings();
 
     private async Task SaveSpending(Spending s)
     {
@@ -115,11 +117,11 @@ else
 
     private string WhoAmI = ""; // from spending last ADDED by THIS USER
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
+        settings = await engine.GetUISettings();
         engine.onTourLoaded += OnFreshTourLoaded;
         _ = engine.RequestTourLoad(TourId);
-        return Task.CompletedTask;
     }
     public void Dispose()
     {

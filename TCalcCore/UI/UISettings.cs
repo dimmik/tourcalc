@@ -12,5 +12,6 @@
         public bool Show_Mass_Spending_Change { get; set; } = false;
         public bool Collapse_Columns_In_Person_List_On_Smaller_Screen { get; set; } = true;
         public int Smaller_Screen_Width { get; set; } = 500;
+        public bool In_Add_Spending_Page_Filter_by_Chosen_Payer { get; set; } = false;
     }
 }
