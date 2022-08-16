@@ -113,14 +113,19 @@
                     @if (spending.ToGuid.Count > 1){
                         <span>[<b>@spending.ToGuid.Count</b>]&nbsp;</span>
                     }
-                    @(
-                        (MarkupString)string.Join(", ",
-                            spending
+                    @{
+                        var c = new[] { "color: Black", "color: DarkGreen; font-weight: bold" };
+                        var names = spending
                             .ToGuid
                             .Select(g => (Tour?.Persons ?? new List<Person>())
-                                    .Where(p => p.GUID == g)
-                                    .FirstOrDefault()?.Name)
-                             ).AsBreakable()
+                            .Where(p => p.GUID == g)
+                            .FirstOrDefault()?.Name?.AsBreakable() ?? "n/a")
+                            .Zip(Enumerable.Range(0, spending.ToGuid.Count).Select(x => x % 2) )
+                            .Select(nc => $"<span style='{c[nc.Second]}'>{nc.First}</span>")
+                            ;
+                    }
+                    @(
+                        (MarkupString)$"{string.Join(", ", names)}"
                      )
                 </span>
                 if (!spending.IsPartialWeighted && spending.ToGuid.Count > 1)
