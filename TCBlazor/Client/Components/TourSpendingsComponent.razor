@@ -120,6 +120,7 @@
                             .Select(g => (Tour?.Persons ?? new List<Person>())
                             .Where(p => p.GUID == g)
                             .FirstOrDefault()?.Name?.AsBreakable() ?? "n/a")
+                            .OrderBy(n => n)
                             .Zip(Enumerable.Range(0, spending.ToGuid.Count).Select(x => x % 2) )
                             .Select(nc => $"<span style='{c[nc.Second]}'>{nc.First}</span>")
                             ;
