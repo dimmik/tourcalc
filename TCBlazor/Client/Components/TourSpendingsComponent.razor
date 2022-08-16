@@ -57,7 +57,7 @@
                 HideSelected=@false
                 Size="small"
                 MaxTagCount="@ResponsiveTag.Responsive"
-                IgnoreItemChanges="false"
+                IgnoreItemChangesLeadsToException="false"
 		        AllowClear/>
             </th>
         <th><span style="cursor:pointer;@(sortingField == SortingField.From ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.From))>From</span></th>
