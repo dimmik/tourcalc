@@ -214,39 +214,46 @@ namespace TCalc.Logic
         {
             // find ones who owes min (will receive max)
             Calculate(includePlanned: true);
-            var creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
-            var debtors = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
+            var creditors = Creditors();
+            var debtors = Debtors();
             int maxIterations = 500;
             int i = 0;
             while (creditors.Any() && debtors.Any())
             {
                 // get first creditor (highest credit)
-                var credit = -creditors.First().Debt();
+                var creditor = (creditors.Where(c => c.GroupId.StartsWith("r")).Concat(creditors.Where(c => !c.GroupId.StartsWith("r")))).First();
+                var cGroupId = creditor.GroupId;
+
+                var debtor = (debtors.Where(d => d.GroupId != cGroupId).Concat(debtors.Where(d => d.GroupId == cGroupId))).First();
+
+                var credit = -creditor.Debt();
                 // find first debtor (highest debt)
-                var highestDebt = debtors.First().Debt();
+                var highestDebt = debtor.Debt();
                 // spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{parent.GUID}".CreateMD5();
                 var spending = new Spending()
                 {
-                    FromGuid = debtors.First().GUID,
+                    FromGuid = debtor.GUID,
                     Planned = true,
-                    ToGuid = new[] { creditors.First().GUID }.ToList(),
+                    ToGuid = new[] { creditor.GUID }.ToList(),
                     ToAll = false,
                     AmountInCents = credit > highestDebt ? highestDebt : credit,
-                    Description = $"X '{debtors.First()?.Name ?? "n/a"}' -> '{creditors.First()?.Name ?? "n/a"}'",
+                    Description = $"X '{debtor?.Name ?? "n/a"}' -> '{creditor?.Name ?? "n/a"}'",
                     Type = ""
                 };
-                spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{creditors.First().GUID}".CreateMD5();
+                spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{creditor.GUID}".CreateMD5();
                 CurrentTour.Spendings.Add(spending);
-                // add spending
+
                 Calculate(includePlanned: true);
-                creditors = CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
-                debtors = CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
+                creditors = Creditors();
+                debtors = Debtors();
                 i++;
                 if (i > maxIterations) throw new Exception("Cannot calculate tour suggestions");
             }
             //RemoveRedundant();
 
         }
+        private Person[] Creditors() => CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
+        private Person[] Debtors() => CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
 
         private void RemoveRedundant()
         {
