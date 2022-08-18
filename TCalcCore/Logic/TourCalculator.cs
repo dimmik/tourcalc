@@ -209,7 +209,7 @@ namespace TCalc.Logic
             Calculate(includePlanned: false);
             return CurrentTour;
         }
-
+        private static string _PGS_ = "r";
         private void SuggestCrossPayment()
         {
             // find ones who owes min (will receive max)
@@ -221,7 +221,7 @@ namespace TCalc.Logic
             while (creditors.Any() && debtors.Any())
             {
                 // get first creditor (highest credit)
-                var creditor = (creditors.Where(c => c.GroupId.StartsWith("r")).Concat(creditors.Where(c => !c.GroupId.StartsWith("r")))).First();
+                var creditor = (creditors.Where(c => c.GroupId.StartsWith(_PGS_)).Concat(creditors.Where(c => !c.GroupId.StartsWith(_PGS_)))).First();
                 var cGroupId = creditor.GroupId;
 
                 var debtor = (debtors.Where(d => d.GroupId != cGroupId).Concat(debtors.Where(d => d.GroupId == cGroupId))).First();
@@ -247,7 +247,7 @@ namespace TCalc.Logic
                 creditors = Creditors();
                 debtors = Debtors();
                 i++;
-                if (i > maxIterations) throw new Exception("Cannot calculate tour suggestions");
+                if (i > maxIterations) throw new Exception($"Cannot calculate tour suggestions. Max of {maxIterations} iterations excceeded");
             }
             //RemoveRedundant();
 
