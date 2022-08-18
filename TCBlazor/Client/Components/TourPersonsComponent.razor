@@ -221,59 +221,65 @@
         return __builder =>
         {
     <td>
-                                                        @if (IsSubmittingPerson)
-                {
-                                                            <div>submitting...</div>
-                }
-                                                           <input @bind-value=@(pp.Name) 
+        @if (IsSubmittingPerson)
+        {
+            <div>submitting...</div>
+        }
+        <input @bind-value=@(pp.Name) 
                 size=7 
                 disabled=@IsSubmittingPerson
-                                                            @onkeyup=@(async (e) => {
-                        if (e.Code == "Enter" || e.Code == "NumpadEnter"){
-                            await OnSubmit(pp, onSubmit);
-                        }
-                    }) 
-                                                            /> 
-                                                    <Button 
-        Type="primary"
-        Size="small"
-        Loading=@IsSubmittingPerson
-                                                    @onclick=@(async () => {
-            await OnSubmit(pp, onSubmit);
-        })>Save</Button>
-                                                    <span>&nbsp;|&nbsp;</span>
-                                                    <Button 
-                                    Type="primary"
-                                    Shape="@ButtonShape.Circle"
-                                    Icon="@IconType.Outline.Close"
-                                    Size="small"
-                                    Danger=@true
-                
-                                                    @onclick=@(() => onCloseButton())/>
-                                                                                        <div>→ 
-                                                                                            <nobr><Select
-                                                                                                @bind-Value="pp.ParentId"
-                    TItemValue="string"
-		            TItem="string"
-                    Placeholder="Payer"
-                    Style="display: inline-block;"
-                    Disabled=@IsSubmittingPerson
-                    DropdownMatchSelectWidth=@false
-                    AllowClear=@true
-                    DefaultActiveFirstItem="true"
-                                                                                                EnableSearch
-                                                                                            >
-                                                                                                <SelectOptions>
-                                                                                                    @foreach (var p in (Tour?.Persons ?? new List<Person>()).Where(ppp => ppp.GUID != pp.GUID))
-                            {
-                                                                                                        <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
-                            }
-                                                                                                </SelectOptions>
-                                                                                            </Select>
-                                                                                            </nobr>
-                                                                                        </div>
+                @onkeyup=@(async (e) => {
+                if (e.Code == "Enter" || e.Code == "NumpadEnter"){
+                    await OnSubmit(pp, onSubmit);
+                }
+            }) 
+        /> 
+        <Button 
+            Type="primary"
+            Size="small"
+            Loading=@IsSubmittingPerson
+            @onclick=@(async () => {
+                await OnSubmit(pp, onSubmit);
+            })>Save</Button>
+
+        <span>&nbsp;|&nbsp;</span>
+        <Button 
+           Type="primary"
+           Shape="@ButtonShape.Circle"
+           Icon="@IconType.Outline.Close"
+           Size="small"
+           Danger=@true
+           @onclick=@(() => onCloseButton())/>
+        <div>→ 
+        <nobr>
+             <Select
+                @bind-Value="pp.ParentId"
+                TItemValue="string"
+		        TItem="string"
+                Placeholder="Payer"
+                Style="display: inline-block;"
+                Disabled=@IsSubmittingPerson
+                DropdownMatchSelectWidth=@false
+                AllowClear=@true
+                DefaultActiveFirstItem="true"
+                EnableSearch
+            >
+            <SelectOptions>
+            @foreach (var p in (Tour?.Persons ?? new List<Person>()).Where(ppp => ppp.GUID != pp.GUID))
+            {
+                <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
+            }
+            </SelectOptions>
+        </Select>
+        </nobr>
+        </div>
     </td>
-    <td colspan="@(tableColspan - 1)"><input @bind-value=@(pp.Weight) size="3" disabled=@IsSubmittingPerson/></td>
+    <td colspan="@(tableColspan - 1)">
+        <input @bind-value=@(pp.Weight) size="3" disabled=@IsSubmittingPerson/>
+        @if (settings.Show_Debug_UI){
+            <span>g: <input @bind-value=@(pp.GroupId) size="3" disabled=@IsSubmittingPerson/></span>
+        }
+    </td>
         };
 
         
