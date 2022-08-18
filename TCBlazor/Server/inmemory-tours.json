@@ -16406,6 +16406,7 @@
       "Metadata": null,
       "GUID": "zax4awa",
       "Order": 0,
+      "GroupId": "araaa",
       "IsChanged": true,
       "IsFromJson": false,
       "DateCreated": "2021-06-10T15:58:49.079Z"
@@ -19022,6 +19023,8 @@
     },
     {
       "Name": "Андрей",
+      "GroupId": "araaa",
+
       "Weight": 100,
       "SpentInCents": 46108,
       "ReceivedInCents": 41053,
@@ -22551,178 +22554,8 @@
       "IsChanged": true,
       "IsFromJson": false,
       "DateCreated": "2021-08-18T12:38:21.149Z"
-    },
-    {
-      "FromGuid": "dzl6gwa",
-      "ToGuid": [
-        "budymwi"
-      ],
-      "AmountInCents": 38455,
-      "Weighted": true,
-      "IsPartialWeighted": false,
-      "ToAll": false,
-      "Planned": false,
-      "Description": "X 'Саша О.' -> 'Паша'",
-      "Type": "",
-      "Metadata": null,
-      "GUID": "dctn5qi",
-      "Order": 0,
-      "IsChanged": true,
-      "IsFromJson": false,
-      "DateCreated": "2021-08-23T10:35:16.736Z"
-    },
-    {
-      "FromGuid": "d5zo2wa",
-      "ToGuid": [
-        "dzl6gwa"
-      ],
-      "AmountInCents": 13029,
-      "Weighted": true,
-      "IsPartialWeighted": false,
-      "ToAll": false,
-      "Planned": true,
-      "Description": "Family 'Валечка' -> 'Саша О.'",
-      "Type": "",
-      "Metadata": null,
-      "GUID": "3C8F0F0923768BC1E0E8EBBE5E808895",
-      "Order": 0,
-      "IsChanged": true,
-      "IsFromJson": false,
-      "DateCreated": "2022-07-03T07:39:28.6195859+03:00"
-    },
-    {
-      "FromGuid": "couqlhy",
-      "ToGuid": [
-        "dzl6gwa"
-      ],
-      "AmountInCents": 11650,
-      "Weighted": true,
-      "IsPartialWeighted": false,
-      "ToAll": false,
-      "Planned": true,
-      "Description": "Family 'Игоряша' -> 'Саша О.'",
-      "Type": "",
-      "Metadata": null,
-      "GUID": "5EA8A7BC817B2149AEFAB7B21CC141AC",
-      "Order": 0,
-      "IsChanged": true,
-      "IsFromJson": false,
-      "DateCreated": "2022-07-03T07:39:28.6195968+03:00"
-    },
-    {
-      "FromGuid": "2arnuwa",
-      "ToGuid": [
-        "budymwi"
-      ],
-      "AmountInCents": 15626,
-      "Weighted": true,
-      "IsPartialWeighted": false,
-      "ToAll": false,
-      "Planned": true,
-      "Description": "X 'Женя К.' -> 'Паша'",
-      "Type": "",
-      "Metadata": null,
-      "GUID": "F9CAF35AD2D2882CE567D6399F8FD138",
-      "Order": 0,
-      "IsChanged": true,
-      "IsFromJson": false,
-      "DateCreated": "2022-07-03T07:39:28.6199764+03:00"
-    },
-    {
-      "FromGuid": "2arnuwa",
-      "ToGuid": [
-        "rxyncwa"
-      ],
-      "AmountInCents": 10197,
-      "Weighted": true,
-      "IsPartialWeighted": false,
-      "ToAll": false,
-      "Planned": true,
-      "Description": "X 'Женя К.' -> 'Хомяк'",
-      "Type": "",
-      "Metadata": null,
-      "GUID": "34033560585113755588DB9CE52B8E67",
-      "Order": 0,
-      "IsChanged": true,
-      "IsFromJson": false,
-      "DateCreated": "2022-07-03T07:39:28.6203454+03:00"
-    },
-    {
-      "FromGuid": "zax4awa",
-      "ToGuid": [
-        "kwl66wa"
-      ],
-      "AmountInCents": 3403,
-      "Weighted": true,
-      "IsPartialWeighted": false,
-      "ToAll": false,
-      "Planned": true,
-      "Description": "X 'Дима Т.' -> 'Андрей'",
-      "Type": "",
-      "Metadata": null,
-      "GUID": "2D5B55739F21C0F2E7C10360A5E015F7",
-      "Order": 0,
-      "IsChanged": true,
-      "IsFromJson": false,
-      "DateCreated": "2022-07-03T07:39:28.6207369+03:00"
-    },
-    {
-      "FromGuid": "2arnuwa",
-      "ToGuid": [
-        "kwl66wa"
-      ],
-      "AmountInCents": 1652,
-      "Weighted": true,
-      "IsPartialWeighted": false,
-      "ToAll": false,
-      "Planned": true,
-      "Description": "X 'Женя К.' -> 'Андрей'",
-      "Type": "",
-      "Metadata": null,
-      "GUID": "9185B1ADF07A79149C46E83E3C3E60CD",
-      "Order": 0,
-      "IsChanged": true,
-      "IsFromJson": false,
-      "DateCreated": "2022-07-03T07:39:28.6211162+03:00"
-    },
-    {
-      "FromGuid": "2arnuwa",
-      "ToGuid": [
-        "se6i4vy"
-      ],
-      "AmountInCents": 914,
-      "Weighted": true,
-      "IsPartialWeighted": false,
-      "ToAll": false,
-      "Planned": true,
-      "Description": "X 'Женя К.' -> 'Дима А.'",
-      "Type": "",
-      "Metadata": null,
-      "GUID": "F9932E3C778B27ED0B161045DA339E4C",
-      "Order": 0,
-      "IsChanged": true,
-      "IsFromJson": false,
-      "DateCreated": "2022-07-03T07:39:28.6215035+03:00"
-    },
-    {
-      "FromGuid": "dzl6gwa",
-      "ToGuid": [
-        "se6i4vy"
-      ],
-      "AmountInCents": 2,
-      "Weighted": true,
-      "IsPartialWeighted": false,
-      "ToAll": false,
-      "Planned": true,
-      "Description": "X 'Саша О.' -> 'Дима А.'",
-      "Type": "",
-      "Metadata": null,
-      "GUID": "1D80DC935BAA65D0EBD4D1F6F4ABB868",
-      "Order": 0,
-      "IsChanged": true,
-      "IsFromJson": false,
-      "DateCreated": "2022-07-03T07:39:28.6221462+03:00"
     }
+
   ],
   "Name": "(Fin) Поход Урал Август 2021",
   "Id": "zscph2y",
