@@ -97,7 +97,7 @@ else
                         <EditActionTemplate Context="s">
                                 @if (s.Planned)
                                 {
-                                    <b style="font-size: x-large; cursor:pointer;" @onclick=@(async () => {
+                                    <Button Danger Size="small" @onclick=@(async () => {
                                         bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Add planned '{s.Description}' : {s.AmountInCents}?");
                                         if (confirmed)
                                         {
@@ -105,7 +105,7 @@ else
                                             ss.Type = "";
                                             _ = engine.RequestAddSpending(tour.Id, ss);
                                         }
-                                    })>+</b>
+                                    })>+</Button>
                                 }
                                 else
                                 {
