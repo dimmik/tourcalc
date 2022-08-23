@@ -118,7 +118,7 @@
         }
         if (!WillPay) // I will receive money
         {
-            if (debt >= 0) return JustOk; // all done
+            if (debt > 0) return JustOk; // all done
             if (spendingToShow?.Any(s => (tour?.Persons?.FirstOrDefault(p => p.GUID == s.FromGuid)?.ParentId ?? "--") != person.GUID) ?? true) // anyone but my children is going to pay me]
             {
                 return Pleasure;
