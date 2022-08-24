@@ -40,7 +40,7 @@ namespace TourCalcWebApp.Controllers
             tourStorage = storage;
         }
 
-        [HttpGet("checkInstance")]
+        //[HttpGet("checkInstance")]
         public string CheckInstance()
         {
             var now = DateTime.UtcNow;
@@ -48,7 +48,7 @@ namespace TourCalcWebApp.Controllers
 
         }
 
-        [HttpGet("longr/{delayInSec}/{numberOfIterations}")]
+        //[HttpGet("longr/{delayInSec}/{numberOfIterations}")]
         public async Task<IActionResult> LongRunning(int delayInSec, int numberOfIterations)
         {
             Stopwatch ssw = Stopwatch.StartNew();
@@ -131,7 +131,7 @@ namespace TourCalcWebApp.Controllers
             return auth;
         }
 
-        [HttpGet("config_values")]
+        //[HttpGet("config_values")]
         public Dictionary<string, RequestedConfigValue> GetConfigValues()
         {
             var auth = AuthHelper.GetAuthData(User, Configuration);

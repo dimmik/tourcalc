@@ -4,11 +4,16 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  workflow_run:
+  push:
+# effectively not run at all. But keep just in case
+    branches: ['react']
+
+#on:
+#  workflow_run:
 # run after prod blazor is built on top of its image
-    workflows: ["Blazor -- Create and publish a Docker image"]
-    types:
-      - completed
+#    workflows: ["Blazor -- Create and publish a Docker image"]
+#    types:
+#      - completed
 
 env:
   REGISTRY: ghcr.io
