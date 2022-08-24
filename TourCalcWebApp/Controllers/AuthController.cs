@@ -41,7 +41,7 @@ namespace TourCalcWebApp.Controllers
         }
 
         //[HttpGet("checkInstance")]
-        public string CheckInstance()
+        private string CheckInstance()
         {
             var now = DateTime.UtcNow;
             return $"inst: {InstanceCreated} now: {now} diff: {(now - InstanceCreated).TotalSeconds} s";
@@ -49,7 +49,7 @@ namespace TourCalcWebApp.Controllers
         }
 
         //[HttpGet("longr/{delayInSec}/{numberOfIterations}")]
-        public async Task<IActionResult> LongRunning(int delayInSec, int numberOfIterations)
+        private async Task<IActionResult> LongRunning(int delayInSec, int numberOfIterations)
         {
             Stopwatch ssw = Stopwatch.StartNew();
             var r = Response;
@@ -132,7 +132,7 @@ namespace TourCalcWebApp.Controllers
         }
 
         //[HttpGet("config_values")]
-        public Dictionary<string, RequestedConfigValue> GetConfigValues()
+        private Dictionary<string, RequestedConfigValue> GetConfigValues()
         {
             var auth = AuthHelper.GetAuthData(User, Configuration);
             if (!auth.IsMaster) throw HttpException.Forbid("You are not admin");
