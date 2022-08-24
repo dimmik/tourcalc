@@ -55,8 +55,8 @@ namespace TourCalcWebApp.Controllers
         /// </summary>
         /// <param name="tourid">id of the tour</param>
         /// <returns>calculated tour</returns>
-        [HttpGet("{tourid}/calculated")]
-        public Tour GetTourCalculated(string tourid)
+        //[HttpGet("{tourid}/calculated")]
+        private Tour GetTourCalculated(string tourid)
         {
             var tour = TourStorageUtilities_LoadFromStoragebyId(tourid);
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
@@ -107,8 +107,8 @@ namespace TourCalcWebApp.Controllers
         /// </summary>
         /// <param name="tourid">id of the tour</param>
         /// <returns>calculated tour with suggestions</returns>
-        [HttpGet("{tourid}/suggested")]
-        public Tour GetTourSuggested(string tourid)
+        //[HttpGet("{tourid}/suggested")]
+        private Tour GetTourSuggested(string tourid)
         {
             var tour = TourStorageUtilities_LoadFromStoragebyId(tourid);
             if (tour == null) throw HttpException.NotFound($"no tour with id {tourid}");
@@ -123,8 +123,8 @@ namespace TourCalcWebApp.Controllers
         /// <param name="count">Number of tours to return, default 50</param>
         /// <param name="code">(valid for admin only) code to filter on</param>
         /// <returns>List of tours</returns>
-        [HttpGet]
-        public TourList GetAllTours([FromQuery] int from = 0, [FromQuery] int count = 50, [FromQuery] string code = "")
+        //[HttpGet]
+        private TourList GetAllTours([FromQuery] int from = 0, [FromQuery] int count = 50, [FromQuery] string code = "")
         {
             var tours = TourStorageUtilities_LoadAllTours(from, count, code);
             return tours;
@@ -228,8 +228,8 @@ namespace TourCalcWebApp.Controllers
         /// <param name="tourid">id of tour to update</param>
         /// <param name="tourJson">tour's json. Only /name and /AccessCodeMD5 (if provided) is used</param>
         /// <returns>id of updated tour</returns>
-        [HttpPatch("{tourid}/changename")]
-        public string UpdateTourName(string tourid, Tour tourJson)
+        //[HttpPatch("{tourid}/changename")]
+        private string UpdateTourName(string tourid, Tour tourJson)
         {
             var tour = TourStorageUtilities_LoadFromStoragebyId(tourid);
 
@@ -254,8 +254,8 @@ namespace TourCalcWebApp.Controllers
         /// <param name="tourid">id of tour to update</param>
         /// <param name="tourJson">tour's json. Only /isArchived and /AccessCodeMD5 (if provided) is used</param>
         /// <returns>id of updated tour</returns>
-        [HttpPatch("{tourid}/archive")]
-        public string UpdateTourArchived(string tourid, Tour tourJson)
+        //[HttpPatch("{tourid}/archive")]
+        private string UpdateTourArchived(string tourid, Tour tourJson)
         {
             var tour = TourStorageUtilities_LoadFromStoragebyId(tourid);
 
@@ -280,8 +280,8 @@ namespace TourCalcWebApp.Controllers
         /// <param name="tourid">id of tour to update</param>
         /// <param name="tourJson">tour's json. Only /isArchived and /AccessCodeMD5 (if provided) is used</param>
         /// <returns>id of updated tour</returns>
-        [HttpPatch("{tourid}/finalizing")]
-        public string UpdateTourFinalizing(string tourid, Tour tourJson)
+        //[HttpPatch("{tourid}/finalizing")]
+        private string UpdateTourFinalizing(string tourid, Tour tourJson)
         {
             var tour = TourStorageUtilities_LoadFromStoragebyId(tourid);
 
@@ -338,8 +338,8 @@ namespace TourCalcWebApp.Controllers
         /// <param name="tourid">tour id</param>
         /// <param name="p">person json. GUID ignored</param>
         /// <returns>newly created person id</returns>
-        [HttpPost("{tourid}/person")]
-        public string AddTourPerson(string tourid, Person p)
+        //[HttpPost("{tourid}/person")]
+        private string AddTourPerson(string tourid, Person p)
         {
             var tour = TourStorageUtilities_LoadFromStoragebyId(tourid);
 
@@ -358,8 +358,8 @@ namespace TourCalcWebApp.Controllers
         /// <param name="personguid">person id</param>
         /// <param name="p">full person json. GUID ignored</param>
         /// <returns>updated person id</returns>
-        [HttpPatch("{tourid}/person/{personguid}")]
-        public string UpdateTourPerson(string tourid, string personguid, Person p)
+        //[HttpPatch("{tourid}/person/{personguid}")]
+        private string UpdateTourPerson(string tourid, string personguid, Person p)
         {
             var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
 
@@ -378,8 +378,8 @@ namespace TourCalcWebApp.Controllers
         /// <param name="tourid">tour id</param>
         /// <param name="personguid">person id</param>
         /// <returns>id of deleted person</returns>
-        [HttpDelete("{tourid}/person/{personguid}")]
-        public string DeleteTourPerson(string tourid, string personguid)
+        //[HttpDelete("{tourid}/person/{personguid}")]
+        private string DeleteTourPerson(string tourid, string personguid)
         {
             var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
 
@@ -401,8 +401,8 @@ namespace TourCalcWebApp.Controllers
         /// <param name="spendingid">id of the spending</param>
         /// <param name="sp">full spending JSON. GUID ignored</param>
         /// <returns>id of updated spending</returns>
-        [HttpPatch("{tourid}/spending/{spendingid}")]
-        public string UpdateTourSpending(string tourid, string spendingid, Spending sp)
+        //[HttpPatch("{tourid}/spending/{spendingid}")]
+        private string UpdateTourSpending(string tourid, string spendingid, Spending sp)
         {
             var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
 
@@ -422,8 +422,8 @@ namespace TourCalcWebApp.Controllers
         /// <param name="tourid">tour id</param>
         /// <param name="s">Spending JSON</param>
         /// <returns>id of newly created spending</returns>
-        [HttpPost("{tourid}/spending")]
-        public string AddTourSpending(string tourid, Spending s)
+        //[HttpPost("{tourid}/spending")]
+        private string AddTourSpending(string tourid, Spending s)
         {
             var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
             if (t != null)
@@ -446,8 +446,8 @@ namespace TourCalcWebApp.Controllers
         /// <param name="tourid">tour id</param>
         /// <param name="spendingid">spending id</param>
         /// <returns>id of deleted spending</returns>
-        [HttpDelete("{tourid}/spending/{spendingid}")]
-        public string DeleteTourSpending(string tourid, string spendingid)
+        //[HttpDelete("{tourid}/spending/{spendingid}")]
+        private string DeleteTourSpending(string tourid, string spendingid)
         {
             var t = TourStorageUtilities_LoadFromStoragebyId(tourid);
 

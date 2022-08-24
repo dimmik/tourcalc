@@ -9,7 +9,9 @@ RUN npm run buildProd
 RUN ls -Rla /src/TourCalcWebApp/wwwroot/assets
 
 # update our latest blazor with react UI
-FROM ghcr.io/dimmik/tourcalc:blazor-latest
+#FROM ghcr.io/dimmik/tourcalc:blazor-latest
+# get latest react and update it. Purpose: only update react UI. Which is actually obsolete and is not planned to be updated anymore
+FROM ghcr.io/dimmik/tourcalc:react-latest
 ARG BUILD_TYPE=na
 WORKDIR /app
 #RUN dotnet --version
