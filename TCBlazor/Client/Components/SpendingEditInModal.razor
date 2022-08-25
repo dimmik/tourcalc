@@ -1,0 +1,59 @@
+﻿@using TCalcCore.Engine
+@inject TourcalcEngine engine
+
+<Button Size="small" @onclick=@(() => open = true)>edit</Button>
+@if (open)
+{
+    <Modal Title=@($"Edit {spending.Description}")
+       Visible="@open"
+       Footer=@(footer(() => open = false))
+       OnOk=@(() => open = false)
+       OnCancel=@(() => open = false)
+       DestroyOnClose=@true
+       Closable=@true
+       Width="600"
+       >
+       
+        <TourSpendingModifyComponent
+            tour=@tour
+            TheSpending=@spending
+            OnSave=@SaveSpending
+            OnFromChanged=@((g) => {})
+            OnCancel=@(() => open = false)
+            OnX=@(() => open = false)
+            TitleText=@($"Edit {spending.Description}")
+        />
+
+
+    </Modal>
+}
+
+@code {
+    [Parameter]
+    public Spending spending { get; set; } = new();
+    [Parameter]
+    public Tour tour { get; set; } = new();
+
+    private bool open = false;
+
+    private void SaveSpending(Spending s)
+    {
+        _ = engine.RequestEditSpending(tour.Id, s);
+        open = false;
+    }
+
+
+    private RenderFragment footer(Action onOk)
+    {
+        return __builder =>
+        {
+            <span/>
+//            <Template>
+//                <Button OnClick=@((e) => onOk())
+//                    Type="primary">
+//                                    Cancel
+//                </Button>
+//            </Template>
+        };
+    }
+}
