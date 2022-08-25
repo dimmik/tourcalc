@@ -11,13 +11,13 @@
         <tr>
             <td>Description:</td>
             <td>
-                <Input @bind-Value=@(TheSpending.Description)/>
+                <Input @bind-Value=@(spending.Description)/>
             </td>
         </tr>
         <tr>
             <td>Amount:</td>
             <td>
-            <Input @bind-Value=@(TheSpending.AmountInCents) Type="number"/>
+            <Input @bind-Value=@(spending.AmountInCents) Type="number"/>
             </td>
          </tr>
 
@@ -25,7 +25,7 @@
             <td>Category:</td>
             <td>
             <Select
-                @bind-Value=@(TheSpending.Type)
+                @bind-Value=@(spending.Type)
                 TItemValue="string"
 		        TItem="string"
                 AllowClear=@true
@@ -41,7 +41,7 @@
 
             <Select
                 OnSelectedItemChanged="OnFromSelectedChangedHandler"
-                @bind-Value=@(TheSpending.FromGuid)
+                @bind-Value=@(spending.FromGuid)
                 TItemValue="string"
 		        TItem="string"
                 Placeholder="From"
@@ -61,7 +61,7 @@
             <td>To All:</td>
             <td>
 
-            <Switch @bind-Value=@(TheSpending.ToAll)></Switch>
+            <Switch @bind-Value=@(spending.ToAll)></Switch>
             </td>
         </tr>
         <tr>
@@ -73,7 +73,7 @@
 		        TItemValue="string"
 		        TItem="string"
                 OnSelectedItemsChanged="OnToPersonsChangedHandler"
-                Disabled=@(TheSpending.ToAll)
+                Disabled=@(spending.ToAll)
 		        AllowClear>
 		            <SelectOptions>
 			            @foreach(var p in TourPersons())
@@ -88,10 +88,10 @@
             <td colspan="2">
                 <div style="display: table; width: 100%">
                         <div style="display: table-cell; align-content: flex-start; width: 65%; text-align: start;">
-                <Button Type="@AntDesign.ButtonType.Primary" Loading=@ShowInProgress @onclick=@(async () => await SaveSpending())>
+                <Button Type="@AntDesign.ButtonType.Primary" Loading=@ShowInProgress @onclick=@SaveSpending>
                     @($"{(IsItANewSpending() ? "Submit" : "Submit")}")
                 </Button>
-                <Button Danger=@true @onclick=@(() => OnCancel())>
+                <Button Danger=@true @onclick=@OnCancel>
                     Cancel
                 </Button>
                    </div>
@@ -99,7 +99,7 @@
                             <Button Type="@AntDesign.ButtonType.Primary" Danger=@true 
                                 Shape="@ButtonShape.Circle"
                                 Icon="@IconType.Outline.Close"
-                                @onclick=@(() => NavManager.NavigateTo($"/tour/{tour.Id}"))/>
+                                @onclick=@(OnX == null ? () => NavManager.NavigateTo($"/tour/{tour.Id}") : OnX)/>
                    </div>
                 </div>
             </td>
@@ -112,12 +112,13 @@
 @code {
     [Parameter]
     public Spending TheSpending { get; set; } = new Spending();
+    public Spending? spending;
 
     [Parameter]
     public Tour tour { get; set; } = new Tour();
 
     [Parameter]
-    public Func<Spending, Task> OnSave { get; set; } = (s) => Task.CompletedTask;
+    public Action<Spending> OnSave { get; set; } = (s) => { };
 
     [Parameter]
     public Action OnCancel { get; set; } = () => { };
@@ -129,9 +130,12 @@
     [Parameter]
     public string TitleText { get; set; } = "NEW";
 
+    [Parameter]
+    public Action? OnX { get; set; } = null;
+
     private bool IsItANewSpending()
     {
-        return !tour.Spendings.Any(s => !s.Planned && s.GUID == TheSpending.GUID);
+        return !tour.Spendings.Any(s => !s.Planned && s.GUID == spending.GUID);
     }
 
     private List<string> SpendingCategories = new List<string>();
@@ -152,7 +156,8 @@
 
     protected override void OnParametersSet()
     {
-        _selectedValuesTo = TheSpending.ToGuid;
+        spending = TheSpending.SafeClone<Spending>();
+        _selectedValuesTo = spending.ToGuid;
         SpendingCategories = (
             tour?.Spendings
                 ?.Where(s => !s.Planned)
@@ -171,7 +176,7 @@
     {
         if (values != null){
             //Console.WriteLine($"selected: ${string.Join(",", values)}");
-            TheSpending.ToGuid = values.ToList();
+            spending.ToGuid = values.ToList();
         }
     }
 
@@ -180,33 +185,33 @@
         OnFromChanged(v);
     }
     bool ShowInProgress = false;
-    private async Task SaveSpending()
+    private void SaveSpending()
     {
         List<string> err = new List<string>();
-        if (TheSpending.AmountInCents == 0)
+        if (spending.AmountInCents == 0)
         {
             err.Add("Amount should not be 0");
         }
-        if (string.IsNullOrWhiteSpace(TheSpending.Description))
+        if (string.IsNullOrWhiteSpace(spending.Description))
         {
             err.Add("Please Specify Description");
         }
-        if (!TheSpending.ToAll && (TheSpending.ToGuid ?? new List<string>()).Count == 0)
+        if (!spending.ToAll && (spending.ToGuid ?? new List<string>()).Count == 0)
         {
             err.Add("Spending should have recepients or be to all");
         }
-        if (string.IsNullOrWhiteSpace(TheSpending.FromGuid))
+        if (string.IsNullOrWhiteSpace(spending.FromGuid))
         {
             err.Add("FROM is empty");
         }
         if (err.Count == 0)
         {
             ShowInProgress = true;
-            await OnSave(TheSpending);
+            OnSave(spending);
             ShowInProgress = false;
         } else
         {
-            await JsRuntime.InvokeVoidAsync("alert", $"Errors: {string.Join("\n", err)}");
+            _ = JsRuntime.InvokeVoidAsync("alert", $"Errors: {string.Join("\n", err)}");
         }
     }
 
