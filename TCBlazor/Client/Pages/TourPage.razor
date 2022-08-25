@@ -109,9 +109,9 @@ else
                                 }
                                 else
                                 {
-                                    <SpendingEditInModal spending=@s tour=@tour/>
+                                    <SpendingEditInModal spending=@s tour=@tour @key=@($"sp_ed_mod_{s.GUID}")/>
                                 <NavLink href=@($"/tour/{tour.Id}/spending/edit/{s.GUID}")>&nbsp; 
-                                    <span style="border:solid 1px black">edit</span>                    
+                                    <span style="border:solid 1px black">-&gt;</span>                    
                                 </NavLink>
                                 }
                         </EditActionTemplate>

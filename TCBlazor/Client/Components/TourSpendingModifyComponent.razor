@@ -111,8 +111,8 @@
 
 @code {
     [Parameter]
-    public Spending TheSpending { get; set; } = new Spending();
-    public Spending? spending;
+    public Spending TheSpending { get; set; } = new();
+    public Spending spending = new();
 
     [Parameter]
     public Tour tour { get; set; } = new Tour();
@@ -156,7 +156,10 @@
 
     protected override void OnParametersSet()
     {
-        spending = TheSpending.SafeClone<Spending>();
+        if (spending.GUID != TheSpending.GUID)
+        {
+            spending = TheSpending.SafeClone<Spending>();
+        }
         _selectedValuesTo = spending.ToGuid;
         SpendingCategories = (
             tour?.Spendings
