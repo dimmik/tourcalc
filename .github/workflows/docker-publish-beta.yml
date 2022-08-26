@@ -49,6 +49,11 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
+      - name: Extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/} | sed 's/\//\\\//g')"
+        id: extract_branch        
+
       - name: linux/amd64,linux/arm64 Build and push Docker image 
         uses: docker/build-push-action@v3
         with:
@@ -57,5 +62,5 @@ jobs:
           file: tourcalc.blazor.docker
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta-${{ steps.current-time.outputs.formattedTime }}
-          build-args: BUILD_TYPE=betaB
+          build-args: BUILD_TYPE=betaB (${{ steps.extract_branch.outputs.branch }})
           labels: io.containers.autoupdate=registry
