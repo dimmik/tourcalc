@@ -29,7 +29,7 @@ namespace TourCalcWebApp.Controllers
         }
         private static readonly HttpClient client = new() { Timeout = TimeSpan.FromMinutes(10) };
         [HttpGet("wakeup/{code}")]
-        private string Wakeup([FromRoute] string code)
+        public string Wakeup([FromRoute] string code)
         {
             var secretCode = Configuration.GetValue("WakeupCode", "secCode");
             if (code != secretCode) return "wrong code";
