@@ -16,7 +16,7 @@ COPY . .
 # replace buildnum and buildver
 RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && grep -Irl "#{Build.BuildNumber}#" . | xargs sed -i 's/#{Build.BuildNumber}#/'$DT'/g'
 RUN grep -Irl "#{Build.SourceBranch}#" . | xargs sed -i 's/#{Build.SourceBranch}#/local/g'
-RUN grep -Irl '#{BuildType}#' . | xargs sed -i 's/#{BuildType}#/'${BUILD_TYPE}'/g'
+RUN grep -Irl '#{BuildType}#' . | xargs sed -i "s/#{BuildType}#/'${BUILD_TYPE}'/g"
 
 WORKDIR "/src/TCBlazor/Server"
 RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && dotnet publish --version-suffix $DT "TCBlazor.Server.csproj" -c Release -o /app 
