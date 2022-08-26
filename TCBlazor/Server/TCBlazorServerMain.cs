@@ -36,7 +36,11 @@ namespace Company.TCBlazor
             //.PartManager.ApplicationParts.Add(new AssemblyPart(assembly));
             //builder.Services.AddControllersWithViews();
 
-            builder.Services.AddControllers();
+            builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.WriteIndented = true;
+                });
             builder.Services.AddRazorPages();
 
             builder.Services.AddSwaggerGen();
