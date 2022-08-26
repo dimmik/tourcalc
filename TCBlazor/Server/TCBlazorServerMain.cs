@@ -90,11 +90,6 @@ namespace Company.TCBlazor
             var app = builder.Build();
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
             app.UseForwardedHeaders();
-            app.Use((context, next) =>
-            {
-                context.Response.Headers["X-Tourcalc-Version"] = "#{BuildType}# v #{Build.BuildNumber}#";
-                return next.Invoke();
-            });
             app.Use(
                 (ctx, next) =>
                 {
@@ -102,6 +97,7 @@ namespace Company.TCBlazor
                         () =>
                         {
                             ctx.Response.Headers[HeaderNames.CacheControl] = "no-cache";
+                            ctx.Response.Headers["X-Tourcalc-Version"] = "#{BuildType}# v #{Build.BuildNumber}#";
                             return Task.CompletedTask;
                         }
                         );
