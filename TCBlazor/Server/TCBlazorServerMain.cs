@@ -92,7 +92,7 @@ namespace Company.TCBlazor
             app.UseForwardedHeaders();
             app.Use((context, next) =>
             {
-                context.Response.Headers["X-Tourcalc-Version"] = "#{BuildType}# v #{Build.BuildNumber}#";
+                context.Response.Headers["Tourcalc-Version"] = "#{BuildType}# v #{Build.BuildNumber}#";
                 return next.Invoke();
             });
             app.Use(
