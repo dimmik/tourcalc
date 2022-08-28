@@ -80,7 +80,8 @@ else
                     {
                         <span>c: <input type="text" placeholder="code" size="3" @bind-value=@NewTourCode/></span>
                     }
-                <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => CloneTour(tour))>clone</span>
+                <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => CloneTour(tour))>clone</span>&nbsp;
+                <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => CloneTour(tour, stripSpendings: true))>clone Strip Sp</span>
                 |
                 <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => CopyTourJsonToCb(tour))>JSON</span>
             </div>
@@ -174,10 +175,14 @@ else
         }
         return code;
     }
-    private Task CloneTour(Tour t)
+    private Task CloneTour(Tour t, bool stripSpendings = false)
     {
         var cloned = t.SafeClone<Tour>();
         cloned.Name = $"clone of {t.Name}";
+        if (stripSpendings)
+        {
+            cloned.Spendings.Clear();
+        }
         InProgress = true;
         _ = engine.RequestAddTour(cloned, GetCode());
         return Task.CompletedTask;
