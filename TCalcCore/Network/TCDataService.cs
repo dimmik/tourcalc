@@ -212,6 +212,13 @@ namespace TCalcCore.Network
             return tours;
         }
 
+        public async Task<TourList> GetTourVersions(Tour tour)
+        {
+            var token = await tokenStorage.GetToken();
+            var tours = await tr.GetTourVersions(token, tour?.Id ?? "na", LogAndShowAlert);
+            return tours;
+        }
+
         private void LogAndShowAlert(string m)
         {
             LogOnly(m);

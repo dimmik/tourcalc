@@ -29,6 +29,7 @@ namespace TCalcCore.Network
         Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId);
         Task<TourList> GetTourList(Func<TourList, bool, DateTimeOffset, Task> onTourListAvailable, bool forceFromServer);
         Task<TourList> GetTourListFromServer();
+        Task<TourList> GetTourVersions(Tour tour);
         Task<Tour> LoadTour(string id, Func<Tour, bool, DateTimeOffset, Task> onTourAvailable, bool forceLoadFromServer = false, bool forceLoadFromLocalStorage = false);
         Task<Tour> LoadTourBare(string id, Func<Tour, bool, DateTimeOffset, Task> onTourAvailable, bool forceLoadFromServer = false, bool forceLoadFromLocalStorage = false);
         Task Sync(string tourId);

@@ -32,5 +32,6 @@ namespace TCalcCore.Storage
 
         //var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/all/suggested?from={from}&count={count}&code={code}", token, showErrorMessages: true);
         Task<TourList> GetTourList(string token, Action<string> errorHandler);
+        Task<TourList> GetTourVersions(string token, string tourId, Action<string> errorHandler);
     }
 }

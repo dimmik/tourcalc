@@ -1,0 +1,42 @@
+﻿@using TCalcCore.Engine
+@inject TourcalcEngine engine
+
+@using TCalcCore.Network
+@inject ITCDataService dataSvc
+
+<span style="cursor:pointer; border:solid 1px black" @onclick=@(() => open=true)>JSON</span>
+
+@if (open)
+{
+    @if (versions == null)
+    {
+        if (verTask == null) {
+            verTask = GetVersions();
+        }
+        <span>Loading versions...</span>
+    } else
+    {
+        <ol>
+            <li>Versions:</li>
+        @foreach (var t in versions.Tours)
+        {
+            <li>@t.Name (@t.VersionComment)</li>
+        }
+        </ol>
+    }
+}
+
+@code {
+    bool open = false;
+    [Parameter]
+    public Tour? Tour { get; set; } = new();
+
+    TourList? versions = null;
+    Task? verTask = null;
+
+    private async Task GetVersions()
+    {
+        versions = await dataSvc.GetTourVersions(Tour);
+        StateHasChanged();
+    }
+}
