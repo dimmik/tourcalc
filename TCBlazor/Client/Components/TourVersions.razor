@@ -4,26 +4,47 @@
 @using TCalcCore.Network
 @inject ITCDataService dataSvc
 
-<span style="cursor:pointer; border:solid 1px black" @onclick=@(() => open=true)>JSON</span>
+<span style="cursor:pointer; border:solid 1px black" @onclick=@(() => open=true)>Vv</span>
 
 @if (open)
 {
-    @if (versions == null)
-    {
-        if (verTask == null) {
-            verTask = GetVersions();
-        }
-        <span>Loading versions...</span>
-    } else
-    {
-        <ol>
-            <li>Versions:</li>
-        @foreach (var t in versions.Tours)
-        {
-            <li>@t.Name (@t.VersionComment)</li>
-        }
-        </ol>
+    if (verTask == null) {
+          verTask = GetVersions();
     }
+    <Modal Title="@($"Versions of tour {Tour?.Name ?? "n/a"}")"
+       Visible="@open"
+       Footer=@(footer(() => open = false))
+       OnOk=@(() => open = false)
+       OnCancel=@(() => open = false)
+       DestroyOnClose=@true
+       Closable=@true>
+            @if (versions == null)
+            {
+                <span>Loading versions...</span>
+            }
+       <TableTemplate
+           Items=@(versions?.Tours)
+           Context="t"
+           >
+           <TableHeader>
+               <th>
+                   Change Highlight
+               </th>
+               <th>
+                   *
+               </th>
+           </TableHeader>
+           <RowTemplate>
+                <td>
+                    @(t.Item2). @t.Item1.VersionComment
+                </td>
+                <td>
+                    Restore as tour...
+                </td>
+            </RowTemplate>
+            <NoDataRowTemplate><td colspan="2">No Data</td></NoDataRowTemplate>
+        </TableTemplate>
+    </Modal>
 }
 
 @code {
@@ -39,4 +60,19 @@
         versions = await dataSvc.GetTourVersions(Tour);
         StateHasChanged();
     }
+
+
+    private RenderFragment footer(Action onOk)
+    {
+        return __builder =>
+        {
+            <Template>
+                    <Button OnClick=@((e) => onOk())
+                    Type="primary">
+                         Got It
+                    </Button>
+            </Template>
+        };
+    }
+
 }
