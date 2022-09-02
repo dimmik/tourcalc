@@ -111,19 +111,80 @@ namespace TourCalcWebApp.Storage
                         if (tourVersion.Persons.Count() < tour.Persons.Count) return $"P '{ tour.Persons.Last()?.Name ?? "--" }' added";
                         var vSpendings = tourVersion.Spendings.Where(s => !s.Planned);
                         var tSpendings = tour.Spendings.Where(s => !s.Planned);
-                        if (vSpendings.Count() < tSpendings.Count()) return $"S '{tSpendings.Last()?.Description ?? "--" }' added";
-                        if (vSpendings.Count() > tSpendings.Count()) return $"S '{vSpendings.Except(tSpendings).Last()?.Description ?? "--" }' deleted";
+                        if (vSpendings.Count() < tSpendings.Count()) 
+                            return $"S '{tSpendings.Last()?.Description ?? "--" } ({tSpendings.Last()?.AmountInCents ?? 0})' added";
+                        if (vSpendings.Count() > tSpendings.Count()) 
+                            return $"S '{vSpendings.Except(tSpendings).Last()?.Description ?? "--" } ({vSpendings.Except(tSpendings).Last()?.AmountInCents ?? 0})' deleted";
                         if (tourVersion.IsArchived != tour.IsArchived)
                         {
                             if (tour.IsArchived) return "Moved to archive";
                             if (!tour.IsArchived) return "Restored from archive";
                         }
-                        return "Names or numbers changed";
+                        return GetChanges(tourVersion, tour);
                     })();
                     UpsertTour(tourVersion);
                 }
             }
             UpsertTour(tour);
+        }
+        private static string GetChanges(Tour oldTour, Tour newTour)
+        {
+            var res = "";
+            // persons
+            res = PersonChanges(oldTour, newTour, res);
+            // spendings
+            res = SpendingChanges(oldTour, newTour, res);
+            // tour attributes
+            if (oldTour.Name != newTour.Name) res += $"Tour Name {oldTour.Name} -> {newTour.Name}";
+            if (oldTour.IsFinalizing != newTour.IsFinalizing) res += $"Tour Finalizing flag: {oldTour.IsFinalizing} -> {newTour.IsFinalizing}";
+            if (string.IsNullOrWhiteSpace(res))
+            {
+                res = "Hmm. Well, something not that important.";
+            }
+            return $"Changed: {res}";
+        }
+
+        private static string SpendingChanges(Tour oldTour, Tour newTour, string res)
+        {
+            var zippedS = oldTour.Spendings.Where(s => !s.Planned).OrderBy(p => p.GUID)
+                .Zip(newTour.Spendings.Where(s => !s.Planned).OrderBy(p => p.GUID));
+            var zippedSChanged = zippedS.Where(
+                fs => fs.First.Description != fs.Second.Description
+                    || fs.First.AmountInCents != fs.Second.AmountInCents
+                    || fs.First.ToAll != fs.Second.ToAll
+                    || fs.First.FromGuid != fs.Second.FromGuid
+                    || fs.First.ToGuid.Count != fs.Second.ToGuid.Count
+                    || fs.First.Type != fs.Second.Type
+                );
+            foreach (var (olds, news) in zippedSChanged)
+            {
+                if (olds.Description != news.Description) res += $"Spending: {olds.Description} -> {news.Description}; ";
+                if (olds.AmountInCents != news.AmountInCents) res += $"{olds.Description}: {olds.AmountInCents} -> {news.AmountInCents}; ";
+                if (olds.ToAll != news.ToAll) res += $"{olds.Description} toAll: {olds.ToAll} -> {news.ToAll}; ";
+                if (olds.FromGuid != news.FromGuid) res += $"{olds.Description} From: {oldTour.Persons.FirstOrDefault(p => p.GUID == olds.FromGuid)?.Name ?? "na"}"
+                        + $" -> {newTour.Persons.FirstOrDefault(p => p.GUID == news.FromGuid)?.Name ?? "na"}; ";
+                if (olds.ToGuid.Count != news.ToGuid.Count) res += $"{olds.Description} To Count: {olds.ToGuid.Count} -> {news.ToGuid.Count}; ";
+                if (olds.Type != news.Type) res += $"{olds.Description} Type: {olds.Type} -> {news.Type}; ";
+            }
+
+            return res;
+        }
+
+        private static string PersonChanges(Tour oldTour, Tour newTour, string res)
+        {
+            var zippedP = oldTour.Persons.OrderBy(p => p.GUID).Zip(newTour.Persons.OrderBy(p => p.GUID));
+            var zippedPChanged = zippedP
+                .Where((fs) => fs.First.Name != fs.Second.Name || fs.First.Weight != fs.Second.Weight || fs.First.ParentId != fs.Second.ParentId);
+            foreach (var (oldp, newp) in zippedPChanged) // due to bulk update might some, not only one
+            {
+                if (oldp.Name != newp.Name) res += $"Person: {oldp.Name} -> {newp.Name}; ";
+                if (oldp.Weight != newp.Weight) res += $"{oldp.Name} Weight: {oldp.Weight} -> {newp.Weight}; ";
+                if (oldp.ParentId != newp.ParentId)
+                    res += $"{oldp.Name} Parent: {oldTour.Persons.FirstOrDefault(p => p.GUID == oldp.ParentId)?.Name ?? "None"} -> "
+                        + $"{newTour.Persons.FirstOrDefault(p => p.GUID == newp.ParentId)?.Name ?? "None"}; ";
+            }
+
+            return res;
         }
 
         private void UpsertTour(Tour tour)

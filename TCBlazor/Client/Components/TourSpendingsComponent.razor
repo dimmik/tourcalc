@@ -35,7 +35,11 @@
             @if (ShowMassChange)
             {
                 <Button Size="small" @onclick=@(() => MassChangeCat = !MassChangeCat)>mass change cats</Button>
-                @if (MassChangeIds.Values.Where(v => v).Any())
+                if (MassChangeCat)
+                {
+                    <b>Selected @(MassChangeIds.Values.Where(v => v).Count())</b>
+                }
+                @if (MassChangeCat && MassChangeIds.Values.Where(v => v).Any())
                 {
                     <div style="border: 1px solid green">
                         Change Category of @MassChangeIds.Values.Where(v => v).Count() spendings to 
