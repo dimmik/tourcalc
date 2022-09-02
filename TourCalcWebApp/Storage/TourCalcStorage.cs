@@ -131,21 +131,59 @@ namespace TourCalcWebApp.Storage
         {
             var res = "";
             // persons
-            var zipped = oldTour.Persons.OrderBy(p => p.GUID).Zip(newTour.Persons.OrderBy(p => p.GUID));
-            var zippedChanged = zipped
-                .Where((fs) => fs.First.Name != fs.Second.Name || fs.First.Weight != fs.Second.Weight || fs.First.ParentId != fs.Second.ParentId);
-            foreach (var (oldp, newp) in zippedChanged) // due to bulk update might some, not only one
-            {
-                if (oldp.Name != newp.Name) res += $"Name: {oldp.Name} -> {newp.Name}; ";
-                if (oldp.Weight != newp.Weight) res += $"{oldp.Name} Weight: {oldp.Weight} -> {newp.Weight}; ";
-                if (oldp.ParentId != newp.ParentId) 
-                    res += $"{oldp.Name} Parent: {oldTour.Persons.FirstOrDefault(p => p.GUID == oldp.ParentId)?.Name ?? "None"} -> " 
-                        + $"{newTour.Persons.FirstOrDefault(p => p.GUID == newp.ParentId)?.Name ?? "None"}; ";
-            }
+            res = PersonChanges(oldTour, newTour, res);
             // spendings
+            res = SpendingChanges(oldTour, newTour, res);
             // tour attributes
+            if (oldTour.Name != newTour.Name) res += $"Tour Name {oldTour.Name} -> {newTour.Name}";
+            if (string.IsNullOrWhiteSpace(res))
+            {
+                res = "Hmm. Well, something not that important.";
+            }
             return $"Changed: {res}";
         }
+
+        private static string SpendingChanges(Tour oldTour, Tour newTour, string res)
+        {
+            var zippedS = oldTour.Spendings.Where(s => !s.Planned).OrderBy(p => p.GUID)
+                .Zip(newTour.Spendings.Where(s => !s.Planned).OrderBy(p => p.GUID));
+            var zippedSChanged = zippedS.Where(
+                fs => fs.First.Description != fs.Second.Description
+                    || fs.First.AmountInCents != fs.Second.AmountInCents
+                    || fs.First.ToAll != fs.Second.ToAll
+                    || fs.First.FromGuid != fs.Second.FromGuid
+                    || fs.First.ToGuid.Count != fs.Second.ToGuid.Count
+                );
+            foreach (var (olds, news) in zippedSChanged)
+            {
+                if (olds.Description != news.Description) res += $"Spending: {olds.Description} -> {news.Description}; ";
+                if (olds.AmountInCents != news.AmountInCents) res += $"{olds.Description}: {olds.AmountInCents} -> {news.AmountInCents}; ";
+                if (olds.ToAll != news.ToAll) res += $"{olds.Description} toAll: {olds.ToAll} -> {news.ToAll}; ";
+                if (olds.FromGuid != news.FromGuid) res += $"{olds.Description} From: {oldTour.Persons.FirstOrDefault(p => p.GUID == olds.FromGuid)?.Name ?? "na"}"
+                        + $" -> {newTour.Persons.FirstOrDefault(p => p.GUID == news.FromGuid)?.Name ?? "na"}; ";
+                if (olds.ToGuid.Count != news.ToGuid.Count) res += $"{olds.Description} To Count: {olds.ToGuid.Count} -> {news.ToGuid.Count}; ";
+            }
+
+            return res;
+        }
+
+        private static string PersonChanges(Tour oldTour, Tour newTour, string res)
+        {
+            var zippedP = oldTour.Persons.OrderBy(p => p.GUID).Zip(newTour.Persons.OrderBy(p => p.GUID));
+            var zippedPChanged = zippedP
+                .Where((fs) => fs.First.Name != fs.Second.Name || fs.First.Weight != fs.Second.Weight || fs.First.ParentId != fs.Second.ParentId);
+            foreach (var (oldp, newp) in zippedPChanged) // due to bulk update might some, not only one
+            {
+                if (oldp.Name != newp.Name) res += $"Person: {oldp.Name} -> {newp.Name}; ";
+                if (oldp.Weight != newp.Weight) res += $"{oldp.Name} Weight: {oldp.Weight} -> {newp.Weight}; ";
+                if (oldp.ParentId != newp.ParentId)
+                    res += $"{oldp.Name} Parent: {oldTour.Persons.FirstOrDefault(p => p.GUID == oldp.ParentId)?.Name ?? "None"} -> "
+                        + $"{newTour.Persons.FirstOrDefault(p => p.GUID == newp.ParentId)?.Name ?? "None"}; ";
+            }
+
+            return res;
+        }
+
         private void UpsertTour(Tour tour)
         {
             var sameTour = provider.GetTour(tour.Id);
