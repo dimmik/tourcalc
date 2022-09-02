@@ -140,6 +140,10 @@ namespace TCalcCore.Engine
             if (reloadFromServer)
                 _ = RequestTourListLoad(forceFromServer: true);
         }
+        public async Task<TourList> GetTourVersions(Tour tour)
+        {
+            return await dataSvc.GetTourVersions(tour);
+        }
         #endregion
 
         #region on tour stored

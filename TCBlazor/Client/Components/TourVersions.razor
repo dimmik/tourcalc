@@ -1,8 +1,6 @@
 ﻿@using TCalcCore.Engine
 @inject TourcalcEngine engine
 
-@using TCalcCore.Network
-@inject ITCDataService dataSvc
 
 <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => open=true)>Vv</span>
 
@@ -58,7 +56,7 @@
 
     private async Task GetVersions()
     {
-        versions = await dataSvc.GetTourVersions(Tour);
+        versions = await engine.GetTourVersions(Tour);
         StateHasChanged();
     }
 
