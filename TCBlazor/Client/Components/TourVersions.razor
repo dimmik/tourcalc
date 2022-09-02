@@ -65,8 +65,9 @@
     private Task RestoreTour(Tour t)
     {
         var cloned = t.SafeClone<Tour>();
-        cloned.Name = $"{t.Name} (v {t.DateVersioned : yyyy-MM-dd HH:mm:ss})";
+        cloned.Name = $"{Tour?.Name ?? "na"} (v {t.DateVersioned : yyyy-MM-dd HH:mm:ss})";
         cloned.IsVersion = false;
+        open = false;
         _ = engine.RequestAddTour(cloned, Guid.NewGuid().ToString("N"));
         return Task.CompletedTask;
     }
