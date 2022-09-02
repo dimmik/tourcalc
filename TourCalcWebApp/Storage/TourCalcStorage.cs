@@ -136,6 +136,7 @@ namespace TourCalcWebApp.Storage
             res = SpendingChanges(oldTour, newTour, res);
             // tour attributes
             if (oldTour.Name != newTour.Name) res += $"Tour Name {oldTour.Name} -> {newTour.Name}";
+            if (oldTour.IsFinalizing != newTour.IsFinalizing) res += $"Tour Finalizing flag: {oldTour.IsFinalizing} -> {newTour.IsFinalizing}";
             if (string.IsNullOrWhiteSpace(res))
             {
                 res = "Hmm. Well, something not that important.";
