@@ -154,6 +154,7 @@ namespace TourCalcWebApp.Storage
                     || fs.First.ToAll != fs.Second.ToAll
                     || fs.First.FromGuid != fs.Second.FromGuid
                     || fs.First.ToGuid.Count != fs.Second.ToGuid.Count
+                    || fs.First.Type != fs.Second.Type
                 );
             foreach (var (olds, news) in zippedSChanged)
             {
@@ -163,6 +164,7 @@ namespace TourCalcWebApp.Storage
                 if (olds.FromGuid != news.FromGuid) res += $"{olds.Description} From: {oldTour.Persons.FirstOrDefault(p => p.GUID == olds.FromGuid)?.Name ?? "na"}"
                         + $" -> {newTour.Persons.FirstOrDefault(p => p.GUID == news.FromGuid)?.Name ?? "na"}; ";
                 if (olds.ToGuid.Count != news.ToGuid.Count) res += $"{olds.Description} To Count: {olds.ToGuid.Count} -> {news.ToGuid.Count}; ";
+                if (olds.Type != news.Type) res += $"{olds.Description} Type: {olds.Type} -> {news.Type}; ";
             }
 
             return res;
