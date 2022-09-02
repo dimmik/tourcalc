@@ -9,7 +9,7 @@
     if (verTask == null) {
           verTask = GetVersions();
     }
-    <Modal Title="@($"Versions of tour {Tour?.Name ?? "n/a"}")"
+    <Modal Title="@($"Versions of tour '{Tour?.Name ?? "n/a"}'")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -63,7 +63,7 @@
     private Task RestoreTour(Tour t)
     {
         var cloned = t.SafeClone<Tour>();
-        cloned.Name = $"{Tour?.Name ?? "na"} (v {t.DateVersioned : yyyy-MM-dd HH:mm:ss})";
+        cloned.Name = $"{Tour?.Name ?? "na"} (v {t.DateVersioned : yyyy-MM-dd HH:mm:ss} before {t.VersionComment})";
         cloned.IsVersion = false;
         open = false;
         _ = engine.RequestAddTour(cloned, Guid.NewGuid().ToString("N"));

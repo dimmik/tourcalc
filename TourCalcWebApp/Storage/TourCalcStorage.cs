@@ -111,21 +111,41 @@ namespace TourCalcWebApp.Storage
                         if (tourVersion.Persons.Count() < tour.Persons.Count) return $"P '{ tour.Persons.Last()?.Name ?? "--" }' added";
                         var vSpendings = tourVersion.Spendings.Where(s => !s.Planned);
                         var tSpendings = tour.Spendings.Where(s => !s.Planned);
-                        if (vSpendings.Count() < tSpendings.Count()) return $"S '{tSpendings.Last()?.Description ?? "--" }' added";
-                        if (vSpendings.Count() > tSpendings.Count()) return $"S '{vSpendings.Except(tSpendings).Last()?.Description ?? "--" }' deleted";
+                        if (vSpendings.Count() < tSpendings.Count()) 
+                            return $"S '{tSpendings.Last()?.Description ?? "--" } ({tSpendings.Last()?.AmountInCents ?? 0})' added";
+                        if (vSpendings.Count() > tSpendings.Count()) 
+                            return $"S '{vSpendings.Except(tSpendings).Last()?.Description ?? "--" } ({vSpendings.Except(tSpendings).Last()?.AmountInCents ?? 0})' deleted";
                         if (tourVersion.IsArchived != tour.IsArchived)
                         {
                             if (tour.IsArchived) return "Moved to archive";
                             if (!tour.IsArchived) return "Restored from archive";
                         }
-                        return "Names or numbers changed";
+                        return GetChanges(tourVersion, tour);
                     })();
                     UpsertTour(tourVersion);
                 }
             }
             UpsertTour(tour);
         }
-
+        private static string GetChanges(Tour oldTour, Tour newTour)
+        {
+            var res = "";
+            // persons
+            var zipped = oldTour.Persons.OrderBy(p => p.GUID).Zip(newTour.Persons.OrderBy(p => p.GUID));
+            var zippedChanged = zipped
+                .Where((fs) => fs.First.Name != fs.Second.Name || fs.First.Weight != fs.Second.Weight || fs.First.ParentId != fs.Second.ParentId);
+            foreach (var (oldp, newp) in zippedChanged) // due to bulk update might some, not only one
+            {
+                if (oldp.Name != newp.Name) res += $"Name: {oldp.Name} -> {newp.Name}; ";
+                if (oldp.Weight != newp.Weight) res += $"{oldp.Name} Weight: {oldp.Weight} -> {newp.Weight}; ";
+                if (oldp.ParentId != newp.ParentId) 
+                    res += $"{oldp.Name} Parent: {oldTour.Persons.FirstOrDefault(p => p.GUID == oldp.ParentId)?.Name ?? "None"} -> " 
+                        + $"{newTour.Persons.FirstOrDefault(p => p.GUID == newp.ParentId)?.Name ?? "None"}; ";
+            }
+            // spendings
+            // tour attributes
+            return $"Changed: {res}";
+        }
         private void UpsertTour(Tour tour)
         {
             var sameTour = provider.GetTour(tour.Id);

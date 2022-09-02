@@ -11,7 +11,7 @@ namespace TCalc.Domain
         public string GUID { get; set; } = "NewId";// = IdHelper.NewId();
         public long Order { get; set; }
         public bool IsChanged { get; set; } = true;
-        public bool IsFromJson { get; set; } = false;
+        //public bool IsFromJson { get; set; } = false;
         public DateTime DateCreated { get; set; } = DateTime.Now;
 
         public override bool Equals(object obj)
