@@ -44,6 +44,11 @@
             <NoDataRowTemplate><td colspan="2">No Data</td></NoDataRowTemplate>
         </TableTemplate>
     </Modal>
+} 
+else // free up memory. Better to load again
+{
+    verTask = null;
+    versions = null;
 }
 
 @code {
