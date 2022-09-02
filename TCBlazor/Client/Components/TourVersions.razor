@@ -1,0 +1,89 @@
+﻿@using TCalcCore.Engine
+@inject TourcalcEngine engine
+
+@using TCalcCore.Network
+@inject ITCDataService dataSvc
+
+<span style="cursor:pointer; border:solid 1px black" @onclick=@(() => open=true)>Vv</span>
+
+@if (open)
+{
+    if (verTask == null) {
+          verTask = GetVersions();
+    }
+    <Modal Title="@($"Versions of tour {Tour?.Name ?? "n/a"}")"
+       Visible="@open"
+       Footer=@(footer(() => open = false))
+       OnOk=@(() => open = false)
+       OnCancel=@(() => open = false)
+       DestroyOnClose=@true
+       Closable=@true>
+            @if (versions == null)
+            {
+                <span>Loading versions...</span>
+            }
+       <TableTemplate
+           Items=@(versions?.Tours)
+           Context="t"
+           >
+           <TableHeader>
+               <th>
+                   Change Highlight
+               </th>
+               <th>
+                   *
+               </th>
+           </TableHeader>
+           <RowTemplate>
+                <td>
+                    @(((versions?.Count ?? 0) + 1 - t.Item2)). <b>@t.Item1.VersionComment</b><br/>
+                    <span style="font-size: xx-small">@($"{t.Item1.DateVersioned : yyyy-MM-dd HH:mm:ss}")</span>
+                </td>
+                <td>
+                    <Button OnClick=@(() => RestoreTour(t.Item1))>Restore</Button>
+                </td>
+            </RowTemplate>
+            <NoDataRowTemplate><td colspan="2">No Data</td></NoDataRowTemplate>
+        </TableTemplate>
+    </Modal>
+}
+
+@code {
+    bool open = false;
+    [Parameter]
+    public Tour? Tour { get; set; } = new();
+
+    TourList? versions = null;
+    Task? verTask = null;
+
+    private async Task GetVersions()
+    {
+        versions = await dataSvc.GetTourVersions(Tour);
+        StateHasChanged();
+    }
+
+    private Task RestoreTour(Tour t)
+    {
+        var cloned = t.SafeClone<Tour>();
+        cloned.Name = $"{Tour?.Name ?? "na"} (v {t.DateVersioned : yyyy-MM-dd HH:mm:ss})";
+        cloned.IsVersion = false;
+        open = false;
+        _ = engine.RequestAddTour(cloned, Guid.NewGuid().ToString("N"));
+        return Task.CompletedTask;
+    }
+
+
+    private RenderFragment footer(Action onOk)
+    {
+        return __builder =>
+        {
+            <Template>
+                    <Button OnClick=@((e) => onOk())
+                    Type="primary">
+                         Got It
+                    </Button>
+            </Template>
+        };
+    }
+
+}

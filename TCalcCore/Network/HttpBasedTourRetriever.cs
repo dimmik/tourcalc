@@ -58,6 +58,14 @@ namespace TCalcCore.Network
             return tours;
         }
 
+        public async Task<TourList> GetTourVersions(string token, string tourId, Action<string> errorHandler)
+        {
+            var from = 0;
+            var count = 1000;
+            var tours = await http.CallWithAuthToken<TourList>($"/api/Tour/{tourId}/versions?from={from}&count={count}", token, errorHandler);
+            return tours;
+        }
+
         public async Task<string> UpdateTour(string tourId, Tour tour, string token, Action<string> errorHandler)
         {
             var tid = await http.CallWithAuthToken<string>($"/api/Tour/{tourId}", token, new HttpMethod("PATCH"), tour, errorHandler);

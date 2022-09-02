@@ -7,6 +7,9 @@
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
+@using TCalcCore.Network
+@inject ITCDataService dataSvc
+
 @inject IJSRuntime JsRuntime
 
 @implements IDisposable
@@ -84,6 +87,7 @@ else
                 <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => CloneTour(tour, stripSpendings: true))>clone Strip Sp</span>
                 |
                 <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => CopyTourJsonToCb(tour))>JSON</span>
+                <TourVersions @key=@($"tvc_{tour.Id}") Tour=@tour/>
             </div>
         </td>
         <td><input @key=@($"fin_{tour.Id}") type="checkbox" 

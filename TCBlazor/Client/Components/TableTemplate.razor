@@ -9,7 +9,7 @@
         </thead>
     }
     <tbody style="font-size: small">
-        @foreach (var item in Items)
+        @foreach (var item in (Items ?? Enumerable.Empty<TItem>()))
         {
             idx++;
             if (ConditionalItemIdxIncrement(item, idx))
