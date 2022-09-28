@@ -55,7 +55,7 @@ else
             <span style="cursor:pointer;border:solid thin" @onclick=@(() => AddingTour = true)>+</span>            
         }</th>
         <th>Fin</th>
-        <th>Arch <input type="checkbox" @bind-value=@ShowArchived/></th>
+            <th>Arch <input type="checkbox" checked=@ShowArchived @onchange=@(() => ShowArchived = !ShowArchived)/></th>
         <th>Del</th>
     </TableHeader>
 
@@ -112,7 +112,8 @@ else
 @code {
     private TCalc.Domain.TourList? tours = null;
     private bool _showArc = false;
-    private bool ShowArchived { get => _showArc; 
+    private bool ShowArchived { 
+        get => _showArc; 
         set
         {
             _showArc = value;
