@@ -10,6 +10,9 @@
 @using TCalcCore.Network
 @inject ITCDataService dataSvc
 
+@using TCalcCore.Storage
+@inject ITourcalcLocalStorage localStorage
+
 @inject IJSRuntime JsRuntime
 
 @implements IDisposable
@@ -108,7 +111,14 @@ else
 
 @code {
     private TCalc.Domain.TourList? tours = null;
-    private bool ShowArchived = false;
+    private bool _showArc = false;
+    private bool ShowArchived { get => _showArc; 
+        set
+        {
+            _showArc = value;
+            _ = localStorage.SetObject($"showArc_{engine.Auth.AccessCodeMD5}", _showArc);
+        } 
+    }
     private bool AddingTour = false;
     private bool InProgress = false;
     private string NewTourName = "";
@@ -117,16 +127,17 @@ else
     private const string defaultNoCode = "new";
     //private string guid = Guid.NewGuid().ToString();
 
-
-    protected override Task OnInitializedAsync()
+    
+    protected override async Task OnInitializedAsync()
     {
         // If we update tour from tourlist page - refresh the list from server after the tour is stored
         //engine.onTourLoaded
         engine.onTourLoaded += OnTourLoaded;
         engine.onTourListLoaded += OnTourListLoaded;
+        (ShowArchived, _) = await localStorage.GetObject<bool>($"showArc_{engine.Auth.AccessCodeMD5}", () => false);
 
         _ = engine.RequestTourListLoad();
-        return Task.CompletedTask;
+        //return Task.CompletedTask;
     }
     public void Dispose()
     {
