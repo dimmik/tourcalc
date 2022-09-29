@@ -68,7 +68,17 @@
                             <span>&nbsp;</span>
                         }
                         @((MarkupString)si.SpendingDescription.AsBreakable())
-                        <span style="font-size: xx-small; font-weight: bold">&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
+                        @if (si.ToNames.Any()){
+                            <div style="font-size: xx-small"> to
+                                @foreach (var (n, odd, idx) in si.ToNames.Zip(Enumerable.Range(0, 1000)).Select(nidx => (nidx.First, nidx.Second % 2, nidx.Second)))
+                                {
+                                    <b style="color: @(odd == 0 ? "black" : "green");  @(n == person.Name ? "text-decoration: underline;" : "")">
+                                        @($"{(idx == 0 ? "" : ",")}") <span style="@(n == person.Name ? "text-decoration: underline;" : "")">@((MarkupString)n.AsBreakable(5))</span>
+                                    </b>
+                                } 
+                            </div>
+                        }
+                        <span style="font-size: xx-small; font-weight: bold">&nbsp;&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
                     </td>
                 </RowTemplate>
                 <NoDataRowTemplate>
