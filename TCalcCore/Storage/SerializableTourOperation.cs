@@ -70,7 +70,7 @@ namespace TCalc.Storage
                 case "UpdateTourCurrency":
                     Currency curr = JsonConvert.DeserializeObject<Currency>(ItemJson ?? "");
                     logger?.Log($"({context}) change tour currency to: {curr.Name}");
-                    return t => { t.Currency = curr; return t; };
+                    return t => { t.Currency = curr; t.Spendings = t.Spendings.Where(s => !s.Planned).ToList(); return t; };
                 case "SetTourCurrencies":
                 case "ChangeTourCurrencies":
                 case "UpdateTourCurrencies":
