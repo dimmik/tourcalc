@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using TCalcCore.Domain;
 
 namespace TCalc.Domain
 {
@@ -16,6 +17,7 @@ namespace TCalc.Domain
         public bool Planned { get; set; } = false;
         public string Description { get; set; } = "";
         public string Type { get; set; } = "Common";
+        public Currency Currency { get; set; } = Currency.Default;
 
         public override string ToString()
         {

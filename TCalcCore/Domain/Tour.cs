@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using TCalc.Logic;
+using TCalcCore.Domain;
 
 namespace TCalc.Domain
 {
@@ -22,6 +23,8 @@ namespace TCalc.Domain
         public bool IsArchived { get; set; } = false;
         public bool IsFinalizing { get; set; } = false;
         public string StateGUID { get; set; } = "";
+        public IEnumerable<Currency> Currencies { get; set; } = new Currency[] { Currency.Default };
+        public Currency CurrentCurrency { get; set; } = Currency.Default;
         public void PrepareForStoring()
         {
             // delete spending lists that might be rather large
