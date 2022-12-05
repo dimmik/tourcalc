@@ -58,5 +58,10 @@ namespace TCalc.Domain
         {
             return !(tour.Currencies == null || !tour.Currencies.Any() || tour.Currencies.Count() <= 1);
         }
+        public static string CurrencyNameEmptyIfSingleCurrency(this Tour t, string def = "")
+        {
+            if (!t.IsMultiCurrency()) return def;
+            return t?.Currency?.Name ?? def;
+        }
     }
 }

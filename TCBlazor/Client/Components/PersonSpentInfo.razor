@@ -2,13 +2,13 @@
 
 <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
     <Button Size="small" Style="color:green; font-weight: bold" @onclick=@(() => open = true)>
-        @person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
+        @person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
     </Button>
 </div>
 
 
 
-<Modal Title="@($"Spent for {person.Name} {person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)}")"
+<Modal Title="@($"Spent for {person.Name} {person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -60,7 +60,7 @@
                         subtotal += si.TotalSpendingAmountInCents;
                     }
 
-                <td><b>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b></td>
+                <td><b>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span></b></td>
                     <td>
                         @if (!string.IsNullOrWhiteSpace(si.Type))
                         {
@@ -78,7 +78,7 @@
                                 } 
                             </div>
                         }
-                        <span style="font-size: xx-small; font-weight: bold">&nbsp;&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
+                    <span style="font-size: xx-small; font-weight: bold">&nbsp;&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span></span>
                     </td>
                 </RowTemplate>
                 <NoDataRowTemplate>
@@ -90,6 +90,8 @@
 @code {
     [Parameter]
     public Person person { get; set; } = new Person();
+    [Parameter]
+    public Tour tour { get; set; } = new Tour();
     private bool open = false;
     private long subtotal = 0;
     private RenderFragment footer(Action onOk)

@@ -76,8 +76,8 @@
                         @person.Weight
                     </div>
                 </td>
-                <td align="center" valign="middle" style="padding:0; height: inherit;"><PersonSpentInfo person="person" @key=@($"psi_{person.GUID}")/></td>
-                <td align="center" valign="middle" style="padding:0; height: inherit;"><PersonReceivedInfo person="person" @key=@($"pri_{person.GUID}") /></td>
+                <td align="center" valign="middle" style="padding:0; height: inherit;"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}")/></td>
+                <td align="center" valign="middle" style="padding:0; height: inherit;"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></td>
             }
             <td align="center" valign="middle" style="padding:0; height: inherit;">
                 <PersonDebt @key=@($"debt_{person.GUID}")
