@@ -1,8 +1,9 @@
 ﻿<div style="@RowBg;height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
     <Button Size="small" Style=@($"{RowFg};font-weight:bold") @onclick=@(() => open = true)>
-       @debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</Button>
+        @debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
+    </Button>
 </div>
-<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0", GlobConsts.NumGroupSpaceSeparated)  }")"
+<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0", GlobConsts.NumGroupSpaceSeparated)  } {tour.CurrencyNameEmptyIfSingleCurrency()}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -22,7 +23,7 @@
                     {
                         <span>
                             Total @(WillPay ? "PAY" : "Collect")
-                            <b style="color:@(WillPay ? "red" : "green")">@(amount.ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
+                            <b style="color:@(WillPay ? "red" : "green")">@(amount.ToString("N0", GlobConsts.NumGroupSpaceSeparated)) <i style="font-size: x-small;">@tour.CurrencyNameEmptyIfSingleCurrency()</i></b>
                         </span>
                     }
                 </th>
@@ -34,7 +35,7 @@
                     var pTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0]) ?? new();
                     var pFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid) ?? new();
                 }
-                <td><b>@spending.AmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b></td>
+                <td><b>@spending.AmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <i style="font-size: x-small;">@tour.CurrencyNameEmptyIfSingleCurrency()</i></b></td>
                     @if (WillPay)
                     {
                         <td>
@@ -150,10 +151,10 @@
         return __builder =>
         {
     <Template>
-                                <Button OnClick=@((e) => onOk())
+                                    <Button OnClick=@((e) => onOk())
                     Type="primary">
-                                    Got It
-                                </Button>
+                                        Got It
+                                    </Button>
     </Template>
         };
     }

@@ -22,6 +22,8 @@ namespace TCalc.Domain
         public bool IsArchived { get; set; } = false;
         public bool IsFinalizing { get; set; } = false;
         public string StateGUID { get; set; } = "";
+        public IEnumerable<Currency> Currencies { get; set; } = new Currency[] { Currency.Default };
+        public Currency Currency { get; set; } = Currency.Default;
         public void PrepareForStoring()
         {
             // delete spending lists that might be rather large
@@ -45,12 +47,21 @@ namespace TCalc.Domain
             return Newtonsoft.Json.JsonConvert.DeserializeObject<Tour>(Newtonsoft.Json.JsonConvert.SerializeObject(this));
         }
     }
-    static class TourHelper
+    public static class TourHelper
     {
         public static long TotalAbsDebt(this Tour tour)
         {
             if (tour.Persons.Count <= 0) return 0;
             return tour.Persons.Aggregate(0L, (prev, p) => prev + Math.Abs(p.ReceivedInCents - p.SpentInCents));
+        }
+        public static bool IsMultiCurrency(this Tour tour)
+        {
+            return !(tour.Currencies == null || !tour.Currencies.Any() || tour.Currencies.Count() <= 1);
+        }
+        public static string CurrencyNameEmptyIfSingleCurrency(this Tour t, string def = "")
+        {
+            if (!t.IsMultiCurrency()) return def;
+            return t?.Currency?.Name ?? def;
         }
     }
 }

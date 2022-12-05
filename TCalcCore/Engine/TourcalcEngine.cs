@@ -116,9 +116,9 @@ namespace TCalcCore.Engine
             ,forceFromServer
             );
         }
-        public async Task RequestEditTourProps(Tour t, string action)
+        public async Task RequestEditTourProps(Tour t, params (string, object)[] operationAndPayload)
         {
-            await dataSvc.EditTourProps(t, action);
+            await dataSvc.EditTourProps(t, operationAndPayload);
             // Commented because actually we need to refresh tour list only if tour is stored on server
             // Logic to be implemented on tour list view
             // This dances are all about abstracting store/retrieve operations from http. OMG

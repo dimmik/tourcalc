@@ -2,12 +2,12 @@
 
 <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
     <Button Size="small" Style="color:red; font-weight: bold" @onclick=@(() => open = true)>
-        @person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
+        @person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
     </Button>
 </div>
 
 
-<Modal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)}")"
+<Modal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -62,10 +62,10 @@
                     }
                     <td>@((MarkupString)si.From.AsBreakable(5))</td>
                     <td>
-                    <b>@si.ReceivedAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b>
+                    <b>@si.ReceivedAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span></b>
                         <span style="font-size: xx-small">
-                            @($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents: 0.00}")% 
-                            of @si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
+                            @($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents: 0.00}")%
+                        of @si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
                         </span>
                     </td>
                     <td>
@@ -86,7 +86,7 @@
                             </div>
                         }
 
-                        <span style="font-size: xx-small; font-weight: bold">&nbsp;&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
+                    <span style="font-size: xx-small; font-weight: bold">&nbsp;&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span></span>
                     </td>
                 </RowTemplate>
                 <NoDataRowTemplate>
@@ -100,6 +100,8 @@
 @code {
     [Parameter]
     public Person person { get; set; } = new Person();
+    [Parameter]
+    public Tour tour { get; set; } = new Tour();
     private bool open = false;
 
     private long subtotal = 0;

@@ -30,7 +30,7 @@ namespace TCalc.Logic
             {
                 if (spending.FromGuid == person.GUID)
                 {
-                    var amount = spending.AmountInCents;
+                    var amount = spending.AmountInCurrentCurrency(CurrentTour);
                     person.SpentSendingInfo.Add(new SpendingInfo()
                     {
                         TotalSpendingAmountInCents = amount,
@@ -62,7 +62,7 @@ namespace TCalc.Logic
                 bool isApplicable = false;
                 if (spending.ToAll)
                 {
-                    amount += spending.AmountInCents * person.Weight * _magnitude_ / TotalWeight;
+                    amount += spending.AmountInCurrentCurrency(CurrentTour) * person.Weight * _magnitude_ / TotalWeight;
                     isApplicable = true;
                 } else
                 {
@@ -77,10 +77,10 @@ namespace TCalc.Logic
                                 spendingWeight += pWeight;
                             }
                             if (spendingWeight == 0) spendingWeight = 1;
-                            amount += spending.AmountInCents * person.Weight * _magnitude_ / spendingWeight;
+                            amount += spending.AmountInCurrentCurrency(CurrentTour) * person.Weight * _magnitude_ / spendingWeight;
                         } else
                         {
-                            amount += spending.AmountInCents * _magnitude_ / spending.ToGuid.Count;
+                            amount += spending.AmountInCurrentCurrency(CurrentTour) * _magnitude_ / spending.ToGuid.Count;
                         }
                         isApplicable = true;
                     }
@@ -92,7 +92,7 @@ namespace TCalc.Logic
                     {
                         ReceivedAmountInCents = (amount + (_magnitude_ / 2)) / _magnitude_,
                         
-                        TotalSpendingAmountInCents = spending.AmountInCents,
+                        TotalSpendingAmountInCents = spending.AmountInCurrentCurrency(CurrentTour),
                         From = CurrentTour.Persons.FirstOrDefault(p => p.GUID == spending.FromGuid)?.Name ?? "n/a",
                         IsSpendingToAll = spending.ToAll,
                         SpendingDescription = string.IsNullOrWhiteSpace(spending.Description) ? "no description" : spending.Description,
@@ -238,7 +238,8 @@ namespace TCalc.Logic
                     ToAll = false,
                     AmountInCents = credit > highestDebt ? highestDebt : credit,
                     Description = $"X '{debtor?.Name ?? "n/a"}' -> '{creditor?.Name ?? "n/a"}'",
-                    Type = ""
+                    Type = "",
+                    Currency = CurrentTour.Currency,
                 };
                 spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{creditor.GUID}".CreateMD5();
                 CurrentTour.Spendings.Add(spending);
@@ -305,7 +306,8 @@ namespace TCalc.Logic
                     ToAll = false,
                     AmountInCents = debt,
                     Description = $"Family '{d.Name}' -> '{parent.Name}'",
-                    Type = ""
+                    Type = "",
+                    Currency = CurrentTour.Currency
                 };
                 spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{parent.GUID}".CreateMD5();
                 CurrentTour.Spendings.Add(spending);

@@ -3,7 +3,7 @@
     "TCBlazor.Server": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "/tour/zscph2y",
+      "launchUrl": "/tour/mcurrzscph2y",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
