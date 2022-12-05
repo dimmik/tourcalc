@@ -107,7 +107,7 @@
         </td>
         <td>@((MarkupString)((Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == spending.FromGuid).FirstOrDefault()?.Name ?? "").AsBreakable())</td>
         <td>
-            <b>@spending.AmountInCurrentCurrency(Tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b>
+            <b>@spending.AmountInCurrentCurrency(Tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size: xx-small">@Tour.CurrentCurrency.Name</span></b>
             <span>
                 @if (spending.Currency != (Tour?.CurrentCurrency ?? spending.Currency))
                 {
