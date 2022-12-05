@@ -6395,6 +6395,26 @@
   ],
   "Spendings": [
     {
+      "FromGuid": "zax4awa",
+      "ToGuid": [],
+      "AmountInCents": 12,
+      "Weighted": true,
+      "IsPartialWeighted": true,
+      "ToAll": true,
+      "Planned": false,
+      "Description": "12 eur",
+      "Type": "Еда",
+      "Currency": {
+        "Name": "EUR",
+        "CurrencyRate": 6300
+      },
+      "Metadata": null,
+      "GUID": "d5he7nq",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2022-12-05T16:24:28.575Z"
+    },
+	{
       "FromGuid": "kwl66wa",
       "ToGuid": [],
       "AmountInCents": 48500,
@@ -7923,15 +7943,15 @@
   "Currencies": [
     {
       "Name": "RUB",
-      "CurrencyRate": 100
+      "CurrencyRate": 180
     },
     {
       "Name": "EUR",
-      "CurrencyRate": 6300
+      "CurrencyRate": 11800
     },
     {
       "Name": "RSD",
-      "CurrencyRate": 55
+      "CurrencyRate": 100
     }
   ],
   "CurrentCurrency": {

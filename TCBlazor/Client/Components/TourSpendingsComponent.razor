@@ -114,7 +114,7 @@
                     <div style="font-size: xx-small">
                         <i>
                             @spending.AmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
-                            <b>@((spending.Currency ?? TCalcCore.Domain.Currency.Default).Name)</b>
+                            <b>@((spending.Currency ?? Currency.Default).Name)</b>
                         </i>
                     </div>
                 }

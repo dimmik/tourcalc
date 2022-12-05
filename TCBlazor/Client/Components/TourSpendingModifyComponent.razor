@@ -20,7 +20,21 @@
             <Input @bind-Value=@(spending.AmountInCents) Type="number"/>
             </td>
          </tr>
-
+         @if (tour.Currencies.Any() && tour.Currencies.Count() > 1)
+         {
+                <tr>
+                    <td>Currency:</td>
+                    <td>
+                        <Select @bind-Value=@(spending.Currency)
+                            TItemValue="Currency"
+                            TItem="Currency"
+                            LabelName="@nameof(Currency.Name)"
+                            AllowClear=@false
+                            DataSource="tour.Currencies"
+                            IgnoreItemChangesLeadsToException="false" />
+                    </td>
+                </tr>
+         }
         <tr>
             <td>Category:</td>
             <td>
@@ -159,6 +173,9 @@
         if (spending.GUID != TheSpending.GUID)
         {
             spending = TheSpending.SafeClone<Spending>();
+            if (IsItANewSpending()){
+                spending.Currency = tour.CurrentCurrency;
+            }
         }
         _selectedValuesTo = spending.ToGuid;
         SpendingCategories = (

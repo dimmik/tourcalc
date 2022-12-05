@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using TCalcCore.Domain;
 
 namespace TCalc.Domain
 {
@@ -44,6 +41,11 @@ namespace TCalc.Domain
         }
         public static long AmountInCurrentCurrency(this Spending sp, Tour tour)
         {
+            if (tour.Currencies == null || !tour.Currencies.Any() || tour.Currencies.Count() <= 1) // only one currency or no currencies
+            {
+                return sp.AmountInCents;
+            }
+
             var rates = tour.Currencies;
             var currentCurr = rates.Where(c => c == tour.CurrentCurrency).FirstOrDefault() ?? new Currency();
             var spendingCurrency = rates.Where(c => c == sp.Currency).FirstOrDefault() ?? currentCurr; // if not found in tour - just same as default
@@ -51,10 +53,8 @@ namespace TCalc.Domain
             if (spendingCurrency == currentCurr) return sp.AmountInCents;
 
             var amount = sp.AmountInCents;
-            long coeff = spendingCurrency.CurrencyRate * 1000000 / currentCurr.CurrencyRate;
-            long result = amount * coeff / 1000000;//(long)(amount * spendingCurrency.CurrencyRate * 1.0 /  currentCurr.CurrencyRate);
-            // TODO for some reason works extremely slow. Return original amount
-//            return sp.AmountInCents;
+            long coeff = spendingCurrency.CurrencyRate * 1000000L / currentCurr.CurrencyRate;
+            long result = amount * coeff / 1000000;
             return result;
         }
     }

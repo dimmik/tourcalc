@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TCalcCore.Domain
+namespace TCalc.Domain
 {
     public class Currency : IEquatable<Currency>
     {
