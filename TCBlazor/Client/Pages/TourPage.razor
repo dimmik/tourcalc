@@ -19,7 +19,7 @@ else
     engine.SendMessage("Title", tour.Name);
     engine.SendMessage("Tour", tour);
     <PageTitle>@tour.Name</PageTitle>
-<h3>@tour.Name 
+<h3>@tour.Name <i>(@tour.CurrentCurrency.Name)</i>
     <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") info</Button>
     <span style="cursor:pointer;font-size:large;" @onclick=@(async () => {
                     IsTourReloading = true;
