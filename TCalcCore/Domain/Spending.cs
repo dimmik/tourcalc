@@ -44,13 +44,18 @@ namespace TCalc.Domain
         }
         public static long AmountInCurrentCurrency(this Spending sp, Tour tour)
         {
-            var currentCurr = tour.CurrentCurrency;
             var rates = tour.Currencies;
+            var currentCurr = rates.Where(c => c == tour.CurrentCurrency).FirstOrDefault() ?? new Currency();
             var spendingCurrency = rates.Where(c => c == sp.Currency).FirstOrDefault() ?? currentCurr; // if not found in tour - just same as default
 
+            if (spendingCurrency == currentCurr) return sp.AmountInCents;
+
             var amount = sp.AmountInCents;
-            var result = (long)Math.Round(amount * spendingCurrency.CurrencyRate * 1.0 /  currentCurr.CurrencyRate);
-            return result;
+            long coeff = spendingCurrency.CurrencyRate * 1000000 / currentCurr.CurrencyRate;
+            long result = amount * coeff / 1000000;//(long)(amount * spendingCurrency.CurrencyRate * 1.0 /  currentCurr.CurrencyRate);
+            // TODO for some reason works extremely slow. Return original amount
+            return sp.AmountInCents;
+//            return result;
         }
     }
 }

@@ -7923,20 +7923,20 @@
   "Currencies": [
     {
       "Name": "RUB",
-      "CurrencyRate": 100
+      "CurrencyRate": 1000
     },
     {
       "Name": "EUR",
-      "CurrencyRate": 6300
+      "CurrencyRate": 63000
     },
     {
       "Name": "RSD",
-      "CurrencyRate": 55
+      "CurrencyRate": 550
     }
   ],
   "CurrentCurrency": {
     "Name": "RUB",
-    "CurrencyRate": 100
+    "CurrencyRate": 1000
   },
   "Metadata": null,
   "GUID": "mcurrzscph2y",

@@ -106,7 +106,20 @@
                 </div>
         </td>
         <td>@((MarkupString)((Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == spending.FromGuid).FirstOrDefault()?.Name ?? "").AsBreakable())</td>
-        <td><b>@spending.AmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b> @((spending.Currency ?? TCalcCore.Domain.Currency.Default).Name)</td>
+        <td>
+            <b>@spending.AmountInCurrentCurrency(Tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b>
+            <span>
+                @if (spending.Currency != (Tour?.CurrentCurrency ?? spending.Currency))
+                {
+                    <div style="font-size: xx-small">
+                        <i>
+                            @spending.AmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
+                            <b>@((spending.Currency ?? TCalcCore.Domain.Currency.Default).Name)</b>
+                        </i>
+                    </div>
+                }
+            </span>
+        </td>
         <td>@if (spending.ToAll)
             {
                 <span style="background-color:green;color:yellow;font-size:xx-small">ALL</span>
