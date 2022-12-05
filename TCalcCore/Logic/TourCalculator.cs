@@ -238,7 +238,8 @@ namespace TCalc.Logic
                     ToAll = false,
                     AmountInCents = credit > highestDebt ? highestDebt : credit,
                     Description = $"X '{debtor?.Name ?? "n/a"}' -> '{creditor?.Name ?? "n/a"}'",
-                    Type = ""
+                    Type = "",
+                    Currency = CurrentTour.CurrentCurrency,
                 };
                 spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{creditor.GUID}".CreateMD5();
                 CurrentTour.Spendings.Add(spending);
@@ -305,7 +306,8 @@ namespace TCalc.Logic
                     ToAll = false,
                     AmountInCents = debt,
                     Description = $"Family '{d.Name}' -> '{parent.Name}'",
-                    Type = ""
+                    Type = "",
+                    Currency = CurrentTour.CurrentCurrency
                 };
                 spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{parent.GUID}".CreateMD5();
                 CurrentTour.Spendings.Add(spending);

@@ -54,8 +54,8 @@ namespace TCalc.Domain
             long coeff = spendingCurrency.CurrencyRate * 1000000 / currentCurr.CurrencyRate;
             long result = amount * coeff / 1000000;//(long)(amount * spendingCurrency.CurrencyRate * 1.0 /  currentCurr.CurrencyRate);
             // TODO for some reason works extremely slow. Return original amount
-            return sp.AmountInCents;
-//            return result;
+//            return sp.AmountInCents;
+            return result;
         }
     }
 }
