@@ -42,5 +42,15 @@ namespace TCalc.Domain
             if (pp.ToGuid.First() != p.ToGuid.First()) return false;
             return true;
         }
+        public static long AmountInCurrentCurrency(this Spending sp, Tour tour)
+        {
+            var currentCurr = tour.CurrentCurrency;
+            var rates = tour.Currencies;
+            var spendingCurrency = rates.Where(c => c == sp.Currency).FirstOrDefault() ?? currentCurr; // if not found in tour - just same as default
+
+            var amount = sp.AmountInCents;
+            var result = (long)Math.Round(amount * spendingCurrency.CurrencyRate * 1.0 /  currentCurr.CurrencyRate);
+            return result;
+        }
     }
 }
