@@ -17,7 +17,7 @@ namespace TCalc.Domain
         public bool Planned { get; set; } = false;
         public string Description { get; set; } = "";
         public string Type { get; set; } = "Common";
-        public Currency Currency { get; set; } = Currency.Default;
+        public Currency Currency { get; set; } = new Currency();
 
         public override string ToString()
         {

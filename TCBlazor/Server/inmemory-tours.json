@@ -6397,16 +6397,16 @@
     {
       "FromGuid": "kwl66wa",
       "ToGuid": [],
-      "AmountInCents": 24540,
+      "AmountInCents": 48500,
       "Weighted": true,
       "IsPartialWeighted": false,
       "ToAll": true,
       "Planned": false,
-      "Description": "билеты туда",
+      "Description": "билеты туда RSD",
       "Type": "Проезд",
       "Currency": {
-        "Name": "RUB",
-        "CurrencyRate": 100
+        "Name": "RSD",
+        "CurrencyRate": 55
       },
       "Metadata": null,
       "GUID": "xgqliwi",

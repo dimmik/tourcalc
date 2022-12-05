@@ -8,7 +8,7 @@ namespace TCalcCore.Domain
     {
         public string Name { get; set; } = "RUB";
         public int CurrencyRate { get; set; } = 100;
-        public static Currency Default { get; private set; } = new Currency();
+        public readonly static Currency Default = new Currency();
 
         public override bool Equals(object obj)
         {
@@ -34,6 +34,11 @@ namespace TCalcCore.Domain
         public static bool operator !=(Currency left, Currency right)
         {
             return !(left == right);
+        }
+
+        public override string ToString()
+        {
+            return $"{Name} : {CurrencyRate}";
         }
     }
 }
