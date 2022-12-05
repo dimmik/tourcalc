@@ -41,13 +41,13 @@ namespace TCalc.Domain
         }
         public static long AmountInCurrentCurrency(this Spending sp, Tour tour)
         {
-            if (tour.Currencies == null || !tour.Currencies.Any() || tour.Currencies.Count() <= 1) // only one currency or no currencies
+            if (!tour.IsMultiCurrency()) // only one currency or no currencies
             {
                 return sp.AmountInCents;
             }
 
             var rates = tour.Currencies;
-            var currentCurr = rates.Where(c => c == tour.CurrentCurrency).FirstOrDefault() ?? new Currency();
+            var currentCurr = rates.Where(c => c == tour.Currency).FirstOrDefault() ?? new Currency();
             var spendingCurrency = rates.Where(c => c == sp.Currency).FirstOrDefault() ?? currentCurr; // if not found in tour - just same as default
 
             if (spendingCurrency == currentCurr) return sp.AmountInCents;

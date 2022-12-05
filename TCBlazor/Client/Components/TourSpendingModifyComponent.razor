@@ -20,7 +20,7 @@
             <Input @bind-Value=@(spending.AmountInCents) Type="number"/>
             </td>
          </tr>
-         @if (tour.Currencies.Any() && tour.Currencies.Count() > 1)
+         @if (tour.IsMultiCurrency())
          {
                 <tr>
                     <td>Currency:</td>
@@ -174,7 +174,7 @@
         {
             spending = TheSpending.SafeClone<Spending>();
             if (IsItANewSpending()){
-                spending.Currency = tour.CurrentCurrency;
+                spending.Currency = tour.Currency;
             }
         }
         _selectedValuesTo = spending.ToGuid;

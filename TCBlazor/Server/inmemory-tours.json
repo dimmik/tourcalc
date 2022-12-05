@@ -7954,9 +7954,9 @@
       "CurrencyRate": 100
     }
   ],
-  "CurrentCurrency": {
+  "Currency": {
     "Name": "RSD",
-    "CurrencyRate": 6300
+    "CurrencyRate": 100
   },
   "Metadata": null,
   "GUID": "mcurrzscph2y",
