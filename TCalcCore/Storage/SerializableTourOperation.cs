@@ -1,7 +1,8 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using TCalc.Domain;
-using TCalc.Storage;
 using TCalcCore.Logging;
 
 namespace TCalc.Storage
@@ -64,6 +65,18 @@ namespace TCalc.Storage
                     Tour ta = JsonConvert.DeserializeObject<Tour>(ItemJson ?? "");
                     logger?.Log($"({context}) new archived: {ta.IsArchived}");
                     return t => { t.IsArchived = ta.IsArchived; return t; };
+                case "SetTourCurrency":
+                case "ChangeTourCurrency":
+                case "UpdateTourCurrency":
+                    Currency curr = JsonConvert.DeserializeObject<Currency>(ItemJson ?? "");
+                    logger?.Log($"({context}) change tour currency to: {curr.Name}");
+                    return t => { t.Currency = curr; return t; };
+                case "SetTourCurrencies":
+                case "ChangeTourCurrencies":
+                case "UpdateTourCurrencies":
+                    IEnumerable<Currency> currencies = JsonConvert.DeserializeObject<IEnumerable<Currency>>(ItemJson ?? "");
+                    logger?.Log($"({context}) change tour currencies to: {currencies.Count()}");
+                    return t => { t.Currencies = currencies; return t; };
                 default:
                     return t => t;
             }
