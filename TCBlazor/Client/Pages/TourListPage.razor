@@ -218,7 +218,7 @@ else
     {
         InProgress = true;
         Tour t = new Tour() { Id = tour.Id, Name = tour.Name };
-        _ = engine.RequestEditTourProps(t, "changename");
+        _ = engine.RequestEditTourProps(t, ("changename", t));
         return Task.CompletedTask;
     }
 
@@ -227,7 +227,7 @@ else
         InProgress = true;
         tour.IsFinalizing = !tour.IsFinalizing;
         Tour t = new Tour() { Id = tour.Id, IsFinalizing = tour.IsFinalizing };
-        _ = engine.RequestEditTourProps(t, "finalizing");
+        _ = engine.RequestEditTourProps(t, ("finalizing", t));
         return Task.CompletedTask;
     }
     private Task OnArchChange(Tour tour)
@@ -235,7 +235,7 @@ else
         InProgress = true;
         tour.IsArchived = !tour.IsArchived;
         Tour t = new Tour() { Id = tour.Id, IsArchived = tour.IsArchived };
-        _ = engine.RequestEditTourProps(t, "archive");
+        _ = engine.RequestEditTourProps(t, ("archive", t));
         return Task.CompletedTask;
     }
     private async Task OnDelete(Tour tour)

@@ -24,7 +24,7 @@ namespace TCalc.Storage
             ItemId = itemId;
             ItemJson = itemJson;
         }
-        public SerializableTourOperation(string operationName, string itemId, AbstractItem item)
+        public SerializableTourOperation(string operationName, string itemId, object item)
         {
             OperationName = operationName;
             ItemId = itemId;

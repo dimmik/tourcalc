@@ -22,7 +22,7 @@ namespace TCalcCore.Network
         Task DeleteTour(Tour tour);
         Task EditPerson(string tourId, Person p);
         Task EditSpending(string tourId, params Spending[] ss);
-        Task EditTourProps(Tour tour, string operation);
+        Task EditTourProps(Tour tour, params (string, object)[] operationAndPayload);
         Task GetAndStoreToken(string scope, string code);
         Task GetAndStoreTokenForCodeMd5(string code);
         Task<AuthData> GetAuthData(bool forceGetFromServer = false);

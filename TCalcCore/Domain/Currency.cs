@@ -8,7 +8,7 @@ namespace TCalc.Domain
     {
         public string Name { get; set; } = "RUB";
         public int CurrencyRate { get; set; } = 100;
-        public readonly static Currency Default = new Currency();
+        public static Currency Default => new Currency();
 
         public override bool Equals(object obj)
         {

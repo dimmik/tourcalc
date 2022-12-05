@@ -34,6 +34,7 @@ namespace TCalc.Domain
         public static bool IsAlmostTheSame(this Spending p, Spending pp)
         {
             if (p.AmountInCents != pp.AmountInCents) return false;
+            if (p.Currency != pp.Currency) return false;
             if (p.ToGuid.Count != 1 || pp.ToGuid.Count != 1) return false;
             if (p.FromGuid != pp.FromGuid) return false;
             if (pp.ToGuid.First() != p.ToGuid.First()) return false;

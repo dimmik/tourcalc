@@ -161,11 +161,16 @@ namespace TCalcCore.Network
             var token = await tokenStorage.GetToken();
             await tr.DeleteTour(tour.Id, token, LogAndShowAlert);
         }
-        public async Task EditTourProps(Tour tour, string operation)
+        public async Task EditTourProps(Tour tour, params (string, object)[] operationAndPayload)
         {
             if (tour == null) return;
-            if (operation == null) return;
-            await EditTourData(tour.Id, new SerializableTourOperation(operation, tour.Id, tour));
+            //if (operation == null) return;
+            List<SerializableTourOperation> ops = new List<SerializableTourOperation>();
+            foreach (var (op, p) in operationAndPayload)
+            {
+               ops.Add(new SerializableTourOperation(op, tour.Id, p));
+            }
+            await EditTourData(tour.Id, ops.ToArray());
             //await http.CallWithAuthToken<string>($"/api/Tour/{tour.Id}/{operation}", (await ts.GetToken()).val, new HttpMethod("PATCH"), tour);
         }
         public async Task AddTour(Tour tour, string code)

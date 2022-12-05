@@ -1,0 +1,90 @@
+﻿@using TCalcCore.Engine
+@inject TourcalcEngine engine
+
+@if (!open){
+    <u style="cursor: pointer;" @onclick=@(() => open = true)><i>@tour.Currency.Name</i></u>
+} else {
+    <Modal Title=@($"Edit {tour.Name} Currencies")
+       Visible="@open"
+       OnOk=@Apply
+       OnCancel=@(() => open = false)
+       DestroyOnClose=@true
+       Closable=@true
+       Width="600">
+       <table>
+        <tr>
+            <td colspan="2">Tour <i>@tour.Name</i> Currencies</td>
+        </tr>
+        <tr>
+            <td><b>Current Currency</b></td>
+            <td>
+                    <Select @bind-Value=@(Currency)
+                        TItemValue="Currency"
+                        TItem="Currency"
+                        LabelName="@nameof(Currency.Name)"
+                        AllowClear=@false
+                        DataSource="Currencies"
+                        IgnoreItemChangesLeadsToException="false" />
+            </td>
+        </tr>
+        <tr><td colspan="2"><hr/></td></tr>
+        <tr>
+            <td>Currencies in tour</td>
+            <td>
+                <ol>
+                    @foreach (var c in Currencies){
+                       <li>
+                           Name: <input size="3" type="text" @bind-value=@c.Name /> 
+                           Worth: <input style="width: 7em" type="number" @bind-value=@c.CurrencyRate />
+                           <Button Shape="@ButtonShape.Circle"
+                                Icon="@IconType.Outline.Close" Size="small" Danger @onclick=@(() => Currencies.Remove(c))/>
+                       </li>
+                    }
+                </ol>
+            </td>
+        </tr>
+        <tr><td colspan="2"><hr/></td></tr>
+        <tr>
+            <td>Add Currency</td>
+            <td><ul>
+                <li>
+                   Name: <input size="3" type="text" @bind-value=@newCurrency.Name /> 
+                   Worth: <input style="width: 7em" type="number" @bind-value=@newCurrency.CurrencyRate />
+                   <Button Size="small" @onclick=@(() => AddNew())>Add</Button>
+                </li>
+            </ul></td>
+        </tr>
+       </table>
+
+    </Modal>
+}
+
+
+
+@code {
+    [Parameter]
+    public Tour tour { get; set; } = new();
+    bool open = false;
+    Currency Currency = new();
+    List<Currency> Currencies = new List<Currency>();
+    protected override void OnParametersSet()
+    {
+        Currencies.Clear();
+        Currency = new Currency() { Name = tour.Currency.Name, CurrencyRate = tour.Currency.CurrencyRate };
+        foreach (var c in tour.Currencies)
+        {
+            Currencies.Add(new Currency() { Name = c.Name, CurrencyRate = c.CurrencyRate });
+        }
+    }
+    public void AddNew()
+    {
+        Currencies.Add(newCurrency);
+        newCurrency = new() { Name = "", CurrencyRate = 100 };
+    }
+    public void Apply(){
+        _ = engine.RequestEditTourProps(tour, ("SetTourCurrencies", Currencies), ("SetTourCurrency", Currency));
+        //_ = engine.RequestTourLoad(tour.Id);
+        open = false;
+    }
+    Currency newCurrency = new() { Name = "", CurrencyRate = 100 };
+}
