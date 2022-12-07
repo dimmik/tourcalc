@@ -40,7 +40,26 @@
                 </ExtraControls>
             </SimplePieChart>
         </td>
-</tr></table>
+    </tr>
+        @if (Tour.IsMultiCurrency()){
+        <tr><td>
+        <div>Currency: <b>@Tour.Currency.Name</b></div>
+            <ul>
+            @foreach (var c in Tour.Currencies)
+            {
+                var cc = Tour.Currency;
+                var rate = cc.CurrencyRate > c.CurrencyRate ? cc.CurrencyRate * 1.0 / c.CurrencyRate : c.CurrencyRate * 1.0 / cc.CurrencyRate;
+                var rStr = cc.CurrencyRate > c.CurrencyRate ? $"{cc.Name} / {c.Name}" : $"{c.Name} / {cc.Name}";
+                if (cc != c){
+                    <li>
+                        <b>@rStr</b>: @($"{rate : #.00}")
+                    </li>
+                }
+            }
+            </ul>
+        </td></tr>
+        }
+</table>
 @code {
     [Parameter]
     public Tour Tour { get; set; } = new Tour();
@@ -78,7 +97,7 @@
         foreach (var s in ss)
         {
             if (!summary.ContainsKey(s.Type)) summary[s.Type] = 0;
-            summary[s.Type] += s.AmountInCents;
+            summary[s.Type] += s.AmountInCurrentCurrency(Tour);
         }
         return summary.DistinctBy(s => s.Key).OrderByDescending(s => s.Value).Select(s => (s.Key, (int)s.Value));
     } 
