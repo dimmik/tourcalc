@@ -195,7 +195,6 @@
     private void OnToPersonsChangedHandler(IEnumerable<string> values)
     {
         if (values != null){
-            //Console.WriteLine($"selected: ${string.Join(",", values)}");
             spending.ToGuid = values.ToList();
         }
     }
@@ -248,19 +247,19 @@
     private RenderFragment CategoryDropdownRenderer(RenderFragment originNode)
     {
         RenderFragment customDropdownRender =
-    @<Template>
-                                                    <div>
-                                                        @originNode
-                                                        <Divider Style="margin: 4px 0"></Divider>
-                                                        <div style="display: flex; flex-wrap: nowrap; padding: 8px">
-                                                            <Input Style="flex: auto" @bind-Value="@_cname"/>
-                                                            <a style="flex: none; padding: 8px; display: block; cursor: pointer" @onclick="AddCatToList">
-                                                                <Icon Type="plus" Theme="outline"></Icon>
-                                                                Add Category
-                                                            </a>
-                                                        </div>
-                                                    </div>
-    </Template>;
+         @<Template>
+           <div>
+                @originNode
+                <Divider Style="margin: 4px 0"></Divider>
+                <div style="display: flex; flex-wrap: nowrap; padding: 8px">
+                    <Input Style="flex: auto" @bind-Value="@_cname"/>
+                    <a style="flex: none; padding: 8px; display: block; cursor: pointer" @onclick="AddCatToList">
+                        <Icon Type="plus" Theme="outline"></Icon>
+                        Add Category
+                    </a>
+                 </div>
+             </div>
+         </Template>;
 
         return customDropdownRender;
     }

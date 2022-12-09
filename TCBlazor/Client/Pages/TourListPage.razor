@@ -126,7 +126,6 @@ else
     private string NewTourJson = "";
     private string NewTourCode = defaultNoCode;//"باخوس";
     private const string defaultNoCode = "new";
-    //private string guid = Guid.NewGuid().ToString();
 
     
     protected override async Task OnInitializedAsync()
@@ -138,18 +137,15 @@ else
         (ShowArchived, _) = await localStorage.GetObject<bool>($"showArc_{engine.Auth.AccessCodeMD5}", () => false);
 
         _ = engine.RequestTourListLoad();
-        //return Task.CompletedTask;
     }
     public void Dispose()
     {
-        //Console.WriteLine($"{guid} : TourListPage disposed");
         engine.onTourLoaded -= OnTourLoaded;
         engine.onTourListLoaded -= OnTourListLoaded;
     }
 
     private Task OnTourLoaded(Tour tour, bool fromSrv, DateTimeOffset updated)
     {
-        //Console.WriteLine($"{guid} : OnTourLoaded in TourListPage");
         if (fromSrv)
         {
             _ = engine.RequestTourListLoad(forceFromServer: true);

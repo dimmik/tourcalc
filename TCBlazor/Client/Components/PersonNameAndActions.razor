@@ -30,36 +30,7 @@
             >Spend @person.Name</MenuItem>
         </SubMenu>
     </Menu>
-    @{/*
-    <br/>
-    @idx. <b>@((MarkupString)person.Name.AsBreakable(2))</b>
-@if (!open)
-{
-    <Button Size="small" @onclick=@(() => open = true)>...</Button>
-} 
-@if (open)
-{
-    <span>
-        <Button Disabled=@disabled Size="small" @onclick=@(async () => await OnPersonEdit(person))>Edit</Button>
-        <Button Disabled=@disabled Size="small" @onclick=@(async () => {
-            var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
-            if (ok){
-                disabled = true;
-                await OnPersonDelete(person);
-            }
-        }) Danger>Delete</Button>
-        <Button Size="small" Type="@ButtonType.Primary" Danger=@true
-            Shape="@ButtonShape.Circle"
-            Icon="@IconType.Outline.Close"
-            @onclick=@(() => open = false) />
-    </span>
-}
-    @if (!string.IsNullOrWhiteSpace(person.ParentId))
-    {
-        <br />
-        <span style="font-size:xx-small">paid by <b style="color:green;">@(tour.Persons.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</b></span>
-    }
-*/}
+
     @if (!string.IsNullOrWhiteSpace(person.ParentId))
     {
         <span style="font-size:xx-small">&gt; paid by <b style="color:green;">@(tour.Persons.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</b></span>

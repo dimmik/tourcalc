@@ -31,15 +31,12 @@
     {
         if (!_newVersionAvailable)
         {
-            //logger.Log($"Update available");
-
-
             logger.Log("Update available. Show update button!");
             _newVersionAvailable = true;
             StateHasChanged();
         } else
         {
-            //logger.Log("calling again. ignore");
+            // nothing
         }
 
 

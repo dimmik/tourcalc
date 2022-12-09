@@ -194,13 +194,11 @@
                                 .Distinct()
                                 .OrderBy(s => s)
                                 ;
-        //Console.WriteLine($"Cats: {string.Join(", ", TourCategories)}");
         filterCategories = (filterCategories ?? new List<string>()).Intersect(TourCategories ?? new List<string>());
         guid = Guid.NewGuid().ToString();
     }
     protected override void OnParametersSet()
     {
-        //ShowPlanned = Tour?.IsFinalizing ?? false;
         UpdateTourCategories();
         if (OnToggleShowPlanned == null)
         {
@@ -229,7 +227,6 @@
         }
         MassChangeIds.Clear();
         MassChangeCat = false;
-        //UpdateTourCategories();
         StateHasChanged();
     }
 
@@ -283,15 +280,10 @@
         }
         return seq;
     }
-    //private string filterCategory = "";
     IEnumerable<string>? filterCategories = new List<string>();
 
     private IEnumerable<Spending> FieldFilter(IEnumerable<Spending> seq)
     {
-        //if (!string.IsNullOrWhiteSpace(filterCategory))
-        //{
-        //    return seq.Where(s => s.Type == filterCategory);
-        //}
         if (filterCategories != null && filterCategories.Any())
         {
             return seq.Where(s => filterCategories.Contains(s.Type));

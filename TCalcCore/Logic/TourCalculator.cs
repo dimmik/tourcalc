@@ -229,7 +229,6 @@ namespace TCalc.Logic
                 var credit = -creditor.Debt();
                 // find first debtor (highest debt)
                 var highestDebt = debtor.Debt();
-                // spending.GUID = $"{spending.FromGuid}{spending.Description}{spending.AmountInCents}{parent.GUID}".CreateMD5();
                 var spending = new Spending()
                 {
                     FromGuid = debtor.GUID,
@@ -250,8 +249,6 @@ namespace TCalc.Logic
                 i++;
                 if (i > maxIterations) throw new Exception($"Cannot calculate tour suggestions. Max of {maxIterations} iterations excceeded");
             }
-            //RemoveRedundant();
-
         }
         private Person[] Creditors() => CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
         private Person[] Debtors() => CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
