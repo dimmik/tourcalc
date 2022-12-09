@@ -43,16 +43,17 @@
     </tr>
         @if (Tour.IsMultiCurrency()){
         <tr><td>
-        <div>Currency: <b>@Tour.Currency.Name</b></div>
+        <div>Currency: <b style='color: green'>@Tour.Currency.Name</b></div>
             <ul>
             @foreach (var c in Tour.Currencies)
             {
                 var cc = Tour.Currency;
                 var rate = cc.CurrencyRate > c.CurrencyRate ? cc.CurrencyRate * 1.0 / c.CurrencyRate : c.CurrencyRate * 1.0 / cc.CurrencyRate;
-                var rStr = cc.CurrencyRate > c.CurrencyRate ? $"{cc.Name} / {c.Name}" : $"{c.Name} / {cc.Name}";
+                        //var rStr = (MarkupString)(cc.CurrencyRate > c.CurrencyRate ? $"<span style='color: green'>{cc.Name}</span> / {c.Name}" : $"{c.Name} / <span style='color: green'>{cc.Name}</span>");
+                var (fc, sc) = cc.CurrencyRate > c.CurrencyRate ? (cc, c) : (c, cc);
                 if (cc != c){
                     <li>
-                        <b>@rStr</b>: @($"{rate : #.00}")
+                      <b style="@(fc == cc ? "color:green" : "")">@fc.Name</b> / <b style="@(sc == cc ? "color:green" : "")">@sc.Name:</b> @($"{rate:#.00}")
                     </li>
                 }
             }
