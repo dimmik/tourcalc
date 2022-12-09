@@ -79,7 +79,7 @@
     public IEnumerable<(string Name, int Amount)> GetSpendingForStat()
     {
         var ss = Tour.Spendings
-        .Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type))
+        .Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc))
         ;
         Dictionary<string, long> summary = new Dictionary<string, long>();
         foreach (var s in ss)
