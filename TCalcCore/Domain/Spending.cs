@@ -15,6 +15,8 @@ namespace TCalc.Domain
         public string Description { get; set; } = "";
         public string Type { get; set; } = "Common";
         public Currency Currency { get; set; } = new Currency();
+        public bool IsDryRun { get; set; } = false;
+        public bool IncludeDryRunInCalc { get; set; } = false;
 
         public override string ToString()
         {

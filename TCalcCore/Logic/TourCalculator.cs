@@ -26,7 +26,10 @@ namespace TCalc.Logic
         {
             long res = 0;
             person.SpentSendingInfo.Clear();
-            foreach (Spending spending in CurrentTour.Spendings.Where(s => includePlanned || !s.Planned))
+            foreach (Spending spending in CurrentTour.Spendings
+                .Where(s => includePlanned || !s.Planned)
+                .Where(s => !s.IsDryRun || s.IncludeDryRunInCalc)
+                )
             {
                 if (spending.FromGuid == person.GUID)
                 {
@@ -56,7 +59,10 @@ namespace TCalc.Logic
             person.ReceivedSendingInfo.Clear();
             double res = 0;
             const long _magnitude_ = 10000000;
-            foreach (Spending spending in CurrentTour.Spendings.Where(s => includePlanned || !s.Planned))
+            foreach (Spending spending in CurrentTour.Spendings
+                .Where(s => includePlanned || !s.Planned)
+                .Where(s => !s.IsDryRun || s.IncludeDryRunInCalc)
+                )
             {
                 long amount = 0L;
                 bool isApplicable = false;
@@ -252,30 +258,6 @@ namespace TCalc.Logic
         }
         private Person[] Creditors() => CurrentTour.Persons.Where(p => p.Debt() < 0).OrderBy(p => p.Debt()).ToArray();
         private Person[] Debtors() => CurrentTour.Persons.Where(p => p.Debt() > 0).OrderBy(p => -p.Debt()).ToArray();
-
-        private void RemoveRedundant()
-        {
-            // remove double-sided: a -> B X && B -> a X
-            // can appear because of storing the calculations
-            var planned = CurrentTour.Spendings.Where(s => s.Planned).ToArray();
-            List<Spending> toRemove = new List<Spending>();
-            for (int j = 0; j < planned.Length; j++)
-            {
-                var p = planned[j];
-                for (int k = j + 1; k < planned.Length; k++)
-                {
-                    var pp = planned[k];
-                    if (p.IsReturningSameVolumeAs(pp))
-                    {
-                        CurrentTour.Spendings.Remove(p);
-                        CurrentTour.Spendings.Remove(pp);
-                    }
-                }
-            }
-        }
-
-        
-
         private void SuggestFamilies()
         {
             Calculate(includePlanned: true);
