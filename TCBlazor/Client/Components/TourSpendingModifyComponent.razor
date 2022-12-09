@@ -6,7 +6,12 @@
     >
 <table style="width: 100%">
     <thead>
-        <tr><th colspan="2" style="text-align: center">@TitleText</th></tr>
+        <tr><th colspan="2" style="text-align: center">@TitleText
+             <Switch @bind-Value=@(spending.IsDryRun) CheckedChildren="DryRun" UnCheckedChildren="Real" Size="small"/>
+             @if (spending.IsDryRun){
+                <Switch @bind-Value=@(spending.IncludeDryRunInCalc) CheckedChildren="Include" UnCheckedChildren="Omit"  Size="small"/>
+             }
+        </th></tr>
     </thead>
         <tr>
             <td>Description:</td>
