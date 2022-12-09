@@ -25,7 +25,6 @@ namespace TCalcCore.Storage
         {
             Stopwatch sw = Stopwatch.StartNew();
             var (json, dt) = await ts.Get(key);
-            //logger?.Log($"j: {json}");
             try
             {
                 T res = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json ?? "");

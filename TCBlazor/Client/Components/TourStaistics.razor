@@ -11,18 +11,6 @@
     2. chart
 -->
 <table><tr>
-        @{/*<td style="padding: 5px; vertical-align: top; font-size: x-small;">
-            <table>
-            @foreach (var s in summary)
-            {
-                <tr><td align="left">@s.Name: </td><td> <b>@s.Amount.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b></td></tr>
-            }
-            <tr><td align="left"><b>TOTAL:</b> </td><td align="right"> <b style="font-size: small">
-                @(summary.Sum(s => s.Amount).ToString("N0", GlobConsts.NumGroupSpaceSeparated))
-                </b></td>
-            </tr>
-            </table>
-        </td>*/}
         <td style="padding: 5px; vertical-align: top;">
             <SimplePieChart Data="summary"
                 ColorSequenceGenerator="csg"
@@ -49,7 +37,6 @@
             {
                 var cc = Tour.Currency;
                 var rate = cc.CurrencyRate > c.CurrencyRate ? cc.CurrencyRate * 1.0 / c.CurrencyRate : c.CurrencyRate * 1.0 / cc.CurrencyRate;
-                        //var rStr = (MarkupString)(cc.CurrencyRate > c.CurrencyRate ? $"<span style='color: green'>{cc.Name}</span> / {c.Name}" : $"{c.Name} / <span style='color: green'>{cc.Name}</span>");
                 var (fc, sc) = cc.CurrencyRate > c.CurrencyRate ? (cc, c) : (c, cc);
                 if (cc != c){
                     <li>

@@ -1,6 +1,4 @@
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Mvc.ApplicationParts;
-using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using TCalc.Storage;
@@ -33,8 +31,6 @@ namespace Company.TCBlazor
             builder.Services.AddControllers()
                 .AddApplicationPart(assembly)
                 .AddControllersAsServices();
-            //.PartManager.ApplicationParts.Add(new AssemblyPart(assembly));
-            //builder.Services.AddControllersWithViews();
 
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
@@ -197,9 +193,6 @@ namespace Company.TCBlazor
                         ClockSkew = TimeSpan.FromSeconds(5)
                     };
                 });
-            // MvcOptions.EnableEndpointRouting = false;
-            //services.AddMvc(options => { options.EnableEndpointRouting = false; });
-
         }
 
     }

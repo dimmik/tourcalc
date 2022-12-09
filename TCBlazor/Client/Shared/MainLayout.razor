@@ -14,14 +14,8 @@
 <div class="page">
 @if (engine.Auth == null)
 { 
-//        <AntDesign.Modal
-//                Visible=@true
-//                Title="Check Auth"
-//                Footer=@dummyFooter
-//                >
-                <div style="text-align:center">Checking auth</div>
-//        </AntDesign.Modal>
-    }
+   <div style="text-align:center">Checking auth</div>
+}
     else
     {
 
@@ -36,7 +30,6 @@
                 >
                 <span><input type="text" @bind-value="code" @onkeyup=@(async (e) => {
                     if (e.Code == "Enter" || e.Code == "NumpadEnter"){
-                        //await JS.InvokeVoidAsync("alert", $"code: {code}");
                         await LogIn();
                     }
                 })/>
@@ -153,7 +146,7 @@
         } 
         catch
         {
-            // TODO handle
+            // TODO handle 2022-12-09 - what it is?..
         }
         await engine.RequestClearLocalTourList(reloadFromServer: false);
         LoggingIn = false;
