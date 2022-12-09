@@ -11,7 +11,7 @@
     Items=@(GetSpendingSorted()) 
     Context="spendingItem" 
     TopPadding="30"
-    ConditionalItemIdxIncrement=@((s, idx) => !s.Planned && !s.IsDryRun)
+    ConditionalItemIdxIncrement=@((s, idx) => !s.Planned && (!s.IsDryRun || s.IncludeDryRunInCalc))
     ConditionalRowStyle=@((s, idx) => 
     {
         if (s.Planned){
