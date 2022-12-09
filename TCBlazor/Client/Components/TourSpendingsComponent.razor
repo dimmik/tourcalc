@@ -11,7 +11,7 @@
     Items=@(GetSpendingSorted()) 
     Context="spendingItem" 
     TopPadding="30"
-    ConditionalItemIdxIncrement=@((s, idx) => !s.Planned)
+    ConditionalItemIdxIncrement=@((s, idx) => !s.Planned && !s.IsDryRun)
     ConditionalRowStyle=@((s, idx) => 
     {
         if (s.Planned){
@@ -20,6 +20,8 @@
             } else {
                 return "background-color: yellow";
             }
+        } else if (s.IsDryRun) {
+            return $"background-color: LightSalmon";
         } else {
             return $"background-color: {(idx % 2 == 0 ? "LightCyan" : "white")}";
         }
@@ -94,6 +96,19 @@
                 }
             }
             @((MarkupString)spending.Description.AsBreakable())
+            @if(spending.IsDryRun){
+                <span>&nbsp;
+                    <Switch @bind-Value=@(spending.IncludeDryRunInCalc) 
+                    CheckedChildren="Include" 
+                    UnCheckedChildren="Omit" 
+                    Size="small" 
+                    OnChange=@(() => UpdateIncludeInDryRun(spending))
+                    />
+                    &nbsp;
+                    <Button Size="small" OnClick=@(() => MakeSpendingReal(spending))>+</Button>
+                </span>
+            }
+
             <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
                 @if (!spending.Planned)
                 {
@@ -228,6 +243,23 @@
         MassChangeIds.Clear();
         MassChangeCat = false;
         StateHasChanged();
+    }
+    private Task UpdateIncludeInDryRun(Spending s){
+        if (Tour != null){
+            _ = engine.RequestEditSpending(Tour.Id, s);
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
+    }
+    private Task MakeSpendingReal(Spending s)
+    {
+        if (Tour != null)
+        {
+            s.IsDryRun = false;
+            _ = engine.RequestEditSpending(Tour.Id, s);
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
     }
 
     private void InitSortPredicates()
