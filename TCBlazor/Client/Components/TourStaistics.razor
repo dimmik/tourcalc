@@ -49,10 +49,11 @@
             {
                 var cc = Tour.Currency;
                 var rate = cc.CurrencyRate > c.CurrencyRate ? cc.CurrencyRate * 1.0 / c.CurrencyRate : c.CurrencyRate * 1.0 / cc.CurrencyRate;
-                        var rStr = (MarkupString)(cc.CurrencyRate > c.CurrencyRate ? $"<span style='color: green'>{cc.Name}</span> / {c.Name}" : $"{c.Name} / <span style='color: green'>{cc.Name}</span>");
+                        //var rStr = (MarkupString)(cc.CurrencyRate > c.CurrencyRate ? $"<span style='color: green'>{cc.Name}</span> / {c.Name}" : $"{c.Name} / <span style='color: green'>{cc.Name}</span>");
+                var (fc, sc) = cc.CurrencyRate > c.CurrencyRate ? (cc, c) : (c, cc);
                 if (cc != c){
                     <li>
-                        <b>@rStr:</b> @($"{rate:#.00}")
+                      <b style="@(fc == cc ? "color:green" : "")">@fc.Name</b> / <b style="@(sc == cc ? "color:green" : "")">@sc.Name:</b> @($"{rate:#.00}")
                     </li>
                 }
             }
