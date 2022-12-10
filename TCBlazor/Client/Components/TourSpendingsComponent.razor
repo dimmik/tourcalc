@@ -99,8 +99,9 @@
             @if(spending.IsDryRun){
                 <span>&nbsp;
                     <Switch @bind-Value=@(spending.IncludeDryRunInCalc) 
-                    CheckedChildren="Include" 
-                    UnCheckedChildren="Omit" 
+                    CheckedChildren="++" 
+                    UnCheckedChildren="--" 
+                    Style=@($"font-size:xx-small; background-color: {(spending.IncludeDryRunInCalc ? "green" : "gray")}")
                     Size="small" 
                     OnChange=@(() => UpdateIncludeInDryRun(spending))
                     />
