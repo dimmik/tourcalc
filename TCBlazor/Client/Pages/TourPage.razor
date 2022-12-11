@@ -83,7 +83,7 @@ else
                 </div>
                 </div>
                 @if (ShowSpendings){
-                    <TourSpendingsComponent 
+                    <TSpComponent 
                         Tour=@tour
                         ShowPlanned=@ShowPlannedSpendings
                         OnToggleShowPlanned=@(() => {
@@ -116,7 +116,7 @@ else
                                 </NavLink>
                                 }
                         </EditActionTemplate>
-                    </TourSpendingsComponent>
+                    </TSpComponent>
                 }
             </td>
         </RowTemplate>

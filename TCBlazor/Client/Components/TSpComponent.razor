@@ -22,6 +22,8 @@
             }
         } else if (s.IsDryRun) {
             return $"background-color: LightSalmon";
+        } else if (!string.IsNullOrWhiteSpace(s.Color)) {
+            return $"background-color: {s.Color}";
         } else {
             return $"background-color: {(idx % 2 == 0 ? "LightCyan" : "white")}";
         }
