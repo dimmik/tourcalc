@@ -6,7 +6,9 @@
     >
 <table style="width: 100%">
     <thead>
-        <tr><th colspan="2" style="text-align: center">@TitleText
+        <tr><th colspan="2" style="text-align: center">
+                        <span style="cursor:pointer;" @onclick=@(() => spending.Color = "")>(clear)</span> <RadzenColorPicker @bind-Value=@spending.Color />
+            @TitleText
              <Switch @bind-Value=@(spending.IsDryRun) CheckedChildren="DryRun" UnCheckedChildren="Real" Size="small"/>
              @if (spending.IsDryRun){
                 <Switch @bind-Value=@(spending.IncludeDryRunInCalc) CheckedChildren="Include" UnCheckedChildren="Omit"  Size="small"/>
@@ -252,19 +254,19 @@
     private RenderFragment CategoryDropdownRenderer(RenderFragment originNode)
     {
         RenderFragment customDropdownRender =
-         @<Template>
-           <div>
-                @originNode
-                <Divider Style="margin: 4px 0"></Divider>
-                <div style="display: flex; flex-wrap: nowrap; padding: 8px">
-                    <Input Style="flex: auto" @bind-Value="@_cname"/>
-                    <a style="flex: none; padding: 8px; display: block; cursor: pointer" @onclick="AddCatToList">
-                        <Icon Type="plus" Theme="outline"></Icon>
-                        Add Category
-                    </a>
+    @<Template>
+               <div>
+                    @originNode
+                    <Divider Style="margin: 4px 0"></Divider>
+                    <div style="display: flex; flex-wrap: nowrap; padding: 8px">
+                        <Input Style="flex: auto" @bind-Value="@_cname"/>
+                        <a style="flex: none; padding: 8px; display: block; cursor: pointer" @onclick="AddCatToList">
+                            <Icon Type="plus" Theme="outline"></Icon>
+                            Add Category
+                        </a>
+                     </div>
                  </div>
-             </div>
-         </Template>;
+    </Template>;
 
         return customDropdownRender;
     }

@@ -17,6 +17,7 @@ namespace TCalc.Domain
         public Currency Currency { get; set; } = new Currency();
         public bool IsDryRun { get; set; } = false;
         public bool IncludeDryRunInCalc { get; set; } = false;
+        public string Color { get; set; } = "";
 
         public override string ToString()
         {
