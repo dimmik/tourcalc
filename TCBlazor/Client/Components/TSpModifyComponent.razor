@@ -2,7 +2,9 @@
 @inject NavigationManager NavManager
 <div style="text-align: center; width: 100%;">
     <div
-        style="margin-left: auto; margin-right: auto;text-align:left; width: clamp(300px, 40vw, 500px); background-color: #e6ffff; padding: 5px; border-radius: 5px; border: 1px solid black;"
+        style=@($"margin-left: auto; margin-right: auto;text-align:left; width: clamp(300px, 40vw, 500px); "+
+                $"background-color: {(string.IsNullOrWhiteSpace(spending.Color) ? "#e6ffff" : spending.Color)};"+
+                $" padding: 5px; border-radius: 5px; border: 1px solid black;")
     >
 <table style="width: 100%">
     <thead>
