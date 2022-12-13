@@ -139,7 +139,7 @@ namespace TourCalcWebApp.Storage
             if (oldTour.IsFinalizing != newTour.IsFinalizing) res += $"Tour Finalizing flag: {oldTour.IsFinalizing} -> {newTour.IsFinalizing}";
             if (string.IsNullOrWhiteSpace(res))
             {
-                res = "Hmm. Well, something not that important.";
+                res = "-";
             }
             return $"Changed: {res}";
         }
