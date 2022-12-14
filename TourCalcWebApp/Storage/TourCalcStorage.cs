@@ -105,31 +105,36 @@ namespace TourCalcWebApp.Storage
                     tourVersion.IsVersion = true;
                     tourVersion.DateVersioned = DateTime.Now;
                     tourVersion.VersionFor_Id = tour.Id;
-                    tourVersion.VersionComment = tour.InternalVersionComment ?? new Func<string>(() =>
+                    bool doVersion = false;
+                    (doVersion, tourVersion.VersionComment) = !string.IsNullOrWhiteSpace(tour.InternalVersionComment) ? (true, tour.InternalVersionComment) : new Func<(bool, string)>(() =>
                     {
-                        if (tourVersion.Persons.Count() > tour.Persons.Count) return $"P '{ tourVersion.Persons.Except(tour.Persons).Last()?.Name ?? "--" }' deleted";
-                        if (tourVersion.Persons.Count() < tour.Persons.Count) return $"P '{ tour.Persons.Last()?.Name ?? "--" }' added";
+                        if (tourVersion.Persons.Count() > tour.Persons.Count) return (true, $"P '{ tourVersion.Persons.Except(tour.Persons).Last()?.Name ?? "--" }' deleted");
+                        if (tourVersion.Persons.Count() < tour.Persons.Count) return (true, $"P '{ tour.Persons.Last()?.Name ?? "--" }' added");
                         var vSpendings = tourVersion.Spendings.Where(s => !s.Planned);
                         var tSpendings = tour.Spendings.Where(s => !s.Planned);
                         if (vSpendings.Count() < tSpendings.Count()) 
-                            return $"S '{tSpendings.Last()?.Description ?? "--" } ({tSpendings.Last()?.AmountInCents ?? 0})' added";
+                            return (true, $"S '{tSpendings.Last()?.Description ?? "--" } ({tSpendings.Last()?.AmountInCents ?? 0})' added");
                         if (vSpendings.Count() > tSpendings.Count()) 
-                            return $"S '{vSpendings.Except(tSpendings).Last()?.Description ?? "--" } ({vSpendings.Except(tSpendings).Last()?.AmountInCents ?? 0})' deleted";
+                            return (true, $"S '{vSpendings.Except(tSpendings).Last()?.Description ?? "--" } ({vSpendings.Except(tSpendings).Last()?.AmountInCents ?? 0})' deleted");
                         if (tourVersion.IsArchived != tour.IsArchived)
                         {
-                            if (tour.IsArchived) return "Moved to archive";
-                            if (!tour.IsArchived) return "Restored from archive";
+                            if (tour.IsArchived) return (true, "Moved to archive");
+                            if (!tour.IsArchived) return (true, "Restored from archive");
                         }
                         return GetChanges(tourVersion, tour);
                     })();
-                    UpsertTour(tourVersion);
+                    if (doVersion)
+                    {
+                        UpsertTour(tourVersion);
+                    }
                 }
             }
             UpsertTour(tour);
         }
-        private static string GetChanges(Tour oldTour, Tour newTour)
+        private static (bool, string) GetChanges(Tour oldTour, Tour newTour)
         {
             var res = "";
+            bool doV = true;
             // persons
             res = PersonChanges(oldTour, newTour, res);
             // spendings
@@ -140,8 +145,9 @@ namespace TourCalcWebApp.Storage
             if (string.IsNullOrWhiteSpace(res))
             {
                 res = "-";
+                doV = false;
             }
-            return $"Changed: {res}";
+            return (doV, $"Changed: {res}");
         }
 
         private static string SpendingChanges(Tour oldTour, Tour newTour, string res)
