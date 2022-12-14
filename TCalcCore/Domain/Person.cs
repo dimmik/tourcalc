@@ -29,9 +29,16 @@ namespace TCalc.Domain
     }
     public class SpendingInfo
     {
+        public SpendingInfo()
+        {
+        }
+
         public string From { get; set; }
         public long ReceivedAmountInCents { get; set; }
+        public Currency Currency { get; set; }
+        public long OriginalReceivedAmountInCents { get; set; }
         public long TotalSpendingAmountInCents { get; set; }
+        public long OriginalTotalSpendingAmountInCents { get; set; }
         public string SpendingDescription { get; set; }
         public bool IsSpendingToAll { get; set; }
         public string[] ToNames { get; set; }
