@@ -6,7 +6,7 @@ namespace TCalc.Domain
 {
     public class Currency : IEquatable<Currency>, IComparable<Currency>
     {
-        public string Name { get; set; } = "RUB";
+        public string Name { get; set; } = "EUR";
         public int CurrencyRate { get; set; } = 100;
         public static Currency Default => new Currency();
 
