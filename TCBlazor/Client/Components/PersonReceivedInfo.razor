@@ -24,7 +24,7 @@
 
 
 <Modal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}"+
-                (byCur.Count() > 1 ? $" ({string.Join(", ", byCur.Select(cv => $"{cv.Value} {cv.Key.Name}"))})" : ""))"
+                (byCur.Count() > 1 ? $" ({string.Join(", ", byCur.Select(cv => $"{cv.Value.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {cv.Key.Name}"))})" : ""))"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -85,7 +85,7 @@
                         of @si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
                         </span>
                         @if (si.Currency != tour.Currency){
-                            <span style="font-size: xx-small; font-weight: bold;background-color:blanchedalmond;"><br/>@si.OriginalReceivedAmountInCents @si.Currency.Name</span>
+                            <span style="font-size: xx-small; font-weight: bold;background-color:blanchedalmond;"><br/>@si.OriginalReceivedAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) @si.Currency.Name</span>
                         }
                     </td>
                     <td>
