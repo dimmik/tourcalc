@@ -4,7 +4,7 @@ using System.Text;
 
 namespace TCalc.Domain
 {
-    public class Currency : IEquatable<Currency>
+    public class Currency : IEquatable<Currency>, IComparable<Currency>
     {
         public string Name { get; set; } = "RUB";
         public int CurrencyRate { get; set; } = 100;
@@ -39,6 +39,11 @@ namespace TCalc.Domain
         public override string ToString()
         {
             return $"{Name} : {CurrencyRate}";
+        }
+
+        public int CompareTo(Currency other)
+        {
+            return Name.CompareTo(other.Name);
         }
     }
 }

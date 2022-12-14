@@ -1,5 +1,21 @@
-﻿
-
+﻿@{
+    var byCur = person.ReceivedSendingInfo
+        .Aggregate(new Dictionary<Currency, long>(), (dic, rsi) =>
+        {
+            if (dic.ContainsKey(rsi.Currency))
+            {
+                dic[rsi.Currency] += rsi.OriginalReceivedAmountInCents;
+            }
+            else
+            {
+                dic[rsi.Currency] = rsi.OriginalReceivedAmountInCents;
+            }
+            return dic;
+        })
+        .Select(kv => (kv.Key, kv.Value))
+        .OrderBy(kv => kv.Key)
+        ;
+}
 <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
     <Button Size="small" Style="color:red; font-weight: bold" @onclick=@(() => open = true)>
         @person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
@@ -7,7 +23,8 @@
 </div>
 
 
-<Modal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}")"
+<Modal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}"+
+                (byCur.Count() > 1 ? $" ({string.Join(", ", byCur.Select(cv => $"{cv.Value.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {cv.Key.Name}"))})" : ""))"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -67,6 +84,9 @@
                             @($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents: 0.00}")%
                         of @si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
                         </span>
+                        @if (si.Currency != tour.Currency){
+                            <span style="font-size: xx-small; font-weight: bold;background-color:blanchedalmond;"><br/>@si.OriginalReceivedAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) @si.Currency.Name</span>
+                        }
                     </td>
                     <td>
                         @if (!string.IsNullOrWhiteSpace(si.Type))
@@ -110,13 +130,13 @@
     {
         return __builder =>
         {
-            <Template>
-                        <Button OnClick=@((e) => onOk())
+    <Template>
+                                        <Button OnClick=@((e) => onOk())
                         Type="primary"
-                                >
-                                    Got It
-                        </Button>
-            </Template>
+                                                >
+                                                    Got It
+                                        </Button>
+    </Template>
         };
     }
     protected override void OnParametersSet()

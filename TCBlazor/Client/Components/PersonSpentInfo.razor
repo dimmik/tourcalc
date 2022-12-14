@@ -1,4 +1,21 @@
-﻿
+﻿@{
+    var byCur = person.SpentSendingInfo
+        .Aggregate(new Dictionary<Currency, long>(), (dic, rsi) =>
+        {
+            if (dic.ContainsKey(rsi.Currency))
+            {
+                dic[rsi.Currency] += rsi.OriginalTotalSpendingAmountInCents;
+            }
+            else
+            {
+                dic[rsi.Currency] = rsi.OriginalTotalSpendingAmountInCents;
+            }
+            return dic;
+        })
+        .Select(kv => (kv.Key, kv.Value))
+        .OrderBy(kv => kv.Key)
+        ;
+}
 
 <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
     <Button Size="small" Style="color:green; font-weight: bold" @onclick=@(() => open = true)>
@@ -8,7 +25,8 @@
 
 
 
-<Modal Title="@($"Spent for {person.Name} {person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}")"
+<Modal Title="@($"Spent for {person.Name} {person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}"+
+                (byCur.Count() > 1 ? $" ({string.Join(", ", byCur.Select(cv => $"{cv.Value.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {cv.Key.Name}"))})" : ""))"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -60,7 +78,13 @@
                         subtotal += si.TotalSpendingAmountInCents;
                     }
 
-                <td><b>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span></b></td>
+                <td><b>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
+                        @if (si.Currency != tour.Currency)
+                        {
+                            <span style="font-size: xx-small; font-weight: bold;background-color:blanchedalmond;"><br />
+                                @si.OriginalTotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) @si.Currency.Name</span>
+                        }
+                    </b></td>
                     <td>
                         @if (!string.IsNullOrWhiteSpace(si.Type))
                         {

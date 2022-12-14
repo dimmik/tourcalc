@@ -37,6 +37,8 @@ namespace TCalc.Logic
                     person.SpentSendingInfo.Add(new SpendingInfo()
                     {
                         TotalSpendingAmountInCents = amount,
+                        Currency = spending.Currency,
+                        OriginalTotalSpendingAmountInCents = spending.AmountInCents,
                         ReceivedAmountInCents = -1,
                         From = person.Name,
                         IsSpendingToAll = spending.ToAll,
@@ -65,10 +67,12 @@ namespace TCalc.Logic
                 )
             {
                 long amount = 0L;
+                long origAmount = 0L;
                 bool isApplicable = false;
                 if (spending.ToAll)
                 {
                     amount += spending.AmountInCurrentCurrency(CurrentTour) * person.Weight * _magnitude_ / TotalWeight;
+                    origAmount += spending.AmountInCents * person.Weight * _magnitude_ / TotalWeight;
                     isApplicable = true;
                 } else
                 {
@@ -84,9 +88,11 @@ namespace TCalc.Logic
                             }
                             if (spendingWeight == 0) spendingWeight = 1;
                             amount += spending.AmountInCurrentCurrency(CurrentTour) * person.Weight * _magnitude_ / spendingWeight;
+                            origAmount += spending.AmountInCents * person.Weight * _magnitude_ / spendingWeight;
                         } else
                         {
                             amount += spending.AmountInCurrentCurrency(CurrentTour) * _magnitude_ / spending.ToGuid.Count;
+                            origAmount += spending.AmountInCents * _magnitude_ / spending.ToGuid.Count;
                         }
                         isApplicable = true;
                     }
@@ -97,8 +103,10 @@ namespace TCalc.Logic
                     person.ReceivedSendingInfo.Add(new SpendingInfo()
                     {
                         ReceivedAmountInCents = (amount + (_magnitude_ / 2)) / _magnitude_,
-                        
+                        Currency = spending.Currency,
+                        OriginalReceivedAmountInCents = (origAmount + (_magnitude_ / 2)) / _magnitude_,
                         TotalSpendingAmountInCents = spending.AmountInCurrentCurrency(CurrentTour),
+                        OriginalTotalSpendingAmountInCents = spending.AmountInCents,
                         From = CurrentTour.Persons.FirstOrDefault(p => p.GUID == spending.FromGuid)?.Name ?? "n/a",
                         IsSpendingToAll = spending.ToAll,
                         SpendingDescription = string.IsNullOrWhiteSpace(spending.Description) ? "no description" : spending.Description,
@@ -121,9 +129,12 @@ namespace TCalc.Logic
                     From = "System",
                     SpendingDescription = $"Distribution Rounding Error: {diff}",
                     ReceivedAmountInCents = diff,
+                    Currency = CurrentTour.Currency,
                     IsSpendingToAll = false,
                     ToNames = new[] { person.Name },
-                    TotalSpendingAmountInCents = diff
+                    TotalSpendingAmountInCents = diff,
+                    OriginalTotalSpendingAmountInCents = diff,
+                    OriginalReceivedAmountInCents = diff
                 });
                 sum = person.ReceivedSendingInfo.Select(rsi => rsi.ReceivedAmountInCents).Sum();
             }
@@ -165,7 +176,10 @@ namespace TCalc.Logic
                     ReceivedAmountInCents = diff,
                     IsSpendingToAll = false,
                     ToNames = new[] { p.Name },
-                    TotalSpendingAmountInCents = diff
+                    TotalSpendingAmountInCents = diff,
+                    Currency = CurrentTour.Currency,
+                    OriginalReceivedAmountInCents = diff,
+                    OriginalTotalSpendingAmountInCents = diff
                 });
 
             }
@@ -185,7 +199,10 @@ namespace TCalc.Logic
                         ReceivedAmountInCents = diff,
                         IsSpendingToAll = false,
                         ToNames = new[] { p.Name },
-                        TotalSpendingAmountInCents = diff
+                        TotalSpendingAmountInCents = diff,
+                        Currency = CurrentTour.Currency,
+                        OriginalTotalSpendingAmountInCents = diff,
+                        OriginalReceivedAmountInCents = diff
                     });
                 }
                 else
@@ -200,7 +217,10 @@ namespace TCalc.Logic
                         ReceivedAmountInCents = diff,
                         IsSpendingToAll = false,
                         ToNames = new[] { p.Name },
-                        TotalSpendingAmountInCents = diff
+                        TotalSpendingAmountInCents = diff,
+                        Currency = CurrentTour.Currency,
+                        OriginalReceivedAmountInCents = diff,
+                        OriginalTotalSpendingAmountInCents = diff
                     });
 
                 }
