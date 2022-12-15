@@ -162,7 +162,7 @@ else
         TheSpending.Description = "";
         TheSpending.AmountInCents = 0;
         TheSpending.IsPartialWeighted = true;
-        TheSpending.ToAll = true;
+        TheSpending.ToAll = settings.Spending_ToAll_DefaultOn;
         TheSpending.ToGuid = new List<string>();
         if (PersonId != null && !initialized){
             TheSpending.FromGuid = PersonId;
