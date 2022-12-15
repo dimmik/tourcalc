@@ -26,6 +26,23 @@
                             <b style="color:@(WillPay ? "red" : "green")">@(amount.ToString("N0", GlobConsts.NumGroupSpaceSeparated)) <i style="font-size: x-small;">@tour.CurrencyNameEmptyIfSingleCurrency()</i></b>
                         </span>
                     }
+                    @if (tour.IsMultiCurrency())
+                    {
+                        <span style="font-size: xx-small">
+                            <br>Raw debt: @debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated) @tour.Currency.Name
+                        <ul>
+                            @foreach (var c in tour.Currencies)
+                            {
+                                @if (c != tour.Currency)
+                                {
+                                    var cDebt = debt * tour.Currency.CurrencyRate * 1.0 / c.CurrencyRate;
+                                    <li>@cDebt.ToString("N0", GlobConsts.NumGroupSpaceSeparated) @c.Name</li>
+                                }
+                            }
+                        </ul>
+                        </span>
+                    }
+                    
                 </th>
 
             </TableHeader>
@@ -151,10 +168,10 @@
         return __builder =>
         {
     <Template>
-                                    <Button OnClick=@((e) => onOk())
+                                        <Button OnClick=@((e) => onOk())
                     Type="primary">
-                                        Got It
-                                    </Button>
+                                            Got It
+                                        </Button>
     </Template>
         };
     }
