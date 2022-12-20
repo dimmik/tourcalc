@@ -45,6 +45,7 @@ namespace TCalc.Domain
         }
         public static long AmountInCurrentCurrency(this Spending sp, Tour tour)
         {
+            if (tour == null) return sp.AmountInCents;
             if (!tour.IsMultiCurrency()) // only one currency or no currencies
             {
                 return sp.AmountInCents;

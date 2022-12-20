@@ -56,6 +56,7 @@ namespace TCalc.Domain
         }
         public static bool IsMultiCurrency(this Tour tour)
         {
+            if (tour == null) return false;
             return !(tour.Currencies == null || !tour.Currencies.Any() || tour.Currencies.Count() <= 1);
         }
         public static string CurrencyNameEmptyIfSingleCurrency(this Tour t, string def = "")
