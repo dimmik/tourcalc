@@ -37,6 +37,7 @@
                     var sp = GetSpendingSorted();
                 }
                 #: <b>@sp.Count()</b> &Sigma;: <b style="color:green">@sp.Sum(s => s.AmountInCurrentCurrency(Tour)).ToString("N0", GlobConsts.NumGroupSpaceSeparated) @Tour?.Currency?.Name</b>
+                dt: <b style="color:blue">[@sp.Min(sp => sp.DateCreated).ToString("dd.MM.yyyy") - @sp.Max(sp => sp.DateCreated).ToString("dd.MM.yyyy")]</b>
             </div>
             <span style="cursor:pointer;@(sortingField == SortingField.Descr ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Descr))>Spending Description &nbsp;</span>
                         
