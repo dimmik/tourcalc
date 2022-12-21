@@ -37,7 +37,7 @@
                     var sp = GetSpendingSorted();
                 }
                 #: <b>@sp.Count()</b> &Sigma;: <b style="color:green">@sp.Sum(s => s.AmountInCurrentCurrency(Tour)).ToString("N0", GlobConsts.NumGroupSpaceSeparated) @Tour?.Currency?.Name</b>
-                dt: <b style="color:blue">[@sp.Min(sp => sp.DateCreated).ToString("dd.MM.yyyy") - @sp.Max(sp => sp.DateCreated).ToString("dd.MM.yyyy")]</b>
+                dt: <b style="color:blue">[@sp.Min(sp => sp.SpendingDate).ToString("dd.MM.yyyy") - @sp.Max(sp => sp.SpendingDate).ToString("dd.MM.yyyy")]</b>
             </div>
             <span style="cursor:pointer;@(sortingField == SortingField.Descr ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Descr))>Spending Description &nbsp;</span>
                         
@@ -119,7 +119,7 @@
                 </span>
             }
 
-            <div style="font-size: xx-small">[@spending.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
+            <div style="font-size: xx-small">[@spending.SpendingDate.ToString("dd.MM.yyyy HH:mm")] 
                 @if (!spending.Planned)
                 {
                     <b>@spending.Type</b>
@@ -277,7 +277,7 @@
         sortPredicates[SortingField.From] = (s) => (Tour?.Persons?.FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "");
         sortPredicates[SortingField.Amount] = (s) => s.AmountInCents.ToString("00000000000000");
         sortPredicates[SortingField.Descr] = (s) => s.Description;
-        sortPredicates[SortingField.Date] = (s) => $"{s.DateCreated: yyyyMMdd_HHmmss}";
+        sortPredicates[SortingField.Date] = (s) => $"{s.SpendingDate: yyyyMMdd_HHmmss}";
         sortPredicates[SortingField.Type] = (s) => string.IsNullOrWhiteSpace(s.Type) ? new string(Char.MaxValue, 1) : s.Type;
     }
 
@@ -343,7 +343,7 @@
             .ThenBy(s => (Tour?.Persons ?? new List<Person>()).FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "") // then by name
             .ThenByDescending(s => s.AmountInCents) // then by amount
             ;
-        real = real.OrderByDescending(s => s.DateCreated);
+        real = real.OrderByDescending(s => s.SpendingDate);
 
         var preprocessed = SpendingListPreProcessor((ShowPlanned ? planned : new Spending[0]).Concat(real).ToList());
         var sorted = FieldSort(preprocessed);
