@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace TCalc.Domain
@@ -18,6 +19,23 @@ namespace TCalc.Domain
         public bool IsDryRun { get; set; } = false;
         public bool IncludeDryRunInCalc { get; set; } = false;
         public string Color { get; set; } = "";
+
+        private DateTime? _spendingDate = null;
+        public DateTime SpendingDate
+        {
+            get
+            {
+                if (_spendingDate == null)
+                {
+                    return DateCreated;
+                }
+                return _spendingDate.Value;
+            }
+            set
+            {
+                _spendingDate = value;
+            }
+        }
 
         public override string ToString()
         {

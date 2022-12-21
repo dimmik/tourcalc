@@ -108,6 +108,19 @@
             </td>
         </tr>
         <tr>
+            <td>Date</td>
+            <td>
+                <DatePicker 
+                    @bind-Value=@(spending.SpendingDate) 
+                    Format="yyyy-MM-dd HH:mm" 
+                    ShowTime="true"
+                    TValue="DateTime"
+                    Locale=@(new DatePickerLocale(){ FirstDayOfWeek = DayOfWeek.Monday})
+                    AllowClear=@false
+                    />
+            </td>
+        </tr>
+        <tr>
             <td colspan="2">
                 <div style="display: table; width: 100%">
                         <div style="display: table-cell; align-content: flex-start; width: 65%; text-align: start;">
