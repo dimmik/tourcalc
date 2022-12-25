@@ -197,6 +197,7 @@
             spending = TheSpending.SafeClone<Spending>();
             if (IsItANewSpending()){
                 spending.Currency = tour.Currency;
+                spending.SpendingDate = DateTime.Now;
             }
         }
         _selectedValuesTo = spending.ToGuid;

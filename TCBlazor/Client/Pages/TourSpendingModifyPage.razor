@@ -158,7 +158,7 @@ else
     private void InitNewSpending()
     {
         TheSpending = TheSpending.SafeClone<Spending>();
-        TheSpending.GUID = "";
+        TheSpending.GUID = Guid.NewGuid().ToString("N");
         TheSpending.Description = "";
         TheSpending.AmountInCents = 0;
         TheSpending.IsPartialWeighted = true;
