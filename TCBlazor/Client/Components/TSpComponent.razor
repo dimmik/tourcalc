@@ -32,13 +32,15 @@
 >
     <TableHeader>
         <th>
-            <div style="font-size:xx-small; font-weight:normal">
-                @{
-                    var sp = GetSpendingSorted();
-                }
-                #: <b>@sp.Count()</b> &Sigma;: <b style="color:green">@sp.Sum(s => s.AmountInCurrentCurrency(Tour)).ToString("N0", GlobConsts.NumGroupSpaceSeparated) @Tour?.Currency?.Name</b>
-                dt: <b style="color:blue">[@sp.Min(sp => sp.SpendingDate).ToString("dd.MM.yyyy") - @sp.Max(sp => sp.SpendingDate).ToString("dd.MM.yyyy")]</b>
-            </div>
+            @{
+                var sp = GetSpendingSorted();
+            }
+            @if (sp.Any()){
+                <div style="font-size:xx-small; font-weight:normal">
+                    #: <b>@sp.Count()</b> &Sigma;: <b style="color:green">@sp.Sum(s => s.AmountInCurrentCurrency(Tour)).ToString("N0", GlobConsts.NumGroupSpaceSeparated) @Tour?.Currency?.Name</b>
+                    dt: <b style="color:blue">[@sp.Min(sp => sp.SpendingDate).ToString("dd.MM.yyyy") - @sp.Max(sp => sp.SpendingDate).ToString("dd.MM.yyyy")]</b>
+                </div>
+            }
             <span style="cursor:pointer;@(sortingField == SortingField.Descr ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Descr))>Spending Description &nbsp;</span>
                         
             <span style="cursor:pointer;@(sortingField == SortingField.Date ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Date))>Dt&nbsp;</span>
