@@ -115,7 +115,7 @@ namespace TourCalcWebApp.Storage
                         if (vSpendings.Count() < tSpendings.Count()) 
                             return (true, $"S '{tSpendings.LastOrDefault()?.Description ?? "--" } ({tSpendings.LastOrDefault()?.AmountInCents ?? 0} {tSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' added");
                         if (vSpendings.Count() > tSpendings.Count()) 
-                            return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--" } ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0}  {tSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' deleted");
+                            return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--" } ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0}  {vSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' deleted");
                         if (tourVersion.IsArchived != tour.IsArchived)
                         {
                             if (tour.IsArchived) return (true, "Moved to archive");
