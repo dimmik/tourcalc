@@ -108,14 +108,14 @@ namespace TourCalcWebApp.Storage
                     bool doVersion = false;
                     (doVersion, tourVersion.VersionComment) = !string.IsNullOrWhiteSpace(tour.InternalVersionComment) ? (true, tour.InternalVersionComment) : new Func<(bool, string)>(() =>
                     {
-                        if (tourVersion.Persons.Count() > tour.Persons.Count) return (true, $"P '{ tourVersion.Persons.Except(tour.Persons).Last()?.Name ?? "--" }' deleted");
+                        if (tourVersion.Persons.Count() > tour.Persons.Count) return (true, $"P '{ tourVersion.Persons.Except(tour.Persons).LastOrDefault()?.Name ?? "--" }' deleted");
                         if (tourVersion.Persons.Count() < tour.Persons.Count) return (true, $"P '{ tour.Persons.Last()?.Name ?? "--" }' added");
                         var vSpendings = tourVersion.Spendings.Where(s => !s.Planned);
                         var tSpendings = tour.Spendings.Where(s => !s.Planned);
                         if (vSpendings.Count() < tSpendings.Count()) 
-                            return (true, $"S '{tSpendings.Last()?.Description ?? "--" } ({tSpendings.Last()?.AmountInCents ?? 0} {tSpendings.Last()?.Currency?.Name ?? "na"})' added");
+                            return (true, $"S '{tSpendings.LastOrDefault()?.Description ?? "--" } ({tSpendings.LastOrDefault()?.AmountInCents ?? 0} {tSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' added");
                         if (vSpendings.Count() > tSpendings.Count()) 
-                            return (true, $"S '{vSpendings.Except(tSpendings).Last()?.Description ?? "--" } ({vSpendings.Except(tSpendings).Last()?.AmountInCents ?? 0}  {tSpendings.Last()?.Currency?.Name ?? "na"})' deleted");
+                            return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--" } ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0}  {tSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' deleted");
                         if (tourVersion.IsArchived != tour.IsArchived)
                         {
                             if (tour.IsArchived) return (true, "Moved to archive");
