@@ -113,9 +113,15 @@ namespace TourCalcWebApp.Storage
                         var vSpendings = tourVersion.Spendings.Where(s => !s.Planned);
                         var tSpendings = tour.Spendings.Where(s => !s.Planned);
                         if (vSpendings.Count() < tSpendings.Count()) 
-                            return (true, $"S '{tSpendings.LastOrDefault()?.Description ?? "--" } ({tSpendings.LastOrDefault()?.AmountInCents ?? 0} {tSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' added");
+                            if (tour.IsMultiCurrency())
+                                return (true, $"S '{tSpendings.LastOrDefault()?.Description ?? "--" } ({tSpendings.LastOrDefault()?.AmountInCents ?? 0} {tSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' added");
+                            else 
+                                return (true, $"S '{tSpendings.LastOrDefault()?.Description ?? "--" } ({tSpendings.LastOrDefault()?.AmountInCents ?? 0})' added");
                         if (vSpendings.Count() > tSpendings.Count()) 
-                            return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--" } ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0}  {vSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' deleted");
+                            if (tourVersion.IsMultiCurrency())
+                                return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--" } ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0}  {vSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' deleted");
+                            else 
+                                return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--" } ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0})' deleted");
                         if (tourVersion.IsArchived != tour.IsArchived)
                         {
                             if (tour.IsArchived) return (true, "Moved to archive");
