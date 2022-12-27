@@ -15,7 +15,11 @@
     public string? tid {get; set;}
     protected override async Task OnInitializedAsync()
     {
-        await engine.LogIn("code", transientAccessCode, md5Code: true);
+        await engine.PickUpAuthInfo();
+        var auth = engine.Auth;
+        var codes = auth?.AccessCodeMD5s() ?? new string[0];
+        var effectiveCode = string.Join(auth.AuthTokensDelim(), codes.Concat(new[] { transientAccessCode }).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct());
+        await engine.LogIn("code", effectiveCode, md5Code: true);
         // now try to get a tour
         Tour tt = await engine.LoadFromServerAndReturnBareTour(tid);
         bool finalizing = false;
