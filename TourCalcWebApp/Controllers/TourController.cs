@@ -82,7 +82,7 @@ namespace TourCalcWebApp.Controllers
                 predicate = t => true;
             } else
             {
-                predicate = t => (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5);
+                predicate = t => (t.AccessCodeMD5 != null && authData.AccessCodeMD5s().Contains(t.AccessCodeMD5));
             }
             var tours = tourStorage.GetTourVersions(
                 predicate
@@ -173,7 +173,7 @@ namespace TourCalcWebApp.Controllers
                 throw HttpException.Forbid(forbidMessage);
             }
             tourJson.GUID = IdHelper.NewId();
-            tourJson.AccessCodeMD5 = authData.IsMaster ? AuthHelper.CreateMD5(accessCode) : authData.AccessCodeMD5;
+            tourJson.AccessCodeMD5 = authData.IsMaster ? AuthHelper.CreateMD5(accessCode) : authData.AccessCodeMD5s().First();
             tourJson.DateCreated = DateTime.Now;
             tourStorage.AddTour(tourJson);
             return tourJson.GUID;
@@ -468,7 +468,7 @@ namespace TourCalcWebApp.Controllers
             if (tour == null) return null;
             if (!authData.IsMaster)
             {
-                if (!(authData.AccessCodeMD5 == tour.AccessCodeMD5))
+                if (!(authData.AccessCodeMD5s().Contains(tour.AccessCodeMD5)))
                 {
                     return null;
                 }
@@ -492,7 +492,7 @@ namespace TourCalcWebApp.Controllers
                 }
             } else
             {
-                predicate = t => (t.AccessCodeMD5 != null && authData.AccessCodeMD5 == t.AccessCodeMD5);
+                predicate = t => (t.AccessCodeMD5 != null && authData.AccessCodeMD5s().Contains(t.AccessCodeMD5));
             }
             var tours = tourStorage.GetTours(
                 predicate
