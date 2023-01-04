@@ -76,8 +76,8 @@ namespace TCalc.Domain
             if (spendingCurrency == currentCurr) return sp.AmountInCents;
 
             var amount = sp.AmountInCents;
-            long coeff = spendingCurrency.CurrencyRate * 1000000L / currentCurr.CurrencyRate;
-            long result = amount * coeff / 1000000;
+            long result = (long)Math.Round((amount * spendingCurrency.CurrencyRate * 1.0 / currentCurr.CurrencyRate));
+
             return result;
         }
     }
