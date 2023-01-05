@@ -3,6 +3,17 @@
         @debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
     </Button>
 </div>
+@{
+    var totalToPay = (spendingToShow?.Where(s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0);
+    var totalWeight = tour.Persons.Select(p => p.Weight).Sum();
+    if (totalWeight == 0) totalWeight = 1;
+    var myWeight = person.Weight;
+    var relativesWeight = tour.Persons.Where(p => p.ParentId == person.GUID).Select(p => p.Weight).Concat(new int[] { 0 }).Sum();
+    var myWeightWithRelatives = myWeight + relativesWeight;
+    var coeff = myWeightWithRelatives * 1.0 / totalWeight - 1;
+    if (coeff == 0) coeff = 1;
+    long toSpend = (long)Math.Round(- totalToPay * 1.0 / coeff);
+}
 <Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0", GlobConsts.NumGroupSpaceSeparated)  } {tour.CurrencyNameEmptyIfSingleCurrency()}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
@@ -17,13 +28,19 @@
             <TableHeader>
                 <th colspan="2">
                     @{
-                        var amount = (spendingToShow?.Where(s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0);
+                        var amount = totalToPay;// (spendingToShow?.Where(s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0);
                     }
                     @if (amount != 0) 
                     {
                         <span>
                             Total @(WillPay ? "PAY" : "Collect")
                             <b style="color:@(WillPay ? "red" : "green")">@(amount.ToString("N0", GlobConsts.NumGroupSpaceSeparated)) <i style="font-size: x-small;">@tour.CurrencyNameEmptyIfSingleCurrency()</i></b>
+                            @if (WillPay)
+                            {
+                                <span style="font-size:xx-small"><br/>
+                                    Spend <span style="color: green">@toSpend.ToString("N0", GlobConsts.NumGroupSpaceSeparated) @tour.CurrencyNameEmptyIfSingleCurrency()</span> more to all
+                                </span>
+                            }
                         </span>
                     }
                     @if (tour.IsMultiCurrency())
