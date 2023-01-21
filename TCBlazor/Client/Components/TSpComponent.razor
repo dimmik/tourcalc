@@ -141,7 +141,7 @@
                     <div style="font-size: xx-small">
                         <i>
                             @spending.AmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
-                            <b>@((spending.Currency ?? Currency.Default).Name)</b>
+                            <b>@((Tour?.Currencies?.Where(c => c == spending.Currency)?.FirstOrDefault() ?? Currency.Default).Name)</b>
                         </i>
                     </div>
                 }
