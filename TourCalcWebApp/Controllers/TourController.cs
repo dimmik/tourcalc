@@ -143,6 +143,10 @@ namespace TourCalcWebApp.Controllers
             var tours = GetAllTours(from, count, code);
             var ts = tours.Tours.Select(t => new TourCalculator(t).SuggestFinalPayments());
             tours.Tours = ts;
+            foreach (var t in tours.Tours){
+                t.Spendings.Clear();
+                //t.Persons.Clear();
+            }
             return tours;
         }
 
