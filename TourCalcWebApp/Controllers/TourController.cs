@@ -141,11 +141,14 @@ namespace TourCalcWebApp.Controllers
         public TourList GetAllToursSuggested([FromQuery] int from = 0, [FromQuery] int count = 50, [FromQuery] string code = "")
         {
             var tours = GetAllTours(from, count, code);
-            var ts = tours.Tours.Select(t => new TourCalculator(t).SuggestFinalPayments());
+            var ts = tours.Tours.Select(t => new TourCalculator(t).SuggestFinalPayments()).ToArray();
             tours.Tours = ts;
             foreach (var t in tours.Tours){
                 t.Spendings.Clear();
-                //t.Persons.Clear();
+                foreach (var p in t.Persons){
+                    p.SpentSendingInfo.Clear();
+                    p.ReceivedSendingInfo.Clear();                    
+                }
             }
             return tours;
         }
