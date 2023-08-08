@@ -187,9 +187,10 @@ else
         }
         return code;
     }
-    private Task CloneTour(Tour t, bool stripSpendings = false)
+    private async Task CloneTour(Tour t, bool stripSpendings = false)
     {
-        var cloned = t.SafeClone<Tour>();
+        var tt = await engine.DataSvc.LoadTour(id: t.Id, onTourAvailable: (_a, _b, _c) => Task.CompletedTask);
+        var cloned = tt.SafeClone<Tour>();
         cloned.Name = $"clone of {t.Name}";
         if (stripSpendings)
         {
@@ -197,12 +198,13 @@ else
         }
         InProgress = true;
         _ = engine.RequestAddTour(cloned, GetCode());
-        return Task.CompletedTask;
+        //return Task.CompletedTask;
 
     }
     private async Task CopyTourJsonToCb(Tour t)
     {
-        var text = JsonSerializer.Serialize(t, new JsonSerializerOptions()
+        var tt = await engine.DataSvc.LoadTour(id: t.Id, onTourAvailable: (_a, _b, _c) => Task.CompletedTask);
+        var text = JsonSerializer.Serialize(tt, new JsonSerializerOptions()
         {
             WriteIndented = true, 
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
