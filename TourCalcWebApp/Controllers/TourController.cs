@@ -92,10 +92,8 @@ namespace TourCalcWebApp.Controllers
                 , out var totalCount
                 ).ToArray();
             foreach (var t in tours){
-                foreach (var p in t.Persons){
-                    p.SpentSendingInfo.Clear();
-                    p.ReceivedSendingInfo.Clear();                    
-                }
+               t.Persons.Clear();
+               t.Spendings.Clear();
             }
             var versions = new TourList()
             {
