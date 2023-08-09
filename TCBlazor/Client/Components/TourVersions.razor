@@ -65,14 +65,15 @@ else // free up memory. Better to load again
         StateHasChanged();
     }
 
-    private Task RestoreTour(Tour t)
+    private async Task RestoreTour(Tour t)
     {
-        var cloned = t.SafeClone<Tour>();
+        var tt = await engine.DataSvc.LoadTour(id: t.Id, onTourAvailable: (_a, _b, _c) => Task.CompletedTask);
+        var cloned = tt.SafeClone<Tour>();
         cloned.Name = $"{Tour?.Name ?? "na"} (v {t.DateVersioned : yyyy-MM-dd HH:mm:ss} before {t.VersionComment})";
         cloned.IsVersion = false;
         open = false;
         _ = engine.RequestAddTour(cloned, Guid.NewGuid().ToString("N"));
-        return Task.CompletedTask;
+        //return Task.CompletedTask;
     }
 
 
