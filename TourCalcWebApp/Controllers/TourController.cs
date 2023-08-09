@@ -90,15 +90,22 @@ namespace TourCalcWebApp.Controllers
                 , from
                 , count
                 , out var totalCount
-                );
-            return new TourList()
+                ).ToArray();
+            foreach (var t in tours){
+                foreach (var p in t.Persons){
+                    p.SpentSendingInfo.Clear();
+                    p.ReceivedSendingInfo.Clear();                    
+                }
+            }
+            var versions = new TourList()
             {
                 Tours = tours,
                 From = from,
                 RequestedCount = count,
-                Count = tours.Count(),
+                Count = tours.Length,
                 TotalCount = totalCount
             };
+            return versions;
         }
 
         /// <summary>
