@@ -140,8 +140,17 @@
                 {
                     <div style="font-size: xx-small">
                         <i>
+                            @{
+                                var currencies = spending.Currencies.Any() ? spending.Currencies : Tour?.Currencies ?? new Currency[0];
+                                var curr = (currencies.Where(c => c == spending.Currency)?.FirstOrDefault() ?? Currency.Default);
+                                var tourCurr = Tour?.Currency ?? spending.Currency;
+                            }
                             @spending.AmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
-                            <b>@((Tour?.Currencies?.Where(c => c == spending.Currency)?.FirstOrDefault() ?? Currency.Default).Name)</b>
+                            <b>@(curr.Name)</b>
+                            <small>(@(curr.CurrencyRate > tourCurr.CurrencyRate 
+                                    ? $"{(curr.CurrencyRate * 1.0 / tourCurr.CurrencyRate):#.##} {curr.Name} / {tourCurr.Name}"
+                                    : $"{(tourCurr.CurrencyRate * 1.0 / curr.CurrencyRate):#.##} {tourCurr.Name} / {curr.Name}"
+                                ))</small>
                         </i>
                     </div>
                 }
