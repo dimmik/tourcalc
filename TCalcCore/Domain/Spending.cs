@@ -16,6 +16,7 @@ namespace TCalc.Domain
         public string Description { get; set; } = "";
         public string Type { get; set; } = "Common";
         public Currency Currency { get; set; } = new Currency();
+        public IEnumerable<Currency> Currencies { get; set; } = Enumerable.Empty<Currency>();
         public bool IsDryRun { get; set; } = false;
         public bool IncludeDryRunInCalc { get; set; } = false;
         public string Color { get; set; } = "";
@@ -69,14 +70,15 @@ namespace TCalc.Domain
                 return sp.AmountInCents;
             }
 
-            var rates = tour.Currencies;
+            var rates = sp.Currencies.Any() ? sp.Currencies : tour.Currencies;//tour.Currencies;
+//            var rates = tour.Currencies;
             var currentCurr = rates.Where(c => c == tour.Currency).FirstOrDefault() ?? new Currency();
             var spendingCurrency = rates.Where(c => c == sp.Currency).FirstOrDefault() ?? currentCurr; // if not found in tour - just same as default
 
             if (spendingCurrency == currentCurr) return sp.AmountInCents;
 
             var amount = sp.AmountInCents;
-            long result = (long)Math.Round((amount * spendingCurrency.CurrencyRate * 1.0 / currentCurr.CurrencyRate));
+            long result = (long)Math.Round(amount * spendingCurrency.CurrencyRate * 1.0 / currentCurr.CurrencyRate);
 
             return result;
         }
