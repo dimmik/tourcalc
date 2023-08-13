@@ -143,7 +143,7 @@
                             @{
                                 var currencies = spending.Currencies.Any() ? spending.Currencies : Tour?.Currencies ?? new Currency[0];
                                 var curr = (currencies.Where(c => c == spending.Currency)?.FirstOrDefault() ?? Currency.Default);
-                                var tourCurr = Tour?.Currency ?? spending.Currency;
+                                var tourCurr = (currencies.Where(c => c == (Tour?.Currency ?? Currency.Default))?.FirstOrDefault() ?? Currency.Default);
                             }
                             @spending.AmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)
                             <b>@(curr.Name)</b>
