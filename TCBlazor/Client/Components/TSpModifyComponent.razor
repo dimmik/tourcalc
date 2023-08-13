@@ -249,6 +249,9 @@
         if (err.Count == 0)
         {
             ShowInProgress = true;
+            if (IsItANewSpending()){ // store currencies. TODO probably should be implemented in another place.
+                spending.Currencies = tour?.Currencies?.ToArray() ?? new Currency[0];
+            }
             OnSave(spending);
             ShowInProgress = false;
         } else
