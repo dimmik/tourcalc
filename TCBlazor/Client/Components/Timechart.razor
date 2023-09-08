@@ -1,13 +1,19 @@
-
-<RadzenChart>
+@if (!open)
+{
+    <Button @onclick=@(() => open = true)>@ButtonText</Button>
+} else {
+    <RadzenChart>
                 <RadzenLineSeries Data="items"
                       CategoryProperty="Date"
                       ValueProperty="Amount"
-                      Smooth="true"
+                      Smooth="false"
+                      Title="Spendings"
                 >
 
                 </RadzenLineSeries>
 </RadzenChart>
+    <Button @onclick=@(() => open = false)>Close @ButtonText</Button>
+}
 
 @{/*<ol>
 @foreach (var cs in GetCumulativeSpendingsByDate()){
@@ -20,6 +26,10 @@
     public Tour? tour { get; set; }
     [Parameter]
     public int maxDatesNum { get; set; } = 20;
+    [Parameter]
+    public bool open { get; set; } = true;
+    [Parameter]
+    public string ButtonText { get; set; } = "Chart";
 
     private IEnumerable<DataItem> items = Enumerable.Empty<DataItem>();
 
