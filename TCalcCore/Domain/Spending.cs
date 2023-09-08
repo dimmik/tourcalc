@@ -40,7 +40,7 @@ namespace TCalc.Domain
 
         public override string ToString()
         {
-            return $"{AmountInCents} toAll: {ToAll} planned: {Planned}";
+            return $"{SpendingDate:yyyy-MM-dd} {AmountInCents} toAll: {ToAll} planned: {Planned}";
         }
     }
     public static class SpendingHelpers

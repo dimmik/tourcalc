@@ -35,6 +35,7 @@ else
     <div style="font-size:x-small; border: 1px solid black">
         @(isFresh ? "From Server" : "Local") <b>@($"{storedDt:yyyy-MM-dd HH:mm:ss}")</b>
     </div>
+        <Timechart tour="tour" open="false" ButtonText="Spendings By Date"/>
     <div style="width: 100%; display:flex; align-items:center; justify-content:center;">
         <div style="margin:auto">
         <TourStaistics Tour=@tour/>
