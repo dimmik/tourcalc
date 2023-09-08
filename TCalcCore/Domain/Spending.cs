@@ -70,10 +70,12 @@ namespace TCalc.Domain
                 return sp.AmountInCents;
             }
 
-            var rates = sp.Currencies.Any() ? sp.Currencies : tour.Currencies;//tour.Currencies;
+            var tourRates = tour.Currencies;
+            var rates = sp.Currencies.Any() ? sp.Currencies : tourRates;//tour.Currencies;
 //            var rates = tour.Currencies;
-            var currentCurr = rates.Where(c => c == tour.Currency).FirstOrDefault() ?? new Currency();
-            var spendingCurrency = rates.Where(c => c == sp.Currency).FirstOrDefault() ?? currentCurr; // if not found in tour - just same as default
+            var currentCurr = rates.FirstOrDefault(c => c == tour.Currency) ?? 
+                    tourRates.FirstOrDefault(c => c == tour.Currency) ?? new Currency();
+            var spendingCurrency = rates.FirstOrDefault(c => c == sp.Currency) ?? currentCurr; // if not found in tour - just same as default
 
             if (spendingCurrency == currentCurr) return sp.AmountInCents;
 
