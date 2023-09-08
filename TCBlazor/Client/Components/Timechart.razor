@@ -1,0 +1,32 @@
+
+
+<ol>
+@foreach (var cs in GetCumulativeSpendingsByDate()){
+    <li>@cs.Date -- @cs.Amount </li>
+}
+</ol>
+@code {
+    [Parameter]
+    public Tour? tour { get; set; }
+
+    private IEnumerable<DataItem> GetCumulativeSpendingsByDate(){
+        if (!(tour?.Spendings?.Any() ?? false)) return Enumerable.Empty<(DateTime, long)>();
+        var sp = tour.Spendings.Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type));
+
+        var minDate = sp.Select(s => s.SpendingDate.Date).Min();
+        var maxDate = sp.Select(s => s.SpendingDate.Date).Max();
+        var dateRange = Enumerable.Range(0, (maxDate - minDate).Days).Select(i => minDate.AddDays(i));
+        var cumulativeSp = dateRange.Select(d => (d, sp.Where(s => s.SpendingDate.Date <= d).Select(s => s.AmountInCurrentCurrency(tour)).Sum()));
+        return cumulativeSp.Select(csp => new DataItem(){ Date = csp.Item1.ToString("yyyy-MM-dd"), Amount = csp.Item2 });
+    }
+    protected override void OnParametersSet()
+    {
+    }
+
+    class DataItem
+    {
+        public string Date { get; set; }
+        public long Amount { get; set; }
+    }
+
+}
