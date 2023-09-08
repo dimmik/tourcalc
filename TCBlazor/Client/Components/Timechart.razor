@@ -1,26 +1,45 @@
 
+<RadzenChart>
+                <RadzenLineSeries Data="items"
+                      CategoryProperty="Date"
+                      ValueProperty="Amount"
+                      Smooth="true"
+                >
 
-<ol>
+                </RadzenLineSeries>
+</RadzenChart>
+
+@{/*<ol>
 @foreach (var cs in GetCumulativeSpendingsByDate()){
     <li>@cs.Date -- @cs.Amount </li>
 }
-</ol>
+</ol>*/}
+
 @code {
     [Parameter]
     public Tour? tour { get; set; }
+    [Parameter]
+    public int maxDatesNum { get; set; } = 20;
+
+    private IEnumerable<DataItem> items = Enumerable.Empty<DataItem>();
 
     private IEnumerable<DataItem> GetCumulativeSpendingsByDate(){
-        if (!(tour?.Spendings?.Any() ?? false)) return Enumerable.Empty<(DateTime, long)>();
-        var sp = tour.Spendings.Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type));
+        if (!(tour?.Spendings?.Any() ?? false)) return Enumerable.Empty<DataItem>();
+        var sp = tour.Spendings.Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && !s.IsDryRun);
 
         var minDate = sp.Select(s => s.SpendingDate.Date).Min();
         var maxDate = sp.Select(s => s.SpendingDate.Date).Max();
-        var dateRange = Enumerable.Range(0, (maxDate - minDate).Days).Select(i => minDate.AddDays(i));
+        var dateRange = Enumerable.Range(0, (maxDate - minDate).Days + 1).Select(i => minDate.AddDays(i));
+        int cnt = dateRange.Count();
+        int num = maxDatesNum;
+        int factor = cnt <= num ? 1 : cnt / num;
+        dateRange = dateRange.Where((x, i) => i%factor == 0 || i + 1 == cnt);
         var cumulativeSp = dateRange.Select(d => (d, sp.Where(s => s.SpendingDate.Date <= d).Select(s => s.AmountInCurrentCurrency(tour)).Sum()));
         return cumulativeSp.Select(csp => new DataItem(){ Date = csp.Item1.ToString("yyyy-MM-dd"), Amount = csp.Item2 });
     }
     protected override void OnParametersSet()
     {
+        items = GetCumulativeSpendingsByDate();
     }
 
     class DataItem
