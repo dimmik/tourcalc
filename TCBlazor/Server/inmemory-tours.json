@@ -2,6 +2,310 @@
 {
   "Persons": [
     {
+      "Name": "а",
+      "Weight": 100,
+      "SpentInCents": 0,
+      "ReceivedInCents": 1000,
+      "SpentSendingInfo": [],
+      "ReceivedSendingInfo": [
+        {
+          "From": "_банк",
+          "ReceivedAmountInCents": 1000,
+          "Currency": {
+            "Id": "Chips",
+            "Name": "Chips",
+            "CurrencyRate": 1000
+          },
+          "OriginalReceivedAmountInCents": 1000,
+          "TotalSpendingAmountInCents": 3000,
+          "OriginalTotalSpendingAmountInCents": 3000,
+          "SpendingDescription": "3000",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        }
+      ],
+      "ParentId": null,
+      "GroupId": "17975426c811495c8495c677bf33baa5",
+      "Metadata": "",
+      "GUID": "k47ppfq",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-11-26T13:09:30.108Z"
+    },
+    {
+      "Name": "б",
+      "Weight": 100,
+      "SpentInCents": 0,
+      "ReceivedInCents": 1000,
+      "SpentSendingInfo": [],
+      "ReceivedSendingInfo": [
+        {
+          "From": "_банк",
+          "ReceivedAmountInCents": 1000,
+          "Currency": {
+            "Id": "Chips",
+            "Name": "Chips",
+            "CurrencyRate": 1000
+          },
+          "OriginalReceivedAmountInCents": 1000,
+          "TotalSpendingAmountInCents": 3000,
+          "OriginalTotalSpendingAmountInCents": 3000,
+          "SpendingDescription": "3000",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        }
+      ],
+      "ParentId": null,
+      "GroupId": "b1be085d4a1244b6a808d748efb3e682",
+      "Metadata": "",
+      "GUID": "smfp7fq",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-11-26T13:09:36.293Z"
+    },
+    {
+      "Name": "в",
+      "Weight": 100,
+      "SpentInCents": 0,
+      "ReceivedInCents": 1000,
+      "SpentSendingInfo": [],
+      "ReceivedSendingInfo": [
+        {
+          "From": "_банк",
+          "ReceivedAmountInCents": 1000,
+          "Currency": {
+            "Id": "Chips",
+            "Name": "Chips",
+            "CurrencyRate": 1000
+          },
+          "OriginalReceivedAmountInCents": 1000,
+          "TotalSpendingAmountInCents": 3000,
+          "OriginalTotalSpendingAmountInCents": 3000,
+          "SpendingDescription": "3000",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        }
+      ],
+      "ParentId": null,
+      "GroupId": "885924ae90db455dbe39c08e19e50cd3",
+      "Metadata": "",
+      "GUID": "2jkqhfy",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-11-26T13:09:41.387Z"
+    },
+    {
+      "Name": "_банк",
+      "Weight": 0,
+      "SpentInCents": 3000,
+      "ReceivedInCents": 0,
+      "SpentSendingInfo": [
+        {
+          "From": "_банк",
+          "ReceivedAmountInCents": -1,
+          "Currency": {
+            "Id": "Chips",
+            "Name": "Chips",
+            "CurrencyRate": 1000
+          },
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 3000,
+          "OriginalTotalSpendingAmountInCents": 3000,
+          "SpendingDescription": "3000",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        }
+      ],
+      "ReceivedSendingInfo": [
+        {
+          "From": "_банк",
+          "ReceivedAmountInCents": 0,
+          "Currency": {
+            "Id": "Chips",
+            "Name": "Chips",
+            "CurrencyRate": 1000
+          },
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 3000,
+          "OriginalTotalSpendingAmountInCents": 3000,
+          "SpendingDescription": "3000",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        }
+      ],
+      "ParentId": null,
+      "GroupId": "cd99dad8977b4de4b3a627dd1db592aa",
+      "Metadata": "",
+      "GUID": "mrxq3fy",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-11-26T13:09:44.15Z"
+    }
+  ],
+  "Spendings": [
+    {
+      "FromGuid": "mrxq3fy",
+      "ToGuid": [],
+      "AmountInCents": 3000,
+      "Weighted": true,
+      "IsPartialWeighted": true,
+      "ToAll": true,
+      "Planned": false,
+      "Description": "3000",
+      "Type": "Common",
+      "Currency": {
+        "Id": "Chips",
+        "Name": "Chips",
+        "CurrencyRate": 1000
+      },
+      "Currencies": [
+        {
+          "Id": "EUR",
+          "Name": "EUR",
+          "CurrencyRate": 100
+        }
+      ],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2023-11-26T13:09:55.198Z",
+      "Metadata": null,
+      "GUID": "qi5s7fy",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-11-26T13:10:12.458Z"
+    },
+    {
+      "FromGuid": "k47ppfq",
+      "ToGuid": [
+        "mrxq3fy"
+      ],
+      "AmountInCents": 1000,
+      "Weighted": true,
+      "IsPartialWeighted": false,
+      "ToAll": false,
+      "Planned": true,
+      "Description": "X 'а' -> '_банк'",
+      "Type": "",
+      "Currency": {
+        "Id": "EUR",
+        "Name": "EUR",
+        "CurrencyRate": 100
+      },
+      "Currencies": [],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2023-11-26T13:11:35.201Z",
+      "Metadata": null,
+      "GUID": "68911641F0D0CCE9E427CF84209970FF",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-11-26T13:11:35.201Z"
+    },
+    {
+      "FromGuid": "smfp7fq",
+      "ToGuid": [
+        "mrxq3fy"
+      ],
+      "AmountInCents": 1000,
+      "Weighted": true,
+      "IsPartialWeighted": false,
+      "ToAll": false,
+      "Planned": true,
+      "Description": "X 'б' -> '_банк'",
+      "Type": "",
+      "Currency": {
+        "Id": "EUR",
+        "Name": "EUR",
+        "CurrencyRate": 100
+      },
+      "Currencies": [],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2023-11-26T13:11:35.201Z",
+      "Metadata": null,
+      "GUID": "A11064B907C79789BFF15C866A572452",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-11-26T13:11:35.201Z"
+    },
+    {
+      "FromGuid": "2jkqhfy",
+      "ToGuid": [
+        "mrxq3fy"
+      ],
+      "AmountInCents": 1000,
+      "Weighted": true,
+      "IsPartialWeighted": false,
+      "ToAll": false,
+      "Planned": true,
+      "Description": "X 'в' -> '_банк'",
+      "Type": "",
+      "Currency": {
+        "Id": "EUR",
+        "Name": "EUR",
+        "CurrencyRate": 100
+      },
+      "Currencies": [],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2023-11-26T13:11:35.201Z",
+      "Metadata": null,
+      "GUID": "FE0B0FD5ACEFA7FC8F6666621024659B",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-11-26T13:11:35.201Z"
+    }
+  ],
+  "Name": "тест мультив",
+  "Id": "ot5sbhq",
+  "AccessCodeMD5": "1C0369EA42B2F746D3DF1E66BCB2DE46",
+  "IsVersion": false,
+  "DateVersioned": "2023-11-26T13:09:24.081Z",
+  "VersionFor_Id": "",
+  "VersionComment": "",
+  "IsArchived": false,
+  "IsFinalizing": false,
+  "StateGUID": "2023-11-26 16:11:47.ecb541de-580a-49bb-b0a8-83ef7cfefd22",
+  "Currencies": [
+    {
+      "Id": "EUR",
+      "Name": "EUR",
+      "CurrencyRate": 100
+    },
+    {
+      "Id": "Chips",
+      "Name": "Chips",
+      "CurrencyRate": 1000
+    },
+    {
+      "Id": "RSD",
+      "Name": "RSD",
+      "CurrencyRate": 10000
+    }
+  ],
+  "Currency": {
+    "Id": "EUR",
+    "Name": "EUR",
+    "CurrencyRate": 100
+  },
+  "Metadata": null,
+  "GUID": "ot5sbhq",
+  "Order": 0,
+  "IsChanged": true,
+  "DateCreated": "2023-11-26T14:29:37.5249618+01:00"
+}
+,{
+  "Persons": [
+    {
       "Name": "Рома",
       "Weight": 100,
       "SpentInCents": 352890,
