@@ -54,6 +54,12 @@ namespace TCalc.Storage
             var idx = t.Spendings.FindIndex(x => x.GUID == spendingid);
             if (idx < 0) return null;
             sp.DateCreated = t.Spendings[idx].DateCreated; // preserve
+            // if spending has its own set of currencies, but this set lacks chosen currency - reset currencies from tour
+            var sCurr = sp.Currency;
+            if (!sp.Currencies.Any(c => c.Id == sCurr.Id))
+            {
+                sp.Currencies = t.Currencies;
+            }
             t.Spendings[idx] = sp;
             return t;
         }
