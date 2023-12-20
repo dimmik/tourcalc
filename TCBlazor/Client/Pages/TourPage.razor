@@ -28,7 +28,7 @@ else
                     IsTourReloading = false;
                 })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
                 <Button Type="primary" Size="large" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
-
+    <span style="font-size: x-small; text-decoration: underline;"><a href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>link</a></span>
     </h3>     
 @if (ShowStatistics)
 {
