@@ -18,6 +18,8 @@ namespace TCalc.Domain
 
         public string GroupId { get; set; } = Guid.NewGuid().ToString("N");
 
+        public string FamilyId { get; set; } = string.Empty;
+
         public override string ToString()
         {
             return $"{Name} - {GUID} -- {Debt()}";

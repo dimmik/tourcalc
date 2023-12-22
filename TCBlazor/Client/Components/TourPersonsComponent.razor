@@ -15,7 +15,7 @@
     ConditionalRowStyle=@((p, idx) => 
     {
         if (string.IsNullOrWhiteSpace(p.ParentId)){
-            return "background-color: #ffffff";
+            return GetFamilyStyle(p.FamilyId);
         } else {
             return $"background-color: #eeeeee";
         }
@@ -128,6 +128,11 @@
 
     private UISettings settings = new UISettings();
 
+    private string GetFamilyStyle(string familyId){
+        if (string.IsNullOrWhiteSpace(familyId)) return "background-color: #ffffff";
+        return "background-color: mintcream";
+    }
+
     protected override async Task OnInitializedAsync()
     {
         settings = await engine.GetUISettings();
@@ -227,6 +232,15 @@
         }
         <input @bind-value=@(pp.Name) 
                 size=7 
+                disabled=@IsSubmittingPerson
+                @onkeyup=@(async (e) => {
+                if (e.Code == "Enter" || e.Code == "NumpadEnter"){
+                    await OnSubmit(pp, onSubmit);
+                }
+            }) 
+        /> 
+        <input @bind-value=@(pp.FamilyId) 
+                size=2 
                 disabled=@IsSubmittingPerson
                 @onkeyup=@(async (e) => {
                 if (e.Code == "Enter" || e.Code == "NumpadEnter"){

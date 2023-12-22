@@ -20,9 +20,12 @@ namespace TCalcCore.UI
         {
             if (level > 50) return "";
             if (p == null) return "";
-            if (string.IsNullOrWhiteSpace(p?.ParentId)) return p?.Name ?? "";
-            return $"{PersonNameWithParentNamesRecursive(persons?.FirstOrDefault(pp => pp.GUID == (p?.ParentId ?? "")), persons, level + 1)}{p?.Name ?? ""}";
+            if (string.IsNullOrWhiteSpace(p?.ParentId)) return p?.PersonNameWithFamily() ?? "";
+            return $"{PersonNameWithParentNamesRecursive(persons?.FirstOrDefault(pp => pp.GUID == (p?.ParentId ?? "")), persons, level + 1)}{p?.PersonNameWithFamily() ?? ""}";
         }
-
+        private static string PersonNameWithFamily(this Person p)
+        {
+            return $"{p?.FamilyId}{p?.Name}";
+        }
     }
 }
