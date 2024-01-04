@@ -60,7 +60,7 @@ namespace TCalcStorage.Storage.LiteDB
             using (var db = new LiteDatabase(path))
             {
                 var col = db.GetCollection<Tour>("Tour");
-                col.Delete(x => x.GUID == tourid);
+                //col.Delete(x => x.GUID == tourid);
             }
         }
 
