@@ -34,5 +34,17 @@ namespace TCalc.Logic
             if (pFrom.GUID == person.GUID) return "Bankrupt"; // the person will pay
             return "Pleasure"; // someone, not child, will pay me
         }
+        public static (Person p, long debt) GetDebtor(Tour tr)
+        {
+            var debtor = tr?.Persons
+                                    .Select(p => (p, CalcUtilities.GetPayOrReceiveSpendings(tr, p, 0)))
+                                    .Where(pwps => pwps.Item2.WillPay)
+                                    .Select(pwps => (pwps.p, pwps.Item2.WillPay, pwps.Item2.sp?.Where(s => CalcUtilities.DebtStatusOfSpending(tr, s, pwps.p) != "JustOk")?.Select(s => s.AmountInCurrentCurrency(tr))?.Sum() ?? 0))
+                                    .OrderByDescending(hmm => hmm.Item3)
+                                    .Select(hmm => (hmm.p, hmm.Item3))
+                                    .FirstOrDefault()
+                                    ;
+            return debtor ?? (new Person(), 0);
+        }
     }
 }

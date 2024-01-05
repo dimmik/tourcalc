@@ -100,7 +100,10 @@
                 </td>
                 <td>
                     DEBTOR
-                    <b style="font-weight: bolder; color: red">@(GetDebtor()?.Name ?? "N/A")</b>
+                    @{
+                        var debtor = CalcUtilities.GetDebtor(Tour);
+                    }
+                    <b style="font-weight: bolder; color: red">@(debtor.p?.Name ?? "N/A") <span style="color:green">@debtor.debt</span> @Tour?.Currency?.Name</b>
                 </td>
             } else
             {
@@ -136,18 +139,7 @@
 
     private UISettings settings = new UISettings();
 
-    private Person? GetDebtor()
-    {
-        var debtor = Tour?.Persons
-                                .Select(p => (p, CalcUtilities.GetPayOrReceiveSpendings(tour, p, 0)))
-                                .Where(pwps => pwps.Item2.WillPay)
-                                .Select(pwps => (pwps.p, pwps.Item2.WillPay, pwps.Item2.sp?.Where(s => CalcUtilities.DebtStatusOfSpending(tour, s, pwps.p) != "JustOk")?.Select(s => s.AmountInCurrentCurrency(tour))?.Sum() ?? 0))
-                                .OrderByDescending(hmm => hmm.Item3)
-                                .Select(hmm => hmm.p)
-                                .FirstOrDefault()
-                                ;
-        return debtor;
-    }
+
 
     private string GetFamilyStyle(string familyId){
         if (string.IsNullOrWhiteSpace(familyId)) return "background-color: #ffffff";
