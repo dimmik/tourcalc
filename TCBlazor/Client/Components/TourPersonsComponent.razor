@@ -99,14 +99,8 @@
                 <td colspan="@(tableColspan-1)"><Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
                 </td>
                 <td>
-                    @{/*<Select @bind-Value=@(currency)
-                            TItemValue="Currency"
-                            TItem="Currency"
-                            LabelName="@nameof(Currency.Name)"
-                            AllowClear=@false
-                            DataSource="Tour?.Currencies ?? new Currency[0]"
-                            OnSelectedItemChanged="() => Tour = GetTourInCurrency()"
-                            IgnoreItemChangesLeadsToException="false" />*/}
+                    DEBTOR
+                    <b style="font-weight: bolder; color: red">@(GetDebtor()?.Name ?? "N/A")</b>
                 </td>
             } else
             {
@@ -141,6 +135,19 @@
     int windowWidth = 0;
 
     private UISettings settings = new UISettings();
+
+    private Person? GetDebtor()
+    {
+        var debtor = Tour?.Persons
+                                .Select(p => (p, CalcUtilities.GetPayOrReceiveSpendings(tour, p, 0)))
+                                .Where(pwps => pwps.Item2.WillPay)
+                                .Select(pwps => (pwps.p, pwps.Item2.WillPay, pwps.Item2.sp?.Where(s => CalcUtilities.DebtStatusOfSpending(tour, s, pwps.p) != "JustOk")?.Select(s => s.AmountInCurrentCurrency(tour))?.Sum() ?? 0))
+                                .OrderByDescending(hmm => hmm.Item3)
+                                .Select(hmm => hmm.p)
+                                .FirstOrDefault()
+                                ;
+        return debtor;
+    }
 
     private string GetFamilyStyle(string familyId){
         if (string.IsNullOrWhiteSpace(familyId)) return "background-color: #ffffff";
