@@ -4,6 +4,8 @@
 
 @implements IDisposable
 
+@using TCalc.Logic
+
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
@@ -50,6 +52,15 @@ else
                         <!--Persons-->
                         <b id=@GetId("persons")>Persons [@tour.Persons.Count]</b>
                         <Button Type="primary" Ghost Size="small" @onclick=@(() => ShowPersons = !ShowPersons)>@(ShowPersons ? "hide" : "show")</Button>
+                         <Select @bind-Value=@(curr)
+                                 TItemValue="Currency"
+                                 TItem="Currency"
+                                 LabelName="@nameof(Currency.Name)"
+                                 AllowClear=@false
+                                 Style="width: 80px;"
+                                 DataSource="tour?.Currencies ?? new Currency[0]"
+                                 OnSelectedItemChanged="() => tour = GetTourInCurrency(tour)"
+                                 IgnoreItemChangesLeadsToException="false" />
                     </div>
                     <div style="display: table-cell; width: 60%; align-content: flex-end; text-align: end;">
                         <a href=@GetHref("spendings")>Spendings</a>
@@ -138,6 +149,7 @@ else
     private bool ShowSpendings = true;
 
     public Tour? tour = null;
+    private Currency? curr = null;
     private bool isFresh = false;
     private DateTimeOffset storedDt = DateTimeOffset.Now;
     protected override void OnInitialized()
@@ -151,11 +163,20 @@ else
     {
         engine.onTourLoaded -= OnTourLoaded;
     }
+    private Tour GetTourInCurrency(Tour t)
+    {
+        var calc = new TourCalculator(t, curr);
+        return calc.SuggestFinalPayments();
+    }
     private Task OnTourLoaded(Tour t, bool isFromServer, DateTimeOffset updated)
     {
         isFresh = isFromServer;
         storedDt = updated;
-        tour = t;
+        if (curr == null) // only if we have not used the curr yet
+        {
+            curr = t.Currency;
+        }
+        tour = GetTourInCurrency(t);
         if (!initialized)
         {
             ShowPlannedSpendings = (tour?.IsFinalizing ?? false) && !(tour?.IsArchived ?? false);

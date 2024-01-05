@@ -4,7 +4,7 @@
     </Button>
 </div>
 @{
-    var totalToPay = (spendingToShow?.Where(s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0);
+    var totalToPay = (spendingToShow?.Where(s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCurrentCurrency(tour))?.Sum() ?? 0);
     var totalWeight = tour.Persons.Select(p => p.Weight).Sum();
     if (totalWeight == 0) totalWeight = 1;
     var myWeight = person.Weight;
@@ -14,7 +14,7 @@
     if (coeff == 0) coeff = 1;
     long toSpend = (long)Math.Round(- totalToPay * 1.0 / coeff);
 }
-<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0).ToString("N0", GlobConsts.NumGroupSpaceSeparated)  } {tour.CurrencyNameEmptyIfSingleCurrency()}")"
+<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCurrentCurrency(tour))?.Sum() ?? 0).ToString("N0", GlobConsts.NumGroupSpaceSeparated)  } {tour.CurrencyNameEmptyIfSingleCurrency()}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -69,7 +69,7 @@
                     var pTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0]) ?? new();
                     var pFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid) ?? new();
                 }
-                <td><b>@spending.AmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <i style="font-size: x-small;">@tour.CurrencyNameEmptyIfSingleCurrency()</i></b></td>
+                <td><b>@spending.AmountInCurrentCurrency(tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated) <i style="font-size: x-small;">@tour.CurrencyNameEmptyIfSingleCurrency()</i></b></td>
                     @if (WillPay)
                     {
                         <td>
@@ -166,14 +166,14 @@
     {
         IEnumerable<Spending> sp;
         bool wp;
-        var spToPay = tour.Spendings.Where(s => s.Planned && s.FromGuid == person.GUID && s.AmountInCents > minMeaningfulAmount);
+        var spToPay = tour.Spendings.Where(s => s.Planned && s.FromGuid == person.GUID && s.AmountInCurrentCurrency(tour) > minMeaningfulAmount);
         if (spToPay.Any())
         {
             wp = true;
             sp = spToPay;
         } else
         {
-            sp = tour.Spendings.Where(s => s.Planned && s.ToGuid.Count == 1 && s.ToGuid[0] == person.GUID && s.AmountInCents > minMeaningfulAmount);
+            sp = tour.Spendings.Where(s => s.Planned && s.ToGuid.Count == 1 && s.ToGuid[0] == person.GUID && s.AmountInCurrentCurrency(tour) > minMeaningfulAmount);
             wp = false;
         }
         return (wp, sp);
