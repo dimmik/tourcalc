@@ -18,9 +18,10 @@ namespace TCalc.Logic
         {
             // clone
             CurrentTour = Newtonsoft.Json.JsonConvert.DeserializeObject<Tour>(Newtonsoft.Json.JsonConvert.SerializeObject(tour));
+            CurrentTour.Currency = currency ?? new Currency();
+
             TotalWeight = 0;
             foreach (Person person in CurrentTour.Persons) TotalWeight += person.Weight;
-            tour.Currency = currency;
         }
 
 

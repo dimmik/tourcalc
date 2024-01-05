@@ -1,4 +1,5 @@
 ﻿@using TCalcCore.Engine
+@using TCalc.Logic
 @inject TourcalcEngine engine
 
 @inject IJSRuntime JsRuntime
@@ -95,7 +96,17 @@
         {
             if (!AddingPerson)
             {
-                <td colspan="@tableColspan"><Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
+                <td colspan="@(tableColspan-1)"><Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
+                </td>
+                <td>
+                    <Select @bind-Value=@(currency)
+                            TItemValue="Currency"
+                            TItem="Currency"
+                            LabelName="@nameof(Currency.Name)"
+                            AllowClear=@false
+                            DataSource="Tour?.Currencies ?? new Currency[0]"
+                            OnSelectedItemChanged="() => Tour = GetTourInCurrency()"
+                            IgnoreItemChangesLeadsToException="false" />
                 </td>
             } else
             {
@@ -106,8 +117,11 @@
 </TableTemplate>
 
 @code {
+    private Tour? Tour { get; set; } = null;
+    private Currency? currency = null;
+
     [Parameter]
-    public Tour? Tour { get; set; } = null;
+    public Tour? tour { get; set; } = null;
 
     [Parameter]
     public Func<Person, Task> OnPersonEdit { get; set; } = p => Task.CompletedTask;
@@ -182,8 +196,16 @@
         return Task.CompletedTask;
     }
 
+    private Tour GetTourInCurrency()
+    {
+        var calc = new TourCalculator(tour, currency);
+        return calc.SuggestFinalPayments();
+    }
+
     protected override void OnParametersSet()
     {
+        currency = tour?.Currency ?? new Currency();
+        Tour = GetTourInCurrency();
         EditingPersons = GetPersons().Select(p => p.SafeClone<Person>()).ToDictionary(p => p.GUID);
     }
 
