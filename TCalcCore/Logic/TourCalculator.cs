@@ -12,14 +12,16 @@ namespace TCalc.Logic
     {
         private readonly Tour CurrentTour;
         private readonly long TotalWeight;
-        public TourCalculator(Tour tour)
+
+        public TourCalculator(Tour tour) : this(tour, tour?.Currency){}
+        public TourCalculator(Tour tour, Currency currency)
         {
             // clone
             CurrentTour = Newtonsoft.Json.JsonConvert.DeserializeObject<Tour>(Newtonsoft.Json.JsonConvert.SerializeObject(tour));
             TotalWeight = 0;
             foreach (Person person in CurrentTour.Persons) TotalWeight += person.Weight;
+            tour.Currency = currency;
         }
-
 
 
         private long PersonSpent(Person person, bool includePlanned = false)
