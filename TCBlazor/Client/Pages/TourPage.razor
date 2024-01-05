@@ -48,7 +48,7 @@ else
          <RowTemplate>
             <td>
                 <div style="width: 100%; display: table">
-                    <div style="display: table-cell; width: 40%; align-content: flex-start; text-align: start;">
+                    <div style="display: table-cell; width: 50%; align-content: flex-start; text-align: start; white-space: nowrap;">
                         <!--Persons-->
                         <b id=@GetId("persons")>Persons [@tour.Persons.Count]</b>
                         <Button Type="primary" Ghost Size="small" @onclick=@(() => ShowPersons = !ShowPersons)>@(ShowPersons ? "hide" : "show")</Button>
@@ -62,7 +62,7 @@ else
                                  OnSelectedItemChanged="() => tour = GetTourInCurrency(tour)"
                                  IgnoreItemChangesLeadsToException="false" />
                     </div>
-                    <div style="display: table-cell; width: 60%; align-content: flex-end; text-align: end;">
+                    <div style="display: table-cell; width: 50%; align-content: flex-end; text-align: end;">
                         <a href=@GetHref("spendings")>Spendings</a>
                         <Button Type="primary" Size="small" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
                     </div>
