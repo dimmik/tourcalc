@@ -59,7 +59,7 @@ else
                 @if (ShowPersons)
                 {
                     <TourPersonsComponent 
-                    Tour=@tour
+                    tour=@tour
                     OnPersonDelete=@(async (p) => {
                         _ = engine.RequestDeletePerson(tour.Id, p);
                     })
