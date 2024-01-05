@@ -288,7 +288,7 @@
     private void InitSortPredicates()
     {
         sortPredicates[SortingField.From] = (s) => (Tour?.Persons?.FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "");
-        sortPredicates[SortingField.Amount] = (s) => s.AmountInCents.ToString("00000000000000");
+        sortPredicates[SortingField.Amount] = (s) => s.AmountInCurrentCurrency(Tour).ToString("00000000000000");
         sortPredicates[SortingField.Descr] = (s) => s.Description;
         sortPredicates[SortingField.Date] = (s) => $"{s.SpendingDate: yyyyMMdd_HHmmss}";
         sortPredicates[SortingField.Type] = (s) => string.IsNullOrWhiteSpace(s.Type) ? new string(Char.MaxValue, 1) : s.Type;
@@ -349,12 +349,12 @@
     public IEnumerable<Spending> GetSpendingSorted()
     {
         IEnumerable<Spending> res = (Tour?.Spendings ?? new List<Spending>());
-        var planned = res.Where(s => s.Planned && Math.Abs(s.AmountInCents) > settings.MinimumMeaningfulDebt);
+        var planned = res.Where(s => s.Planned && Math.Abs(s.AmountInCurrentCurrency(Tour)) > settings.MinimumMeaningfulDebt);
         var real = res.Where(s => !s.Planned);
         planned = planned
             .OrderBy(s => s.Description.StartsWith("Family") ? 0 : 1) // first family
             .ThenBy(s => (Tour?.Persons ?? new List<Person>()).FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "") // then by name
-            .ThenByDescending(s => s.AmountInCents) // then by amount
+            .ThenByDescending(s => s.AmountInCurrentCurrency(Tour)) // then by amount
             ;
         real = real.OrderByDescending(s => s.SpendingDate);
 

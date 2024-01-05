@@ -99,14 +99,14 @@
                 <td colspan="@(tableColspan-1)"><Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
                 </td>
                 <td>
-                    <Select @bind-Value=@(currency)
+                    @{/*<Select @bind-Value=@(currency)
                             TItemValue="Currency"
                             TItem="Currency"
                             LabelName="@nameof(Currency.Name)"
                             AllowClear=@false
                             DataSource="Tour?.Currencies ?? new Currency[0]"
                             OnSelectedItemChanged="() => Tour = GetTourInCurrency()"
-                            IgnoreItemChangesLeadsToException="false" />
+                            IgnoreItemChangesLeadsToException="false" />*/}
                 </td>
             } else
             {
