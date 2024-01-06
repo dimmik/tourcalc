@@ -17,7 +17,7 @@
             var debtor = CalcUtilities.GetDebtor(tour);
         }
         </span>
-        <b style="font-weight: bolder; color: red">debtor (@(debtor.p?.Name ?? "N/A") <span style="color:green">@debtor.debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> @tour?.Currency?.Name)</b>
+        <b style="font-weight: bolder; color: red">debtor @(debtor.p?.Name ?? "N/A") <span style="color:green">@debtor.debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> @tour?.Currency?.Name</b>
     </div>
 </div>
 
