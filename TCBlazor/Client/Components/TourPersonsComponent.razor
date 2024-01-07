@@ -99,14 +99,11 @@
                 <td colspan="@(tableColspan-1)"><Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
                 </td>
                 <td>
-                    @{/*<Select @bind-Value=@(currency)
-                            TItemValue="Currency"
-                            TItem="Currency"
-                            LabelName="@nameof(Currency.Name)"
-                            AllowClear=@false
-                            DataSource="Tour?.Currencies ?? new Currency[0]"
-                            OnSelectedItemChanged="() => Tour = GetTourInCurrency()"
-                            IgnoreItemChangesLeadsToException="false" />*/}
+                    DEBTOR
+                    @{
+                        var debtor = CalcUtilities.GetDebtor(Tour);
+                    }
+                    <b style="font-weight: bolder; color: red">@(debtor.p?.Name ?? "N/A") <span style="color:green">@debtor.debt</span> @Tour?.Currency?.Name</b>
                 </td>
             } else
             {
@@ -141,6 +138,8 @@
     int windowWidth = 0;
 
     private UISettings settings = new UISettings();
+
+
 
     private string GetFamilyStyle(string familyId){
         if (string.IsNullOrWhiteSpace(familyId)) return "background-color: #ffffff";

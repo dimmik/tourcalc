@@ -1,7 +1,7 @@
 ﻿@page "/tour/{tourId}/spending/edit/{spendingId}"
 @page "/tour/{tourId}/spending/add/{*personId}"
 
-
+@using TCalc.Logic
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
@@ -10,9 +10,12 @@
 @implements IDisposable
 
 <div>
-    <div class="cool-header"  
-        style="margin-left: auto; margin-right: auto; text-align: center; width: clamp(300px, 40vw, 500px);">
-        @(mode == ComponentMode.Edit ? "EDIT" : "ADD") SPENDING
+    <div class="cool-header"
+         style="margin-left: auto; margin-right: auto; text-align: center; width: clamp(300px, 40vw, 500px);white-space: pre">@{
+        }<span style="font-size: x-small">@(mode == ComponentMode.Edit ? "EDIT" : "ADD") SPENDING @{
+            var debtor = CalcUtilities.GetDebtor(tour);
+        }</span>
+        <b style="font-size: large; font-weight: bolder; color: #880000">debtor @(debtor.p?.Name ?? "N/A") <span style="color:green">@debtor.debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> @tour?.Currency?.Name</b>
     </div>
 </div>
 

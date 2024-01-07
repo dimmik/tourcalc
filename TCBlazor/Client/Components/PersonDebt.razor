@@ -1,4 +1,5 @@
-﻿<div style="@RowBg;height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
+﻿@using TCalc.Logic
+<div style="@RowBg;height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
     <Button Size="small" Style=@($"{RowFg};font-weight:bold") @onclick=@(() => open = true)>
         @debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
     </Button>
@@ -117,7 +118,7 @@
 
     protected override void OnParametersSet()
     {
-        (WillPay, spendingToShow) = GetPayOrReceiveSpendings();
+        (WillPay, spendingToShow) = CalcUtilities.GetPayOrReceiveSpendings(tour, person, minMeaningfulAmount);
     }
     private Dictionary<string, string> bgColors = new()
     {
@@ -162,23 +163,7 @@
         return JustOk;
     }
 
-    private (bool WillPay, IEnumerable<Spending> sp) GetPayOrReceiveSpendings()
-    {
-        IEnumerable<Spending> sp;
-        bool wp;
-        var spToPay = tour.Spendings.Where(s => s.Planned && s.FromGuid == person.GUID && s.AmountInCurrentCurrency(tour) > minMeaningfulAmount);
-        if (spToPay.Any())
-        {
-            wp = true;
-            sp = spToPay;
-        } else
-        {
-            sp = tour.Spendings.Where(s => s.Planned && s.ToGuid.Count == 1 && s.ToGuid[0] == person.GUID && s.AmountInCurrentCurrency(tour) > minMeaningfulAmount);
-            wp = false;
-        }
-        return (wp, sp);
-
-    }
+    
 
     private RenderFragment footer(Action onOk)
     {
