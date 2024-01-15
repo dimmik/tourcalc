@@ -110,15 +110,17 @@
         <tr>
             <td>Date</td>
             <td>
-                <DatePicker 
+                @{/*<DatePicker 
                     @bind-Value=@(spending.SpendingDate) 
                     Format="yyyy-MM-dd HH:mm" 
-                    ShowTime="false"
+                    ShowTime="true"
                     TValue="DateTime"
                     Locale=@(new DatePickerLocale(){ FirstDayOfWeek = DayOfWeek.Monday})
                     AllowClear=@false
                     />
-            </td>
+                    */}
+                    <Input @bind-Value=@(spending.SpendingDate)/>
+                </td>
         </tr>
         <tr>
             <td colspan="2">
