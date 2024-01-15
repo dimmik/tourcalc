@@ -110,15 +110,29 @@
         <tr>
             <td>Date</td>
             <td>
-                <DatePicker 
+                @{/*<DatePicker 
                     @bind-Value=@(spending.SpendingDate) 
                     Format="yyyy-MM-dd HH:mm" 
-                    ShowTime="false"
+                    ShowTime="true"
                     TValue="DateTime"
                     Locale=@(new DatePickerLocale(){ FirstDayOfWeek = DayOfWeek.Monday})
                     AllowClear=@false
                     />
-            </td>
+                    
+                    <Input @bind-Value=@(spending.SpendingDate)/>
+
+                    */}
+                    
+                    <RadzenDatePicker 
+                        @bind-Value=@(spending.SpendingDate) 
+                        ShowTime="true" 
+                        ShowSeconds="false" 
+                        HoursStep="1" 
+                        MinutesStep="1" 
+                        SecondsStep="1" 
+                        DateFormat="yyyy-MM-dd HH:mm" Name="DatePickerWithTime" />
+
+                </td>
         </tr>
         <tr>
             <td colspan="2">
