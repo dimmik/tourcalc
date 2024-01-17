@@ -2,6 +2,343 @@
 {
   "Persons": [
     {
+      "Name": "Рома",
+      "Weight": 100,
+      "SpentInCents": 352890,
+      "ReceivedInCents": 130000,
+      "SpentSendingInfo": [
+        {
+          "From": "Рома",
+          "ReceivedAmountInCents": -1,
+          "Currency": {
+            "Id": "RUB",
+            "Name": "RUB",
+            "CurrencyRate": 109
+          },
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 186390,
+          "OriginalTotalSpendingAmountInCents": 171000,
+          "SpendingDescription": "171к родителям",
+          "IsSpendingToAll": false,
+          "ToNames": [
+            "Родители"
+          ],
+          "Type": "Common"
+        },
+        {
+          "From": "Рома",
+          "ReceivedAmountInCents": -1,
+          "Currency": {
+            "Id": "RUB",
+            "Name": "RUB",
+            "CurrencyRate": 111
+          },
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 166500,
+          "OriginalTotalSpendingAmountInCents": 150000,
+          "SpendingDescription": "150к зп август",
+          "IsSpendingToAll": false,
+          "ToNames": [
+            "Родители"
+          ],
+          "Type": "Common"
+        }
+      ],
+      "ReceivedSendingInfo": [
+        {
+          "From": "Родители",
+          "ReceivedAmountInCents": 130000,
+          "Currency": {
+            "Id": "RSD",
+            "Name": "RSD",
+            "CurrencyRate": 100
+          },
+          "OriginalReceivedAmountInCents": 130000,
+          "TotalSpendingAmountInCents": 130000,
+          "OriginalTotalSpendingAmountInCents": 130000,
+          "SpendingDescription": "130к дин 'Родители' -> 'Рома'",
+          "IsSpendingToAll": false,
+          "ToNames": [
+            "Рома"
+          ],
+          "Type": ""
+        }
+      ],
+      "ParentId": null,
+      "GroupId": "1418e1d522794f1384489e16105d7d5f",
+      "FamilyId": "",
+      "Metadata": "",
+      "GUID": "k7szz2y",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-08-12T19:54:50.196Z"
+    },
+    {
+      "Name": "Родители",
+      "Weight": 100,
+      "SpentInCents": 130000,
+      "ReceivedInCents": 352890,
+      "SpentSendingInfo": [
+        {
+          "From": "Родители",
+          "ReceivedAmountInCents": -1,
+          "Currency": {
+            "Id": "RSD",
+            "Name": "RSD",
+            "CurrencyRate": 100
+          },
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 130000,
+          "OriginalTotalSpendingAmountInCents": 130000,
+          "SpendingDescription": "130к дин 'Родители' -> 'Рома'",
+          "IsSpendingToAll": false,
+          "ToNames": [
+            "Рома"
+          ],
+          "Type": ""
+        }
+      ],
+      "ReceivedSendingInfo": [
+        {
+          "From": "Рома",
+          "ReceivedAmountInCents": 186390,
+          "Currency": {
+            "Id": "RUB",
+            "Name": "RUB",
+            "CurrencyRate": 109
+          },
+          "OriginalReceivedAmountInCents": 171000,
+          "TotalSpendingAmountInCents": 186390,
+          "OriginalTotalSpendingAmountInCents": 171000,
+          "SpendingDescription": "171к родителям",
+          "IsSpendingToAll": false,
+          "ToNames": [
+            "Родители"
+          ],
+          "Type": "Common"
+        },
+        {
+          "From": "Рома",
+          "ReceivedAmountInCents": 166500,
+          "Currency": {
+            "Id": "RUB",
+            "Name": "RUB",
+            "CurrencyRate": 111
+          },
+          "OriginalReceivedAmountInCents": 150000,
+          "TotalSpendingAmountInCents": 166500,
+          "OriginalTotalSpendingAmountInCents": 150000,
+          "SpendingDescription": "150к зп август",
+          "IsSpendingToAll": false,
+          "ToNames": [
+            "Родители"
+          ],
+          "Type": "Common"
+        }
+      ],
+      "ParentId": null,
+      "GroupId": "d5595a13f7b540539df232e9209cd0bb",
+      "FamilyId": "",
+      "Metadata": "",
+      "GUID": "pptkf2y",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-08-12T19:54:57.118Z"
+    }
+  ],
+  "Spendings": [
+    {
+      "FromGuid": "k7szz2y",
+      "ToGuid": [
+        "pptkf2y"
+      ],
+      "AmountInCents": 171000,
+      "Weighted": true,
+      "IsPartialWeighted": true,
+      "ToAll": false,
+      "Planned": false,
+      "Description": "171к родителям",
+      "Type": "Common",
+      "Currency": {
+        "Id": "RUB",
+        "Name": "RUB",
+        "CurrencyRate": 109
+      },
+      "Currencies": [
+        {
+          "Id": "EUR",
+          "Name": "EUR",
+          "CurrencyRate": 11730
+        },
+        {
+          "Id": "RUB",
+          "Name": "RUB",
+          "CurrencyRate": 109
+        },
+        {
+          "Id": "RSD",
+          "Name": "RSD",
+          "CurrencyRate": 100
+        }
+      ],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2023-08-13T12:55:33.594Z",
+      "Metadata": null,
+      "GUID": "iy2liwa",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-08-13T12:55:48.961Z"
+    },
+    {
+      "FromGuid": "k7szz2y",
+      "ToGuid": [
+        "pptkf2y"
+      ],
+      "AmountInCents": 150000,
+      "Weighted": true,
+      "IsPartialWeighted": true,
+      "ToAll": false,
+      "Planned": false,
+      "Description": "150к зп август",
+      "Type": "Common",
+      "Currency": {
+        "Id": "RUB",
+        "Name": "RUB",
+        "CurrencyRate": 111
+      },
+      "Currencies": [
+        {
+          "Id": "EUR",
+          "Name": "EUR",
+          "CurrencyRate": 11730
+        },
+        {
+          "Id": "RUB",
+          "Name": "RUB",
+          "CurrencyRate": 111
+        },
+        {
+          "Id": "RSD",
+          "Name": "RSD",
+          "CurrencyRate": 100
+        }
+      ],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2023-09-07T16:39:45.632Z",
+      "Metadata": null,
+      "GUID": "dofip4y",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-09-07T16:40:08.023Z"
+    },
+    {
+      "FromGuid": "pptkf2y",
+      "ToGuid": [
+        "k7szz2y"
+      ],
+      "AmountInCents": 130000,
+      "Weighted": true,
+      "IsPartialWeighted": false,
+      "ToAll": false,
+      "Planned": false,
+      "Description": "130к дин 'Родители' -> 'Рома'",
+      "Type": "",
+      "Currency": {
+        "Id": "RSD",
+        "Name": "RSD",
+        "CurrencyRate": 100
+      },
+      "Currencies": [],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2023-09-07T16:40:08.188Z",
+      "Metadata": null,
+      "GUID": "me6u37i",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-09-07T17:07:27.537Z"
+    },
+    {
+      "FromGuid": "pptkf2y",
+      "ToGuid": [
+        "k7szz2y"
+      ],
+      "AmountInCents": 222890,
+      "Weighted": true,
+      "IsPartialWeighted": false,
+      "ToAll": false,
+      "Planned": true,
+      "Description": "X 'Родители' -> 'Рома'",
+      "Type": "",
+      "Currency": {
+        "Id": "RSD",
+        "Name": "RSD",
+        "CurrencyRate": 100
+      },
+      "Currencies": [],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2023-09-08T07:49:49.598Z",
+      "Metadata": null,
+      "GUID": "9ED313539FA1219BDF729D8E92A15ED4",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2023-09-08T07:49:49.598Z"
+    }
+  ],
+  "Name": "Переводы рублей",
+  "Id": "urihz2y",
+  "AccessCodeMD5": "1C0369EA42B2F746D3DF1E66BCB2DE46",
+  "IsVersion": false,
+  "DateVersioned": "2023-08-12T19:54:36.213Z",
+  "VersionFor_Id": "",
+  "VersionComment": "",
+  "IsArchived": false,
+  "IsFinalizing": true,
+  "StateGUID": "2023-09-08 10:49:49.2dbd873f-f3c0-41f6-beda-bf656350434c",
+  "Currencies": [
+    {
+      "Id": "EUR",
+      "Name": "EUR",
+      "CurrencyRate": 11700
+    },
+    {
+      "Id": "RUB",
+      "Name": "RUB",
+      "CurrencyRate": 111
+    },
+    {
+      "Id": "RSD",
+      "Name": "RSD",
+      "CurrencyRate": 100
+    },
+    {
+      "Id": "EURc",
+      "Name": "EURc",
+      "CurrencyRate": 117
+    }
+  ],
+  "Currency": {
+    "Id": "RSD",
+    "Name": "RSD",
+    "CurrencyRate": 100
+  },
+  "Metadata": null,
+  "GUID": "urihz2y",
+  "Order": 0,
+  "IsChanged": true,
+  "DateCreated": "2023-08-12T19:54:35.502Z"
+}
+,
+{
+  "Persons": [
+    {
       "Name": "а",
       "Weight": 100,
       "SpentInCents": 0,
