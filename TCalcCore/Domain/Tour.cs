@@ -23,7 +23,20 @@ namespace TCalc.Domain
         public bool IsFinalizing { get; set; } = false;
         public string StateGUID { get; set; } = "";
         public IEnumerable<Currency> Currencies { get; set; } = new Currency[] { Currency.Default };
-        public Currency Currency { get; set; } = Currency.Default;
+        private Currency __currency = Currency.Default;
+        public Currency Currency { 
+            get { 
+                return __currency; 
+            } 
+            set {
+                if (__currency != value)
+                {
+                    __currency = value;
+                    // remove all suggested spendings
+                    Spendings = Spendings.Where(s => !s.Planned).ToList();
+                }
+            } 
+        }
         public void PrepareForStoring()
         {
             // delete spending lists that might be rather large
