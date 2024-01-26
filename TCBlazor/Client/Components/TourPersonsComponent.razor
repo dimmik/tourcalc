@@ -103,7 +103,17 @@
                     @{
                         var debtor = CalcUtilities.GetDebtor(Tour);
                     }
-                    <b style="font-weight: bolder; color: red">@(debtor.p?.Name ?? "N/A") <span style="color:green">@debtor.debt</span> @Tour?.Currency?.Name</b>
+                    <b style="font-weight: bolder; color: red">@(debtor.p?.Name ?? "N/A") 
+                        @if (Tour.IsMultiCurrency())
+                        {
+                            <span>
+                            <span style="color:green">@debtor.debt
+                            </span> @Tour?.Currency?.Name
+                            
+                            </span>
+                        }
+                    </b>
+
                 </td>
             } else
             {
