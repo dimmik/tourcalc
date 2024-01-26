@@ -15,7 +15,7 @@ WORKDIR /src
 COPY . .
 
 # return here once .NET fixed the bug https://github.com/dotnet/runtime/issues/92238#:~:text=The%20fix%20was%20merged%20recently
-RUN apt-get update && apt-get -y install python3
+RUN apt-get update && apt-get -y install python3-minimal
 
 # for tourcalc.run.docker only. DO NOT copy to tourcalc.docker (that is basically for build by ci/cd)
 # replace buildnum and buildver
