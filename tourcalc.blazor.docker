@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 #RUN dotnet --version
 #ENV ASPNETCORE_HTTP_PORTS=80
@@ -9,7 +9,7 @@ EXPOSE 443
 
 
 #### Build and publish backend (on linux/amd64 for performance reasons)
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS publishtc
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS publishtc
 ARG BUILD_TYPE=na
 WORKDIR /src
 COPY . .
