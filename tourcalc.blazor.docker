@@ -14,6 +14,8 @@ ARG BUILD_TYPE=na
 WORKDIR /src
 COPY . .
 
+RUN apt-get update && apt-get install python3
+
 # for tourcalc.run.docker only. DO NOT copy to tourcalc.docker (that is basically for build by ci/cd)
 # replace buildnum and buildver
 RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && grep -Irl "#{Build.BuildNumber}#" . | xargs sed -i 's/#{Build.BuildNumber}#/'$DT'/g'
