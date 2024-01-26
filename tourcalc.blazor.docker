@@ -14,7 +14,7 @@ ARG BUILD_TYPE=na
 WORKDIR /src
 COPY . .
 
-RUN apt-get update && apt-get install python3
+RUN apt-get update && apt-get -y install python3
 
 # for tourcalc.run.docker only. DO NOT copy to tourcalc.docker (that is basically for build by ci/cd)
 # replace buildnum and buildver
