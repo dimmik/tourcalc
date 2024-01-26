@@ -6,6 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+	
+	<RunAOTCompilation>true</RunAOTCompilation>
+    <WasmStripILAfterAOT>true</WasmStripILAfterAOT>
+  
   </PropertyGroup>
 
   <ItemGroup>
