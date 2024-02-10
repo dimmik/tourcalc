@@ -34,7 +34,17 @@ else
                 })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
                 <Button Type="primary" Size="large" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
     <span style="font-size: x-small; text-decoration: underline;"><a href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>link</a></span>
-    </h3>     
+        @if (settings.Web_Push_Notifications)
+        {
+            <Button 
+                Type="primary" 
+                Size="small" 
+                Danger=@false 
+                @onclick=@(() => RequestNotificationSubscriptionAsync())>
+                Subscribe
+            </Button>
+        }
+    </h3>
 @if (ShowStatistics)
 {
     <div style="font-size:x-small; border: 1px solid black">
@@ -166,13 +176,6 @@ else
         engine.onTourLoaded += OnTourLoaded;
         // send command to load tour with certain id
         _ = engine.RequestTourLoad(TourId);
-
-        if (settings.Web_Push_Notifications)
-        {
-            // In the background, ask if they want to be notified about order updates
-            _ = RequestNotificationSubscriptionAsync();
-        }
-
     }
 
     async Task RequestNotificationSubscriptionAsync()
