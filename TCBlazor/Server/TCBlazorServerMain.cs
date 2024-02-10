@@ -63,9 +63,9 @@ namespace Company.TCBlazor
                 var password = Configuration.GetValue<string>("MongoDbPassword");
                 var provider = new MongoDbLogStorage(url, username, password);
                 builder.Services.AddSingleton<ILogStorage>(provider);
-                // TODO Debug only! Replace when implemented
-                builder.Services.AddSingleton<ISubscriptionStorage, InMemorySubscriptionStorage>();
-
+                // subs storage
+                var subStorage = new MongoDbSubscriptionStorage(url, username, password);
+                builder.Services.AddSingleton<ISubscriptionStorage>(subStorage);
             }
             else
             {

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace TCBlazor.Client.SharedCode
 {
     public class NotificationSubscription : IEquatable<NotificationSubscription>
-    {
+    { 
         public string Url { get; set; }
 
         public string P256dh { get; set; }
@@ -19,18 +19,12 @@ namespace TCBlazor.Client.SharedCode
         public bool Equals(NotificationSubscription other)
         {
             return !(other is null) &&
-                   Url == other.Url &&
-                   P256dh == other.P256dh &&
-                   Auth == other.Auth;
+                   Url == other.Url;
         }
 
         public override int GetHashCode()
         {
-            int hashCode = -1775057863;
-            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(Url);
-            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(P256dh);
-            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(Auth);
-            return hashCode;
+            return -1915121810 + EqualityComparer<string>.Default.GetHashCode(Url);
         }
 
         public static bool operator ==(NotificationSubscription left, NotificationSubscription right)
