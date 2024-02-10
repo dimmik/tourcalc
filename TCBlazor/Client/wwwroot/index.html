@@ -75,14 +75,15 @@
         // pushNotifications
         (function () {
             // Note: Replace with your own key pair before deploying
-            const applicationServerPublicKey = 'BLZ-598ZLl7rRa98qQcQicg2E4OOBUDIZUt14ZANf6HTGMKVm-2bYuL00JQjC1Hicio7P1kpnIC4SuPfrnKLJeI';
-
+            //const applicationServerPublicKey = 'BLZ-598ZLl7rRa98qQcQicg2E4OOBUDIZUt14ZANf6HTGMKVm-2bYuL00JQjC1Hicio7P1kpnIC4SuPfrnKLJeI';
+            //alert("key: " + applicationServerPublicKey)
             window.blazorPushNotifications = {
-                requestSubscription: async () => {
+                requestSubscription: async (applicationServerPublicKey) => {
+                    //alert("pkey: " + applicationServerPublicKey);
                     const worker = await navigator.serviceWorker.getRegistration();
                     const existingSubscription = await worker.pushManager.getSubscription();
                     if (!existingSubscription) {
-                        const newSubscription = await subscribe(worker);
+                        const newSubscription = await subscribe(worker, applicationServerPublicKey);
                         if (newSubscription) {
                             return {
                                 url: newSubscription.endpoint,
@@ -100,7 +101,7 @@
                 }
             };
 
-            async function subscribe(worker) {
+            async function subscribe(worker, applicationServerPublicKey) {
                 try {
                     return await worker.pushManager.subscribe({
                         userVisibleOnly: true,

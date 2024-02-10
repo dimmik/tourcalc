@@ -34,7 +34,7 @@ namespace TCBlazor.Server
         private async Task SendNotificationAsync(NotificationSubscription subscription, string message)
         {
             var pushSubscription = new PushSubscription(subscription.Url, subscription.P256dh, subscription.Auth);
-            var vapidDetails = new VapidDetails("mailto:tourcalc@dimmik.org", publicKey, privateKey);
+            var vapidDetails = new VapidDetails(mailto, publicKey, privateKey);
             var webPushClient = new WebPushClient();
             try
             {
