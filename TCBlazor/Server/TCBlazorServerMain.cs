@@ -44,12 +44,15 @@ namespace Company.TCBlazor
             // services for tourcalc
             var Configuration = new TcConfiguration(builder.Configuration);
             builder.Services.AddSingleton<ITcConfiguration>(Configuration);
+            // notifier
+            // /notifier
             builder.Services.AddSingleton<ITourStorage, TourCalcStorage>();
             var providerType = Configuration.GetValue("StorageType", "InMemory");
             if (providerType.ToLower() == "InMemory".ToLower())
             {
                 builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
-            } 
+                builder.Services.AddSingleton<ISubscriptionStorage, InMemorySubscriptionStorage>();
+            }
             else if (providerType.ToLower() == "MongoDb".ToLower())
             {
                 var url = Configuration.GetValue<string>("MongoDbUrl");
