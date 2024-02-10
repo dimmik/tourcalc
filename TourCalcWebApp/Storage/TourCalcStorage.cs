@@ -129,18 +129,27 @@ namespace TourCalcWebApp.Storage
         {
             if (tour == null || tourVersion == null) return (false, "");
 
-            if (tourVersion.Persons.Count() > tour.Persons.Count) return (true, $"P '{tourVersion.Persons.Except(tour.Persons).LastOrDefault()?.Name ?? "--"}' deleted");
-            if (tourVersion.Persons.Count() < tour.Persons.Count) return (true, $"P '{tour.Persons.Last()?.Name ?? "--"}' added");
+            if (tourVersion.Persons.Count > tour.Persons.Count) return (true, $"P '{tourVersion.Persons.Except(tour.Persons).LastOrDefault()?.Name ?? "--"}' deleted");
+            if (tourVersion.Persons.Count < tour.Persons.Count) return (true, $"P '{tour.Persons.Last()?.Name ?? "--"}' added");
             var vSpendings = tourVersion.Spendings.Where(s => !s.Planned);
             var tSpendings = tour.Spendings.Where(s => !s.Planned);
+            var vP = tourVersion.Persons;
+            var tP = tour.Persons;
+            var vSL = vSpendings.LastOrDefault();
+            var tSL = tSpendings.LastOrDefault();
+
             if (vSpendings.Count() < tSpendings.Count())
                 if (tour.IsMultiCurrency())
-                    return (true, $"S '{tSpendings.LastOrDefault()?.Description ?? "--"} ({tSpendings.LastOrDefault()?.AmountInCents ?? 0} {tSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' added");
+                    return (true, $"S '{tSL?.Description ?? "--"} ({tSL?.AmountInCents ?? 0} {tSL?.Currency?.Name ?? "na"})' " +
+                        $" from {tP.Where(p => p.GUID == tSL?.FromGuid).FirstOrDefault()?.Name} to {(tSL?.ToAll??false ? "All" : "some")} " +
+                        $"added");
                 else
-                    return (true, $"S '{tSpendings.LastOrDefault()?.Description ?? "--"} ({tSpendings.LastOrDefault()?.AmountInCents ?? 0})' added");
+                    return (true, $"S '{tSL?.Description ?? "--"} ({tSL?.AmountInCents ?? 0})' " +
+                        $" from {tP.Where(p => p.GUID == tSL?.FromGuid).FirstOrDefault()?.Name} to {(tSL?.ToAll ?? false ? "All" : "some")} " +
+                        $"added");
             if (vSpendings.Count() > tSpendings.Count())
                 if (tourVersion.IsMultiCurrency())
-                    return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--"} ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0}  {vSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' deleted");
+                    return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--"} ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0}  {vSL?.Currency?.Name ?? "na"})' deleted");
                 else
                     return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--"} ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0})' deleted");
             if (tourVersion.IsArchived != tour.IsArchived)
