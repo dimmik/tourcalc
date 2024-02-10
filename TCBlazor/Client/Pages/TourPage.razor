@@ -152,13 +152,36 @@ else
     private Currency? curr = null;
     private bool isFresh = false;
     private DateTimeOffset storedDt = DateTimeOffset.Now;
-    protected override void OnInitialized()
+
+    private UISettings settings = new UISettings();
+
+    protected override async Task OnInitializedAsync()
     {
+        settings = await engine.GetUISettings();
+
         // subscribe to tour loaded event
         engine.onTourLoaded += OnTourLoaded;
         // send command to load tour with certain id
         _ = engine.RequestTourLoad(TourId);
+
+        if (settings.Web_Push_Notifications)
+        {
+            // In the background, ask if they want to be notified about order updates
+            _ = RequestNotificationSubscriptionAsync();
+        }
+
     }
+
+    async Task RequestNotificationSubscriptionAsync()
+    {
+        var subscription = await JsRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription", null);
+        if (subscription != null)
+        {
+            // store for this tour id - call notifications/subscribe/{tourid} for the subscription
+        }
+    }
+
+
     public void Dispose()
     {
         engine.onTourLoaded -= OnTourLoaded;
