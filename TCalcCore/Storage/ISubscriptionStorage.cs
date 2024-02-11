@@ -8,6 +8,8 @@ namespace TCalcCore.Storage
     public interface ISubscriptionStorage
     {
         void AddSubscription(string tourId, NotificationSubscription sub);
+        void RemoveSubscription(string tourId, NotificationSubscription sub);
+        bool CheckSubscription(string tourId, NotificationSubscription sub);
         IEnumerable<NotificationSubscription> GetSubscriptions(string tourId);
     }
 }

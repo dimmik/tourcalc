@@ -125,6 +125,10 @@
                 }
                 return window.btoa(binary);
             }
+            window.checkNotificationAllowed =  () => {
+                    return Notification.permission == 'granted';
+                }
+            
         })();
         // / pushNotifications
 

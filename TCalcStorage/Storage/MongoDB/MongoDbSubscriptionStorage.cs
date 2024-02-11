@@ -14,6 +14,7 @@ namespace TCalcStorage.Storage.MongoDB
     public class MongoDbSubscriptionStorage : ISubscriptionStorage
     {
         private readonly MongoClient client;
+        private readonly string CollectionName = "NSubscriptions";
 
         public MongoDbSubscriptionStorage(string url, string username, string password)
         {
@@ -29,7 +30,7 @@ namespace TCalcStorage.Storage.MongoDB
         public void AddSubscription(string tourId, NotificationSubscription sub)
         {
             var db = client.GetDatabase("tour");
-            var coll = db.GetCollection<TourIdAndNotificationSubscription>("NSubscriptions");
+            var coll = db.GetCollection<TourIdAndNotificationSubscription>(CollectionName);
             var cnt = coll.Find(t => t.TourId == tourId && t.Subscription.Url == sub.Url).CountDocuments();
             if (cnt == 0)
             {
@@ -41,13 +42,28 @@ namespace TCalcStorage.Storage.MongoDB
             }
         }
 
+        public bool CheckSubscription(string tourId, NotificationSubscription sub)
+        {
+            var db = client.GetDatabase("tour");
+            var coll = db.GetCollection<TourIdAndNotificationSubscription>(CollectionName);
+            var cnt = coll.Find(t => t.TourId == tourId && t.Subscription.Url == sub.Url).CountDocuments();
+            return cnt > 0;
+        }
+
         public IEnumerable<NotificationSubscription> GetSubscriptions(string tourId)
         {
             var db = client.GetDatabase("tour");
-            var coll = db.GetCollection<TourIdAndNotificationSubscription>("NSubscriptions");
+            var coll = db.GetCollection<TourIdAndNotificationSubscription>(CollectionName);
             var subs = coll.Find(t => t.TourId == tourId).ToList();
             var dist = subs.Select(tn => tn.Subscription).Distinct();
             return dist;
+        }
+
+        public void RemoveSubscription(string tourId, NotificationSubscription sub)
+        {
+            var db = client.GetDatabase("tour");
+            var coll = db.GetCollection<TourIdAndNotificationSubscription>(CollectionName);
+            coll.DeleteOne(t => t.TourId == tourId && t.Subscription.Url == sub.Url);
         }
     }
     class TourIdAndNotificationSubscription
