@@ -55,7 +55,7 @@
                             <UpdateAvailableDetector/>
                             <span style="cursor:pointer; font-size: clamp(6px, 4vw, 18px); border:1px solid white" @onclick=@(async () => {
                                 await LogOut();
-                                NavManager.NavigateTo("/");
+                                //NavManager.NavigateTo("/tourlist");
                             })>Log Out@($"{(engine.Auth.IsMaster ? " Admin" : "")}")</span>
                             @if (engine.Auth.IsMaster)
                             {
@@ -125,10 +125,15 @@
         {
             NavManager.NavigateTo($"/tour/{tour.Id}");
         }
+        else
+        {
+            NavManager.NavigateTo($"/tourlist");
+        }
     }
     private async Task LogOut()
     {
         await engine.LogOut();
+        StateHasChanged();
     }
     private async Task LogIn()
     {
