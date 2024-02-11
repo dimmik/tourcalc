@@ -24,10 +24,22 @@ namespace TCalcStorage.Storage
             }
         }
 
+        public bool CheckSubscription(string tourId, NotificationSubscription sub)
+        {
+            if (!_subscriptions.ContainsKey(tourId)) return false;
+            return _subscriptions[tourId].Contains(sub);
+        }
+
         public IEnumerable<NotificationSubscription> GetSubscriptions(string tourId)
         {
             if (!_subscriptions.ContainsKey(tourId)) return Enumerable.Empty<NotificationSubscription>();
             return _subscriptions[tourId];
+        }
+
+        public void RemoveSubscription(string tourId, NotificationSubscription sub)
+        {
+            if (!_subscriptions.ContainsKey(tourId)) return;
+            _subscriptions[tourId].Remove(sub);
         }
     }
 }

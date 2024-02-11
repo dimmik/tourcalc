@@ -21,12 +21,22 @@ namespace TCBlazor.Server.Controllers
         {
             return config.GetValue<string>("PushNotificationPublicKey");
         }
+        [HttpPost("check/{tourId}")]
+        public bool Check([FromRoute] string tourId, [FromBody] NotificationSubscription sub, [FromServices] ISubscriptionStorage Storage)
+        {
+            return Storage.CheckSubscription(tourId, sub);
+        }
 
         [HttpPost("subscribe/{tourId}")]
-        public string Subscribe([FromRoute] string tourId, [FromBody]NotificationSubscription sub, [FromServices] ISubscriptionStorage Storage)
+        public string Subscribe([FromRoute] string tourId, [FromBody] NotificationSubscription sub, [FromServices] ISubscriptionStorage Storage)
         {
-            //return new string[] { "value1", "value2" };
             Storage.AddSubscription(tourId, sub);
+            return "OK";
+        }
+        [HttpPost("unsubscribe/{tourId}")]
+        public string Unsubscribe([FromRoute] string tourId, [FromBody] NotificationSubscription sub, [FromServices] ISubscriptionStorage Storage)
+        {
+            Storage.RemoveSubscription(tourId, sub);
             return "OK";
         }
     }
