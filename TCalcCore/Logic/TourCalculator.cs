@@ -22,6 +22,7 @@ namespace TCalc.Logic
 
             TotalWeight = 0;
             foreach (Person person in CurrentTour.Persons) TotalWeight += person.Weight;
+            TotalWeight = TotalWeight == 0 ? 1 : TotalWeight;
         }
 
 

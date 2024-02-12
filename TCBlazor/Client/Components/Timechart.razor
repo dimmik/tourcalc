@@ -36,6 +36,7 @@
     private IEnumerable<DataItem> GetCumulativeSpendingsByDate(){
         if (!(tour?.Spendings?.Any() ?? false)) return Enumerable.Empty<DataItem>();
         var sp = tour.Spendings.Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && !s.IsDryRun);
+        if (!sp.Any()) return Enumerable.Empty<DataItem>();
 
         var minDate = sp.Select(s => s.SpendingDate.Date).Min();
         var maxDate = sp.Select(s => s.SpendingDate.Date).Max();
