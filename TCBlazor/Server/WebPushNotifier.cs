@@ -27,11 +27,11 @@ namespace TCBlazor.Server
             var subs = _storage.GetSubscriptions(tourId);
             foreach (var sub in subs)
             {
-                await SendNotificationAsync(sub, message);
+                await SendNotificationAsync(sub, tourId, message);
             }
         }
 
-        private async Task SendNotificationAsync(NotificationSubscription subscription, string message)
+        private async Task SendNotificationAsync(NotificationSubscription subscription, string tourId, string message)
         {
             var pushSubscription = new PushSubscription(subscription.Url, subscription.P256dh, subscription.Auth);
             var vapidDetails = new VapidDetails(mailto, publicKey, privateKey);
@@ -41,7 +41,7 @@ namespace TCBlazor.Server
                 //Console.WriteLine($"SEND NOTIFICATION: start ({message})");
                 var payload = JsonSerializer.Serialize(new
                 {
-                    message
+                    message, tourId
                 });
                 await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
                 //Console.WriteLine("SEND NOTIFICATION: Done");

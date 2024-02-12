@@ -27,9 +27,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Update="wwwroot\service-worker.debug.js">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Update="wwwroot\service-worker.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
