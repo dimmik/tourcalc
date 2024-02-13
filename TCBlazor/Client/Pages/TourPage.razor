@@ -44,12 +44,16 @@ else
         <Timechart tour="tour" open="false" ButtonText="Spendings By Date"/>
         @if (settings.Web_Push_Notifications)
         {
+            @if (subscriptionChecked){
             <Button Type="primary"
                     Size="small"
                     Danger=@false
                     @onclick=@(() => NotificationSubscriptionAsync(isSubscribed))>
                 @(isSubscribed ? "Unscubscribe" : "Subscribe")
             </Button>
+            } else {
+                <span style="border: 1px solid grey">Checking subscription ...</span>
+            }
         }
     <div style="width: 100%; display:flex; align-items:center; justify-content:center;">
         <div style="margin:auto">
@@ -168,6 +172,7 @@ else
 
     private UISettings settings = new UISettings();
     public bool isSubscribed = false;
+    public bool subscriptionChecked = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -196,6 +201,9 @@ else
             var subscribed = await hClient.CallWithAuthToken<bool>($"api/subscription/check/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { });
             isSubscribed = subscribed;
         }
+        //await Task.Delay(5000);
+        subscriptionChecked = true;
+        StateHasChanged();
     }
 
     async Task NotificationSubscriptionAsync(bool subscribed)
