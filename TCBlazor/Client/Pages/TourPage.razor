@@ -44,7 +44,7 @@ else
         <Timechart tour="tour" open="false" ButtonText="Spendings By Date"/>
         @if (settings.Web_Push_Notifications)
         {
-            @if (subscriptionChecked){
+            @if (subscriptionChecked == true){
             <Button Type="primary"
                     Size="small"
                     Danger=@false
@@ -52,7 +52,11 @@ else
                 @(isSubscribed ? "Unscubscribe" : "Subscribe")
             </Button>
             } else {
-                <span style="border: 1px solid grey">Checking subscription ...</span>
+                if (subscriptionChecked == null){
+                    <span style="border: 1px solid grey">Checking subscription ...</span>
+                } else {
+                    <span style="border: 1px solid grey; cursor: pointer;" @onclick=@CheckIfSubscribed>Cant check subscription. Recheck.</span>
+                }
             }
         }
     <div style="width: 100%; display:flex; align-items:center; justify-content:center;">
@@ -172,7 +176,7 @@ else
 
     private UISettings settings = new UISettings();
     public bool isSubscribed = false;
-    public bool subscriptionChecked = false;
+    public bool? subscriptionChecked = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -192,17 +196,22 @@ else
     {
         // check is we are subscribed to this tour
         // check notifications
+        subscriptionChecked = null;
         bool isAllowed = await JsRuntime.InvokeAsync<bool>("checkNotificationAllowed", null);
+        bool httpError = false;
         if (isAllowed)
         {
             var token = await tokenStorage.GetToken();
-            var pKey = await hClient.CallWithAuthToken<string>($"api/subscription/publickey", token, HttpMethod.Get, null, (m) => { });
-            var subscription = await JsRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription", pKey);
-            var subscribed = await hClient.CallWithAuthToken<bool>($"api/subscription/check/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { });
-            isSubscribed = subscribed;
+            var pKey = await hClient.CallWithAuthToken<string>($"api/subscription/publickey", token, HttpMethod.Get, null, (m) => { httpError = true; });
+            if (!httpError)
+            {
+                var subscription = await JsRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription", pKey);
+                var subscribed = await hClient.CallWithAuthToken<bool>($"api/subscription/check/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { httpError = true; });
+                isSubscribed = subscribed;
+            }
         }
         //await Task.Delay(5000);
-        subscriptionChecked = true;
+        subscriptionChecked = httpError ? true : false;
         StateHasChanged();
     }
 
