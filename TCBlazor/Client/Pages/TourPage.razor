@@ -211,7 +211,7 @@ else
             }
         }
         //await Task.Delay(5000);
-        subscriptionChecked = httpError ? true : false;
+        subscriptionChecked = !httpError ? true : false;
         StateHasChanged();
     }
 
