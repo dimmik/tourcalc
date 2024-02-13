@@ -9,6 +9,9 @@
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
+@inject TCalcCore.Network.EnrichedHttpClient hClient;
+@inject ITokenStorage tokenStorage;
+
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavManager
 
@@ -31,13 +34,23 @@ else
                 })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
                 <Button Type="primary" Size="large" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
     <span style="font-size: x-small; text-decoration: underline;"><a href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>link</a></span>
-    </h3>     
+       
+    </h3>
 @if (ShowStatistics)
 {
     <div style="font-size:x-small; border: 1px solid black">
         @(isFresh ? "From Server" : "Local") <b>@($"{storedDt:yyyy-MM-dd HH:mm:ss}")</b>
     </div>
         <Timechart tour="tour" open="false" ButtonText="Spendings By Date"/>
+        @if (settings.Web_Push_Notifications)
+        {
+            <Button Type="primary"
+                    Size="small"
+                    Danger=@false
+                    @onclick=@(() => NotificationSubscriptionAsync(isSubscribed))>
+                @(isSubscribed ? "Unscubscribe" : "Subscribe")
+            </Button>
+        }
     <div style="width: 100%; display:flex; align-items:center; justify-content:center;">
         <div style="margin:auto">
         <TourStaistics Tour=@tour/>
@@ -152,13 +165,63 @@ else
     private Currency? curr = null;
     private bool isFresh = false;
     private DateTimeOffset storedDt = DateTimeOffset.Now;
-    protected override void OnInitialized()
+
+    private UISettings settings = new UISettings();
+    public bool isSubscribed = false;
+
+    protected override async Task OnInitializedAsync()
     {
+        settings = await engine.GetUISettings();
+
         // subscribe to tour loaded event
         engine.onTourLoaded += OnTourLoaded;
         // send command to load tour with certain id
         _ = engine.RequestTourLoad(TourId);
+        if (settings.Web_Push_Notifications)
+        {
+            _ = CheckIfSubscribed();
+        }
     }
+
+    async Task CheckIfSubscribed()
+    {
+        // check is we are subscribed to this tour
+        // check notifications
+        bool isAllowed = await JsRuntime.InvokeAsync<bool>("checkNotificationAllowed", null);
+        if (isAllowed)
+        {
+            var token = await tokenStorage.GetToken();
+            var pKey = await hClient.CallWithAuthToken<string>($"api/subscription/publickey", token, HttpMethod.Get, null, (m) => { });
+            var subscription = await JsRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription", pKey);
+            var subscribed = await hClient.CallWithAuthToken<bool>($"api/subscription/check/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { });
+            isSubscribed = subscribed;
+        }
+    }
+
+    async Task NotificationSubscriptionAsync(bool subscribed)
+    {
+        var token = await tokenStorage.GetToken();
+        var pKey = await hClient.CallWithAuthToken<string>($"api/subscription/publickey", token, HttpMethod.Get, null, (m) => { });
+        var subscription = await JsRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription", pKey);
+        if (subscription != null)
+        {
+            if (subscribed)
+            {
+                // unsubscribe
+                var ok = await hClient.CallWithAuthToken<string>($"api/subscription/unsubscribe/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { });
+                isSubscribed = false;
+            }
+            else
+            {
+                // store for this tour id - call notifications/subscribe/{tourid} for the subscription
+                var ok = await hClient.CallWithAuthToken<string>($"api/subscription/subscribe/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { });
+                isSubscribed = true;
+            }
+        }
+    }
+    
+
+
     public void Dispose()
     {
         engine.onTourLoaded -= OnTourLoaded;

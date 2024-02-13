@@ -3,8 +3,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using TCalc.Storage;
 using TCalcCore.Storage;
+using TCalcCore.UI;
 using TCalcStorage.Storage;
 using TCalcStorage.Storage.MongoDB;
+using TCBlazor.Server;
 using TourCalcWebApp;
 using TourCalcWebApp.Auth;
 using TourCalcWebApp.Controllers;
@@ -44,12 +46,16 @@ namespace Company.TCBlazor
             // services for tourcalc
             var Configuration = new TcConfiguration(builder.Configuration);
             builder.Services.AddSingleton<ITcConfiguration>(Configuration);
+            // notifier
+            builder.Services.AddSingleton<INotifier, WebPushNotifier>();
+            // /notifier
             builder.Services.AddSingleton<ITourStorage, TourCalcStorage>();
             var providerType = Configuration.GetValue("StorageType", "InMemory");
             if (providerType.ToLower() == "InMemory".ToLower())
             {
                 builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
-            } 
+                builder.Services.AddSingleton<ISubscriptionStorage, InMemorySubscriptionStorage>();
+            }
             else if (providerType.ToLower() == "MongoDb".ToLower())
             {
                 var url = Configuration.GetValue<string>("MongoDbUrl");
@@ -57,6 +63,9 @@ namespace Company.TCBlazor
                 var password = Configuration.GetValue<string>("MongoDbPassword");
                 var provider = new MongoDbLogStorage(url, username, password);
                 builder.Services.AddSingleton<ILogStorage>(provider);
+                // subs storage
+                var subStorage = new MongoDbSubscriptionStorage(url, username, password);
+                builder.Services.AddSingleton<ISubscriptionStorage>(subStorage);
             }
             else
             {

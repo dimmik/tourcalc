@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using TCalc.Domain;
 using TCalc.Storage;
 using TCalc.Storage.MongoDB;
+using TCalcCore.UI;
 using TCalcStorage.Storage;
 using TCalcStorage.Storage.LiteDB;
 using TourCalcWebApp.Exceptions;
@@ -18,13 +19,18 @@ namespace TourCalcWebApp.Storage
     {
         private readonly ITourStorage provider;
         private readonly ITcConfiguration Configuration;
+        private readonly INotifier Notifier = new DumbNotifier();
 
         /*public TourCalcStorage(ITourStorage xprovider)
         {
             provider = xprovider;
         }*/
-        public TourCalcStorage(ITcConfiguration config)
+        public TourCalcStorage(ITcConfiguration config, INotifier notifier = null)
         {
+            if (notifier != null)
+            {
+                Notifier = notifier;
+            }
             Configuration = config;
             //bool createVersions = Configuration.GetValue("TourVersioning", true);
             bool isVersionEditable = Configuration.GetValue("TourVersionEditable", false);
@@ -95,48 +101,65 @@ namespace TourCalcWebApp.Storage
             if (tour.IsVersion && !Configuration.GetValue("TourVersionEditable", false)) throw HttpException.Forbid("Versions are not editable");
 
             tour.PrepareForStoring();
+            var tourVersion = GetTour(tour.Id);
 
             if (Configuration.GetValue("TourVersioning", true) && !tour.IsVersion) // do not version version
             {
-                var tourVersion = GetTour(tour.Id);
                 if (tourVersion != null)
                 {
                     tourVersion.Id = Guid.NewGuid().ToString();
                     tourVersion.IsVersion = true;
                     tourVersion.DateVersioned = DateTime.Now;
                     tourVersion.VersionFor_Id = tour.Id;
-                    bool doVersion = false;
-                    (doVersion, tourVersion.VersionComment) = !string.IsNullOrWhiteSpace(tour.InternalVersionComment) ? (true, tour.InternalVersionComment) : new Func<(bool, string)>(() =>
-                    {
-                        if (tourVersion.Persons.Count() > tour.Persons.Count) return (true, $"P '{ tourVersion.Persons.Except(tour.Persons).LastOrDefault()?.Name ?? "--" }' deleted");
-                        if (tourVersion.Persons.Count() < tour.Persons.Count) return (true, $"P '{ tour.Persons.Last()?.Name ?? "--" }' added");
-                        var vSpendings = tourVersion.Spendings.Where(s => !s.Planned);
-                        var tSpendings = tour.Spendings.Where(s => !s.Planned);
-                        if (vSpendings.Count() < tSpendings.Count()) 
-                            if (tour.IsMultiCurrency())
-                                return (true, $"S '{tSpendings.LastOrDefault()?.Description ?? "--" } ({tSpendings.LastOrDefault()?.AmountInCents ?? 0} {tSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' added");
-                            else 
-                                return (true, $"S '{tSpendings.LastOrDefault()?.Description ?? "--" } ({tSpendings.LastOrDefault()?.AmountInCents ?? 0})' added");
-                        if (vSpendings.Count() > tSpendings.Count()) 
-                            if (tourVersion.IsMultiCurrency())
-                                return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--" } ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0}  {vSpendings.LastOrDefault()?.Currency?.Name ?? "na"})' deleted");
-                            else 
-                                return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--" } ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0})' deleted");
-                        if (tourVersion.IsArchived != tour.IsArchived)
-                        {
-                            if (tour.IsArchived) return (true, "Moved to archive");
-                            if (!tour.IsArchived) return (true, "Restored from archive");
-                        }
-                        return GetChanges(tourVersion, tour);
-                    })();
+                    (bool doVersion, tourVersion.VersionComment) = !string.IsNullOrWhiteSpace(tour.InternalVersionComment) 
+                        ? (true, tour.InternalVersionComment) 
+                        :  GetVersionComment(tour, tourVersion);
                     if (doVersion)
                     {
                         UpsertTour(tourVersion);
                     }
                 }
             }
+            var (doV, Comment) = GetVersionComment(tour, tourVersion);
+            if (doV) Notifier?.Notify(tour.Id, $"{tour.Name} : {Comment}");
             UpsertTour(tour);
         }
+
+        private static (bool doVersioning, string Comment) GetVersionComment(Tour tour, Tour tourVersion)
+        {
+            if (tour == null || tourVersion == null) return (false, "");
+
+            if (tourVersion.Persons.Count > tour.Persons.Count) return (true, $"P '{tourVersion.Persons.Except(tour.Persons).LastOrDefault()?.Name ?? "--"}' deleted");
+            if (tourVersion.Persons.Count < tour.Persons.Count) return (true, $"P '{tour.Persons.Last()?.Name ?? "--"}' added");
+            var vSpendings = tourVersion.Spendings.Where(s => !s.Planned);
+            var tSpendings = tour.Spendings.Where(s => !s.Planned);
+            var vP = tourVersion.Persons;
+            var tP = tour.Persons;
+            var vSL = vSpendings.LastOrDefault();
+            var tSL = tSpendings.LastOrDefault();
+
+            if (vSpendings.Count() < tSpendings.Count())
+                if (tour.IsMultiCurrency())
+                    return (true, $"S '{tSL?.Description ?? "--"} ({tSL?.AmountInCents ?? 0} {tSL?.Currency?.Name ?? "na"})' " +
+                        $" from {tP.Where(p => p.GUID == tSL?.FromGuid).FirstOrDefault()?.Name} to {(tSL?.ToAll??false ? "All" : "some")} " +
+                        $"added");
+                else
+                    return (true, $"S '{tSL?.Description ?? "--"} ({tSL?.AmountInCents ?? 0})' " +
+                        $" from {tP.Where(p => p.GUID == tSL?.FromGuid).FirstOrDefault()?.Name} to {(tSL?.ToAll ?? false ? "All" : "some")} " +
+                        $"added");
+            if (vSpendings.Count() > tSpendings.Count())
+                if (tourVersion.IsMultiCurrency())
+                    return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--"} ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0}  {vSL?.Currency?.Name ?? "na"})' deleted");
+                else
+                    return (true, $"S '{vSpendings.Except(tSpendings).LastOrDefault()?.Description ?? "--"} ({vSpendings.Except(tSpendings).LastOrDefault()?.AmountInCents ?? 0})' deleted");
+            if (tourVersion.IsArchived != tour.IsArchived)
+            {
+                if (tour.IsArchived) return (true, "Moved to archive");
+                if (!tour.IsArchived) return (true, "Restored from archive");
+            }
+            return GetChanges(tourVersion, tour);
+        }
+
         private static (bool, string) GetChanges(Tour oldTour, Tour newTour)
         {
             var res = "";
