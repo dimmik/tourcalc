@@ -15,7 +15,7 @@
         }<span style="font-size: x-small">@(mode == ComponentMode.Edit ? "EDIT" : "ADD") SPENDING @{
             var debtor = CalcUtilities.GetDebtor(tour);
         }</span>
-        <b style="font-size: large; font-weight: bolder; color: #880000">debtor @(debtor.p?.Name ?? "N/A") <span style="color:green">@debtor.debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> @tour?.CurrencyNameEmptyIfSingleCurrency()</b>
+        <b style="font-size: large; font-weight: bolder; color: #880000">debtor @(debtor.p?.Name ?? "N/A") &nbsp; <span style="color:green">@debtor.debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> @tour?.CurrencyNameEmptyIfSingleCurrency()</b>
     </div>
 </div>
 
