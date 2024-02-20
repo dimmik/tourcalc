@@ -7,6 +7,7 @@ self.addEventListener('push', event => {
     event.waitUntil(
         self.registration.showNotification('Tourcalc', {
             body: payload.message,
+            icon: '/icon-192.png',
             data: { tourId: payload.tourId },
             vibrate: [800, 50, 10, 100, 50]
         })
