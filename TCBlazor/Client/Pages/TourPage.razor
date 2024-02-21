@@ -248,6 +248,7 @@ else
     }
     private Tour GetTourInCurrency(Tour t)
     {
+        if (curr == null) return t;
         var calc = new TourCalculator(t, curr);
         return calc.SuggestFinalPayments();
     }
