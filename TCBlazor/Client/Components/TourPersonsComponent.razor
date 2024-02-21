@@ -104,7 +104,7 @@
                         var debtor = CalcUtilities.GetDebtor(Tour);
                     }
                     <b style="font-weight: bolder; color: red">@(debtor.p?.Name ?? "N/A")
-                        &nbsp; <span style="color:green">@debtor.debt @tour?.CurrencyNameEmptyIfSingleCurrency()</span>
+                        &nbsp; <span style="color:green">@debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency()</span>
                     </b>
 
                 </td>
