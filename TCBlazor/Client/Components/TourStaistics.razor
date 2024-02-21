@@ -29,6 +29,12 @@
             </SimplePieChart>
         </td>
     </tr>
+    <tr>
+    <td>
+            Total: <b>@(totalSpent.ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>;
+            Per Person (@adultPersonWeight w): <b>@((totalSpent * adultPersonWeight / totalWeight).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
+    </td>
+    </tr>
         @if (Tour.IsMultiCurrency()){
         <tr><td>
         <div>Currency: <b style='color: green'>@Tour.Currency.Name</b></div>
@@ -63,17 +69,53 @@
 
     private UISettings settings = new();
 
+    private long totalSpent = 0;
+    private int totalWeight = 100;
+    private int adultPersonWeight = 100;
+
 
     protected override async Task OnInitializedAsync()
     {
         settings = await engine.GetUISettings();
         summary = GetSpendingForStat();
+        CalculatePerPerson();
         csg = new() { Magic = settings.Magic_Piechart_Color_Scheme_Number * 1.0 / 1000 };
     }
 
     protected override void OnParametersSet()
     {
         summary = GetSpendingForStat();
+        CalculatePerPerson();
+    }
+
+    private void CalculatePerPerson()
+    {
+        try
+        {
+            totalSpent = Tour.Spendings.Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc)).Select(s => s.AmountInCurrentCurrency(Tour)).Sum();
+            totalWeight = Tour.Persons.Select(p => p.Weight).Sum();
+            if (totalWeight == 0) totalWeight = 100;
+            // adult person weight
+            // if there is a parent - his weight
+            if (Tour.Persons.Any(p => !string.IsNullOrWhiteSpace(p.ParentId)))
+            {
+                var parentId = Tour.Persons.Where(p => !string.IsNullOrWhiteSpace(p.ParentId)).Select(p => p.ParentId).First();
+                var parent = Tour.Persons.Where(p => p.GUID == parentId).FirstOrDefault();
+                if (parent != null) adultPersonWeight = parent.Weight;
+            }
+            else
+            {
+                // else - get min
+                if (Tour.Persons.Any())
+                {
+                    adultPersonWeight = Tour.Persons.Where(p => p.Weight > 0).Select(p => p.Weight).Min();
+                }
+            }
+        }
+        catch
+        {
+            // cannot calculate - so be it
+        }
     }
 
     public IEnumerable<(string Name, int Amount)> GetSpendingForStat()
