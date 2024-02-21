@@ -139,6 +139,7 @@ else
                                         {
                                             var ss = s.SafeClone<Spending>();
                                             ss.Type = "";
+                                            ss.Color = ss.Description.StartsWith("X") ? "lightgreen" : "lightgray";
                                             _ = engine.RequestAddSpending(tour.Id, ss);
                                         }
                                     })>+</Button>
