@@ -41,7 +41,7 @@ else
     <div style="font-size:x-small; border: 1px solid black">
         @(isFresh ? "From Server" : "Local") <b>@($"{storedDt:yyyy-MM-dd HH:mm:ss}")</b>
     </div>
-        <Timechart tour="tour" open="false" ButtonText="Spendings By Date"/>
+        <Timechart tour="tourLocal" open="false" ButtonText="Spendings By Date"/>
         @if (settings.Web_Push_Notifications)
         {
             @if (subscriptionChecked == true){
@@ -61,7 +61,7 @@ else
         }
     <div style="width: 100%; display:flex; align-items:center; justify-content:center;">
         <div style="margin:auto">
-        <TourStaistics Tour=@tour/>
+        <TourStaistics Tour=@tourLocal/>
         </div>
     </div>
 }
@@ -73,6 +73,7 @@ else
                         <!--Persons-->
                         <b id=@GetId("persons")>Persons [@tour.Persons.Count]</b>
                         <Button Type="primary" Ghost Size="small" @onclick=@(() => ShowPersons = !ShowPersons)>@(ShowPersons ? "hide" : "show")</Button>
+                        <!-- choose local currency -->
                          <Select @bind-Value=@(curr)
                                  TItemValue="Currency"
                                  TItem="Currency"
@@ -80,7 +81,7 @@ else
                                  AllowClear=@false
                                  Style="width: 80px;"
                                  DataSource="tour?.Currencies ?? new Currency[0]"
-                                 OnSelectedItemChanged="() => tour = GetTourInCurrency(tour)"
+                                 OnSelectedItemChanged="() => tourLocal = GetTourInCurrency(tourLocal)"
                                  IgnoreItemChangesLeadsToException="false" />
                     </div>
                     <div style="display: table-cell; width: 50%; align-content: flex-end; text-align: end;">
@@ -91,7 +92,7 @@ else
                 @if (ShowPersons)
                 {
                     <TourPersonsComponent 
-                    tour=@tour
+                    tour=@tourLocal
                     OnPersonDelete=@(async (p) => {
                         _ = engine.RequestDeletePerson(tour.Id, p);
                     })
@@ -117,7 +118,7 @@ else
                 </div>
                 @if (ShowSpendings){
                     <TSpComponent 
-                        Tour=@tour
+                        Tour=@tourLocal
                         ShowPlanned=@ShowPlannedSpendings
                         OnToggleShowPlanned=@(() => {
                             // TODO works slow. Think about it
@@ -170,6 +171,7 @@ else
     private bool ShowSpendings = true;
 
     public Tour? tour = null;
+    public Tour? tourLocal = null;
     private Currency? curr = null;
     private bool isFresh = false;
     private DateTimeOffset storedDt = DateTimeOffset.Now;
@@ -236,7 +238,7 @@ else
             }
         }
     }
-    
+
 
 
     public void Dispose()
@@ -256,7 +258,9 @@ else
         {
             curr = t.Currency;
         }
-        tour = GetTourInCurrency(t);
+        tour = t;
+        tourLocal = tour.SafeClone<Tour>();
+        tourLocal = GetTourInCurrency(tourLocal);
         if (!initialized)
         {
             ShowPlannedSpendings = (tour?.IsFinalizing ?? false) && !(tour?.IsArchived ?? false);
