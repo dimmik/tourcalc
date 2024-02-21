@@ -65,6 +65,7 @@ else
             LoadSpending();
             if (TheSpending.Planned){
                 TheSpending.Type = "";
+                TheSpending.Color = TheSpending.Description.StartsWith("X") ? "lightgreen" : "lightgray";
             }
             StateHasChanged();
             await JsRuntime.InvokeVoidAsync("backToTop");
