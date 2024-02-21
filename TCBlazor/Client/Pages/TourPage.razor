@@ -78,10 +78,11 @@ else
                                  TItemValue="Currency"
                                  TItem="Currency"
                                  LabelName="@nameof(Currency.Name)"
-                                 AllowClear=@false
+                                 AllowClear=@true
                                  Style="width: 80px;"
                                  DataSource="tour?.Currencies ?? new Currency[0]"
                                  OnSelectedItemChanged="() => tourLocal = GetTourInCurrency(tourLocal)"
+                                 OnClearSelected="() => {curr = tour?.Currency; tourLocal = GetTourInCurrency(tourLocal);}"
                                  IgnoreItemChangesLeadsToException="false" />
                     </div>
                     <div style="display: table-cell; width: 50%; align-content: flex-end; text-align: end;">
