@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM  mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 #RUN dotnet --version
 #ENV ASPNETCORE_HTTP_PORTS=80
@@ -14,14 +14,20 @@ ARG BUILD_TYPE=na
 WORKDIR /src
 COPY . .
 
+# return here once .NET fixed the bug https://github.com/dotnet/runtime/issues/92238#:~:text=The%20fix%20was%20merged%20recently
+RUN apt-get update && apt-get -y install python3-minimal
+
 # for tourcalc.run.docker only. DO NOT copy to tourcalc.docker (that is basically for build by ci/cd)
 # replace buildnum and buildver
 RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && grep -Irl "#{Build.BuildNumber}#" . | xargs sed -i 's/#{Build.BuildNumber}#/'$DT'/g'
 RUN grep -Irl "#{Build.SourceBranch}#" . | xargs sed -i 's/#{Build.SourceBranch}#/local/g'
 RUN grep -Irl '#{BuildType}#' . | xargs sed -i "s/#{BuildType}#/${BUILD_TYPE}/g"
 
+# return here once .NET fixed the bug https://github.com/dotnet/runtime/issues/92238#:~:text=The%20fix%20was%20merged%20recently
+WORKDIR "/src/TCBlazor/Client"
+RUN dotnet workload restore
 WORKDIR "/src/TCBlazor/Server"
-RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && dotnet publish --version-suffix $DT "TCBlazor.Server.csproj" -c Release -o /app 
+RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && dotnet publish -m --version-suffix $DT "TCBlazor.Server.csproj" -c Release -o /app 
 
 FROM base AS final
 WORKDIR /app
