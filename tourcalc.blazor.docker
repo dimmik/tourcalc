@@ -11,6 +11,7 @@ EXPOSE 443
 #### Build and publish backend (on linux/amd64 for performance reasons)
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS publishtc
 ARG BUILD_TYPE=na
+ARG BUILD_PROPS=""
 WORKDIR /src
 COPY . .
 
@@ -27,7 +28,7 @@ RUN grep -Irl '#{BuildType}#' . | xargs sed -i "s/#{BuildType}#/${BUILD_TYPE}/g"
 WORKDIR "/src/TCBlazor/Client"
 RUN dotnet workload restore
 WORKDIR "/src/TCBlazor/Server"
-RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && dotnet publish -m --version-suffix $DT "TCBlazor.Server.csproj" -c Release -o /app 
+RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && dotnet publish -m --version-suffix $DT "TCBlazor.Server.csproj" -c Release $BUILD_PROPS -o /app 
 
 FROM base AS final
 WORKDIR /app
