@@ -85,8 +85,7 @@
                     debt="Debt(person)"
                     person="person"
                     tour=@(Tour ?? new Tour())
-                    minMeaningfulAmount=@(settings.MinimumMeaningfulDebt)
-                    />
+                            minMeaningfulAmount=@(Tour.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt)) />
             </td>
         } 
         else if (person.Metadata == "Editing")
@@ -215,7 +214,7 @@
     private long Debt(Person p)
     {
         // round to MinimumMeaningfulDebt
-        return Math.Abs(p.Debt()) > settings.MinimumMeaningfulDebt ? p.Debt() : 0;
+        return Math.Abs(p.Debt()) > tour.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt) ? p.Debt() : 0;
     }
 
 

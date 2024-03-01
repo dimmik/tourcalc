@@ -349,7 +349,7 @@
     public IEnumerable<Spending> GetSpendingSorted()
     {
         IEnumerable<Spending> res = (Tour?.Spendings ?? new List<Spending>());
-        var planned = res.Where(s => s.Planned && Math.Abs(s.AmountInCurrentCurrency(Tour)) > settings.MinimumMeaningfulDebt);
+        var planned = res.Where(s => s.Planned && Math.Abs(s.AmountInCurrentCurrency(Tour)) > Tour.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt));
         var real = res.Where(s => !s.Planned);
         planned = planned
             .OrderBy(s => s.Description.StartsWith("Family") ? 0 : 1) // first family
