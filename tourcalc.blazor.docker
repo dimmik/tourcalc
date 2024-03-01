@@ -26,7 +26,7 @@ RUN grep -Irl '#{BuildType}#' . | xargs sed -i "s/#{BuildType}#/${BUILD_TYPE}/g"
 
 # return here once .NET fixed the bug https://github.com/dotnet/runtime/issues/92238#:~:text=The%20fix%20was%20merged%20recently
 WORKDIR "/src/TCBlazor/Client"
-RUN dotnet $BUILD_PROPS workload restore TCBlazor.Client.csproj  
+RUN dotnet workload restore TCBlazor.Client.csproj  $BUILD_PROPS
 WORKDIR "/src/TCBlazor/Server"
 RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && dotnet publish -m --version-suffix $DT "TCBlazor.Server.csproj" -c Release $BUILD_PROPS -o /app 
 
