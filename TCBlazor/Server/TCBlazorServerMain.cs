@@ -53,7 +53,8 @@ namespace Company.TCBlazor
             var providerType = Configuration.GetValue("StorageType", "InMemory");
             if (providerType.ToLower() == "InMemory".ToLower())
             {
-                builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
+                //builder.Services.AddSingleton<ILogStorage, InMemoryLogStorage>();
+                builder.Services.AddSingleton<ILogStorage, VoidLogStorage>();
                 builder.Services.AddSingleton<ISubscriptionStorage, InMemorySubscriptionStorage>();
             }
             else if (providerType.ToLower() == "MongoDb".ToLower())
@@ -62,7 +63,8 @@ namespace Company.TCBlazor
                 var username = Configuration.GetValue<string>("MongoDbUsername");
                 var password = Configuration.GetValue<string>("MongoDbPassword");
                 var provider = new MongoDbLogStorage(url, username, password);
-                builder.Services.AddSingleton<ILogStorage>(provider);
+                //builder.Services.AddSingleton<ILogStorage>(provider);
+                builder.Services.AddSingleton<ILogStorage, VoidLogStorage>(); // never needed the logs
                 // subs storage
                 var subStorage = new MongoDbSubscriptionStorage(url, username, password);
                 builder.Services.AddSingleton<ISubscriptionStorage>(subStorage);

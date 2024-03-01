@@ -125,10 +125,10 @@
                 }
                 return window.btoa(binary);
             }
-            window.checkNotificationAllowed =  () => {
-                    return Notification.permission == 'granted';
-                }
-            
+            window.checkNotificationAllowed = () => {
+                return Notification.permission == 'granted';
+            }
+
         })();
         // / pushNotifications
 
@@ -155,6 +155,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=100.0, minimum-scale=0.01" />
     <title>Tourcalc</title>
     <base href="/" />
+    <link rel="stylesheet" href="css/font-awesome.min.css">
     <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="TCBlazor.Client.styles.css" rel="stylesheet" />
