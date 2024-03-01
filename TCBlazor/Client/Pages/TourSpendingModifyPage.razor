@@ -9,6 +9,8 @@
 
 @implements IDisposable
 
+<TourHeader tour="tour" isFresh="fresh" storedDt="updated"/>
+
 <div>
     <div class="cool-header"
          style="margin-left: auto; margin-right: auto; text-align: center; width: clamp(300px, 40vw, 500px);white-space: pre">@{
@@ -117,6 +119,9 @@ else
 
     public Tour? tour = null;
 
+    private bool fresh = false;
+    private DateTimeOffset updated = DateTimeOffset.Now;
+
     ComponentMode mode;
 
     private string WhoAmI = ""; // from spending last ADDED by THIS USER
@@ -152,9 +157,13 @@ else
             initialized = true;
         }
     }
-    private async Task OnFreshTourLoaded(Tour t, bool isFresh, DateTimeOffset updated)
+
+
+    private async Task OnFreshTourLoaded(Tour t, bool isFresh, DateTimeOffset upd)
     {
         tour = t;
+        fresh = isFresh;
+        updated = upd;
         await Init();
         StateHasChanged();
         //return Task.CompletedTask;
