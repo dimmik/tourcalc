@@ -1,0 +1,143 @@
+﻿@using TCalc.Logic
+
+@using TCalcCore.Engine
+@inject TourcalcEngine engine
+@inject ITokenStorage tokenStorage
+@inject TCalcCore.Network.EnrichedHttpClient hClient;
+
+
+
+@inject IJSRuntime JsRuntime
+
+<h3>
+    <span style="cursor:pointer;font-size:large;" @onclick=@(async () => {
+          IsTourReloading = true;
+          await engine.RequestTourLoad(tour?.GUID, forceLoadFromServer: true);
+          IsTourReloading = false;
+          })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
+    <span>@tour?.Name</span>
+    <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "x" : "")}") ⓘ</Button>
+
+    @{
+        /*                <Button Type="primary" Size="large" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>*/
+    }
+
+
+</h3>
+@if (ShowStatistics)
+{
+    <div style="font-size:x-small; border: 1px solid black">
+        @(isFresh ? "From Server" : "Local") <b>@($"{storedDt:yyyy-MM-dd HH:mm:ss}")</b>
+
+    </div>
+    <Timechart tour="tour" open="false" ButtonText="Spendings By Date" />
+    @if (settings.Web_Push_Notifications)
+    {
+        @if (subscriptionChecked == true)
+        {
+            <Button Type="primary"
+                    Size="small"
+                    Danger=@false
+                    @onclick=@(() => NotificationSubscriptionAsync(isSubscribed))>
+                @(isSubscribed ? "Unscubscribe" : "Subscribe")
+            </Button>
+        }
+        else
+        {
+            if (subscriptionChecked == null)
+            {
+                <span style="border: 1px solid grey">Checking subscription ...</span>
+            }
+            else
+            {
+                <span style="border: 1px solid grey; cursor: pointer;" @onclick=@CheckIfSubscribed>Cant check subscription. Recheck.</span>
+            }
+        }
+    }
+    <span>
+        @{
+            /*currency and link*/
+        }
+        &nbsp;| &nbsp;
+        <span style="font-size: x-small">(<CurrenciesEditInModal tour=@tour />)</span>
+        &nbsp;| &nbsp;
+        <span style="font-size: x-small; text-decoration: underline;"><a href=@($"/goto/{tour?.AccessCodeMD5}/{tour?.Id}")>link</a></span>
+    </span>
+    <div style="width: 100%; display:flex; align-items:center; justify-content:center;">
+        <div style="margin:auto">
+            <TourStaistics Tour=@tour />
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Tour? tour { get; set; } = null;
+
+    [Parameter]
+    public bool isFresh { get; set; } = false;
+
+    [Parameter]
+    public DateTimeOffset storedDt { get; set; } = DateTimeOffset.Now;
+
+    bool? subscriptionChecked = null;
+    bool ShowStatistics = false;
+    bool IsTourReloading = false;
+    bool isSubscribed = false;
+
+    private UISettings settings = new UISettings();
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await engine.GetUISettings();
+
+        if (settings.Web_Push_Notifications)
+        {
+            _ = CheckIfSubscribed();
+        }
+    }
+
+    async Task CheckIfSubscribed()
+    {
+        // check is we are subscribed to this tour
+        // check notifications
+        subscriptionChecked = null;
+        bool isAllowed = await JsRuntime.InvokeAsync<bool>("checkNotificationAllowed", null);
+        bool httpError = false;
+        if (isAllowed)
+        {
+            var token = await tokenStorage.GetToken();
+            var pKey = await hClient.CallWithAuthToken<string>($"api/subscription/publickey", token, HttpMethod.Get, null, (m) => { httpError = true; });
+            if (!httpError)
+            {
+                var subscription = await JsRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription", pKey);
+                var subscribed = await hClient.CallWithAuthToken<bool>($"api/subscription/check/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { httpError = true; });
+                isSubscribed = subscribed;
+            }
+        }
+        //await Task.Delay(5000);
+        subscriptionChecked = !httpError ? true : false;
+        StateHasChanged();
+    }
+    async Task NotificationSubscriptionAsync(bool subscribed)
+    {
+        var token = await tokenStorage.GetToken();
+        var pKey = await hClient.CallWithAuthToken<string>($"api/subscription/publickey", token, HttpMethod.Get, null, (m) => { });
+        var subscription = await JsRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription", pKey);
+        if (subscription != null)
+        {
+            if (subscribed)
+            {
+                // unsubscribe
+                var ok = await hClient.CallWithAuthToken<string>($"api/subscription/unsubscribe/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { });
+                isSubscribed = false;
+            }
+            else
+            {
+                // store for this tour id - call notifications/subscribe/{tourid} for the subscription
+                var ok = await hClient.CallWithAuthToken<string>($"api/subscription/subscribe/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { });
+                isSubscribed = true;
+            }
+        }
+    }
+}
