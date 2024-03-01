@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+    <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
+	<RunAOTCompilation>true</RunAOTCompilation>
+	<!-- Seems like does not work so far. Will be in NET9. https://github.com/dotnet/runtime/issues/92238#:~:text=The%20fix%20was%20merged%20recently
+    <WasmStripILAfterAOT>true</WasmStripILAfterAOT>
+    -->
+  </PropertyGroup>
+
+</Project>
