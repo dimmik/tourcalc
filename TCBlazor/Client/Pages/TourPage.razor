@@ -25,22 +25,26 @@ else
     engine.SendMessage("Tour", tour);
     <PageTitle>@tour.Name</PageTitle>
     <h3>
-        @tour.Name <span style="font-size: x-small">(<CurrenciesEditInModal tour=@tour />)</span>
-    <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "hide" : "show")}") info</Button>
-    <span style="cursor:pointer;font-size:large;" @onclick=@(async () => {
-                    IsTourReloading = true;
-                    await engine.RequestTourLoad(TourId, forceLoadFromServer: true);
-                    IsTourReloading = false;
-                })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
-                <Button Type="primary" Size="large" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
-    <span style="font-size: x-small; text-decoration: underline;"><a href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>link</a></span>
+        <span style="cursor:pointer;font-size:large;" @onclick=@(async () => {
+          IsTourReloading = true;
+          await engine.RequestTourLoad(TourId, forceLoadFromServer: true);
+          IsTourReloading = false;
+          })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
+        <span>@tour.Name</span>
+        <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "x" : "")}") ⓘ</Button>
+    
+        @{
+            /*                <Button Type="primary" Size="large" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>*/
+        }
+    
        
     </h3>
 @if (ShowStatistics)
 {
     <div style="font-size:x-small; border: 1px solid black">
-        @(isFresh ? "From Server" : "Local") <b>@($"{storedDt:yyyy-MM-dd HH:mm:ss}")</b>
-    </div>
+            @(isFresh ? "From Server" : "Local") <b>@($"{storedDt:yyyy-MM-dd HH:mm:ss}")</b> 
+            
+        </div>
         <Timechart tour="tourLocal" open="false" ButtonText="Spendings By Date"/>
         @if (settings.Web_Push_Notifications)
         {
@@ -59,6 +63,12 @@ else
                 }
             }
         }
+        <span> @{/*currency and link*/}
+            &nbsp;| &nbsp;
+            <span style="font-size: x-small">(<CurrenciesEditInModal tour=@tour />)</span>
+            &nbsp;| &nbsp;
+            <span style="font-size: x-small; text-decoration: underline;"><a href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>link</a></span>
+        </span>
     <div style="width: 100%; display:flex; align-items:center; justify-content:center;">
         <div style="margin:auto">
         <TourStaistics Tour=@tourLocal/>
