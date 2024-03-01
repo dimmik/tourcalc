@@ -40,12 +40,12 @@
                     var cc = Tour?.Currency ?? new();
                     var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                     var amountInCurrency = pp * rate;
-                    <li style="display: inline-block; padding:0;"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> @c.Name;&nbsp;</li>
+                        <li style="display: inline-block; padding:0;"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</li>
                 }
             </ul>
             </div>
             <div>
-            <b>Per Person (@adultPersonWeight w): </b>
+            <b>Per Person </b>(@adultPersonWeight w):
             <ul style="display: inline-block; padding:0; margin: 0;">
             @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
             {
@@ -53,7 +53,7 @@
                 var cc = Tour?.Currency ?? new();
                 var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                 var amountInCurrency = pp * rate;
-                    <li style="display: inline-block; padding:0;"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> @c.Name;&nbsp;</li>
+                    <li style="display: inline-block; padding:0;"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</li>
             }
             </ul>
             </div>
