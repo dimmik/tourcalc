@@ -53,11 +53,12 @@
                         <div style="display: table-cell; align-content: flex-end; width: 35%; text-align: end;">
                             <span><SyncStatusComponent/></span>
                             <UpdateAvailableDetector/>
-                            <span style="cursor:pointer; font-size: clamp(6px, 4vw, 18px); border:1px solid white" @onclick=@(async () => {
+                            <span style="cursor:pointer; font-size: clamp(6px, 4vw, 24px); border:0px solid white; @($"{(engine.Auth.IsMaster ? "color:red;" : "")}")"
+                                  @onclick=@(async () => {
                                 await LogOut();
                                 //NavManager.NavigateTo("/tourlist");
-                            })>Log Out@($"{(engine.Auth.IsMaster ? " Admin" : "")}")</span>
-                            @if (engine.Auth.IsMaster)
+                      }) class="fa fa-sign-out"></span>
+                            @if (false && engine.Auth.IsMaster) // do not show logs button
                             {
                                 <Button OnClick=@(() => NavManager.NavigateTo("/logs"))>Logs</Button>
                             }
