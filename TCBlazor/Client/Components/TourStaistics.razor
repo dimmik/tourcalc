@@ -53,7 +53,7 @@
                 var cc = Tour?.Currency ?? new();
                 var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                 var amountInCurrency = pp * rate;
-                    <li style="display: inline-block; padding:0; color:brown"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> @c.Name;&nbsp;</li>
+                    <li style="display: inline-block; padding:0;"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> @c.Name;&nbsp;</li>
             }
             </ul>
             </div>
