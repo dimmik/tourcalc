@@ -31,20 +31,32 @@
     </tr>
     <tr>
     <td>
-            Total: <b>@(totalSpent.ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> @Tour?.CurrencyNameEmptyIfSingleCurrency()
-            <br/>
-            Per Person (@adultPersonWeight w): 
-            <ul>
-            @foreach (var c in Tour?.Currencies ?? Enumerable.Empty<Currency>())
+            <div>
+            Total: 
+            <ul style="display: inline-block; padding:0; margin: 0;">
+                @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
+                {
+                    var pp = totalSpent;
+                    var cc = Tour?.Currency ?? new();
+                    var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
+                    var amountInCurrency = pp * rate;
+                    <li style="display: inline-block; padding:0;"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> @c.Name;&nbsp;</li>
+                }
+            </ul>
+            </div>
+            <div>
+            <b>Per Person (@adultPersonWeight w): </b>
+            <ul style="display: inline-block; padding:0; margin: 0;">
+            @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
             {
                 var pp = totalSpent * adultPersonWeight / totalWeight;
                 var cc = Tour?.Currency ?? new();
                 var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                 var amountInCurrency = pp * rate;
-                <li><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> @c.Name</li>
+                    <li style="display: inline-block; padding:0;"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> @c.Name;&nbsp;</li>
             }
-                
             </ul>
+            </div>
     </td>
     </tr>
         @if (Tour.IsMultiCurrency()){
