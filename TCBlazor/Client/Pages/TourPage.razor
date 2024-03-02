@@ -26,7 +26,7 @@ else
     engine.SendMessage("Title", tour.Name);
     engine.SendMessage("Tour", tour);
     <PageTitle>@tour.Name</PageTitle>
-    <TourHeader tour="tour" isFresh="isFresh" storedDt="storedDt"/>
+    <TourHeader tour="tourLocal" isFresh="isFresh" storedDt="storedDt"/>
     <TableTemplate Items=@(new string[1]) TopPadding="0">
          <RowTemplate>
             <td>
