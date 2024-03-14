@@ -2,7 +2,9 @@
 @inject IJSRuntime JsRuntime
 
 <span>
-    <Button Disabled=@disabled Type="@AntDesign.ButtonType.Dashed" @onclick=@(() => open = !open)>@((MarkupString)nameText.AsBreakable(3))</Button>
+    <Button Disabled=@disabled Type="@AntDesign.ButtonType.Dashed" @onclick=@(() => open = !open)>
+        @((MarkupString)GetNameText(full: open).AsBreakable(3))
+        </Button>
     @if (open)
     {
         <div>
@@ -82,12 +84,13 @@
     private bool deleting = false;
 
     int triggerLength = 16;
-    string nameText = ""; 
-    protected override void OnParametersSet()
+    string GetNameText(bool full)
     {
-        nameText = $"{(deleting ? "[..del..] " : "")}{person.Name}".Trim();
+        var nameText = person.Name.Trim();
+        if (full) return nameText;
         bool crop = nameText.Length > triggerLength;
         nameText = nameText.Substring(0, crop ? triggerLength : nameText.Length) + (crop ? "…" : "");
+        return nameText;
     }
 
     RenderFragment TitleTemplate(bool deleting, int idx, Person person)
