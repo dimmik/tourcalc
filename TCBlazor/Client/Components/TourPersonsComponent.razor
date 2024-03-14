@@ -52,7 +52,7 @@
         }
         @if (string.IsNullOrWhiteSpace(person.Metadata))
         {
-            <td>
+            <td style="padding: 2px;">
                 <PersonNameAndActions 
                     @key=@($"pna_{person.GUID}")
                     idx="idx"
