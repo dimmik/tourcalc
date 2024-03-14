@@ -81,11 +81,13 @@
     private bool disabled = false;
     private bool deleting = false;
 
-    int triggerLength = 9;
+    int triggerLength = 16;
     string nameText = ""; 
     protected override void OnParametersSet()
     {
         nameText = $"{(deleting ? "[..del..] " : "")}{person.Name}".Trim();
+        bool crop = nameText.Length > triggerLength;
+        nameText = nameText.Substring(0, crop ? triggerLength : nameText.Length) + (crop ? "…" : "");
     }
 
     RenderFragment TitleTemplate(bool deleting, int idx, Person person)
