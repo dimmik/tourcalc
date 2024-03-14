@@ -58,7 +58,7 @@
 
     @if (!string.IsNullOrWhiteSpace(person.ParentId))
     {
-        <span style="font-size:xx-small">&gt; paid by <b style="color:green;">@(tour.Persons.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</b></span>
+        <span style="font-size:xx-small; display: block;">&gt; paid by <b style="color:green;">@(tour.Persons.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</b></span>
     }
 </span>
 
