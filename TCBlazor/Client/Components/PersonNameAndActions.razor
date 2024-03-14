@@ -2,34 +2,57 @@
 @inject IJSRuntime JsRuntime
 
 <span>
-
-    <Menu Mode=MenuMode.Vertical @key="@($"menu_{person.GUID}")">
-        <SubMenu 
-            Key="@($"submenu_{person.GUID}")" 
-            @key="@($"submenu_{person.GUID}")" 
-            TitleTemplate="TitleTemplate(deleting, idx, person)"
-            Disabled=@disabled
-            IsOpen=@disabled
-        >
-            <MenuItem Key="@($"edit_{person.GUID}")" OnClick=@(async () => await OnPersonEdit(person))>Edit @person.Name</MenuItem>
-            <MenuItem Key="@($"delete_{person.GUID}")" OnClick=@(async () => {
+    <Button Disabled=@disabled Type="@AntDesign.ButtonType.Dashed" @onclick=@(() => open = !open)>@((MarkupString)nameText.AsBreakable(3))</Button>
+    @if (open)
+    {
+        <div>
+            <Button Size="small" Disabled=@disabled Type="@AntDesign.ButtonType.Primary" OnClick=@(async () => await OnPersonEdit(person))>Edit</Button>
+            <Button Size="small" Disabled=@disabled Danger=@true OnClick=@(async () => {
                 disabled = true;
-                      var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
+                StateHasChanged();
+                var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
                 if (ok){
                     deleting = true;
                     await OnPersonDelete(person);
                 } else {
                     disabled=false;
                 }
-            })
-            >
-                Delete @person.Name
-                </MenuItem>
-            <MenuItem Key="@($"delete_{person.GUID}")"
-                OnClick=@(async () => await OnPersonSpend(person))
-            >Spend @person.Name</MenuItem>
+                })>
+                Delete
+            </Button>
+            <Button Size="small" Disabled=@disabled OnClick=@(async () => await OnPersonSpend(person))>Spend</Button>
+        </div>
+    }
+    @{/*
+        <Menu Mode=MenuMode.Vertical @key="@($"menu_{person.GUID}")">
+        <SubMenu
+        Key="@($"submenu_{person.GUID}")"
+        @key="@($"submenu_{person.GUID}")"
+        TitleTemplate="TitleTemplate(deleting, idx, person)"
+        Disabled=@disabled
+        IsOpen=@disabled
+        >
+        <MenuItem Key="@($"edit_{person.GUID}")" OnClick=@(async () => await OnPersonEdit(person))>Edit @person.Name</MenuItem>
+        <MenuItem Key="@($"delete_{person.GUID}")" OnClick=@(async () => {
+        disabled = true;
+        var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
+        if (ok){
+        deleting = true;
+        await OnPersonDelete(person);
+        } else {
+        disabled=false;
+        }
+        })
+        >
+        Delete @person.Name
+        </MenuItem>
+        <MenuItem Key="@($"spend_{person.GUID}")"
+        OnClick=@(async () => await OnPersonSpend(person))
+        >Spend @person.Name</MenuItem>
         </SubMenu>
-    </Menu>
+        </Menu>
+        */
+    }
 
     @if (!string.IsNullOrWhiteSpace(person.ParentId))
     {
@@ -52,12 +75,18 @@
     [Parameter]
     public Func<Person, Task> OnPersonSpend { get; set; } = p => Task.CompletedTask;
 
+    bool open = false;
 
     //private bool open = false;
     private bool disabled = false;
     private bool deleting = false;
 
     int triggerLength = 9;
+    string nameText = ""; 
+    protected override void OnParametersSet()
+    {
+        nameText = $"{(deleting ? "[..del..] " : "")}{person.Name}".Trim();
+    }
 
     RenderFragment TitleTemplate(bool deleting, int idx, Person person)
     {
