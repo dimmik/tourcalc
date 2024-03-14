@@ -2,28 +2,23 @@
 @inject IJSRuntime JsRuntime
 
 <span>
-    <Button Disabled=@disabled Type="@AntDesign.ButtonType.Dashed" @onclick=@(() => open = !open)>
+    <Button Type="@AntDesign.ButtonType.Dashed" @onclick=@(() => open = !open)>
         @((MarkupString)GetNameText(full: open).AsBreakable(3))
         </Button>
     @if (open)
     {
-        <div>
-            <Button Size="small" Disabled=@disabled Type="@AntDesign.ButtonType.Primary" OnClick=@(async () => await OnPersonEdit(person))>Edit</Button>
-            <Button Size="small" Disabled=@disabled Danger=@true OnClick=@(async () => {
-                disabled = true;
-                StateHasChanged();
-                var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
-                if (ok){
-                    deleting = true;
-                    await OnPersonDelete(person);
-                } else {
-                    disabled=false;
-                }
+        <span style="display:block;">
+            <Button Size="small" Type="@AntDesign.ButtonType.Primary" OnClick=@(async () => await OnPersonEdit(person))>Edit</Button>
+            <Button Size="small" Danger=@true OnClick=@(async () => {
+                    var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
+                    if (ok){
+                        await OnPersonDelete(person);
+                    }
                 })>
                 Delete
             </Button>
-            <Button Size="small" Disabled=@disabled OnClick=@(async () => await OnPersonSpend(person))>Spend</Button>
-        </div>
+            <Button Size="small" OnClick=@(async () => await OnPersonSpend(person))>Spend</Button>
+        </span>
     }
     @{/*
         <Menu Mode=MenuMode.Vertical @key="@($"menu_{person.GUID}")">
