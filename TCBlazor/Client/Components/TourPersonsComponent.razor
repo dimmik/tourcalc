@@ -85,7 +85,7 @@
                     debt="Debt(person)"
                     person="person"
                     tour=@(Tour ?? new Tour())
-                            minMeaningfulAmount=@(Tour.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt)) />
+                            minMeaningfulAmount=@(Tour?.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt) ?? 0) />
             </td>
         } 
         else if (person.Metadata == "Editing")

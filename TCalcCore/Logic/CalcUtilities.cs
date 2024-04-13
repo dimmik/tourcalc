@@ -46,5 +46,14 @@ namespace TCalc.Logic
                                     ;
             return debtor ?? (new Person(), 0);
         }
+        public static long AmountAPersonWillPay(this Tour tr, Person p)
+        {
+            var (willPay, spendings) = CalcUtilities.GetPayOrReceiveSpendings(tr, p, 0);
+            var amount = spendings
+                .Where(s => CalcUtilities.DebtStatusOfSpending(tr, s, p) != "JustOk")?
+                .Select(s => s.AmountInCurrentCurrency(tr))?.Sum() 
+                ?? 0;
+            return willPay ? amount : -amount;
+        }
     }
 }
