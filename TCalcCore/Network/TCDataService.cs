@@ -1,8 +1,6 @@
-﻿using Microsoft.AspNetCore.WebUtilities;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -64,7 +62,7 @@ namespace TCalcCore.Network
                 {
                     var parts = token.Split('.');
                     var meaningful = parts[1];
-                    var plain = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(meaningful));
+                    var plain = Encoding.UTF8.GetString(Base64UrlEncoder.Encoder.DecodeBytes(meaningful));
                     var authDataContainer = Newtonsoft.Json.JsonConvert.DeserializeObject<AuthDataContainer>(plain);
                     string adStr = (authDataContainer?.AuthDataJson ?? "").Trim();
                     ad = Newtonsoft.Json.JsonConvert.DeserializeObject<AuthData>(adStr);

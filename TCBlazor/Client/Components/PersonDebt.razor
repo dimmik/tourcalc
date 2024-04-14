@@ -5,7 +5,7 @@
         @{
             var willPay = tour.AmountAPersonWillPay(person);
         }
-        @if (Math.Abs(willPay - debt) > 5) // to avoid rounding errors
+        @if (string.IsNullOrWhiteSpace(person.ParentId) && Math.Abs(willPay - debt) > 5) // to avoid rounding errors
         {
             <span style="font-size:xx-small"> [@willPay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)]</span>
         }
