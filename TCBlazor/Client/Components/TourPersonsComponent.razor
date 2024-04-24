@@ -18,7 +18,7 @@
         if (string.IsNullOrWhiteSpace(p.ParentId)){
             return GetFamilyStyle(p.FamilyId);
         } else {
-            return $"background-color: #cccccc";
+            return $"background-color: #eeeeee";
         }
         //return "";
     })
@@ -146,7 +146,7 @@
 
     private string GetFamilyStyle(string familyId){
         if (string.IsNullOrWhiteSpace(familyId)) return "background-color: white";
-        return "background-color: #98FB98";
+        return "background-color: #aaf0d1";
     }
 
     protected override async Task OnInitializedAsync()
