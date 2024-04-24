@@ -2,8 +2,8 @@
 @inject IJSRuntime JsRuntime
 
 <span>
-    <Button Type="@AntDesign.ButtonType.Dashed" @onclick=@(() => open = !open)>
-        @((MarkupString)GetNameText(full: open).AsBreakable(3))
+    <Button Type="@AntDesign.ButtonType.Dashed" @onclick=@(() => open = !open) Style="min-width: 160px">
+        @GetNameText(full: open)
         </Button>
     @if (open)
     {
@@ -85,7 +85,20 @@
         if (full) return nameText;
         bool crop = nameText.Length > triggerLength;
         nameText = nameText.Substring(0, crop ? triggerLength : nameText.Length) + (crop ? "…" : "");
+        //if (nameText.Length < triggerLength) nameText = MakeFullLength(nameText, triggerLength);
         return nameText;
+    }
+    private string MakeFullLength(string str, int len)
+    {
+        var symToAdd = len - str.Length;
+        if (symToAdd <= 0) return str;
+        var sym = "_";
+        var ret = str;
+        for (int i = 0; i < symToAdd; i++)
+        {
+            ret = ret + sym;
+        }
+        return ret;
     }
 
     RenderFragment TitleTemplate(bool deleting, int idx, Person person)
