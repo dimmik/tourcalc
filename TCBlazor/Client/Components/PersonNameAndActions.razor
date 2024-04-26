@@ -2,7 +2,7 @@
 @inject IJSRuntime JsRuntime
 
 <span>
-    <Button Type="@AntDesign.ButtonType.Dashed" @onclick=@(() => open = !open) Style="min-width: 160px">
+    <Button Type="@AntDesign.ButtonType.Text" Block=@true @onclick=@(() => open = !open) Style="text-align: left">
         @GetNameText(full: open)
         </Button>
     @if (open)
