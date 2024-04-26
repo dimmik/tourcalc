@@ -52,7 +52,7 @@
         }
         @if (string.IsNullOrWhiteSpace(person.Metadata))
         {
-            <td style="padding: 2px;">
+            <td style="padding: 2px;width:@(ShowWeightSpentReceived ? 20 : 50)%">
                 <PersonNameAndActions 
                     @key=@($"pna_{person.GUID}")
                     idx="idx"
