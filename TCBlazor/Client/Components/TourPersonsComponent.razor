@@ -72,15 +72,15 @@
             </td>
             @if (ShowWeightSpentReceived)
             {
-                <td align="center" valign="middle" style="padding:0; height: inherit;">
+                <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%">
                     <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
                         @person.Weight
                     </div>
                 </td>
-                <td align="center" valign="middle" style="padding:0; height: inherit;"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}")/></td>
-                <td align="center" valign="middle" style="padding:0; height: inherit;"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></td>
+                <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}") /></td>
+                <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></td>
             }
-            <td align="center" valign="middle" style="padding:0; height: inherit;">
+            <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%">
                 <PersonDebt @key=@($"debt_{person.GUID}")
                     debt="Debt(person)"
                     person="person"
