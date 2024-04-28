@@ -2,7 +2,7 @@
 @inject TourcalcEngine engine
 
 
-<span style="cursor:pointer; border:solid 1px black" @onclick=@(() => open=true)>Vv</span>
+<span style="cursor:pointer; border:solid 1px black" @onclick=@(() => open=true)>@Text</span>
 
 @if (open)
 {
@@ -55,6 +55,8 @@ else // free up memory. Better to load again
     bool open = false;
     [Parameter]
     public Tour? Tour { get; set; } = new();
+    [Parameter]
+    public string Text { get; set; } = "Vv";
 
     TourList? versions = null;
     Task? verTask = null;

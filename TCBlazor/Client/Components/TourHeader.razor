@@ -62,6 +62,8 @@
         <span style="font-size: x-small">(<CurrenciesEditInModal tour=@tour />)</span>
         &nbsp;| &nbsp;
         <span style="font-size: x-small; text-decoration: underline;"><a href=@($"/goto/{tour?.AccessCodeMD5}/{tour?.Id}")>link</a></span>
+        &nbsp;| &nbsp; 
+        <span style="font-size: x-small"><TourVersions @key=@($"tvc_{tour.Id}") Tour=@tour Text="ver."/></span>
     </span>
     <div style="width: 100%; display:flex; align-items:center; justify-content:center;">
         <div style="margin:auto">
