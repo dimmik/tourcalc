@@ -4,6 +4,7 @@
 @inject TourcalcEngine engine
 @inject ITokenStorage tokenStorage
 @inject TCalcCore.Network.EnrichedHttpClient hClient;
+@inject NavigationManager NavManager
 
 
 
@@ -15,7 +16,7 @@
           await engine.RequestTourLoad(tour?.GUID, forceLoadFromServer: true);
           IsTourReloading = false;
           })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
-    <span>@tour?.Name</span>
+    <span style="cursor:pointer" onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}"))>@tour?.Name</span>
     <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "x" : "")}") ⓘ</Button>
 
     @{
