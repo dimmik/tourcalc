@@ -4,9 +4,14 @@
 
 @if (_newVersionAvailable)
 {
-    <button style="background-color: Beige; color:darkgreen" onclick="window.location.reload()">
-        update
-    </button>
+    <Modal 
+        Visible=@true
+        Title="UPDATE"
+        OnOk=@(async () => {await _jsRuntime.InvokeVoidAsync("window.location.reload", null);})
+        OnCancel=@(async () => {await _jsRuntime.InvokeVoidAsync("window.location.reload", null);})
+          >
+        Update Available. The app will be refreshed.
+    </Modal>
 }
 
 @code {
