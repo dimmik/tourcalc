@@ -54,7 +54,7 @@
                 }
             </tr>
             <tr>
-                <td style="border: 1px solid blue">Per Person</td>
+                <td style="border: 1px solid blue">Per Person (@adultPersonWeight w)</td>
                 @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
                 {
                     var pp = totalSpent * adultPersonWeight / totalWeight;
