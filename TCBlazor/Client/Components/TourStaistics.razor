@@ -31,32 +31,55 @@
     </tr>
     <tr>
     <td>
-            <div>
-            Total: 
-            <ul style="display: inline-block; padding:0; margin: 0;">
+            <table>
+            <thead>
+            <tr>
+                <th>&nbsp;</th>
+                @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
+                {
+                    <td style="border: 1px solid blue">@c.Name</td>
+                }
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td style="border: 1px solid blue">Total</td>
                 @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
                 {
                     var pp = totalSpent;
                     var cc = Tour?.Currency ?? new();
                     var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                     var amountInCurrency = pp * rate;
-                        <li style="display: inline-block; padding:0;"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</li>
+                        <td style="font-weight:bold; border: 1px solid blue"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</td>
                 }
-            </ul>
-            </div>
-            <div>
-            <b>Per Person </b>(@adultPersonWeight w):
-            <ul style="display: inline-block; padding:0; margin: 0;">
-            @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
-            {
-                var pp = totalSpent * adultPersonWeight / totalWeight;
-                var cc = Tour?.Currency ?? new();
-                var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
-                var amountInCurrency = pp * rate;
-                    <li style="display: inline-block; padding:0;"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</li>
-            }
-            </ul>
-            </div>
+            </tr>
+            <tr>
+                <td style="border: 1px solid blue">Per Person</td>
+                @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
+                {
+                    var pp = totalSpent * adultPersonWeight / totalWeight;
+                    var cc = Tour?.Currency ?? new();
+                    var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
+                    var amountInCurrency = pp * rate;
+                        <td style="font-weight:bold; border: 1px solid blue"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</td>
+                }
+            </tr>
+            <tr>
+                <td style="border: 1px solid blue">
+                   Per Day: <AntDesign.InputNumber @bind-Value="days" Min="1" Max="50"/>
+                    
+                </td>
+                @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
+                {
+                    var pp = totalSpent * adultPersonWeight / totalWeight;
+                    var cc = Tour?.Currency ?? new();
+                    var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
+                    var amountInCurrency = pp * rate / (days == 0 ? 1 : days);
+                        <td style="font-weight:bold; border: 1px solid blue"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</td>
+                }
+            </tr>
+            </tbody>
+            </table>
     </td>
     </tr>
         @if (Tour.IsMultiCurrency()){
@@ -86,6 +109,8 @@
     {
         ("A", 10)
     };
+
+    private int days { get; set; } = 5;
 
     private int Magic = -1;
     private string? Seed = null;
