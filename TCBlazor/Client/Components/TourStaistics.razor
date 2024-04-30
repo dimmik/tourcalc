@@ -44,7 +44,7 @@
                         </th>
                 @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
                 {
-                    <td style="border: 1px solid blue">@c.Name</td>
+                    <td align="center" style="border: 1px solid blue;@(c == Tour.Currency ? "font-weight: bold; color: green;" : "")">@c.Name</td>
                 }
             </tr>
             </thead>
