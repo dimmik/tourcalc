@@ -85,28 +85,31 @@
                         <td style="font-weight:bold; border: 1px solid blue"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</td>
                 }
             </tr>
+                    @if (Tour.IsMultiCurrency())
+                    {
+                        <tr>
+                            <td>
+                                Currency: <b style='color: green'>@Tour?.Currency?.Name</b>
+                            </td>
+                            @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
+                            {
+                                var cc = Tour?.Currency ?? new ();
+                                var rate = cc.CurrencyRate > c.CurrencyRate ? cc.CurrencyRate * 1.0 / c.CurrencyRate : c.CurrencyRate * 1.0 / cc.CurrencyRate;
+                                var (fc, sc) = cc.CurrencyRate > c.CurrencyRate ? (cc, c) : (c, cc);
+                                <td style="border: 1px solid darkgreen">
+                                    @if (cc != c)
+                                    {
+                                        <span style="font-size: x-small"><b style="@(fc == cc ? "color:green" : "")">@fc.Name</b> / <b style="@(sc == cc ? "color:green" : "")">@sc.Name:</b> @($"{rate:#.00}")</span>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+
             </tbody>
             </table>
     </td>
     </tr>
-        @if (Tour.IsMultiCurrency()){
-        <tr><td>
-        <div>Currency: <b style='color: green'>@Tour.Currency.Name</b></div>
-            <ul>
-            @foreach (var c in Tour.Currencies)
-            {
-                var cc = Tour.Currency;
-                var rate = cc.CurrencyRate > c.CurrencyRate ? cc.CurrencyRate * 1.0 / c.CurrencyRate : c.CurrencyRate * 1.0 / cc.CurrencyRate;
-                var (fc, sc) = cc.CurrencyRate > c.CurrencyRate ? (cc, c) : (c, cc);
-                if (cc != c){
-                    <li>
-                      <b style="@(fc == cc ? "color:green" : "")">@fc.Name</b> / <b style="@(sc == cc ? "color:green" : "")">@sc.Name:</b> @($"{rate:#.00}")
-                    </li>
-                }
-            }
-            </ul>
-        </td></tr>
-        }
 </table>
 @code {
     [Parameter]
@@ -173,6 +176,7 @@
         {
             totalSpent = Tour.Spendings.Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc)).Select(s => s.AmountInCurrentCurrency(Tour)).Sum();
             totalWeight = Tour.Persons.Select(p => p.Weight).Sum();
+            if (totalWeight == 0) totalWeight = 100;
 
             totalSpentByCat = Tour.Spendings
                 .Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc))
@@ -200,7 +204,6 @@
             totalSpentByCat[""] = totalSpent;
             totalWeightByCat[""] = totalWeight;
 
-            if (totalWeight == 0) totalWeight = 100;
             // adult person weight
             // if there is a parent - his weight
             if (Tour.Persons.Any(p => !string.IsNullOrWhiteSpace(p.ParentId)))
