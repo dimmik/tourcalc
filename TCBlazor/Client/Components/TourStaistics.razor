@@ -34,7 +34,14 @@
             <table>
             <thead>
             <tr>
-                <th>&nbsp;</th>
+                        <th>
+                            <Select @bind-Value=@selectedCat
+                                    TItemValue="string"
+                                    TItem="string"
+                                    AllowClear=@true
+                                    DataSource=@totalSpentByCat.Keys
+                                    IgnoreItemChangesLeadsToException="false" />
+                        </th>
                 @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
                 {
                     <td style="border: 1px solid blue">@c.Name</td>
@@ -46,7 +53,7 @@
                 <td style="border: 1px solid blue">Total</td>
                 @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
                 {
-                    var pp = totalSpent;
+                    var pp = totalSpentByCat[selectedCat];
                     var cc = Tour?.Currency ?? new();
                     var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                     var amountInCurrency = pp * rate;
@@ -57,7 +64,7 @@
                 <td style="border: 1px solid blue">Per Person (@adultPersonWeight w)</td>
                 @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
                 {
-                    var pp = totalSpent * adultPersonWeight / totalWeight;
+                    var pp = totalSpentByCat[selectedCat] * adultPersonWeight / (totalWeightByCat[selectedCat] == 0 ? 1 : totalWeightByCat[selectedCat]);
                     var cc = Tour?.Currency ?? new();
                     var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                     var amountInCurrency = pp * rate;
@@ -71,7 +78,7 @@
                 </td>
                 @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
                 {
-                    var pp = totalSpent * adultPersonWeight / totalWeight;
+                    var pp = totalSpentByCat[selectedCat] * adultPersonWeight / (totalWeightByCat[selectedCat] == 0 ? 1 : totalWeightByCat[selectedCat]);
                     var cc = Tour?.Currency ?? new();
                     var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                     var amountInCurrency = pp * rate / (days == 0 ? 1 : days);
@@ -119,6 +126,29 @@
     private UISettings settings = new();
 
     private long totalSpent = 0;
+    private Dictionary<string, long> totalSpentByCat = new()
+    {
+        { "", 1 }
+    };
+    private Dictionary<string, int> totalWeightByCat = new()
+    {
+        { "", 0 }
+    };
+    private string _sc = "";
+    private string selectedCat { get
+        {
+            return _sc;
+        } 
+        set
+        {
+            if (value == null){
+                _sc = "";
+            } else
+            {
+                _sc = value;
+            }
+        }
+    }
     private int totalWeight = 100;
     private int adultPersonWeight = 100;
 
@@ -143,6 +173,33 @@
         {
             totalSpent = Tour.Spendings.Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc)).Select(s => s.AmountInCurrentCurrency(Tour)).Sum();
             totalWeight = Tour.Persons.Select(p => p.Weight).Sum();
+
+            totalSpentByCat = Tour.Spendings
+                .Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc))
+                .Select(s => (s.Type, s.AmountInCurrentCurrency(Tour))) // (type, 1000), (type, 2000), ...
+                .Aggregate(new Dictionary<string, long>(), (dic, ta) => { if (!dic.ContainsKey(ta.Type)) dic[ta.Type] = 0; dic[ta.Type] += ta.Item2; return dic; })
+                ;
+            // some magic for the wights
+            var tt = Tour.Spendings
+                .Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc))
+                .Select(s => (s.Type, 
+                        s.ToAll 
+                            ? Tour.Persons.Select(p => p.Weight).Sum()
+                            : s.ToGuid
+                                .Select(guid => Tour.Persons.Where(p => p.GUID == guid).FirstOrDefault() ?? new())
+                                .Select(p => p.Weight).Sum()
+                        )
+
+                ) // (type, 100), (type, 35), ...
+                .Aggregate(new Dictionary<string, (int, int)>(), (dic, ta) => { if (!dic.ContainsKey(ta.Type)) dic[ta.Type] = (0, 0); dic[ta.Type] = (dic[ta.Type].Item1 + ta.Item2, dic[ta.Type].Item2 + 1); return dic; })
+                ;
+            foreach (var kv in tt)
+            {
+                totalWeightByCat[kv.Key] = (int)Math.Round(kv.Value.Item1 * 1.0 / kv.Value.Item2);
+            }            
+            totalSpentByCat[""] = totalSpent;
+            totalWeightByCat[""] = totalWeight;
+
             if (totalWeight == 0) totalWeight = 100;
             // adult person weight
             // if there is a parent - his weight
