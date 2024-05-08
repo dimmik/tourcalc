@@ -51,20 +51,30 @@
                             }
                         </span>
                     }
-                    @if (tour.IsMultiCurrency())
+                    @if (true)//tour.IsMultiCurrency())
                     {
                         <span style="font-size: xx-small">
-                            <br>Raw debt: @debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated) @tour.Currency.Name
-                        <ul>
+                            @{
+                                var fb = tour.FamilyBudget(person);
+                            }
+                            <br />Family Budget: <b>@fb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b> @tour.CurrencyNameEmptyIfSingleCurrency();
+                            @foreach (var c in tour.Currencies)
+                            {
+                                @if (c != tour.Currency)
+                                {
+                                    var cFb = fb * tour.Currency.CurrencyRate * 1.0 / c.CurrencyRate;
+                                    <span><b>@cFb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b> @c.Name; </span>
+                                }
+                            }
+                            <br />Raw debt: <b>@debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b> @tour.CurrencyNameEmptyIfSingleCurrency();
                             @foreach (var c in tour.Currencies)
                             {
                                 @if (c != tour.Currency)
                                 {
                                     var cDebt = debt * tour.Currency.CurrencyRate * 1.0 / c.CurrencyRate;
-                                    <li>@cDebt.ToString("N0", GlobConsts.NumGroupSpaceSeparated) @c.Name</li>
+                                    <span><b>@cDebt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b> @c.Name; </span>
                                 }
                             }
-                        </ul>
                         </span>
                     }
                     

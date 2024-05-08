@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using TCalc.Domain;
 
@@ -8,7 +9,7 @@ namespace TCalc.Logic
 {
     public static class CalcUtilities
     {
-        public static (bool WillPay, IEnumerable<Spending> sp) GetPayOrReceiveSpendings(Tour tour, Person person, long minMeaningfulAmount)
+        public static (bool WillPay, IEnumerable<Spending> sp) GetPayOrReceiveSpendings(this Tour tour, Person person, long minMeaningfulAmount)
         {
             IEnumerable<Spending> sp;
             bool wp;
@@ -26,7 +27,7 @@ namespace TCalc.Logic
             return (wp, sp);
 
         }
-        public static string DebtStatusOfSpending(Tour tour, Spending spending, Person person)
+        public static string DebtStatusOfSpending(this Tour tour, Spending spending, Person person)
         {
             var pTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0]) ?? new Person();
             var pFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid) ?? new Person();
@@ -34,7 +35,7 @@ namespace TCalc.Logic
             if (pFrom.GUID == person.GUID) return "Bankrupt"; // the person will pay
             return "Pleasure"; // someone, not child, will pay me
         }
-        public static (Person p, long debt) GetDebtor(Tour tr)
+        public static (Person p, long debt) GetDebtor(this Tour tr)
         {
             var debtor = tr?.Persons
                                     .Select(p => (p, CalcUtilities.GetPayOrReceiveSpendings(tr, p, 0)))
@@ -54,6 +55,21 @@ namespace TCalc.Logic
                 .Select(s => s.AmountInCurrentCurrency(tr))?.Sum() 
                 ?? 0;
             return willPay ? amount : -amount;
+        }
+        public static long FamilyBudget(this Tour tr, Person person, int duration = 1)
+        {
+            if (!string.IsNullOrWhiteSpace(person.ParentId))
+            {
+                return 0;
+            }
+            // get all relatives
+            var theFamily = tr.Persons.Where(p => p.ParentId == person.GUID).Append(person);
+            // get their receiveds with a type
+            var receivedSpendingInfos = theFamily.Select(p => p.ReceivedSendingInfo).SelectMany(s => s).Where(s => !string.IsNullOrWhiteSpace(s.Type));
+            var receivedSum = receivedSpendingInfos.Select(si => si.ReceivedAmountInCents).Sum();
+            // calculate full budget
+            long budget = (long)(receivedSum * 1.0 / duration);
+            return budget;
         }
     }
 }
