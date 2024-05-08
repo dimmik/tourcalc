@@ -45,8 +45,8 @@ else
                                 AllowClear=@true
                                 Style="width: 80px;"
                                 DataSource="tour?.Currencies ?? new Currency[0]"
-                                OnSelectedItemChanged="() => tourLocal = GetTourInCurrency(tourLocal)"
-                                OnClearSelected="() => {curr = tour?.Currency; tourLocal = GetTourInCurrency(tourLocal);}"
+                                OnSelectedItemChanged="() => tourLocal = GetTourInCurrency(tourLocal??new())"
+                                OnClearSelected="() => {curr = tour?.Currency; tourLocal = GetTourInCurrency(tourLocal??new());}"
                                 IgnoreItemChangesLeadsToException="false" />
                          }
                     </div>
@@ -60,21 +60,21 @@ else
                     <TourPersonsComponent 
                     tour=@tourLocal
                     OnPersonDelete=@(async (p) => {
-                        _ = engine.RequestDeletePerson(tour.Id, p);
+                        _ = engine.RequestDeletePerson(tour?.Id, p);
                     })
                     OnPersonEdit=@(async (p) => {
-                        _ = engine.RequestEditPerson(tour.Id, p);
+                        _ = engine.RequestEditPerson(tour?.Id, p);
                     })
                     OnPersonAdd=@(async (p) => {
                         //await dataSvc.AddPerson(tour.Id, p, OnTourStored);
-                        _ = engine.RequestAddPerson(tour.Id, p);
+                        _ = engine.RequestAddPerson(tour?.Id, p);
                     })
                     />
                 }
                 <!--Spendings-->
                 <div style="width: 100%; display: table">
                 <div style="display: table-cell; width: 40%; align-content: flex-start; text-align: start;">
-                    <b id=@GetId("spendings")>Spendings [@tour.Spendings.Where(s => !s.Planned).Count()]</b>
+                    <b id=@GetId("spendings")>Spendings [@(tour?.Spendings?.Where(s => !s.Planned)?.Count()??0)]</b>
                     <Button Type="primary" Ghost Size="small" @onclick=@(() => ShowSpendings = !ShowSpendings)>@(ShowSpendings ? "hide" : "show")</Button>
                 </div>
                 <div style="display: table-cell; width: 60%; align-content: flex-end; text-align: end;">
@@ -92,7 +92,7 @@ else
                             StateHasChanged();
                         })
                         OnSpendingDelete=@(async (s) => {
-                            _ = engine.RequestDeleteSpending(tour.Id, s);
+                            _ = engine.RequestDeleteSpending(tour?.Id, s);
                         })
                     >
                         <EditActionTemplate Context="s">
@@ -105,14 +105,14 @@ else
                                             var ss = s.SafeClone<Spending>();
                                             ss.Type = "";
                                             ss.Color = ss.Description.StartsWith("X") ? "lightgreen" : "lightgray";
-                                            _ = engine.RequestAddSpending(tour.Id, ss);
+                                            _ = engine.RequestAddSpending(tour?.Id, ss);
                                         }
                                     })>+</Button>
                                 }
                                 else
                                 {
                                     <SpendingEditInModal spending=@s tour=@tour @key=@($"sp_ed_mod_{s.GUID}")/>
-                                <NavLink href=@($"/tour/{tour.Id}/spending/edit/{s.GUID}")>&nbsp; 
+                                <NavLink href=@($"/tour/{tour?.Id}/spending/edit/{s.GUID}")>&nbsp; 
                                     <span style="border:solid 1px black">-&gt;</span>                    
                                 </NavLink>
                                 }

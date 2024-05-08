@@ -58,18 +58,23 @@
                                 var fb = tour.FamilyBudget(person);
                                 long perDay = (long)(fb * 1.0 / tour.Duration);
                             }
-                            <br />Family Budget (@tour.Duration d): <b><span style="font-size:small;color:brown">@fb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> 
-                            (<span style="font-size:x-small;color:crimson">@perDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>/d)</b> @tour.CurrencyNameEmptyIfSingleCurrency();
-                            @foreach (var c in tour.Currencies)
+                            @if (fb > 0)
                             {
-                                @if (c != tour.Currency)
-                                {
-                                    var cFb = fb * tour.Currency.CurrencyRate * 1.0 / c.CurrencyRate;
-                                    var cPerDay = (long)(cFb * 1.0 / tour.Duration);
-                                    <span><b>
-                                    <span style="font-size:small;color:brown">@cFb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
-                                    (<span style="font-size:x-small;color:crimson">@cPerDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>/d)</b> @c.Name; </span>
-                                }
+                                <span>
+                                    <br />@(string.IsNullOrWhiteSpace(person.ParentId) ? "Family" : "") Budget (@tour.Duration d): <b><span style="font-size:small;color:brown">@fb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> 
+                                        (<span style="font-size:x-small;color:crimson">@perDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>/d)</b> @tour.CurrencyNameEmptyIfSingleCurrency();
+                                    @foreach (var c in tour.Currencies)
+                                    {
+                                        @if (c != tour.Currency)
+                                        {
+                                            var cFb = fb * tour.Currency.CurrencyRate * 1.0 / c.CurrencyRate;
+                                            var cPerDay = (long)(cFb * 1.0 / tour.Duration);
+                                            <span><b>
+                                                    <span style="font-size:small;color:brown">@cFb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
+                                                    (<span style="font-size:x-small;color:crimson">@cPerDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>/d)</b> @c.Name; </span>
+                                        }
+                                    }
+                                </span>
                             }
                             <br />Raw debt: <b>@debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b> @tour.CurrencyNameEmptyIfSingleCurrency();
                             @foreach (var c in tour.Currencies)

@@ -64,7 +64,7 @@
         &nbsp;| &nbsp;
         <span style="font-size: x-small; text-decoration: underline;"><a href=@($"/goto/{tour?.AccessCodeMD5}/{tour?.Id}")>link</a></span>
         &nbsp;| &nbsp; 
-        <span style="font-size: x-small"><TourVersions @key=@($"tvc_{tour.Id}") Tour=@tour Text="ver."/></span>
+        <span style="font-size: x-small"><TourVersions @key=@($"tvc_{tour?.Id}") Tour=@tour Text="ver."/></span>
     </span>
     <div style="width: 100%; display:flex; align-items:center; justify-content:center;">
         <div style="margin:auto">
@@ -114,7 +114,7 @@
             if (!httpError)
             {
                 var subscription = await JsRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription", pKey);
-                var subscribed = await hClient.CallWithAuthToken<bool>($"api/subscription/check/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { httpError = true; });
+                var subscribed = await hClient.CallWithAuthToken<bool>($"api/subscription/check/{tour?.Id}", token, HttpMethod.Post, subscription, (m) => { httpError = true; });
                 isSubscribed = subscribed;
             }
         }
@@ -132,13 +132,13 @@
             if (subscribed)
             {
                 // unsubscribe
-                var ok = await hClient.CallWithAuthToken<string>($"api/subscription/unsubscribe/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { });
+                var ok = await hClient.CallWithAuthToken<string>($"api/subscription/unsubscribe/{tour?.Id}", token, HttpMethod.Post, subscription, (m) => { });
                 isSubscribed = false;
             }
             else
             {
                 // store for this tour id - call notifications/subscribe/{tourid} for the subscription
-                var ok = await hClient.CallWithAuthToken<string>($"api/subscription/subscribe/{tour.Id}", token, HttpMethod.Post, subscription, (m) => { });
+                var ok = await hClient.CallWithAuthToken<string>($"api/subscription/subscribe/{tour?.Id}", token, HttpMethod.Post, subscription, (m) => { });
                 isSubscribed = true;
             }
         }
