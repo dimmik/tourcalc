@@ -58,14 +58,14 @@
                                 var fb = tour.FamilyBudget(person);
                                 long perDay = (long)(fb * 1.0 / tour.Duration);
                             }
-                            <br />Family Budget: <b>@fb.ToString("N0", GlobConsts.NumGroupSpaceSeparated) (@perDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> @tour.CurrencyNameEmptyIfSingleCurrency();
+                            <br />Family Budget (@tour.Duration d): <b>@fb.ToString("N0", GlobConsts.NumGroupSpaceSeparated) (@perDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)/d)</b> @tour.CurrencyNameEmptyIfSingleCurrency();
                             @foreach (var c in tour.Currencies)
                             {
                                 @if (c != tour.Currency)
                                 {
                                     var cFb = fb * tour.Currency.CurrencyRate * 1.0 / c.CurrencyRate;
                                     var cPerDay = (long)(cFb * 1.0 / tour.Duration);
-                                    <span><b>@cFb.ToString("N0", GlobConsts.NumGroupSpaceSeparated) (@cPerDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> @c.Name; </span>
+                                    <span><b>@cFb.ToString("N0", GlobConsts.NumGroupSpaceSeparated) (@cPerDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)/d)</b> @c.Name; </span>
                                 }
                             }
                             <br />Raw debt: <b>@debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b> @tour.CurrencyNameEmptyIfSingleCurrency();
