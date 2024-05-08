@@ -75,8 +75,8 @@ else
                 } else
                 {
                     <span>
-                        <input type="text" disabled=@InProgress @bind-value=@tour.Name @onfocusout=@(() => ChangeTourName(tour)) />
-                        <span style="cursor:pointer;color:white;background-color:blue;border:1px solid black">save</span>
+                        <input type="text" disabled=@InProgress @bind-value=@tour.Name /> <input type="number" disabled=@InProgress @bind-value=@tour.Duration />
+                        <span style="cursor:pointer;color:white;background-color:blue;border:1px solid black" @onclick=@(() => ChangeTourNameAndDuration(tour))>save</span>
                         </span>
                 }
             <div style="font-size: xx-small">[@tour.DateCreated.ToString("dd.MM.yyyy HH:mm")] 
@@ -212,11 +212,12 @@ else
         await JsRuntime.InvokeVoidAsync("clipboardCopy.copyText", text);
     }
 
-    private Task ChangeTourName(Tour tour)
+    private Task ChangeTourNameAndDuration(Tour tour)
     {
         InProgress = true;
-        Tour t = new Tour() { Id = tour.Id, Name = tour.Name };
+        Tour t = new Tour() { Id = tour.Id, Name = tour.Name, Duration = tour.Duration };
         _ = engine.RequestEditTourProps(t, ("changename", t));
+        _ = engine.RequestEditTourProps(t, ("duration", t));
         return Task.CompletedTask;
     }
 
