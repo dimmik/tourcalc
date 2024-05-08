@@ -21,6 +21,9 @@ namespace TCalc.Domain
         public string InternalVersionComment = null;
         public bool IsArchived { get; set; } = false;
         public bool IsFinalizing { get; set; } = false;
+
+        public int Duration { get; set; } = 5;
+
         public string StateGUID { get; set; } = "";
         public IEnumerable<Currency> Currencies { get; set; } = new Currency[] { Currency.Default };
         private Currency __currency = Currency.Default;
