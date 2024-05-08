@@ -35,17 +35,20 @@ else
                         <!--Persons-->
                         <b id=@GetId("persons")>Persons [@tour.Persons.Count]</b>
                         <Button Type="primary" Ghost Size="small" @onclick=@(() => ShowPersons = !ShowPersons)>@(ShowPersons ? "hide" : "show")</Button>
-                        <!-- choose local currency -->
-                         <Select @bind-Value=@(curr)
-                                 TItemValue="Currency"
-                                 TItem="Currency"
-                                 LabelName="@nameof(Currency.Name)"
-                                 AllowClear=@true
-                                 Style="width: 80px;"
-                                 DataSource="tour?.Currencies ?? new Currency[0]"
-                                 OnSelectedItemChanged="() => tourLocal = GetTourInCurrency(tourLocal)"
-                                 OnClearSelected="() => {curr = tour?.Currency; tourLocal = GetTourInCurrency(tourLocal);}"
-                                 IgnoreItemChangesLeadsToException="false" />
+                         @if (tour?.IsMultiCurrency() ?? false)
+                         {
+                            <!-- choose local currency -->
+                            <Select @bind-Value=@(curr)
+                                TItemValue="Currency"
+                                TItem="Currency"
+                                LabelName="@nameof(Currency.Name)"
+                                AllowClear=@true
+                                Style="width: 80px;"
+                                DataSource="tour?.Currencies ?? new Currency[0]"
+                                OnSelectedItemChanged="() => tourLocal = GetTourInCurrency(tourLocal)"
+                                OnClearSelected="() => {curr = tour?.Currency; tourLocal = GetTourInCurrency(tourLocal);}"
+                                IgnoreItemChangesLeadsToException="false" />
+                         }
                     </div>
                     <div style="display: table-cell; width: 50%; align-content: flex-end; text-align: end;">
                         <a href=@GetHref("spendings")>Spendings</a>
