@@ -58,11 +58,7 @@ namespace TCalc.Logic
         }
         public static long FamilyBudget(this Tour tr, Person person)
         {
-            if (!string.IsNullOrWhiteSpace(person.ParentId))
-            {
-                return 0;
-            }
-            // get all relatives
+            // get person + all relatives
             var theFamily = tr.Persons.Where(p => p.ParentId == person.GUID).Append(person);
             // get their receiveds with a type
             var receivedSpendingInfos = theFamily.Select(p => p.ReceivedSendingInfo).SelectMany(s => s).Where(s => !string.IsNullOrWhiteSpace(s.Type));

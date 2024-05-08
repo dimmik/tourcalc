@@ -61,7 +61,7 @@
                             @if (fb > 0)
                             {
                                 <span>
-                                    <br />Family Budget (@tour.Duration d): <b><span style="font-size:small;color:brown">@fb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> 
+                                    <br />@(string.IsNullOrWhiteSpace(person.ParentId) ? "Family" : "") Budget (@tour.Duration d): <b><span style="font-size:small;color:brown">@fb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> 
                                         (<span style="font-size:x-small;color:crimson">@perDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>/d)</b> @tour.CurrencyNameEmptyIfSingleCurrency();
                                     @foreach (var c in tour.Currencies)
                                     {
