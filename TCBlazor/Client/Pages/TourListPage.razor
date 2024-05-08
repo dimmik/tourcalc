@@ -70,7 +70,7 @@ else
         <td>
                 @if (!(tour.Metadata == "Editing"))
                 {
-                    <NavLink href=@($"tour/{tour.Id}")>@((MarkupString)tour.Name.AsBreakable())</NavLink> 
+                    <span><NavLink href=@($"tour/{tour.Id}")>@((MarkupString)tour.Name.AsBreakable())</NavLink> (@tour.Duration d)</span>
                     
                 } else
                 {

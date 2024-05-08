@@ -73,7 +73,7 @@
             </tr>
             <tr>
                 <td style="border: 1px solid blue">
-                   Per Day: <AntDesign.InputNumber @bind-Value="days" Min="1" Max="50"/>
+                   Per Day: <AntDesign.InputNumber @bind-Value="duration" Min="1" Max="50"/>
                     
                 </td>
                 @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
@@ -81,7 +81,7 @@
                     var pp = totalSpentByCat[selectedCat] * adultPersonWeight / (totalWeightByCat[selectedCat] == 0 ? 1 : totalWeightByCat[selectedCat]);
                     var cc = Tour?.Currency ?? new();
                     var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
-                    var amountInCurrency = pp * rate / (days == 0 ? 1 : days);
+                    var amountInCurrency = pp * rate / (duration == 0 ? 1 : duration);
                         <td style="font-weight:bold; border: 1px solid blue"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</td>
                 }
             </tr>
@@ -120,7 +120,7 @@
         ("A", 10)
     };
 
-    private int days { get; set; } = 5;
+    private int duration { get; set; } = 4;
 
     private int Magic = -1;
     private string? Seed = null;
@@ -158,6 +158,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        duration = Tour.Duration;
         settings = await engine.GetUISettings();
         summary = GetSpendingForStat();
         CalculatePerPerson();
@@ -166,6 +167,7 @@
 
     protected override void OnParametersSet()
     {
+        duration = Tour.Duration;
         summary = GetSpendingForStat();
         CalculatePerPerson();
     }

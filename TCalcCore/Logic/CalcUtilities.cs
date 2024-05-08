@@ -56,7 +56,7 @@ namespace TCalc.Logic
                 ?? 0;
             return willPay ? amount : -amount;
         }
-        public static long FamilyBudget(this Tour tr, Person person, int duration = 1)
+        public static long FamilyBudget(this Tour tr, Person person)
         {
             if (!string.IsNullOrWhiteSpace(person.ParentId))
             {
@@ -68,7 +68,7 @@ namespace TCalc.Logic
             var receivedSpendingInfos = theFamily.Select(p => p.ReceivedSendingInfo).SelectMany(s => s).Where(s => !string.IsNullOrWhiteSpace(s.Type));
             var receivedSum = receivedSpendingInfos.Select(si => si.ReceivedAmountInCents).Sum();
             // calculate full budget
-            long budget = (long)(receivedSum * 1.0 / duration);
+            long budget = receivedSum;
             return budget;
         }
     }

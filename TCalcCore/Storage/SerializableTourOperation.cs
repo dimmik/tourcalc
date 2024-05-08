@@ -65,6 +65,10 @@ namespace TCalc.Storage
                     Tour ta = JsonConvert.DeserializeObject<Tour>(ItemJson ?? "");
                     logger?.Log($"({context}) new archived: {ta.IsArchived}");
                     return t => { t.IsArchived = ta.IsArchived; return t; };
+                case "duration":
+                    Tour td = JsonConvert.DeserializeObject<Tour>(ItemJson ?? "");
+                    logger?.Log($"({context}) new duration: {td.Duration}");
+                    return t => { t.Duration = td.Duration; return t; };
                 case "SetTourCurrency":
                 case "ChangeTourCurrency":
                 case "UpdateTourCurrency":
