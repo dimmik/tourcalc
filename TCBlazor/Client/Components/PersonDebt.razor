@@ -53,6 +53,7 @@
                     }
                     @if (true)//tour.IsMultiCurrency())
                     {
+                        <FamilyBudgetInfo tour="tour" person="person"/>
                         <span style="font-size: xx-small">
                             
                             <br />Raw debt: <b>@debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</b> @tour.CurrencyNameEmptyIfSingleCurrency();
