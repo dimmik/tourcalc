@@ -1,4 +1,6 @@
-﻿@{
+﻿@using TCalc.Logic
+
+@{
     var byCur = person.ReceivedSendingInfo
         .Aggregate(new Dictionary<Currency, long>(), (dic, rsi) =>
         {
@@ -51,7 +53,8 @@
                     ShowAbsoluteNumbers=@true
                     Width="100px"
                     Data=@data
-                    ></SimpleBlazorPieChart.SimplePieChart>
+                    />
+                    <FamilyBudgetInfo tour="tour" person="person"/>
                 </div>
             }
 
