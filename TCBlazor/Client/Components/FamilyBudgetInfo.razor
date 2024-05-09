@@ -10,24 +10,15 @@
         <div style="text-align: center; margin-bottom: 20px;">
             <b>@(string.IsNullOrWhiteSpace(person.ParentId) ? "Family" : "") Budget (@tour.Duration days)</b>
         </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <span style="min-width: 40px; text-align: left">@tour.CurrencyNameEmptyIfSingleCurrency("¥"):</span>
-            <span style="font-weight: bold; min-width: 73px; text-align: right">@fb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
-            <span style="min-width: 75px; text-align: right"><span style="font-weight: bold; color: #e57373;">@perDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>/d</span>
-        </div>
-        @foreach (var c in tour.Currencies)
+        @foreach (var c in tour.Currencies.OrderByDescending(c => c.CurrencyRate))
         {
-            @if (c != tour.Currency)
-            {
-                var cFb = fb * tour.Currency.CurrencyRate * 1.0 / c.CurrencyRate;
-                var cPerDay = (long)(cFb * 1.0 / tour.Duration);
-
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                    <span style="min-width: 40px; text-align: left">@c.Name:</span>
-                    <span style="font-weight: bold; min-width: 73px; text-align: right">@cFb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
-                    <span style="min-width: 75px; text-align: right"><span style="font-weight: bold; color: #e57373;">@cPerDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>/d</span>
-                </div>
-            }
+            var cFb = fb * tour.Currency.CurrencyRate * 1.0 / c.CurrencyRate;
+            var cPerDay = (long)(cFb * 1.0 / tour.Duration);
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span style="min-width: 40px; text-align: left">@c.Name:</span>
+                <span style="font-weight: bold; min-width: 73px; text-align: right">@cFb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
+                <span style="min-width: 75px; text-align: right"><span style="font-weight: bold; color: #e57373;">@cPerDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>/d</span>
+            </div>
         }
     </div>
 }
