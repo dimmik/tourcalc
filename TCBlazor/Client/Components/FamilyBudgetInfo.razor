@@ -1,0 +1,33 @@
+﻿@using TCalc.Logic
+
+@{
+    var fb = tour.FamilyBudget(person);
+    long perDay = (long)(fb * 1.0 / tour.Duration);
+}
+@if (fb > 0)
+{
+    <div style="background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); padding: 20px; max-width: 600px; margin: auto;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <b>@(string.IsNullOrWhiteSpace(person.ParentId) ? "Family" : "") Budget (@tour.Duration days)</b>
+        </div>
+        @foreach (var c in tour.Currencies.OrderByDescending(c => c.CurrencyRate))
+        {
+            var cFb = fb * tour.Currency.CurrencyRate * 1.0 / c.CurrencyRate;
+            var cPerDay = (long)(cFb * 1.0 / tour.Duration);
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span style="min-width: 40px; text-align: left">@c.Name:</span>
+                <span style="font-weight: bold; min-width: 73px; text-align: right">@cFb.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>
+                <span style="min-width: 75px; text-align: right"><span style="font-weight: bold; color: #e57373;">@cPerDay.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span>/d</span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Tour tour {get; set; } = new();
+    [Parameter]
+    public Person person { get; set; } = new();
+    
+
+}

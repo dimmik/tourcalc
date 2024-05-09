@@ -1,21 +1,4 @@
-﻿@{
-    var byCur = person.ReceivedSendingInfo
-        .Aggregate(new Dictionary<Currency, long>(), (dic, rsi) =>
-        {
-            if (dic.ContainsKey(rsi.Currency))
-            {
-                dic[rsi.Currency] += rsi.OriginalReceivedAmountInCents;
-            }
-            else
-            {
-                dic[rsi.Currency] = rsi.OriginalReceivedAmountInCents;
-            }
-            return dic;
-        })
-        .Select(kv => (kv.Key, kv.Value))
-        .OrderBy(kv => kv.Key)
-        ;
-}
+﻿@using TCalc.Logic
 <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
     <Button Size="small" Style="color:red; font-weight: bold" @onclick=@(() => open = true)>
         @person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
@@ -23,8 +6,7 @@
 </div>
 
 
-<Modal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}"+
-                (byCur.Count() > 1 ? $" ({string.Join(", ", byCur.Select(cv => $"{cv.Value.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {cv.Key.Name}"))})" : ""))"
+<Modal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
        OnOk=@(() => open = false)
@@ -51,7 +33,8 @@
                     ShowAbsoluteNumbers=@true
                     Width="100px"
                     Data=@data
-                    ></SimpleBlazorPieChart.SimplePieChart>
+                    />
+                    <FamilyBudgetInfo tour="tour" person="person"/>
                 </div>
             }
 
