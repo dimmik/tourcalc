@@ -42,33 +42,41 @@
                                     DataSource=@totalSpentByCat.Keys
                                     IgnoreItemChangesLeadsToException="false" />
                         </th>
-                @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
+                @{
+                var currencies = (Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>()).Select((x, i) => (x, i)).ToArray();
+                var cLen = currencies.Count();
+                foreach (var (c, i) in currencies)
                 {
                     <td align="center" style="border: 1px solid blue;@(c == Tour?.Currency ? "font-weight: bold; color: green;" : "")">@c.Name</td>
+                }
                 }
             </tr>
             </thead>
             <tbody>
             <tr>
                 <td style="border: 1px solid blue">Total</td>
-                @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
+                @foreach (var (c, i) in currencies)
                 {
                     var pp = totalSpentByCat[selectedCat];
                     var cc = Tour?.Currency ?? new();
                     var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                     var amountInCurrency = pp * rate;
-                        <td style="font-weight:bold; border: 1px solid blue"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</td>
+                            <td style="font-weight:bold; border: 1px solid blue; text-align: right">
+                                <b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
+                                <span style="font-size: x-small">@(c.Name)</span>&nbsp;</td>
                 }
             </tr>
             <tr>
                 <td style="border: 1px solid blue">Per Person (@adultPersonWeight w)</td>
-                @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
+                @foreach (var (c, i) in currencies)
                 {
                     var pp = totalSpentByCat[selectedCat] * adultPersonWeight / (totalWeightByCat[selectedCat] == 0 ? 1 : totalWeightByCat[selectedCat]);
                     var cc = Tour?.Currency ?? new();
                     var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                     var amountInCurrency = pp * rate;
-                        <td style="font-weight:bold; border: 1px solid blue"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</td>
+                            <td style="font-weight:bold; border: 1px solid blue; text-align: right">
+                                <b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
+                                <span style="font-size: x-small">@(c.Name)</span>&nbsp;</td>
                 }
             </tr>
             <tr>
@@ -76,13 +84,15 @@
                    Per Day: <AntDesign.InputNumber @bind-Value="duration" Min="1" Max="50"/>
                     
                 </td>
-                @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
+                @foreach (var (c, i) in currencies)
                 {
                     var pp = totalSpentByCat[selectedCat] * adultPersonWeight / (totalWeightByCat[selectedCat] == 0 ? 1 : totalWeightByCat[selectedCat]);
                     var cc = Tour?.Currency ?? new();
                     var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
                     var amountInCurrency = pp * rate / (duration == 0 ? 1 : duration);
-                        <td style="font-weight:bold; border: 1px solid blue"><b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b> <span style="font-size: x-small">@c.Name;</span>&nbsp;</td>
+                            <td style="font-weight:bold; border: 1px solid blue; text-align: right">
+                                <b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
+                                <span style="font-size: x-small">@(c.Name)</span>&nbsp;</td>
                 }
             </tr>
                     @if (Tour.IsMultiCurrency())
@@ -91,7 +101,7 @@
                             <td>
                                 Currency: <b style='color: green'>@Tour?.Currency?.Name</b>
                             </td>
-                            @foreach (var c in Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>())
+                            @foreach (var (c, i) in currencies)
                             {
                                 var cc = Tour?.Currency ?? new ();
                                 var rate = cc.CurrencyRate > c.CurrencyRate ? cc.CurrencyRate * 1.0 / c.CurrencyRate : c.CurrencyRate * 1.0 / cc.CurrencyRate;
