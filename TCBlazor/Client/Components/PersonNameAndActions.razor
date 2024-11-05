@@ -4,7 +4,7 @@
 <span>
     <Button Type="@AntDesign.ButtonType.Text" Block=@true @onclick=@(() => open = !open) Style="text-align: left">
         @GetNameText(full: open)
-        </Button>
+    </Button>
     @if (open)
     {
         <span style="display:block;">
@@ -20,40 +20,10 @@
             <Button Size="small" OnClick=@(async () => await OnPersonSpend(person))>Spend</Button>
         </span>
     }
-    @{/*
-        <Menu Mode=MenuMode.Vertical @key="@($"menu_{person.GUID}")">
-        <SubMenu
-        Key="@($"submenu_{person.GUID}")"
-        @key="@($"submenu_{person.GUID}")"
-        TitleTemplate="TitleTemplate(deleting, idx, person)"
-        Disabled=@disabled
-        IsOpen=@disabled
-        >
-        <MenuItem Key="@($"edit_{person.GUID}")" OnClick=@(async () => await OnPersonEdit(person))>Edit @person.Name</MenuItem>
-        <MenuItem Key="@($"delete_{person.GUID}")" OnClick=@(async () => {
-        disabled = true;
-        var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
-        if (ok){
-        deleting = true;
-        await OnPersonDelete(person);
-        } else {
-        disabled=false;
-        }
-        })
-        >
-        Delete @person.Name
-        </MenuItem>
-        <MenuItem Key="@($"spend_{person.GUID}")"
-        OnClick=@(async () => await OnPersonSpend(person))
-        >Spend @person.Name</MenuItem>
-        </SubMenu>
-        </Menu>
-        */
-    }
-
+    
     @if (!string.IsNullOrWhiteSpace(person.ParentId))
     {
-        <span style="font-size:xx-small; display: block;">&gt; paid by <b style="color:green;">@(tour.Persons.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</b></span>
+        <span style="font-size:xx-small; display: block;">&nbsp;&gt; paid by <b style="color:green;">@(tour.Persons.FirstOrDefault(p => p.GUID == person.ParentId)?.Name ?? "n/a")</b></span>
     }
 </span>
 
@@ -78,10 +48,13 @@
     string GetNameText(bool full)
     {
         var nameText = person.Name.Trim();
+        if (!string.IsNullOrWhiteSpace(person.ParentId))
+        {
+            nameText = $"⤷{nameText}";
+        }
         if (full) return nameText;
         bool crop = nameText.Length > triggerLength;
         nameText = nameText.Substring(0, crop ? triggerLength : nameText.Length) + (crop ? "…" : "");
-        //if (nameText.Length < triggerLength) nameText = MakeFullLength(nameText, triggerLength);
         return nameText;
     }
     private string MakeFullLength(string str, int len)
