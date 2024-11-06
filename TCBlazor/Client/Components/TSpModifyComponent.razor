@@ -10,6 +10,7 @@
     <thead>
         <tr><th colspan="2" style="text-align: center">
                         <span style="cursor:pointer;" @onclick=@(() => spending.Color = "")>(clear)</span> 
+                        <input type="color" @bind-value=@spending.Color/>
             @TitleText
              <Switch @bind-Value=@(spending.IsDryRun) CheckedChildren="DryRun" UnCheckedChildren="Real" Size="small"/>
              @if (spending.IsDryRun){
@@ -110,20 +111,8 @@
         <tr>
             <td>Date</td>
             <td>
-                @{/*<DatePicker 
-                    @bind-Value=@(spending.SpendingDate) 
-                    Format="yyyy-MM-dd HH:mm" 
-                    ShowTime="true"
-                    TValue="DateTime"
-                    Locale=@(new DatePickerLocale(){ FirstDayOfWeek = DayOfWeek.Monday})
-                    AllowClear=@false
-                    />
-                    
-                    <Input @bind-Value=@(spending.SpendingDate)/>
-
-                    */}
-                    Date Picker TODO
-                </td>
+                <input type="date" @bind-value=@spending.SpendingDate/>
+            </td>
         </tr>
         <tr>
             <td colspan="2">
