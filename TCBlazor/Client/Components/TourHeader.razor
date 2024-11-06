@@ -31,7 +31,6 @@
         @(isFresh ? "From Server" : "Local") <b>@($"{storedDt:yyyy-MM-dd HH:mm:ss}")</b>
 
     </div>
-    <Timechart tour="tour" open="false" ButtonText="Spendings By Date" />
     @if (settings.Web_Push_Notifications)
     {
         @if (subscriptionChecked == true)

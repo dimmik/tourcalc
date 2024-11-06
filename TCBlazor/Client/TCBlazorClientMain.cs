@@ -8,7 +8,6 @@ using TCalcCore.UI;
 using TCalcCore.Engine;
 using TCBlazor.Client.SharedCode;
 using TCalcCore.Auth;
-using Radzen;
 
 namespace Company.WebApplication1
 {
@@ -23,7 +22,6 @@ namespace Company.WebApplication1
             builder.Services
                 .AddSingleton<ILocalLogger, LocalLogger>()
                 .AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
-                .AddScoped<TooltipService>()
                 .AddAntDesign()
                 .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
                 .AddScoped<ITokenStorage, CookieTokenStorage>()

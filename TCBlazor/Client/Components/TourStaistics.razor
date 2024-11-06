@@ -21,10 +21,10 @@
                     Current Seed color: <span style="color: @csg.Seed">@csg.Seed</span>
                     @{
                         if (Magic == -1) Magic = (int)(csg.Magic * 1000);
-                        if (Seed == null) Seed = csg.Seed.ToString("rgb");
+                        if (Seed == null) Seed = csg.Seed.ToString("#");
                     }
-                    <RadzenNumeric Step="1" @bind-Value="@Magic" TValue="int" Change=@(i => csg.Magic = Magic * 1.0 / 1000)/>
-                    <RadzenColorPicker @bind-Value=@Seed Change=@(c => csg.Seed = Seed)/>
+                    <input type="color" @bind-value="@SeedBind"/>
+                    <AntDesign.InputNumber Size="@InputSize.Small" @bind-Value="MagicBind"/>
                 </ExtraControls>
             </SimplePieChart>
         </td>
@@ -135,6 +135,25 @@
     private int Magic = -1;
     private string? Seed = null;
     private CSG csg = new();
+
+    public int MagicBind
+    {
+        get => Magic;
+        set
+        {
+            Magic = value;
+            csg.Magic = Magic * 1.0 / 1000;
+        }
+    }
+    public string? SeedBind
+    {
+        get => Seed;
+        set
+        {
+            Seed = value;
+            csg.Seed = Seed;
+        }
+    }
 
     private UISettings settings = new();
 
