@@ -19,6 +19,18 @@ namespace TCalc.Domain
         public int CurrencyRate { get; set; } = 100;
         public static Currency Default => new Currency();
 
+
+        public Currency Clone()
+        {
+            var newC = new Currency
+            {
+                Id = Id,
+                Name = Name,
+                CurrencyRate = CurrencyRate
+            };
+            return newC;
+        }
+
         public override bool Equals(object obj)
         {
             return Equals(obj as Currency);
