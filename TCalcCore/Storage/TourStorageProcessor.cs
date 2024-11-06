@@ -56,10 +56,11 @@ namespace TCalc.Storage
             sp.DateCreated = t.Spendings[idx].DateCreated; // preserve
             // if spending has its own set of currencies, but this set lacks chosen currency - reset currencies from tour
             var sCurr = sp.Currency;
-            if (!sp.Currencies.Any(c => c.Id == sCurr.Id))
+            // 2024-11-06 do not keep currency rates in spending
+            /*if (!sp.Currencies.Any(c => c.Id == sCurr.Id))
             {
                 sp.Currencies = t.Currencies;
-            }
+            }*/
             t.Spendings[idx] = sp;
             return t;
         }
