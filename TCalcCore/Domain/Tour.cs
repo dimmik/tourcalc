@@ -26,19 +26,21 @@ namespace TCalc.Domain
 
         public string StateGUID { get; set; } = "";
         public IEnumerable<Currency> Currencies { get; set; } = new Currency[] { Currency.Default };
-        private Currency __currency = Currency.Default;
+        private string cId { get; set; }
         public Currency Currency { 
-            get { 
-                return __currency; 
-            } 
-            set {
-                if (__currency != value)
+            get {
+                if (!Currencies.Any(c => c.Id == cId))
+                    cId = Currencies.First().Id;
+                return Currencies.Where(c => c.Id == cId).First();
+            }
+            set
+            {
+                if (cId != value.Id)
                 {
-                    __currency = value;
-                    // remove all suggested spendings
+                    cId = value.Id;
                     Spendings = Spendings.Where(s => !s.Planned).ToList();
                 }
-            } 
+            }
         }
         public void PrepareForStoring()
         {
