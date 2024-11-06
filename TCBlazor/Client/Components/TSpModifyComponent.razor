@@ -9,7 +9,7 @@
 <table style="width: 100%">
     <thead>
         <tr><th colspan="2" style="text-align: center">
-                        <span style="cursor:pointer;" @onclick=@(() => spending.Color = "")>(clear)</span> <RadzenColorPicker @bind-Value=@spending.Color />
+                        <span style="cursor:pointer;" @onclick=@(() => spending.Color = "")>(clear)</span> 
             @TitleText
              <Switch @bind-Value=@(spending.IsDryRun) CheckedChildren="DryRun" UnCheckedChildren="Real" Size="small"/>
              @if (spending.IsDryRun){
@@ -122,16 +122,7 @@
                     <Input @bind-Value=@(spending.SpendingDate)/>
 
                     */}
-                    
-                    <RadzenDatePicker 
-                        @bind-Value=@(spending.SpendingDate) 
-                        ShowTime="true" 
-                        ShowSeconds="false" 
-                        HoursStep="1" 
-                        MinutesStep="1" 
-                        SecondsStep="1" 
-                        DateFormat="yyyy-MM-dd HH:mm" Name="DatePickerWithTime" />
-
+                    Date Picker TODO
                 </td>
         </tr>
         <tr>
