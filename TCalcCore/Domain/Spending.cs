@@ -16,7 +16,9 @@ namespace TCalc.Domain
         public string Description { get; set; } = "";
         public string Type { get; set; } = "Common";
         public Currency Currency { get; set; } = new Currency();
-        public IEnumerable<Currency> Currencies { get; set; } = Enumerable.Empty<Currency>();
+        // 2024-11-06 do not keep/track currency rates
+        //public IEnumerable<Currency> Currencies { get; set; } = Enumerable.Empty<Currency>();
+        public IEnumerable<Currency> Currencies => Enumerable.Empty<Currency>();
         public bool IsDryRun { get; set; } = false;
         public bool IncludeDryRunInCalc { get; set; } = false;
         public string Color { get; set; } = "";
