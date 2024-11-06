@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -26,16 +27,22 @@ namespace TCalc.Domain
 
         public string StateGUID { get; set; } = "";
         public IEnumerable<Currency> Currencies { get; set; } = new Currency[] { Currency.Default };
-        private Currency _curr = Currency.Default;
+        private string _currId = Currency.Default.Id;
         public Currency Currency { 
             get {
-                return _curr;
+                if (!Currencies.Any())
+                    throw new Exception("Currencies list is empty");
+                if (!Currencies.Any(c => c.Id == _currId))
+                {
+                    _currId = Currencies.First().Id;
+                }
+                return Currencies.Where(c => c.Id == _currId).First().Clone();
             }
             set
             {
-                if (_curr != value)
+                if (_currId != value.Id)
                 {
-                    _curr = value;
+                    _currId = value.Id;
                     Spendings = Spendings.Where(s => !s.Planned).ToList();
                 }
             }
