@@ -25,22 +25,24 @@ namespace TCalc.Domain
 
         public string StateGUID { get; set; } = "";
         public IEnumerable<Currency> Currencies { get; set; } = new Currency[] { Currency.Default };
-        private string _currId = Currency.Default.Id;
+        public string TourCurrencyId { get; set; } = Currency.Default.Id;
         public Currency Currency { 
             get {
                 if (!Currencies.Any())
-                    throw new Exception("Currencies list is empty");
-                if (!Currencies.Any(c => c.Id == _currId))
                 {
-                    _currId = Currencies.First().Id;
+                    Currencies = new Currency[] { Currency.Default };
                 }
-                return Currencies.Where(c => c.Id == _currId).First().Clone();
+                if (!Currencies.Any(c => c.Id == TourCurrencyId))
+                {
+                    TourCurrencyId = Currencies.First().Id;
+                }
+                return Currencies.Where(c => c.Id == TourCurrencyId).First().Clone();
             }
             set
             {
-                if (_currId != value.Id)
+                if (TourCurrencyId != value.Id)
                 {
-                    _currId = value.Id;
+                    TourCurrencyId = value.Id;
                     Spendings = Spendings.Where(s => !s.Planned).ToList();
                 }
             }

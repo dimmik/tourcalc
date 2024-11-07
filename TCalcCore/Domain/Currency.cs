@@ -16,7 +16,7 @@ namespace TCalc.Domain
             }
             set { _id = value; }
         }
-        public string Name { get; set; } = "EUR";
+        public string Name { get; set; } = "coin";
         public int CurrencyRate { get; set; } = 100;
         public static Currency Default => new Currency();
 
