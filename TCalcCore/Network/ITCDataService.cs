@@ -26,7 +26,7 @@ namespace TCalcCore.Network
         Task GetAndStoreToken(string scope, string code);
         Task GetAndStoreTokenForCodeMd5(string code);
         Task<AuthData> GetAuthData(bool forceGetFromServer = false);
-        Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId);
+        Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId, bool checkOut = false);
         Task<TourList> GetTourList(Func<TourList, bool, DateTimeOffset, Task> onTourListAvailable, bool forceFromServer);
         Task<TourList> GetTourListFromServer();
         Task<TourList> GetTourVersions(Tour tour);
