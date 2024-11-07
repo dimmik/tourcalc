@@ -216,8 +216,7 @@ else
     {
         InProgress = true;
         Tour t = new Tour() { Id = tour.Id, Name = tour.Name, Duration = tour.Duration };
-        _ = engine.RequestEditTourProps(t, ("changename", t));
-        _ = engine.RequestEditTourProps(t, ("duration", t));
+        _ = engine.RequestEditTourProps(t, ("changename", t), ("duration", t));
         return Task.CompletedTask;
     }
 

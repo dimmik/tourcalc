@@ -320,8 +320,28 @@ namespace TCalcCore.Network
         #endregion
 
         #region Server Queue
-        public async Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId)
+        public async Task<Queue<SerializableTourOperation>> GetServerQueue(string tourId, bool checkOut = false)
         {
+            var waitInMs = 10;
+            var waitCnt = 300;
+            var counter = 0;
+            while (counter < waitCnt)
+            {
+                if (!CheckedOut)
+                {
+                    return await GetServerQueueInternal(tourId, checkOut);
+                }
+                counter++;
+                await Task.Delay(waitInMs);
+            }
+            // for some reason cannot get the checked-in queue after 3s. So be it, return what we have.
+            logger?.Log("Failed to acquire server queue");
+            return await GetServerQueueInternal(tourId, false);
+        }
+        private bool CheckedOut = false;
+        private async Task<Queue<SerializableTourOperation>> GetServerQueueInternal(string tourId, bool checkOut)
+        {
+            CheckedOut = checkOut;
             var (qc, _) = await ts.GetObject<SerializableTourOperationContainer>(
                 GetUpdateQueueStorageKey(tourId),
                 () => default,
@@ -342,7 +362,14 @@ namespace TCalcCore.Network
             {
                 operations = q.ToList()
             };
-            await ts.SetObject(GetUpdateQueueStorageKey(tourId), qc);
+            try
+            {
+                await ts.SetObject(GetUpdateQueueStorageKey(tourId), qc);
+            }
+            finally
+            {
+                CheckedOut = false;
+            }
             OnServerQueueStored?.Invoke();
         }
         #endregion
@@ -365,7 +392,7 @@ namespace TCalcCore.Network
 
         private async Task EditTourData(string tourId, params SerializableTourOperation[] ops)
         {
-            Queue<SerializableTourOperation> serverQueue = await GetServerQueue(tourId);
+            Queue<SerializableTourOperation> serverQueue = await GetServerQueue(tourId, checkOut: true);
             Queue<SerializableTourOperation> localQueue = GetLocalQueue(tourId);
             foreach (var op in ops)
             {
