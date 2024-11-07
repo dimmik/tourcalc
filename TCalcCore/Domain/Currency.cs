@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using TCalcCore.Domain;
 
 namespace TCalc.Domain
 {
-    public class Currency : IEquatable<Currency>, IComparable<Currency>
+    public class Currency : IEquatable<Currency>, IComparable<Currency>, ITourcalcItem
     {
         private string _id = null;
         private readonly object _idLock = new object();
@@ -18,18 +19,6 @@ namespace TCalc.Domain
         public string Name { get; set; } = "EUR";
         public int CurrencyRate { get; set; } = 100;
         public static Currency Default => new Currency();
-
-
-        public Currency Clone()
-        {
-            var newC = new Currency
-            {
-                Id = Id,
-                Name = Name,
-                CurrencyRate = CurrencyRate
-            };
-            return newC;
-        }
 
         public override bool Equals(object obj)
         {

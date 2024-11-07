@@ -2,10 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using TCalcCore.Domain;
 
 namespace TCalc.Domain
 {
-    public class AbstractItem : IEquatable<AbstractItem>
+    public class AbstractItem : IEquatable<AbstractItem>, ITourcalcItem
     {
         public string Metadata { get; set; }
         public string GUID { get; set; } = "NewId";// = IdHelper.NewId();

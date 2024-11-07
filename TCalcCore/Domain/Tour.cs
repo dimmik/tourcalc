@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
 using TCalc.Logic;
+using TCalcCore.Helpers;
 
 namespace TCalc.Domain
 {
