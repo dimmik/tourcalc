@@ -204,6 +204,7 @@ else
     private async Task CopyTourJsonToCb(Tour t)
     {
         var tt = await engine.DataSvc.LoadTour(id: t.Id, onTourAvailable: (_a, _b, _c) => Task.CompletedTask);
+        tt.Spendings = tt.Spendings.Where(s => !s.Planned).ToList();
         var text = JsonSerializer.Serialize(tt, new JsonSerializerOptions()
         {
             WriteIndented = true, 
