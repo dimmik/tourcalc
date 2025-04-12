@@ -16,9 +16,9 @@
     ConditionalRowStyle=@((p, idx) => 
     {
         if (string.IsNullOrWhiteSpace(p.ParentId)){
-            return GetFamilyStyle(p.FamilyId);
+            return GetFamilyStyle(p);
         } else {
-            return $"background-color: #eeeeee";
+            return $"background-color: #ffffff";
         }
         //return "";
     })
@@ -144,8 +144,9 @@
 
 
 
-    private string GetFamilyStyle(string familyId){
-        if (string.IsNullOrWhiteSpace(familyId)) return "background-color: #f9f9Ff";
+    private string GetFamilyStyle(Person p){
+        if (string.IsNullOrWhiteSpace(p.FamilyId)) 
+            return $"background-color: {((personFamilyOdd.ContainsKey(p.GUID) ? personFamilyOdd[p.GUID] : false) ? "#e2eee2" : "#f2f2ff")};";
         return "background-color: #aaf0d1";
     }
 
@@ -218,9 +219,21 @@
     }
 
 
+    private Dictionary<string, bool> personFamilyOdd = new();
+
     private IEnumerable<Person> GetPersons()
     {
-        return new[] { new Person() { Name = "", Metadata = "Adding", GUID = "New" } }.Concat(GetSortedTourPersons());
+        var pps = GetSortedTourPersons();
+        int cnt = 0;
+        foreach (var pp in pps)
+        {
+            if (string.IsNullOrWhiteSpace(pp.ParentId))
+            {
+                cnt++;
+            }
+            personFamilyOdd[pp.GUID] = cnt % 2 == 0;
+        }
+        return new[] { new Person() { Name = "", Metadata = "Adding", GUID = "New" } }.Concat(pps);
     }
 
     private IEnumerable<Person> GetSortedTourPersons()
