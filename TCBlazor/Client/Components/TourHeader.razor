@@ -18,10 +18,7 @@
           })>&nbsp;@(IsTourReloading ? "..." : "⟳")&nbsp;</span>
     <span style="cursor:pointer" onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}"))>@tour?.Name</span>
     <Button @onclick=@(() => ShowStatistics = !ShowStatistics)>@($"{(ShowStatistics ? "x" : "")}") ⓘ</Button>
-
-    @{
-        /*                <Button Type="primary" Size="large" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>*/
-    }
+    <TourBalance tour=@tour/>
 
 
 </h3>
