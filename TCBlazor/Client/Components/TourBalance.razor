@@ -1,0 +1,61 @@
+﻿<Button Danger Type="@ButtonType.Dashed" Shape="@ButtonShape.Round" @onclick=@(() => open = !open)>Balance</Button>
+
+<Modal Title=@($"Tour Balance for '{tour?.Name}'")
+Visible="@open"
+OnOk=@(() => open = false)
+OnCancel=@(() => open = false)
+DestroyOnClose=@true
+Closable=@true>
+    <TableTemplate
+    Items=@balanceS
+    Context="spendingItem"
+    >
+        <TableHeader>
+            <th>From</th>
+            <th>To</th>
+            <th>Amount</th>
+        </TableHeader>
+        <NoDataRowTemplate>
+            <td colspan="3"><i>No Data</i></td>
+        </NoDataRowTemplate>
+        <RowTemplate>
+            @{
+                var spending = spendingItem.Item1;
+                var tourCurrencies = tour?.Currencies ?? new Currency[0];
+                var currencies = spending.Currencies.Any() ? spending.Currencies : tourCurrencies;
+                var curr = currencies.Where(c => c == spending.Currency)?.FirstOrDefault() ?? Currency.Default;
+                var tourCurr = currencies.Where(c => c == (tour?.Currency ?? Currency.Default))?.FirstOrDefault() ??
+                    (tourCurrencies.Where(c => c == (tour?.Currency ?? Currency.Default))?.FirstOrDefault() ?? Currency.Default);
+            }
+            <td>@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.FromGuid)?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
+            <td>@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.ToGuid.FirstOrDefault())?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
+            <td>
+                <b>@spending.AmountInCurrentCurrency(tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated) </b>
+                @if (tour?.IsMultiCurrency() ?? false)
+                {
+                    <small>@(" ")@curr.Name</small>
+                }
+            </td>
+        </RowTemplate>
+    </TableTemplate>
+</Modal>
+
+@code {
+    public bool open { get; set; } = false;
+    [Parameter]
+    public Tour? tour { get; set; }
+
+    private IEnumerable<Spending> balanceS = [];
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        if (tour is not null)
+        {
+            balanceS = tour.Spendings.Where(s => s.Planned && !s.Description.StartsWith("Family"));
+        } else
+        {
+            balanceS = [];
+        }
+    }
+}
