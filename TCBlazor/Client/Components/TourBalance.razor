@@ -29,8 +29,8 @@ Closable=@true>
                     (tourCurrencies.Where(c => c == (tour?.Currency ?? Currency.Default))?.FirstOrDefault() ?? Currency.Default);
             }
             <td style="background-color: @(idx%2 == 0 ? "#FFCCCB" : "#FFD1DC")">@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.FromGuid)?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
-            <td style="background-color: @(idx%2 == 0 ? "#D0F0C0" : "#E0FFE0")">@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.ToGuid.FirstOrDefault())?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
-            <td style="background-color: @(idx%2 == 0 ? "#E0E0E0" : "#F5F5F5")">
+            <td style="background-color: @(idx%2 == 0 ? "#CCFFCB" : "#D1FFDC")">@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.ToGuid.FirstOrDefault())?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
+            <td style="background-color: @(idx%2 == 0 ? "#E6E6E6" : "#E9E9E9")">
                 <b>@spending.AmountInCurrentCurrency(tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated) </b>
                 @if (tour?.IsMultiCurrency() ?? false)
                 {
