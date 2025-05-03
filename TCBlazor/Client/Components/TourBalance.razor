@@ -1,4 +1,9 @@
-﻿<Button Danger Type="@ButtonType.Dashed" Shape="@ButtonShape.Round" @onclick=@(() => open = !open)>Balance</Button>
+﻿@using TCalcCore.Engine
+@inject TourcalcEngine engine
+
+@inject IJSRuntime JsRuntime
+
+<Button Danger Type="@ButtonType.Dashed" Shape="@ButtonShape.Round" @onclick=@(() => open = !open)>Balance</Button>
 
 <Modal Title=@($"Tour Balance for '{tour?.Name}'")
 Visible="@open"
@@ -36,6 +41,18 @@ Closable=@true>
                 {
                     <small>@(" ")@curr.Name</small>
                 }
+                <Button Danger Size="small" @onclick=@(async () => {
+                            bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Add planned '{spending.Description}' : {spending.AmountInCurrentCurrency(tour)}?");
+                            if (confirmed)
+                            {
+                                var ss = spending.SafeClone<Spending>();
+                                ss.Type = "";
+                                ss.Color = ss.Description.StartsWith("X") ? "lightgreen" : "lightgray";
+                                _ = engine.RequestAddSpending(tour?.Id, ss);
+                            }
+                        })>
+                    +
+                </Button>
             </td>
         </RowTemplate>
     </TableTemplate>
