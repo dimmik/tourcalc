@@ -21,15 +21,16 @@ Closable=@true>
         <RowTemplate>
             @{
                 var spending = spendingItem.Item1;
+                var idx = spendingItem.Item2;
                 var tourCurrencies = tour?.Currencies ?? new Currency[0];
                 var currencies = spending.Currencies.Any() ? spending.Currencies : tourCurrencies;
                 var curr = currencies.Where(c => c == spending.Currency)?.FirstOrDefault() ?? Currency.Default;
                 var tourCurr = currencies.Where(c => c == (tour?.Currency ?? Currency.Default))?.FirstOrDefault() ??
                     (tourCurrencies.Where(c => c == (tour?.Currency ?? Currency.Default))?.FirstOrDefault() ?? Currency.Default);
             }
-            <td>@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.FromGuid)?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
-            <td>@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.ToGuid.FirstOrDefault())?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
-            <td>
+            <td style="background-color: @(idx%2 == 0 ? "#FFCCCB" : "#FFD1DC")">@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.FromGuid)?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
+            <td style="background-color: @(idx%2 == 0 ? "#D0F0C0" : "#E0FFE0")">@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.ToGuid.FirstOrDefault())?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
+            <td style="background-color: @(idx%2 == 0 ? "#E0E0E0" : "#F5F5F5")">
                 <b>@spending.AmountInCurrentCurrency(tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated) </b>
                 @if (tour?.IsMultiCurrency() ?? false)
                 {
