@@ -90,15 +90,17 @@
                 <td colspan="@(tableColspan-1)"><Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
                 </td>
                 <td>
-                    DEBTOR
                     @{
                         var debtor = CalcUtilities.GetDebtor(Tour);
                     }
-                    <b style="font-weight: bolder; color: red">@(debtor.p?.Name ?? "N/A")
-                        
-                        <span style="color:green">@debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency()</span>
-                    </b>
-
+                    @if (debtor.p != null) {
+                        <span>
+                            DEBTOR
+                            <b style = "font-weight: bolder; color: red" >@(debtor.p?.Name ?? "N/A")
+                            <span style = "color:green" > @debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency() </span>
+                            </b>
+                        </span>
+                    }
                 </td>
             } else
             {

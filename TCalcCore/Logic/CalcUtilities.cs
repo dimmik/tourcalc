@@ -38,14 +38,17 @@ namespace TCalc.Logic
         public static (Person p, long debt) GetDebtor(this Tour tr)
         {
             var debtor = tr?.Persons
+                                    .Where(p => string.IsNullOrWhiteSpace(p.ParentId))
                                     .Select(p => (p, CalcUtilities.GetPayOrReceiveSpendings(tr, p, 0)))
                                     .Where(pwps => pwps.Item2.WillPay)
-                                    .Select(pwps => (pwps.p, pwps.Item2.WillPay, pwps.Item2.sp?.Where(s => CalcUtilities.DebtStatusOfSpending(tr, s, pwps.p) != "JustOk")?.Select(s => s.AmountInCurrentCurrency(tr))?.Sum() ?? 0))
+                                    .Select(pwps => (pwps.p, pwps.Item2.WillPay, pwps.Item2.sp?
+                                                                        .Where(s => CalcUtilities.DebtStatusOfSpending(tr, s, pwps.p) != "JustOk")?
+                                                                        .Select(s => s.AmountInCurrentCurrency(tr))?.Sum() ?? 0))
                                     .OrderByDescending(hmm => hmm.Item3)
                                     .Select(hmm => (hmm.p, hmm.Item3))
                                     .FirstOrDefault()
                                     ;
-            return debtor ?? (new Person(), 0);
+            return debtor ?? (null, 0);
         }
         public static long AmountAPersonWillPay(this Tour tr, Person p)
         {
