@@ -14,11 +14,15 @@
 <div>
     <div class="cool-header"
          style="margin-left: auto; margin-right: auto; text-align: center; width: clamp(300px, 40vw, 500px);white-space: pre">@{
-        }<span style="font-size: x-small">@(mode == ComponentMode.Edit ? "EDIT" : "ADD") SPENDING @{
+        }<span style="font-size: x-small">@(mode == ComponentMode.Edit ? "EDIT" : "ADD") SPENDING </span>
+        @{
             var debtor = CalcUtilities.GetDebtor(tour);
-        }</span>
-        <b style="font-size: large; font-weight: bolder; color: #880000">debtor @(debtor.p?.Name ?? "N/A") 
-            <span style="color:green">@debtor.debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> @tour?.CurrencyNameEmptyIfSingleCurrency()</b>
+        }
+        @if (debtor.p != null){
+            <b style="font-size: large; font-weight: bolder; color: #880000">DEBTOR @(debtor.p?.Name ?? "N/A") 
+                <span style="color:green">@debtor.debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated)</span> @tour?.CurrencyNameEmptyIfSingleCurrency()
+            </b>
+        }
     </div>
 </div>
 

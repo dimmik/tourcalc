@@ -9,19 +9,11 @@
 
 
 <TableTemplate 
-    Items="@GetPersons()"  
+    Items="@_personsForRender"
     Context="personItem" 
     TopPadding="30"
     ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
-    ConditionalRowStyle=@((p, idx) => 
-    {
-        if (string.IsNullOrWhiteSpace(p.ParentId)){
-            return GetFamilyStyle(p);
-        } else {
-            return $"background-color: #ffffff";
-        }
-        //return "";
-    })
+    ConditionalRowStyle=@((p, idx) => GetPersonRowStyle(p, idx, _personsForRender))
 >
     <TableHeader>
         <th>Name
@@ -80,7 +72,7 @@
                 <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}") /></td>
                 <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></td>
             }
-            <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%">
+            <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%; background-color:@(string.IsNullOrWhiteSpace(person.ParentId) ? "inherit" : "#eee")">
                 <PersonDebt @key=@($"debt_{person.GUID}")
                     debt="Debt(person)"
                     person="person"
@@ -98,15 +90,17 @@
                 <td colspan="@(tableColspan-1)"><Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
                 </td>
                 <td>
-                    DEBTOR
                     @{
                         var debtor = CalcUtilities.GetDebtor(Tour);
                     }
-                    <b style="font-weight: bolder; color: red">@(debtor.p?.Name ?? "N/A")
-                        
-                        <span style="color:green">@debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency()</span>
-                    </b>
-
+                    @if (debtor.p != null) {
+                        <span>
+                            DEBTOR
+                            <b style = "font-weight: bolder; color: red" >@(debtor.p?.Name ?? "N/A")
+                            <span style = "color:green" > @debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency() </span>
+                            </b>
+                        </span>
+                    }
                 </td>
             } else
             {
@@ -142,12 +136,70 @@
 
     private UISettings settings = new UISettings();
 
+    private List<Person> _personsForRender = new List<Person>();
 
+    private string GetPersonRowStyle(Person p, int idx, List<Person> allPersons) {
+        if (p.Metadata == "Adding") return "";
 
-    private string GetFamilyStyle(Person p){
-        if (string.IsNullOrWhiteSpace(p.FamilyId)) 
-            return $"background-color: {((personFamilyOdd.ContainsKey(p.GUID) ? personFamilyOdd[p.GUID] : false) ? "#e2eee2" : "#f2f2ff")};";
-        return "background-color: #aaf0d1";
+        // find current person's index in allPersons
+        var listIndex = -1;
+        for(int i = 0; i < allPersons.Count; i++)
+        {
+            if (allPersons[i].GUID == p.GUID)
+            {
+                listIndex = i;
+                break;
+            }
+        }
+        if (listIndex == -1) return ""; // person not found
+
+        var familyId = string.IsNullOrWhiteSpace(p.ParentId) ? p.GUID : p.ParentId;
+        if (familyId == null) return "";
+
+        var isFirstInFamily = false;
+        if (listIndex == 1) { // First real person is at index 1
+            isFirstInFamily = true;
+        } else if (listIndex > 1) {
+            var prevPerson = allPersons[listIndex - 1];
+            var prevFamilyId = string.IsNullOrWhiteSpace(prevPerson.ParentId) ? prevPerson.GUID : prevPerson.ParentId;
+            if (prevFamilyId != familyId) {
+                isFirstInFamily = true;
+            }
+        }
+
+        var isLastInFamily = false;
+        if (listIndex == allPersons.Count - 1) {
+            isLastInFamily = true;
+        } else {
+            var nextPerson = allPersons[listIndex + 1];
+            var nextFamilyId = string.IsNullOrWhiteSpace(nextPerson.ParentId) ? nextPerson.GUID : nextPerson.ParentId;
+            if (nextFamilyId != familyId) {
+                isLastInFamily = true;
+            }
+        }
+
+        var style = "";
+        Person familyRepresentative = p;
+        if (!string.IsNullOrWhiteSpace(p.ParentId))
+        {
+            familyRepresentative = Tour?.Persons?.FirstOrDefault(payer => payer.GUID == p.ParentId) ?? p;
+        }
+        
+        if (string.IsNullOrWhiteSpace(familyRepresentative.FamilyId)) 
+            style += $"background-color: {((personFamilyOdd.ContainsKey(familyRepresentative.GUID) ? personFamilyOdd[familyRepresentative.GUID] : false) ? "#e2eee2" : "#f2f2ff")};";
+        else
+            style += "background-color: #aaf0d1;";
+
+        var thickBorder = "2px solid #444";
+        style += $" border-left: {thickBorder}; border-right: {thickBorder};";
+        if (isFirstInFamily) {
+            style += $" border-top: {thickBorder};";
+        }
+        if (isLastInFamily) {
+            style += $" border-bottom: {thickBorder};";
+        }
+
+        return style;
     }
 
     protected override async Task OnInitializedAsync()
@@ -210,10 +262,12 @@
         currency = tour?.Currency ?? new Currency();
         Tour = GetTourInCurrency();
         EditingPersons = GetPersons().Select(p => p.SafeClone<Person>()).ToDictionary(p => p.GUID);
+        _personsForRender = GetPersons().ToList();
     }
 
     private long Debt(Person p)
     {
+        if (tour == null) return 0;
         // round to MinimumMeaningfulDebt
         return Math.Abs(p.Debt()) > tour.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt) ? p.Debt() : 0;
     }

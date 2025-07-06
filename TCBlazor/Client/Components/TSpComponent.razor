@@ -288,7 +288,7 @@
     private void InitSortPredicates()
     {
         sortPredicates[SortingField.From] = (s) => (Tour?.Persons?.FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "");
-        sortPredicates[SortingField.Amount] = (s) => s.AmountInCurrentCurrency(Tour).ToString("00000000000000");
+        sortPredicates[SortingField.Amount] = (s) => s.AmountInCurrentCurrency(Tour ?? new Tour()).ToString("00000000000000");
         sortPredicates[SortingField.Descr] = (s) => s.Description;
         sortPredicates[SortingField.Date] = (s) => $"{s.SpendingDate: yyyyMMdd_HHmmss}";
         sortPredicates[SortingField.Type] = (s) => string.IsNullOrWhiteSpace(s.Type) ? new string(Char.MaxValue, 1) : s.Type;
@@ -348,7 +348,8 @@
     private int nonPlannedShownSpendingCount = 0;
     public IEnumerable<Spending> GetSpendingSorted()
     {
-        IEnumerable<Spending> res = (Tour?.Spendings ?? new List<Spending>());
+        if (Tour == null) return Enumerable.Empty<Spending>();
+        IEnumerable<Spending> res = (Tour.Spendings ?? new List<Spending>());
         var planned = res.Where(s => s.Planned && Math.Abs(s.AmountInCurrentCurrency(Tour)) > Tour.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt));
         var real = res.Where(s => !s.Planned);
         planned = planned
