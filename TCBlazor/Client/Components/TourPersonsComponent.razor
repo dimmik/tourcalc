@@ -265,6 +265,7 @@
 
     private long Debt(Person p)
     {
+        if (tour == null) return 0;
         // round to MinimumMeaningfulDebt
         return Math.Abs(p.Debt()) > tour.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt) ? p.Debt() : 0;
     }
