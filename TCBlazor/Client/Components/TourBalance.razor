@@ -11,17 +11,17 @@ OnOk=@(() => open = false)
 OnCancel=@(() => open = false)
 DestroyOnClose=@true
 Closable=@true>
-    <TableTemplate
+    <TableTemplateDiv
     Items=@balanceS
     Context="spendingItem"
     >
         <TableHeader>
-            <th>From</th>
-            <th>To</th>
-            <th>Amount</th>
+            <div class="grid-header">From</div>
+            <div class="grid-header">To</div>
+            <div class="grid-header">Amount</div>
         </TableHeader>
         <NoDataRowTemplate>
-            <td colspan="3"><i>No Data</i></td>
+            <div class="grid-cell-span-all-cols"><i>No Data</i></div>
         </NoDataRowTemplate>
         <RowTemplate>
             @{
@@ -33,9 +33,9 @@ Closable=@true>
                 var tourCurr = currencies.Where(c => c == (tour?.Currency ?? Currency.Default))?.FirstOrDefault() ??
                     (tourCurrencies.Where(c => c == (tour?.Currency ?? Currency.Default))?.FirstOrDefault() ?? Currency.Default);
             }
-            <td style="background-color: @(idx%2 == 0 ? "#FFCCCB" : "#FFD1DC")">@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.FromGuid)?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
-            <td style="background-color: @(idx%2 == 0 ? "#CCFFCB" : "#D1FFDC")">@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.ToGuid.FirstOrDefault())?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</td>
-            <td style="background-color: @(idx%2 == 0 ? "#E6E6E6" : "#E9E9E9")">
+            <div class="grid-cell" style="background-color: @(idx%2 == 0 ? "#FFCCCB" : "#FFD1DC")">@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.FromGuid)?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</div>
+            <div class="grid-cell" style="background-color: @(idx%2 == 0 ? "#CCFFCB" : "#D1FFDC")">@((MarkupString)(tour?.Persons?.Where(p => p.GUID == spending.ToGuid.FirstOrDefault())?.FirstOrDefault()?.Name ?? "n/a").AsBreakable())</div>
+            <div class="grid-cell balance" style="background-color: @(idx%2 == 0 ? "#E6E6E6" : "#E9E9E9")">
                 <b>@spending.AmountInCurrentCurrency(tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated) </b>
                 @if (tour?.IsMultiCurrency() ?? false)
                 {
@@ -53,9 +53,9 @@ Closable=@true>
                         })>
                     +
                 </Button>
-            </td>
+            </div>
         </RowTemplate>
-    </TableTemplate>
+    </TableTemplateDiv>
 </Modal>
 
 @code {

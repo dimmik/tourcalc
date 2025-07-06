@@ -1,0 +1,64 @@
+﻿@typeparam TItem
+@using System.Diagnostics.CodeAnalysis
+
+<div style="display: grid;grid-template-columns: 1fr 1fr 1fr;gap: 1px;background-color: #ddd;border-radius: 8px;overflow: hidden;box-shadow: 0 2px 8px rgba(0,0,0,0.1);max-width: 600px;">
+    @if (TableHeader is not null)
+    {
+        <NoOp>@TableHeader</NoOp>
+    }
+        @foreach (var item in (Items ?? Enumerable.Empty<TItem>()))
+        {
+            idx++;
+            if (ConditionalItemIdxIncrement(item, idx))
+            {
+                itemIdx++;
+            }
+            if (RowTemplate is not null)
+            {
+                <NoOp>@RowTemplate((item, itemIdx))</NoOp>
+            }
+        }
+        @if (NoDataRowTemplate is not null && !(Items?.Any() ?? false))
+        {
+            <NoOp>@NoDataRowTemplate</NoOp>
+        }
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? TableHeader { get; set; }
+
+    [Parameter]
+    public RenderFragment<(TItem, int)>? RowTemplate { get; set; }
+
+    [Parameter]
+    public RenderFragment? NoDataRowTemplate { get; set; } = null;
+
+    [Parameter, AllowNull]
+    public IEnumerable<TItem> Items { get; set; }
+
+    [Parameter]
+    public int TopPadding { get; set; } = 0;
+
+    [Parameter]
+    public bool StickyHeader { get; set; } = false;
+
+    [Parameter]
+    public string HeaderBgColor { get; set; } = "white";
+
+    [Parameter]
+    public Func<TItem, int, string> ConditionalRowStyle { get; set; } = (i, idx) => "";
+
+    [Parameter]
+    public Func<TItem, int, bool> ConditionalItemIdxIncrement { get; set; } = (i, idx) => true;
+
+    private int idx = 0;
+    private int itemIdx = 0;
+
+    protected override void OnParametersSet()
+    {
+        idx = 0;
+        itemIdx = 0;
+    }
+
+}
