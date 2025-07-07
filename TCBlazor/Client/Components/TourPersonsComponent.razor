@@ -8,7 +8,7 @@
 @implements IDisposable
 
 
-<TableTemplate 
+<TableTemplateDiv cols="@(ShowWeightSpentReceived ? 5 : 2)"
     Items="@_personsForRender"
     Context="personItem" 
     TopPadding="30"
@@ -16,7 +16,7 @@
     ConditionalRowStyle=@((p, idx) => GetPersonRowStyle(p, idx, _personsForRender))
 >
     <TableHeader>
-        <th>Name
+        <div class="grid-header">Name
             @if (ShowWeightSpentReceived)
             {
                 <Button Size="small" @onclick=@(() => {ShowWeightSpentReceived = false; IsSpendReceivedSwitchedManually = true;})>&lt;</Button>
@@ -25,17 +25,17 @@
                 <Button Size="small" @onclick=@(() => {ShowWeightSpentReceived = true; IsSpendReceivedSwitchedManually = true;})>&gt;</Button>
             }
 
-        </th>
+        </div>
         @if (ShowWeightSpentReceived)
         {
-            <th align="center" style="text-align:center">Weight</th>
-            <th align="center" style="text-align:center">Spent</th>
-            <th align="center" style="text-align:center">Received</th>
+            <div class="grid-header">Weight</div>
+            <div class="grid-header">Spent</div>
+            <div class="grid-header">Received</div>
         }
-        <th align="center" style="text-align:center">Debt</th>
+        <div align="center" style="text-align:center">Debt</div>
     </TableHeader>
     <NoDataRowTemplate>
-        <td colspan="5"><i>No Data</i></td>
+        <dic class="grid-cell-span-all-cols"><i>No Data</i></dic>
     </NoDataRowTemplate>
     <RowTemplate>
         @{
@@ -44,7 +44,7 @@
         }
         @if (string.IsNullOrWhiteSpace(person.Metadata))
         {
-            <td style="padding: 2px;width:@(ShowWeightSpentReceived ? 20 : 50)%">
+            <div class="grid-cell">
                 <PersonNameAndActions 
                     @key=@($"pna_{person.GUID}")
                     idx="idx"
@@ -61,24 +61,24 @@
                         return Task.CompletedTask;
                     })
                     />
-            </td>
+            </div>
             @if (ShowWeightSpentReceived)
             {
-                <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%">
+                <div class="grid-cell" align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%">
                     <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
                         @person.Weight
                     </div>
-                </td>
-                <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}") /></td>
-                <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></td>
+                </div>
+                <div class="grid-cell" align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}") /></div>
+                <div class="grid-cell" align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></div>
             }
-            <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%; background-color:@(string.IsNullOrWhiteSpace(person.ParentId) ? "inherit" : "#eee")">
+            <div class="grid-cell" align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%; background-color:@(string.IsNullOrWhiteSpace(person.ParentId) ? "inherit" : "#eee")">
                 <PersonDebt @key=@($"debt_{person.GUID}")
                     debt="Debt(person)"
                     person="person"
                     tour=@(Tour ?? new Tour())
                             minMeaningfulAmount=@(Tour?.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt) ?? 0) />
-            </td>
+            </div>
         } 
         else if (person.Metadata == "Editing")
         {
@@ -87,9 +87,10 @@
         {
             if (!AddingPerson)
             {
-                <td colspan="@(tableColspan-1)"><Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
-                </td>
-                <td>
+                <div style="grid-column: 1 / -2;">
+                    <Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
+                </div>
+                <div class="grid-cell">
                     @{
                         var debtor = CalcUtilities.GetDebtor(Tour);
                     }
@@ -101,14 +102,14 @@
                             </b>
                         </span>
                     }
-                </td>
+                </div>
             } else
             {
                 @AddEditCodeBlock(person, () => AddingPerson = !AddingPerson, OnPersonAdd)
             }
         }
     </RowTemplate>
-</TableTemplate>
+</TableTemplateDiv>
 
 @code {
     private Tour? Tour { get; set; } = null;
