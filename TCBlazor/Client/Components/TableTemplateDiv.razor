@@ -6,22 +6,17 @@
     {
         <NoOp>@TableHeader</NoOp>
     }
-        @foreach (var item in (Items ?? Enumerable.Empty<TItem>()))
+    @foreach (var item in (Items ?? Enumerable.Empty<TItem>()))
+    {
+        if (RowTemplate is not null)
         {
-            idx++;
-            if (ConditionalItemIdxIncrement(item, idx))
-            {
-                itemIdx++;
-            }
-            if (RowTemplate is not null)
-            {
-                <NoOp>@RowTemplate((item, itemIdx))</NoOp>
-            }
+            <NoOp>@RowTemplate((item, 0))</NoOp>
         }
-        @if (NoDataRowTemplate is not null && !(Items?.Any() ?? false))
-        {
-            <NoOp>@NoDataRowTemplate</NoOp>
-        }
+    }
+    @if (NoDataRowTemplate is not null && !(Items?.Any() ?? false))
+    {
+        <NoOp>@NoDataRowTemplate</NoOp>
+    }
 </div>
 
 @code {
