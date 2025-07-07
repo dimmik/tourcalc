@@ -1,7 +1,7 @@
 ﻿@typeparam TItem
 @using System.Diagnostics.CodeAnalysis
 
-<div style="display: grid;grid-template-columns: repeat(@(cols),auto);gap: 1px;background-color: #ddd;border-radius: 8px;overflow: hidden;box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+<div class="grid-table" style="grid-template-columns: repeat(@(cols),auto);">
     @if (TableHeader is not null)
     {
         <NoOp>@TableHeader</NoOp>
