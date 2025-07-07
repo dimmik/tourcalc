@@ -8,15 +8,14 @@
 @implements IDisposable
 
 
-<TableTemplate 
+<TableTemplateDiv cols="@(ShowWeightSpentReceived ? 5 : 2)"
     Items="@_personsForRender"
     Context="personItem" 
     TopPadding="30"
-    ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
-    ConditionalRowStyle=@((p, idx) => GetPersonRowStyle(p, idx, _personsForRender))
+    ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")    
 >
     <TableHeader>
-        <th>Name
+        <div class="grid-header">Name
             @if (ShowWeightSpentReceived)
             {
                 <Button Size="small" @onclick=@(() => {ShowWeightSpentReceived = false; IsSpendReceivedSwitchedManually = true;})>&lt;</Button>
@@ -25,26 +24,42 @@
                 <Button Size="small" @onclick=@(() => {ShowWeightSpentReceived = true; IsSpendReceivedSwitchedManually = true;})>&gt;</Button>
             }
 
-        </th>
+        </div>
         @if (ShowWeightSpentReceived)
         {
-            <th align="center" style="text-align:center">Weight</th>
-            <th align="center" style="text-align:center">Spent</th>
-            <th align="center" style="text-align:center">Received</th>
+            <div class="grid-header">Weight</div>
+            <div class="grid-header">Spent</div>
+            <div class="grid-header">Received</div>
         }
-        <th align="center" style="text-align:center">Debt</th>
+        <div align="center" style="text-align:center">Debt</div>
     </TableHeader>
     <NoDataRowTemplate>
-        <td colspan="5"><i>No Data</i></td>
+        <dic class="grid-cell-span-all-cols"><i>No Data</i></dic>
     </NoDataRowTemplate>
     <RowTemplate>
         @{
             var person = personItem.Item1;
             var idx = personItem.Item2;
+            var familyId = familyMapping[person].familyId;
+            var first = familyMapping[person].firstInFamily;
+            var last = familyMapping[person].lastInFamily;
+            var fClass = familyId % 2 == 0 ? "even-row" : "odd-row";
+            var topRoundClass = "";
+            var bottomRoundClass = "";
+            if (first)
+            {
+                fClass += " top-thick-border";
+                topRoundClass = " top-left-round";
+            }
+            if (last) {
+                bottomRoundClass = " bottom-left-round";
+            }
+
+
         }
         @if (string.IsNullOrWhiteSpace(person.Metadata))
         {
-            <td style="padding: 2px;width:@(ShowWeightSpentReceived ? 20 : 50)%">
+            <div class="grid-cell @fClass left-thick-border @topRoundClass @bottomRoundClass">
                 <PersonNameAndActions 
                     @key=@($"pna_{person.GUID}")
                     idx="idx"
@@ -61,24 +76,24 @@
                         return Task.CompletedTask;
                     })
                     />
-            </td>
+            </div>
             @if (ShowWeightSpentReceived)
             {
-                <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%">
+                <div class="grid-cell @fClass">
                     <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
                         @person.Weight
                     </div>
-                </td>
-                <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}") /></td>
-                <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></td>
+                </div>
+                <div class="grid-cell @fClass"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}") /></div>
+                <div class="grid-cell @fClass"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></div>
             }
-            <td align="center" valign="middle" style="padding:0; height: inherit;width:@(ShowWeightSpentReceived ? 20 : 50)%; background-color:@(string.IsNullOrWhiteSpace(person.ParentId) ? "inherit" : "#eee")">
+            <div class="grid-cell @fClass">
                 <PersonDebt @key=@($"debt_{person.GUID}")
                     debt="Debt(person)"
                     person="person"
                     tour=@(Tour ?? new Tour())
                             minMeaningfulAmount=@(Tour?.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt) ?? 0) />
-            </td>
+            </div>
         } 
         else if (person.Metadata == "Editing")
         {
@@ -87,9 +102,10 @@
         {
             if (!AddingPerson)
             {
-                <td colspan="@(tableColspan-1)"><Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
-                </td>
-                <td>
+                <div style="grid-column: 1 / -2;">
+                    <Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
+                </div>
+                <div class="grid-cell">
                     @{
                         var debtor = CalcUtilities.GetDebtor(Tour);
                     }
@@ -101,14 +117,14 @@
                             </b>
                         </span>
                     }
-                </td>
+                </div>
             } else
             {
                 @AddEditCodeBlock(person, () => AddingPerson = !AddingPerson, OnPersonAdd)
             }
         }
     </RowTemplate>
-</TableTemplate>
+</TableTemplateDiv>
 
 @code {
     private Tour? Tour { get; set; } = null;
@@ -138,69 +154,7 @@
 
     private List<Person> _personsForRender = new List<Person>();
 
-    private string GetPersonRowStyle(Person p, int idx, List<Person> allPersons) {
-        if (p.Metadata == "Adding") return "";
 
-        // find current person's index in allPersons
-        var listIndex = -1;
-        for(int i = 0; i < allPersons.Count; i++)
-        {
-            if (allPersons[i].GUID == p.GUID)
-            {
-                listIndex = i;
-                break;
-            }
-        }
-        if (listIndex == -1) return ""; // person not found
-
-        var familyId = string.IsNullOrWhiteSpace(p.ParentId) ? p.GUID : p.ParentId;
-        if (familyId == null) return "";
-
-        var isFirstInFamily = false;
-        if (listIndex == 1) { // First real person is at index 1
-            isFirstInFamily = true;
-        } else if (listIndex > 1) {
-            var prevPerson = allPersons[listIndex - 1];
-            var prevFamilyId = string.IsNullOrWhiteSpace(prevPerson.ParentId) ? prevPerson.GUID : prevPerson.ParentId;
-            if (prevFamilyId != familyId) {
-                isFirstInFamily = true;
-            }
-        }
-
-        var isLastInFamily = false;
-        if (listIndex == allPersons.Count - 1) {
-            isLastInFamily = true;
-        } else {
-            var nextPerson = allPersons[listIndex + 1];
-            var nextFamilyId = string.IsNullOrWhiteSpace(nextPerson.ParentId) ? nextPerson.GUID : nextPerson.ParentId;
-            if (nextFamilyId != familyId) {
-                isLastInFamily = true;
-            }
-        }
-
-        var style = "";
-        Person familyRepresentative = p;
-        if (!string.IsNullOrWhiteSpace(p.ParentId))
-        {
-            familyRepresentative = Tour?.Persons?.FirstOrDefault(payer => payer.GUID == p.ParentId) ?? p;
-        }
-        
-        if (string.IsNullOrWhiteSpace(familyRepresentative.FamilyId)) 
-            style += $"background-color: {((personFamilyOdd.ContainsKey(familyRepresentative.GUID) ? personFamilyOdd[familyRepresentative.GUID] : false) ? "#e2eee2" : "#f2f2ff")};";
-        else
-            style += "background-color: #aaf0d1;";
-
-        var thickBorder = "2px solid #444";
-        style += $" border-left: {thickBorder}; border-right: {thickBorder};";
-        if (isFirstInFamily) {
-            style += $" border-top: {thickBorder};";
-        }
-        if (isLastInFamily) {
-            style += $" border-bottom: {thickBorder};";
-        }
-
-        return style;
-    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -257,12 +211,29 @@
         return calc.SuggestFinalPayments();
     }
 
+    private Dictionary<Person, (int familyId, bool firstInFamily, bool lastInFamily)> familyMapping = new(); 
+
     protected override void OnParametersSet()
     {
         currency = tour?.Currency ?? new Currency();
         Tour = GetTourInCurrency();
         EditingPersons = GetPersons().Select(p => p.SafeClone<Person>()).ToDictionary(p => p.GUID);
         _personsForRender = GetPersons().ToList();
+        int fid = 0;
+        Person? prevPerson = null;
+        foreach (var p in _personsForRender){
+            bool first = false;
+            if (string.IsNullOrWhiteSpace(p.ParentId)){
+                first = true;
+                fid++;
+                if (prevPerson != null) {
+                    var (ffid, fff, fl) = familyMapping[prevPerson];
+                    familyMapping[prevPerson] = (ffid, fff, true); // last in family1
+                }
+            }
+            familyMapping[p] = (fid, first, false);
+            prevPerson = p;
+        }
     }
 
     private long Debt(Person p)
@@ -316,7 +287,7 @@
         pp.Metadata = "";
         return __builder =>
         {
-    <td>
+    <div>
         @if (IsSubmittingPerson)
         {
             <div>submitting...</div>
@@ -378,13 +349,13 @@
         </Select>
         </nobr>
         </div>
-    </td>
-    <td colspan="@(tableColspan - 1)">
+    </div>
+    <div style="grid-column: 2 / -1;">
         <input @bind-value=@(pp.Weight) size="3" disabled=@IsSubmittingPerson/>
         @if (settings.Show_Debug_UI){
             <span>g: <input @bind-value=@(pp.GroupId) size="3" disabled=@IsSubmittingPerson/></span>
         }
-    </td>
+    </div>
         };
 
         
