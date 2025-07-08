@@ -10,7 +10,10 @@ namespace TCalc.Storage
     {
         public Tour AddPerson(Tour tour, Person p)
         {
-            p.GUID = IdHelper.NewId();
+            if (p.GUID == AbstractItem.NewDefaultIId)
+            {
+                p.GUID = IdHelper.NewId();
+            }
             tour.Persons.Add(p);
             tour.Spendings.RemoveAll(s => s.Planned);
             return tour;
