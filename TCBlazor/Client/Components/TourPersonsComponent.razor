@@ -31,7 +31,21 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
             <div class="grid-header">Spent</div>
             <div class="grid-header">Received</div>
         }
-        <div align="center" style="text-align:center">Debt</div>
+        <div class="grid-header">
+                    @{
+                        var debtor = CalcUtilities.GetDebtor(Tour);
+                    }
+                    @if (debtor.p != null) {
+                        <NoOp>
+                            DEBTOR
+                            <b style = "font-weight: bolder; color: red" >@(debtor.p?.Name ?? "N/A")
+                                <span style = "color:green" > @debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency() </span>
+                            </b>
+                        </NoOp>
+                    } else {
+                        <NoOp>Debt</NoOp>
+                    }
+                    </div>
     </TableHeader>
     <NoDataRowTemplate>
         <dic class="grid-cell-span-all-cols"><i>No Data</i></dic>
@@ -109,21 +123,8 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
         {
             if (!AddingPerson)
             {
-                <div style="grid-column: 1 / -2;">
+                <div style="grid-column: 1 / -1;" class="grid-cell">
                     <Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
-                </div>
-                <div class="grid-cell">
-                    @{
-                        var debtor = CalcUtilities.GetDebtor(Tour);
-                    }
-                    @if (debtor.p != null) {
-                        <span>
-                            DEBTOR
-                            <b style = "font-weight: bolder; color: red" >@(debtor.p?.Name ?? "N/A")
-                                <span style = "color:green" > @debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency() </span>
-                            </b>
-                        </span>
-                    }
                 </div>
             } else
             {
@@ -301,7 +302,7 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
         pp.Metadata = "";
         return __builder =>
         {
-    <div>
+    <div class="grid-cell">
         @if (IsSubmittingPerson)
         {
             <div>submitting...</div>
@@ -364,7 +365,7 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
         </nobr>
         </div>
     </div>
-    <div style="grid-column: 2 / -1;">
+    <div style="grid-column: 2 / -1;" class="grid-cell">
         <input @bind-value=@(pp.Weight) size="3" disabled=@IsSubmittingPerson/>
         @if (settings.Show_Debug_UI){
             <span>g: <input @bind-value=@(pp.GroupId) size="3" disabled=@IsSubmittingPerson/></span>
