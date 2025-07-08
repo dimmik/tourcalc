@@ -55,12 +55,18 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
                 bottomRoundClass = " bottom-left-round";
             }
             var opClass = idx % 2 == 0 ? " opacity-odd" : " opacity-even";
+            var veryLastClass = "";
+            var veryLastPerson = idx == _personsForRender.Count();
+            if (veryLastPerson)
+            {
+                veryLastClass = " bottom-thick-border";
+            }
 
 
         }
         @if (string.IsNullOrWhiteSpace(person.Metadata))
         {
-            <div class="grid-cell @fClass left-thick-border @topRoundClass @bottomRoundClass @opClass">
+            <div class="grid-cell @fClass left-thick-border @topRoundClass @bottomRoundClass @opClass @veryLastClass">
                 <PersonNameAndActions 
                 @key=@($"pna_{person.GUID}")
                 idx="idx"
@@ -80,15 +86,15 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
             </div>
             @if (ShowWeightSpentReceived)
             {
-                <div class="grid-cell @fClass @opClass">
+                <div class="grid-cell @fClass @opClass @veryLastClass">
                     <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
-                        @person.Weight
+                        @person.Weight 
                     </div>
                 </div>
-                <div class="grid-cell @fClass @opClass"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}") /></div>
-                <div class="grid-cell @fClass @opClass"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></div>
+                <div class="grid-cell @fClass @opClass @veryLastClass"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}") /></div>
+                <div class="grid-cell @fClass @opClass @veryLastClass"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></div>
             }
-            <div class="grid-cell @fClass @opClass">
+            <div class="grid-cell @fClass @opClass @veryLastClass">
                 <PersonDebt @key=@($"debt_{person.GUID}")
                 debt="Debt(person)"
                 person="person"
@@ -236,6 +242,11 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
             }
             familyMapping[p] = (fid, first, false, index);
             prevPerson = p;
+        }
+        if (prevPerson != null) // for the very last person
+        {
+            var (ffid1, fff1, fl1, idx1) = familyMapping[prevPerson];
+            familyMapping[prevPerson] = (ffid1, fff1, true, idx1); // last in family
         }
     }
 
