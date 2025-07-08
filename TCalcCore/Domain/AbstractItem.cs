@@ -8,8 +8,11 @@ namespace TCalc.Domain
 {
     public class AbstractItem : IEquatable<AbstractItem>, ITourcalcItem
     {
+
+        public const string NewDefaultIId = "__NEW_ID_";
+
         public string Metadata { get; set; }
-        public string GUID { get; set; } = "NewId";// = IdHelper.NewId();
+        public string GUID { get; set; } = NewDefaultIId;// = IdHelper.NewId();
         public long Order { get; set; }
         public bool IsChanged { get; set; } = true;
         //public bool IsFromJson { get; set; } = false;
