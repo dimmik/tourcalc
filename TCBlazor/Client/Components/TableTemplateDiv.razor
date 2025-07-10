@@ -4,18 +4,18 @@
 <div class="grid-table" style="grid-template-columns: repeat(@(cols),auto);">
     @if (TableHeader is not null)
     {
-        <NoOp>@TableHeader</NoOp>
+        <div class="row">@TableHeader</div>
     }
     @foreach (var item in (Items ?? Enumerable.Empty<TItem>()))
     {
         if (RowTemplate is not null)
         {
-            <NoOp>@RowTemplate((item, 0))</NoOp>
+            <div class="row">@RowTemplate((item, 0))</div>
         }
     }
     @if (NoDataRowTemplate is not null && !(Items?.Any() ?? false))
     {
-        <NoOp>@NoDataRowTemplate</NoOp>
+        <div class="row">@NoDataRowTemplate</div>
     }
 </div>
 
