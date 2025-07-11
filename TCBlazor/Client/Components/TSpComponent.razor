@@ -7,31 +7,14 @@
 @using AntDesign.Select
 
 
-<TableTemplate 
-    Items=@(GetSpendingSorted()) 
-    Context="spendingItem" 
-    TopPadding="30"
-    ConditionalItemIdxIncrement=@((s, idx) => !s.Planned && (!s.IsDryRun || s.IncludeDryRunInCalc))
-    ConditionalRowStyle=@((s, idx) => 
-    {
-        if (s.Planned){
-            if (s.Description.StartsWith("Family")){
-                return "background-color: aquamarine";
-            } else {
-                return "background-color: yellow";
-            }
-        } else if (s.IsDryRun) {
-            return $"background-color: LightSalmon";
-        } else if (!string.IsNullOrWhiteSpace(s.Color)) {
-            return $"background-color: {s.Color}";
-        } else {
-            return $"background-color: {(idx % 2 == 0 ? "LightCyan" : "white")}";
-        }
-        //return "";
-    })
+<TableTemplateDiv
+cols="4"
+Items=@(GetSpendingSorted()) 
+Context="spendingItem" 
+TopPadding="30"
 >
     <TableHeader>
-        <th>
+        <div class="grid-header">
             @{
                 var sp = GetSpendingSorted();
             }
@@ -42,7 +25,7 @@
                 </div>
             }
             <span style="cursor:pointer;@(sortingField == SortingField.Descr ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Descr))>Spending Description &nbsp;</span>
-                        
+
             <span style="cursor:pointer;@(sortingField == SortingField.Date ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Date))>Dt&nbsp;</span>
             <span style="cursor:pointer;@(sortingField == SortingField.Type ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Type))>Cat&nbsp;</span>
             @if (ShowMassChange)
@@ -62,24 +45,24 @@
                 }
             }
             &nbsp; <span style="cursor: pointer; background-color:aquamarine" @onclick=@(() => OnToggleShowPlanned?.Invoke())>[@(ShowPlanned ? "-Balance Sh**t" : "+Balance Sh**t")]</span>
-            
+
             <Select Mode="multiple"
-                Placeholder="Categories"
-                DataSource="TourCategories"
-		        @bind-Values="@filterCategories"
-		        TItemValue="string"
-		        TItem="string"
-                Style="width:100%;"
-                DropdownMatchSelectWidth=@false
-                HideSelected=@false
-                Size="small"
-                MaxTagCount="@ResponsiveTag.Responsive"
-                IgnoreItemChangesLeadsToException="false"
-		        AllowClear/>
-            </th>
-        <th><span style="cursor:pointer;@(sortingField == SortingField.From ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.From))>From</span></th>
-        <th><span style="cursor:pointer;@(sortingField == SortingField.Amount ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Amount))>Amount</span></th>
-        <th>Recepients</th>
+            Placeholder="Categories"
+            DataSource="TourCategories"
+            @bind-Values="@filterCategories"
+            TItemValue="string"
+            TItem="string"
+            Style="width:100%;"
+            DropdownMatchSelectWidth=@false
+            HideSelected=@false
+            Size="small"
+            MaxTagCount="@ResponsiveTag.Responsive"
+            IgnoreItemChangesLeadsToException="false"
+            AllowClear/>
+        </div>
+        <div class="grid-header"><span style="cursor:pointer;@(sortingField == SortingField.From ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.From))>From</span></div>
+        <div class="grid-header"><span style="cursor:pointer;@(sortingField == SortingField.Amount ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Amount))>Amount</span></div>
+        <div class="grid-header">Recepients</div>
     </TableHeader>
     <NoDataRowTemplate>
         <td colspan="4"><i>No Data</i></td>
@@ -90,20 +73,23 @@
             var spending = spendingItem.Item1;
             var idxUp = spendingItem.Item2;
             var idx = nonPlannedShownSpendingCount - idxUp + 1;
+            var spendingTypeClass = spending.Planned 
+                                    ? (spending.Description.StartsWith("Family") ? "family" : "planned") 
+                                    : spending.IsDryRun ? "dry-run" : "";
         }
-        <td>
+        <div class="grid-cell spending @spendingTypeClass">
             @if (!spending.Planned)
             {
                 <span style="cursor:pointer;" 
                 @onclick=@(() => OnSpendingDeleteClicked(spending))>
-                <b>X&nbsp;</b>
+                    <b>X&nbsp;</b>
                 </span>
-                <span>&nbsp;@idx. </span>
+                <span>&nbsp;@(spendingAttrs[spending].idx + 1). </span>
                 @if (MassChangeCat)
                 {
                     <Checkbox @key=@($"massck_{spending.GUID}")
-                          Value=@(MassChangeIds.ContainsKey(spending.GUID) ? MassChangeIds[spending.GUID] : false)
-                          OnChange=@((c) => MassChangeIds[spending.GUID] = c)></Checkbox>
+                    Value=@(MassChangeIds.ContainsKey(spending.GUID) ? MassChangeIds[spending.GUID] : false)
+                    OnChange=@((c) => MassChangeIds[spending.GUID] = c)></Checkbox>
                 }
             }
             @((MarkupString)spending.Description.AsBreakable())
@@ -130,10 +116,10 @@
                 {
                     <span>@EditActionTemplate(spending)</span>
                 }
-                </div>
-        </td>
-        <td>@((MarkupString)((Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == spending.FromGuid).FirstOrDefault()?.Name ?? "").AsBreakable())</td>
-        <td>
+            </div>
+        </div>
+        <div class="grid-cell spending @spendingTypeClass">@((MarkupString)((Tour?.Persons ?? new List<Person>()).Where(p => p.GUID == spending.FromGuid).FirstOrDefault()?.Name ?? "").AsBreakable())</div>
+        <div class="grid-cell spending @spendingTypeClass">
             <b>@spending.AmountInCurrentCurrency(Tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size: xx-small">@Tour.CurrencyNameEmptyIfSingleCurrency()</span></b>
             <span>
                 @if (Tour.IsMultiCurrency() && spending.Currency != (Tour?.Currency ?? spending.Currency))
@@ -157,8 +143,9 @@
                     </div>
                 }
             </span>
-        </td>
-        <td>@if (spending.ToAll)
+        </div>
+        <div class="grid-cell spending @spendingTypeClass">
+            @if (spending.ToAll)
             {
                 <span style="background-color:green;color:yellow;font-size:xx-small">ALL</span>
             }    
@@ -181,17 +168,17 @@
                             ;
                     }
                     @(
-                        (MarkupString)$"{string.Join(", ", names)}"
-                     )
+                                                    (MarkupString)$"{string.Join(", ", names)}"
+                                                 )
                 </span>
                 if (!spending.IsPartialWeighted && spending.ToGuid.Count > 1)
                 {
                     <div style="color:darkcyan; font-size: xx-small"><b><i>NOT Weighted</i></b></div>
                 }
             }
-                </td>
+        </div>
     </RowTemplate>
-</TableTemplate>
+</TableTemplateDiv>
 
 @code {
     string guid = Guid.NewGuid().ToString();
@@ -346,12 +333,24 @@
         return seq;
     }
     private int nonPlannedShownSpendingCount = 0;
+    private Dictionary<Spending, (int idx, bool first, bool last)> spendingAttrs = new();
     public IEnumerable<Spending> GetSpendingSorted()
     {
         if (Tour == null) return Enumerable.Empty<Spending>();
         IEnumerable<Spending> res = (Tour.Spendings ?? new List<Spending>());
         var planned = res.Where(s => s.Planned && Math.Abs(s.AmountInCurrentCurrency(Tour)) > Tour.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt));
         var real = res.Where(s => !s.Planned);
+
+        // calc attributes
+        var realArr = real.OrderBy(s => s.SpendingDate).ToArray();
+        spendingAttrs = new();
+        int idx = 0;
+        foreach (var sp in realArr)
+        {
+            spendingAttrs[sp] = (idx, idx == 0, idx == realArr.Length);
+            idx++;
+        }
+
         planned = planned
             .OrderBy(s => s.Description.StartsWith("Family") ? 0 : 1) // first family
             .ThenBy(s => (Tour?.Persons ?? new List<Person>()).FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "") // then by name
