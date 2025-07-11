@@ -157,6 +157,15 @@
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
+        .grid-table .row {
+            display: contents;
+        }
+        .row:nth-child(odd) div {
+            opacity: 1;
+        }
+        .row:nth-child(even) div {
+            opacity: 0.85;
+        }
         .grid-header {
             background-color: #ffffff;
             color: black;
@@ -203,11 +212,14 @@
         .bottom-left-round {
             border-bottom-left-radius: 10px;
         }
-        .opacity-odd {
-            opacity: 1;
+        .family {
+            background-color: aquamarine;
         }
-        .opacity-even {
-            opacity: 0.85;
+        .planned {
+            background-color: yellow;
+        }
+        .dry-run {
+            background-color: bisque;
         }
     </style>
     <meta charset="utf-8" />
