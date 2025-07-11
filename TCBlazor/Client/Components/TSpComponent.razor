@@ -74,8 +74,11 @@ TopPadding="30"
             var idxUp = spendingItem.Item2;
             var idx = nonPlannedShownSpendingCount - idxUp + 1;
             var spendingTypeClass = spending.Planned 
-                                    ? (spending.Description.StartsWith("Family") ? "family" : "planned") 
-                                    : spending.IsDryRun ? "dry-run" : "";
+                                        ? (spending.Description.StartsWith("Family ") ? "family" : "planned") 
+                                        : spending.IsDryRun 
+                                            ? "dry-run" 
+                                            : spending.Description.StartsWith("X ") ? "payback" 
+                                                : spending.Description.StartsWith("Family ") ? "family-payback" : "";
         }
         <div class="grid-cell spending @spendingTypeClass">
             @if (!spending.Planned)
