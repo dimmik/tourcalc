@@ -31,9 +31,9 @@ else
 {
     <h3>Tour List</h3>
 
-    <TableTemplate Items=@GetToursFiltered() Context="tourItem" TopPadding="30">
+    <TableTemplateDiv Items=@GetToursFiltered() Context="tourItem" TopPadding="30" cols="4">
     <TableHeader>
-        <th>@if (InProgress)
+        <div class="grid-header">@if (InProgress)
             {
                 <span style="color: green;">&nbsp;[...wait...]&nbsp;</span>                
             }
@@ -53,21 +53,17 @@ else
         else
         {
             <span style="cursor:pointer;border:solid thin" @onclick=@(() => AddingTour = true)>+</span>            
-        }</th>
-        <th>Fin</th>
-            <th>Arch <input type="checkbox" checked=@ShowArchived @onchange=@(() => ShowArchived = !ShowArchived)/></th>
-        <th>Del</th>
+        }</div>
+        <div class="grid-header">Fin</div>
+        <div class="grid-header">Arch <input type="checkbox" checked=@ShowArchived @onchange=@(() => ShowArchived = !ShowArchived) /></div>
+        <div class="grid-header">Del</div>
     </TableHeader>
-
-    <NoDataRowTemplate>
-        <td colspan="4"><i>No Data</i></td>
-    </NoDataRowTemplate>
 
     <RowTemplate>
         @{
             var tour = tourItem.Item1;
         }
-        <td>
+        <div class="grid-cell">
                 @if (!(tour.Metadata == "Editing"))
                 {
                     <span><NavLink href=@($"tour/{tour.Id}")>@((MarkupString)tour.Name.AsBreakable())</NavLink> (@tour.Duration d)</span>
@@ -92,21 +88,23 @@ else
                 <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => CopyTourJsonToCb(tour))>JSON</span>
                 <TourVersions @key=@($"tvc_{tour.Id}") Tour=@tour/>
             </div>
-        </td>
-        <td><input @key=@($"fin_{tour.Id}") type="checkbox" 
+        </div>
+        <div class="grid-cell center">
+            <input @key=@($"fin_{tour.Id}") type="checkbox" 
             checked=@tour.IsFinalizing 
             disabled=@InProgress
             @onclick=@(() => OnFinChange(tour))
             />
-        </td>
-        <td><input @key=@($"arch_{tour.Id}") type="checkbox" 
+        </div>
+        <div class="grid-cell center">
+            <input @key=@($"arch_{tour.Id}") type="checkbox" 
             checked=@tour.IsArchived 
             disabled=@InProgress
             @onclick=@(() => OnArchChange(tour))
-            /></td>
-        <td><span style="border:dashed; cursor:pointer;" @onclick=@(() => OnDelete(tour))>X</span></td>
+            /></div>
+        <div class="grid-cell center"><span style="border:dashed; cursor:pointer;" @onclick=@(() => OnDelete(tour))>X</span></div>
     </RowTemplate>
-</TableTemplate>
+</TableTemplateDiv>
 }
 
 @code {

@@ -30,11 +30,12 @@
        DestroyOnClose=@true
        Closable=@true>
     <div style="height: 55vh; overflow:scroll;">
-        <TableTemplate Items=@spendingToShow
+        <TableTemplateDiv Items=@spendingToShow
+            cols="2"
                        Context="spendingIdx"
                        ConditionalRowStyle=@((s, aa) => $"{SpendingBg(s)};{SpendingFg(s)}")>
             <TableHeader>
-                <th colspan="2">
+                <div class="table-cell" style="grid-column: 1 / -1">
                     @{
                         var amount = totalToPay;// (spendingToShow?.Where(s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCents)?.Sum() ?? 0);
                     }
@@ -68,7 +69,7 @@
                         </span>
                     }
                     
-                </th>
+                </div>
 
             </TableHeader>
             <RowTemplate>
@@ -76,22 +77,23 @@
                     var spending = spendingIdx.Item1;
                     var pTo = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.ToGuid[0]) ?? new();
                     var pFrom = tour?.Persons?.FirstOrDefault(pp => pp.GUID == spending.FromGuid) ?? new();
+                    var sp_class = DebtStatusOfSpending(spending);
                 }
-                <td><b>@spending.AmountInCurrentCurrency(tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated) <i style="font-size: x-small;">@tour.CurrencyNameEmptyIfSingleCurrency()</i></b></td>
-                    @if (WillPay)
-                    {
-                        <td>
-                            To <b>@pTo.Name</b>
-                        </td>
-                    }
-                    @if (!WillPay)
-                    {
-                        <td>
-                            From <b>@pFrom.Name</b>
-                        </td>
-                    }
+                <div class="grid-cell @sp_class"><b>@spending.AmountInCurrentCurrency(tour).ToString("N0", GlobConsts.NumGroupSpaceSeparated) <i style="font-size: x-small;">@tour.CurrencyNameEmptyIfSingleCurrency()</i></b></div>
+                @if (WillPay)
+                {
+                    <div class="grid-cell @sp_class">
+                        To <b>@pTo.Name</b>
+                    </div>
+                }
+                @if (!WillPay)
+                {
+                    <div class="grid-cell @sp_class">
+                        From <b>@pFrom.Name</b>
+                    </div>
+                }
             </RowTemplate>
-        </TableTemplate>
+        </TableTemplateDiv>
     </div>
 </Modal>
 

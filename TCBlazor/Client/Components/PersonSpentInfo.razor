@@ -56,59 +56,55 @@
                     ></SimpleBlazorPieChart.SimplePieChart>
                 </div>
             }
-            <TableTemplate Items=@(person.SpentSendingInfo)
-                           Context="siItem"
-                           ConditionalRowStyle=@((spi, idx) => {
-                           if (!spi.IsSpendingToAll && spi.ToNames.Count() == 1) // personal
-                           {
-                           return "background-color: lightgreen";
-                           }
-                           if (!spi.IsSpendingToAll){
-                           return "background-color: lightblue";
-                           }
-                           return "background-color: white";
-                           })>
+            @{
+                subtotal = 0;
+            }
+            <TableTemplateDiv Items=@(person.SpentSendingInfo)
+                cols="2" 
+                Context="siItem"
+            >
                 <RowTemplate>
                     @{
                         var si = siItem.Item1;
-                        if (siItem.Item2 == 1)
-                        {
-                            subtotal = 0;
-                        }
                         subtotal += si.TotalSpendingAmountInCents;
+                        var sp_class = (
+                                si.IsSpendingToAll ? "s-to-all" 
+                                : si.ToNames.Count() == 1 ? "s-personal"
+                                    : "s-partial"
+                            );
                     }
 
-                <td><b>@si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
+                <div class="grid-cell balance @sp_class">
+                    <b>
+                        @si.TotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
                         @if (si.Currency != tour.Currency)
                         {
                             <span style="font-size: xx-small; font-weight: bold;background-color:blanchedalmond;"><br />
                                 @si.OriginalTotalSpendingAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) @si.Currency.Name</span>
                         }
-                    </b></td>
-                    <td>
-                        @if (!string.IsNullOrWhiteSpace(si.Type))
-                        {
-                            <span style="font-size: xx-small; font-style:italic; background-color: yellow; color: green">(@si.Type)</span>
-                            <span>&nbsp;</span>
-                        }
-                        @((MarkupString)si.SpendingDescription.AsBreakable())
-                        @if (si.ToNames.Any()){
-                            <div style="font-size: xx-small"> to
-                                @foreach (var (n, odd, idx) in si.ToNames.Zip(Enumerable.Range(0, 1000)).Select(nidx => (nidx.First, nidx.Second % 2, nidx.Second)))
-                                {
-                                    <b style="color: @(odd == 0 ? "black" : "green");  @(n == person.Name ? "text-decoration: underline;" : "")">
-                                        @($"{(idx == 0 ? "" : ",")}") <span style="@(n == person.Name ? "text-decoration: underline;" : "")">@((MarkupString)n.AsBreakable(5))</span>
-                                    </b>
-                                } 
-                            </div>
-                        }
+                    </b>
+                </div>
+                <div class="grid-cell @sp_class">
+                    @if (!string.IsNullOrWhiteSpace(si.Type))
+                    {
+                        <span style="font-size: xx-small; font-style:italic; background-color: yellow; color: green">(@si.Type)</span>
+                        <span>&nbsp;</span>
+                    }
+                    @((MarkupString)si.SpendingDescription.AsBreakable())
+                    @if (si.ToNames.Any()){
+                        <div style="font-size: xx-small"> to
+                            @foreach (var (n, odd, idx) in si.ToNames.Zip(Enumerable.Range(0, 1000)).Select(nidx => (nidx.First, nidx.Second % 2, nidx.Second)))
+                            {
+                                <b style="color: @(odd == 0 ? "black" : "green");  @(n == person.Name ? "text-decoration: underline;" : "")">
+                                    @($"{(idx == 0 ? "" : ",")}") <span style="@(n == person.Name ? "text-decoration: underline;" : "")">@((MarkupString)n.AsBreakable(5))</span>
+                                </b>
+                            } 
+                        </div>
+                    }
                     <span style="font-size: xx-small; font-weight: bold">&nbsp;&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span></span>
-                    </td>
+                </div>
                 </RowTemplate>
-                <NoDataRowTemplate>
-                    <td colspan="2"><i>No Data</i></td>
-                </NoDataRowTemplate>
-            </TableTemplate>
+            </TableTemplateDiv>
         </div>
 </Modal>
 @code {

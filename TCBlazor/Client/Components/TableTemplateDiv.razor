@@ -13,9 +13,15 @@
             <div class="row">@RowTemplate((item, 0))</div>
         }
     }
-    @if (NoDataRowTemplate is not null && !(Items?.Any() ?? false))
+    @if (!(Items?.Any() ?? false))
     {
-        <div class="row">@NoDataRowTemplate</div>
+        if (NoDataRowTemplate is not null){
+            <div class="row">@NoDataRowTemplate</div>
+        } else {
+            <div class="row">
+                <div class="grid-cell center" style="grid-column: 1 / -1"><i>No Data</i></div>
+            </div>
+        }
     }
 </div>
 

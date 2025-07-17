@@ -55,15 +55,16 @@
                            })>
                 <RowTemplate>
                     @{
-                    var si = siItem.Item1;
-                    if (siItem.Item2 == 1)
-                    {
-                        subtotal = 0;
+                        var si = siItem.Item1;
+                        subtotal += si.ReceivedAmountInCents;
+                        var sp_class = (
+                            si.IsSpendingToAll ? "s-to-all"
+                                : si.ToNames.Count() == 1 ? "s-personal"
+                                    : "s-partial"
+                        );
                     }
-                    subtotal += si.ReceivedAmountInCents;
-                    }
-                    <div class="grid-cell  compact">@((MarkupString)si.From.AsBreakable(5))</div>
-                    <div class="grid-cell balance compact">
+                    <div class="grid-cell compact @sp_class">@((MarkupString)si.From.AsBreakable(5))</div>
+                    <div class="grid-cell balance compact @sp_class">
                     <b>@si.ReceivedAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span></b>
                         <span style="font-size: xx-small">
                             @($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents: 0.00}")%
@@ -73,7 +74,7 @@
                             <span style="font-size: xx-small; font-weight: bold;background-color:blanchedalmond;"><br/>@si.OriginalReceivedAmountInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) @si.Currency.Name</span>
                         }
                     </div>
-                    <div class="grid-cell compact">
+                    <div class="grid-cell compact @sp_class">
                         @if (!string.IsNullOrWhiteSpace(si.Type))
                         {
                             <span style="font-size: xx-small; font-style:italic; background-color: yellow; color: green">(@si.Type)</span>
@@ -91,12 +92,9 @@
                             </div>
                         }
 
-                    <span style="font-size: xx-small; font-weight: bold">&nbsp;&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span></span>
+                        <span style="font-size: xx-small; font-weight: bold">&nbsp;&gt; @subtotal.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span></span>
                     </div>
                 </RowTemplate>
-                <NoDataRowTemplate>
-                    <div class="grid-cell-span-all-cols"><i>No Data</i></div>
-                </NoDataRowTemplate>
             </TableTemplateDiv>
         </div>
 </Modal>
