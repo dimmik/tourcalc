@@ -27,7 +27,8 @@ else
     engine.SendMessage("Tour", tour);
     <PageTitle>@tour.Name</PageTitle>
     <TourHeader tour="tourLocal" isFresh="isFresh" storedDt="storedDt"/>
-    <TableTemplateDiv Items=@(new string[1]) TopPadding="0">
+    // why do we need this inside table template at all?..
+    <TableTemplateDiv Items=@(new string[1]) TopPadding="0" cols="1">
          <RowTemplate>
             <div>
                 <div style="width: 100%; display: table">
