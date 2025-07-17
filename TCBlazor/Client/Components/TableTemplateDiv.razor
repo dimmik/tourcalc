@@ -6,16 +6,26 @@
     {
         <div class="row">@TableHeader</div>
     }
+    @{
+        var item_index = 0;
+    }
     @foreach (var item in (Items ?? Enumerable.Empty<TItem>()))
     {
         if (RowTemplate is not null)
         {
-            <div class="row">@RowTemplate((item, 0))</div>
+            item_index += 1;
+            <div class="row">@RowTemplate((item, item_index))</div>
         }
     }
-    @if (NoDataRowTemplate is not null && !(Items?.Any() ?? false))
+    @if (!(Items?.Any() ?? false))
     {
-        <div class="row">@NoDataRowTemplate</div>
+        if (NoDataRowTemplate is not null){
+            <div class="row">@NoDataRowTemplate</div>
+        } else {
+            <div class="row">
+                <div class="grid-cell-no-data">No Data</div>
+            </div>
+        }
     }
 </div>
 

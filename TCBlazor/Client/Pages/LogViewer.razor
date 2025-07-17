@@ -58,26 +58,23 @@
         </tr>
     </table>
     <br/><b>Total @(GetLogEntries().Count())</b>
-    <TableTemplate Items="GetLogEntries()" Context="logItem">
+    <TableTemplateDiv Items="GetLogEntries()" Context="logItem">
         <TableHeader>
-            <td>When</td>
-            <td>IP</td>
-            <td>Message</td>
-            <td>User Agent</td>
+            <div>When</div>
+            <div>IP</div>
+            <div>Message</div>
+            <div>User Agent</div>
         </TableHeader>
-        <NoDataRowTemplate>
-            <td colspan="4"><i>No Data</i></td>
-        </NoDataRowTemplate>
         <RowTemplate>
             @{
                 var log = logItem.Item1;
             }
-            <td>@($"{log.Timestamp.ToLocalTime():yyyy-MM-dd HH:mm:ss}")</td>
-            <td>@log.Ip</td>
-            <td>@log.Msg</td>
-            <td><span style="font-size: xx-small">@log.UserAgent</span></td>
+            <div>@($"{log.Timestamp.ToLocalTime():yyyy-MM-dd HH:mm:ss}")</div>
+            <div>@log.Ip</div>
+            <div>@log.Msg</div>
+            <div><span style="font-size: xx-small">@log.UserAgent</span></div>
         </RowTemplate>
-    </TableTemplate>
+    </TableTemplateDiv>
 }
 
 @code {

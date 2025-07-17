@@ -150,22 +150,26 @@
             right: 8px !important;
             width: 3px !important;
         }
+        /*div-based table*/
         .grid-table {
             display: grid;
-            background-color: #ddd;
+            background-color: white;
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
+        /*designated row - for selectors. Does not count as a cell*/
         .grid-table .row {
             display: contents;
         }
+        /*highlight a bit even rows*/
         .row:nth-child(odd) div {
             opacity: 1;
         }
         .row:nth-child(even) div {
             opacity: 0.85;
         }
+        /*cells*/
         .grid-header {
             background-color: #ffffff;
             color: black;
@@ -180,9 +184,18 @@
             text-align: left;
             border-right: 1px dotted green;
         }
+        .center {
+            text-align: center;
+        }
         .grid-cell-span-all-cols {
             grid-column: 1 / -1;
             text-align: center;
+        }
+        .grid-cell-no-data {
+            grid-column: 1 / -1;
+            text-align: center;
+            font-style: italic;
+            background-color: lightgray;
         }
         .balance {
             text-align: right;
@@ -191,10 +204,12 @@
         .compact {
             font-size: x-small
         }
-        .even-row {
+
+        /*For grouping persons*/
+        .family-even-row {
             background-color: #f0f8ff;
         }
-        .odd-row {
+        .family-odd-row {
             background-color: #f0fff0;
         }
         .top-thick-border {
@@ -212,6 +227,8 @@
         .bottom-left-round {
             border-bottom-left-radius: 10px;
         }
+
+        /*For spending list*/
         .family {
             background-color: aquamarine;
         }
@@ -226,6 +243,29 @@
         }
         .family-payback {
             background-color: #fef9e7;
+        }
+
+        /*For balance sheet*/
+        .Pleasure {
+            background-color: lightgreen;
+            color: green;
+        }
+        .Bankrupt {
+            background-color: lightpink;
+            color: red;
+        }
+        .JustOk {
+            color: black;
+        }
+        /*For spent or received*/
+        .s-to-all {
+            /* nothing */
+        }
+        .s-partial {
+            background-color: lightblue;
+        }
+        .s-personal {
+            background-color: lightgreen;
         }
     </style>
     <meta charset="utf-8" />

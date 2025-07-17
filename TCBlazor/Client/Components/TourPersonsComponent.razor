@@ -47,9 +47,6 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
                     }
                     </div>
     </TableHeader>
-    <NoDataRowTemplate>
-        <dic class="grid-cell-span-all-cols"><i>No Data</i></dic>
-    </NoDataRowTemplate>
     <RowTemplate>
         @{
             var person = personItem.Item1;
@@ -57,7 +54,7 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
             var first = familyMapping[person].firstInFamily;
             var last = familyMapping[person].lastInFamily;
             int idx = familyMapping[person].idx;
-            var fClass = familyId % 2 == 0 ? "even-row" : "odd-row";
+            var fClass = familyId % 2 == 0 ? "family-even-row" : "family-odd-row";
             var topRoundClass = "";
             var bottomRoundClass = "";
             if (first)
