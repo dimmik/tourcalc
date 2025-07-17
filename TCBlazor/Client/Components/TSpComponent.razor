@@ -64,9 +64,6 @@ TopPadding="30"
         <div class="grid-header"><span style="cursor:pointer;@(sortingField == SortingField.Amount ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Amount))>Amount</span></div>
         <div class="grid-header">Recepients</div>
     </TableHeader>
-    <NoDataRowTemplate>
-        <td colspan="4"><i>No Data</i></td>
-    </NoDataRowTemplate>
 
     <RowTemplate>
         @{
