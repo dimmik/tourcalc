@@ -13,7 +13,10 @@
     {
         if (RowTemplate is not null)
         {
-            item_index += 1;
+            if (ConditionalItemIdxIncrement(item, item_index))
+            {
+                item_index += 1;
+            }
             <div class="row">@RowTemplate((item, item_index))</div>
         }
     }
@@ -55,18 +58,6 @@
     public string HeaderBgColor { get; set; } = "white";
 
     [Parameter]
-    public Func<TItem, int, string> ConditionalRowStyle { get; set; } = (i, idx) => "";
-
-    [Parameter]
     public Func<TItem, int, bool> ConditionalItemIdxIncrement { get; set; } = (i, idx) => true;
-
-    private int idx = 0;
-    private int itemIdx = 0;
-
-    protected override void OnParametersSet()
-    {
-        idx = 0;
-        itemIdx = 0;
-    }
 
 }
