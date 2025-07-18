@@ -1,16 +1,16 @@
 ﻿@typeparam TItem
 @using System.Reflection
 
-<table>
+<div class="grid-table" style="grid-template-columns: auto auto;">
         @foreach (var nn in GetFields())
         {
                     @if (IsNumericType(nn.pi.PropertyType))
                     {
-                        <tr>
-                            <td>
+                        <div class="row">
+                            <div class="grid-cell">
                                 <b>@(nn.name):</b>
-                            </td>
-                            <td align="center">
+                            </div>
+                            <div class="grid-cell center">
                                 <input disabled=@disabled type="number" size="3" value=@(nn.pi.GetValue(Item)) 
                                 @onchange=@(
                                     async (e) => {
@@ -18,16 +18,16 @@
                                             disabled = true;
                                             await OnSave(Item);
                                             disabled = false;                                        })/>
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
                     }
                     @if (nn.pi.PropertyType == typeof(string))
                     {
-                        <tr>
-                            <td>
+                        <div class="row">
+                            <div class="grid-cell">
                                 <b>@(nn.name):</b>
-                            </td>
-                            <td align="center">
+                            </div>
+                            <div class="grid-cell center">
                                 <input disabled=@disabled type="text" size="8" value=@(nn.pi.GetValue(Item)) 
                                 @onchange=@(async (e) => {
                                         nn.pi.SetValue(Item, e.Value?.ToString() ?? "");
@@ -35,16 +35,16 @@
                                         await OnSave(Item);
                                         disabled = false;
                                 })/>
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
                     }
                     @if (nn.pi.PropertyType == typeof(bool))
                     {
-                        <tr>
-                            <td>
+                        <div class="row">
+                            <div class="grid-cell">
                                 <b>@(nn.name):</b>
-                            </td>
-                            <td align="center">
+                            </div>
+                            <div class="grid-cell center">
                                 <input disabled=@disabled type="checkbox" size="8" 
                                     checked=@((bool)(nn.pi.GetValue(Item) ?? (object)false)) 
                                     @onchange=@(async (e) => {
@@ -53,11 +53,11 @@
                                         await OnSave(Item);
                                         disabled = false;
                                     })/>
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
                     }
         }
-</table>
+</div>
 
 
 @code {
