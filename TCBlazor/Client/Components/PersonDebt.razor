@@ -32,8 +32,8 @@
     <div style="height: 55vh; overflow:scroll;">
         <TableTemplateDiv Items=@spendingToShow
             cols="2"
-                       Context="spendingIdx"
-                       ConditionalRowStyle=@((s, aa) => $"{SpendingBg(s)};{SpendingFg(s)}")>
+            Context="spendingIdx"
+        >
             <TableHeader>
                 <div class="table-cell" style="grid-column: 1 / -1">
                     @{

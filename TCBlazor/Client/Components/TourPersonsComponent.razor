@@ -32,24 +32,25 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
             <div class="grid-header">Received</div>
         }
         <div class="grid-header">
-                    @{
-                        var debtor = CalcUtilities.GetDebtor(Tour);
-                    }
-                    @if (debtor.p != null) {
-                        <NoOp>
-                            DEBTOR
-                            <b style = "font-weight: bolder; color: red" >@(debtor.p?.Name ?? "N/A")
-                                <span style = "color:green" > @debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency() </span>
-                            </b>
-                        </NoOp>
-                    } else {
-                        <NoOp>Debt</NoOp>
-                    }
-                    </div>
+            @{
+                var debtor = CalcUtilities.GetDebtor(Tour);
+            }
+            @if (debtor.p != null) {
+                <NoOp>
+                    DEBTOR
+                    <b style = "font-weight: bolder; color: red" >@(debtor.p?.Name ?? "N/A")
+                        <span style = "color:green" > @debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency() </span>
+                    </b>
+                </NoOp>
+            } else {
+                <NoOp>Debt</NoOp>
+            }
+        </div>
     </TableHeader>
     <RowTemplate>
         @{
             var person = personItem.Item1;
+            var p_idx = personItem.Item2;
             var familyId = familyMapping[person].familyId;
             var first = familyMapping[person].firstInFamily;
             var last = familyMapping[person].lastInFamily;
