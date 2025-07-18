@@ -25,38 +25,32 @@
                OnChangexx="(args) => dateFromTo = args.Dates"
                /></li>
     </ul>
-    <table style="border: 1px solid blue">
-        <tr>
-            <th style="border: 1px solid red">
-                Except
-            </th>
-            <th style="border: 1px solid green">
-                Search <Switch @bind-Value="IsSearchAnd" CheckedChildren="All" UnCheckedChildren="Any"/>
-            </th>
-        </tr>
-        <tr>
-            <td style="border: 1px solid red">
-                @foreach (var ex in Except.Keys)
-                {
-                    <Tag @key=@($"ex_{ex}") Closable OnClose=@(() => Except.Remove(ex))>@ex</Tag>
-                }
-            </td>
-            <td style="border: 1px solid green">
-                @foreach (var ex in Search.Keys)
-                {
-                    <Tag @key=@($"se_{ex}") Closable OnClose=@(() => Search.Remove(ex))>@ex</Tag>
-                }
-            </td>
-        </tr>
-                <tr>
-            <td style="border: 1px solid red">
-                <input @bind-value=@exAdd /> <button @onclick=@(() => { if (!string.IsNullOrWhiteSpace(exAdd)) Except[exAdd] = true; exAdd = ""; })>+</button>                
-            </td>
-            <td style="border: 1px solid green">
-                <input @bind-value=@seAdd /> <button @onclick=@(() => { if (!string.IsNullOrWhiteSpace(seAdd)) Search[seAdd] = true; seAdd = ""; })>+</button>
-            </td>
-        </tr>
-    </table>
+    <div class="grid-table" style="border: 1px solid blue; grid-template-columns: auto auto;">
+        <div class="grid-header" style="border: 1px solid red">
+            Except
+        </div>
+        <div class="grid-header" style="border: 1px solid green">
+            Search <Switch @bind-Value="IsSearchAnd" CheckedChildren="All" UnCheckedChildren="Any"/>
+        </div>
+        <div class="grid-cell" style="border: 1px solid red">
+            @foreach (var ex in Except.Keys)
+            {
+                <Tag @key=@($"ex_{ex}") Closable OnClose=@(() => Except.Remove(ex))>@ex</Tag>
+            }
+        </div>
+        <div class="grid-cell" style="border: 1px solid green">
+            @foreach (var ex in Search.Keys)
+            {
+                <Tag @key=@($"se_{ex}") Closable OnClose=@(() => Search.Remove(ex))>@ex</Tag>
+            }
+        </div>
+        <div class="grid-cell" style="border: 1px solid red">
+            <input @bind-value=@exAdd /> <button @onclick=@(() => { if (!string.IsNullOrWhiteSpace(exAdd)) Except[exAdd] = true; exAdd = ""; })>+</button>                
+        </div>
+        <div class="grid-cell" style="border: 1px solid green">
+            <input @bind-value=@seAdd /> <button @onclick=@(() => { if (!string.IsNullOrWhiteSpace(seAdd)) Search[seAdd] = true; seAdd = ""; })>+</button>
+        </div>
+    </div>
     <br/><b>Total @(GetLogEntries().Count())</b>
     <TableTemplateDiv Items="GetLogEntries()" Context="logItem">
         <TableHeader>
