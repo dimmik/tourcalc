@@ -10,117 +10,121 @@
     1. spendings by category
     2. chart
 -->
-<table><tr>
-        <td style="padding: 5px; vertical-align: top;">
-            <SimplePieChart Data="summary"
-                ColorSequenceGenerator="csg"
-                ShowSubcategories=@true
-                ShowAbsoluteNumbers=@true
-                RenderExtraControls="settings.Show_Debug_UI">
-                <ExtraControls>
-                    Current Seed color: <span style="color: @csg.Seed">@csg.Seed</span>
-                    @{
-                        if (Magic == -1) Magic = (int)(csg.Magic * 1000);
-                        if (Seed == null) Seed = csg.Seed.ToString("#");
-                    }
-                    <input type="color" @bind-value="@SeedBind"/>
-                    <AntDesign.InputNumber Size="@InputSize.Small" @bind-Value="MagicBind"/>
-                </ExtraControls>
-            </SimplePieChart>
-        </td>
-    </tr>
-    <tr>
-    <td>
-            <table>
-            <thead>
-            <tr>
-                        <th>
-                            <Select @bind-Value=@selectedCat
-                                    TItemValue="string"
-                                    TItem="string"
-                                    AllowClear=@true
-                                    DataSource=@totalSpentByCat.Keys
-                                    IgnoreItemChangesLeadsToException="false" />
-                        </th>
+<div class="gtid-table" style="grid-template-columns: auto">
+    <div class="grid-cell">
+        <SimplePieChart Data="summary"
+            ColorSequenceGenerator="csg"
+            ShowSubcategories=@true
+            ShowAbsoluteNumbers=@true
+            RenderExtraControls="settings.Show_Debug_UI">
+            <ExtraControls>
+                Current Seed color: <span style="color: @csg.Seed">@csg.Seed</span>
                 @{
-                var currencies = (Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>()).Select((x, i) => (x, i)).ToArray();
-                var cLen = currencies.Count();
-                foreach (var (c, i) in currencies)
-                {
-                    <td align="center" style="border: 1px solid blue;@(c == Tour?.Currency ? "font-weight: bold; color: green;" : "")">@c.Name</td>
+                    if (Magic == -1) Magic = (int)(csg.Magic * 1000);
+                    if (Seed == null) Seed = csg.Seed.ToString("#");
                 }
-                }
-            </tr>
-            </thead>
-            <tbody>
-            <tr>
-                <td style="border: 1px solid blue">Total</td>
-                @foreach (var (c, i) in currencies)
-                {
-                    var pp = totalSpentByCat[selectedCat];
-                    var cc = Tour?.Currency ?? new();
-                    var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
-                    var amountInCurrency = pp * rate;
-                            <td style="font-weight:bold; border: 1px solid blue; text-align: right">
-                                <b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
-                                <span style="font-size: x-small">@(c.Name)</span>&nbsp;</td>
-                }
-            </tr>
-            <tr>
-                <td style="border: 1px solid blue">Per Person (@adultPersonWeight w)</td>
-                @foreach (var (c, i) in currencies)
-                {
-                    var pp = totalSpentByCat[selectedCat] * adultPersonWeight / (totalWeightByCat[selectedCat] == 0 ? 1 : totalWeightByCat[selectedCat]);
-                    var cc = Tour?.Currency ?? new();
-                    var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
-                    var amountInCurrency = pp * rate;
-                            <td style="font-weight:bold; border: 1px solid blue; text-align: right">
-                                <b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
-                                <span style="font-size: x-small">@(c.Name)</span>&nbsp;</td>
-                }
-            </tr>
-            <tr>
-                <td style="border: 1px solid blue">
-                   Per Day: <AntDesign.InputNumber @bind-Value="duration" Min="1" Max="50"/>
-                    
-                </td>
-                @foreach (var (c, i) in currencies)
-                {
-                    var pp = totalSpentByCat[selectedCat] * adultPersonWeight / (totalWeightByCat[selectedCat] == 0 ? 1 : totalWeightByCat[selectedCat]);
-                    var cc = Tour?.Currency ?? new();
-                    var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
-                    var amountInCurrency = pp * rate / (duration == 0 ? 1 : duration);
-                            <td style="font-weight:bold; border: 1px solid blue; text-align: right">
-                                <b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
-                                <span style="font-size: x-small">@(c.Name)</span>&nbsp;</td>
-                }
-            </tr>
-                    @if (Tour.IsMultiCurrency())
-                    {
-                        <tr>
-                            <td>
-                                Currency: <b style='color: green'>@Tour?.Currency?.Name</b>
-                            </td>
-                            @foreach (var (c, i) in currencies)
-                            {
-                                var cc = Tour?.Currency ?? new ();
-                                var rate = cc.CurrencyRate > c.CurrencyRate ? cc.CurrencyRate * 1.0 / c.CurrencyRate : c.CurrencyRate * 1.0 / cc.CurrencyRate;
-                                var (fc, sc) = cc.CurrencyRate > c.CurrencyRate ? (cc, c) : (c, cc);
-                                <td style="border: 1px solid darkgreen">
-                                    @if (cc != c)
-                                    {
-                                        <span style="font-size: x-small"><b style="@(fc == cc ? "color:green" : "")">@fc.Name</b> / <b style="@(sc == cc ? "color:green" : "")">@sc.Name:</b> @($"{rate:#.00}")</span>
-                                    }
-                                </td>
+                <input type="color" @bind-value="@SeedBind"/>
+                <AntDesign.InputNumber Size="@InputSize.Small" @bind-Value="MagicBind"/>
+            </ExtraControls>
+        </SimplePieChart>
+    </div>
+<div class="grid-cell">
+        @{
+            var currencies = (Tour?.Currencies?.OrderByDescending(c => c.CurrencyRate) ?? Enumerable.Empty<Currency>()).Select((x, i) => (x, i)).ToArray();
+            var cLen = currencies.Count();
+            var currenciesNum = currencies.Length + 1;
+        }
+        <div class="grid-table" style="grid-template-columns: repeat(@currenciesNum,auto)">
+        <div class="row">
+                    <div class="grid-header">
+                        <Select @bind-Value=@selectedCat
+                                TItemValue="string"
+                                TItem="string"
+                                AllowClear=@true
+                                DataSource=@totalSpentByCat.Keys
+                                IgnoreItemChangesLeadsToException="false" />
+                    </div>
+            @{
+            foreach (var (c, i) in currencies)
+            {
+                <div class="grid-cell" align="center" style="@(c == Tour?.Currency ? "font-weight: bold; color: green;" : "")">@c.Name</div>
+            }
+            }
+        </div>
+        <div class="row">
+            <div class="grid-cell">Total</div>
+            @foreach (var (c, i) in currencies)
+            {
+                var pp = totalSpentByCat[selectedCat];
+                var cc = Tour?.Currency ?? new();
+                var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
+                var amountInCurrency = pp * rate;
+                        <div class="grid-cell balance total">
+                            <b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
+                            @if (Tour?.IsMultiCurrency() ?? false) {
+                                <span style="font-size: x-small">&nbsp;@(c.Name)</span>
                             }
-                        </tr>
-                    }
-
-            </tbody>
-            </table>
-    </td>
-    </tr>
-</table>
+                        </div>
+            }
+        </div>
+        <div class="row">
+            <div class="grid-cell">Per Person (@adultPersonWeight w)</div>
+            @foreach (var (c, i) in currencies)
+            {
+                var pp = totalSpentByCat[selectedCat] * adultPersonWeight / (totalWeightByCat[selectedCat] == 0 ? 1 : totalWeightByCat[selectedCat]);
+                var cc = Tour?.Currency ?? new();
+                var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
+                var amountInCurrency = pp * rate;
+                        <div class="grid-cell balance">
+                            <b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated))</b>
+                            @if (Tour?.IsMultiCurrency() ?? false) {
+                                <span style="font-size: x-small">&nbsp;@(c.Name)</span>
+                            }
+                            </div>
+            }
+        </div>
+        <div class="row">
+            <div class="grid-cell">
+                Per Day: <AntDesign.InputNumber @bind-Value="duration" Min="1" Max="50"/>
+                    
+            </div>
+            @foreach (var (c, i) in currencies)
+            {
+                var pp = totalSpentByCat[selectedCat] * adultPersonWeight / (totalWeightByCat[selectedCat] == 0 ? 1 : totalWeightByCat[selectedCat]);
+                var cc = Tour?.Currency ?? new();
+                var rate = cc.CurrencyRate * 1.0 / c.CurrencyRate;
+                var amountInCurrency = pp * rate / (duration == 0 ? 1 : duration);
+                        <div class="grid-cell balance">
+                            <b>@((amountInCurrency).ToString("N0", GlobConsts.NumGroupSpaceSeparated)) </b>
+                            @if (Tour?.IsMultiCurrency() ?? false) {
+                                <span style="font-size: x-small">&nbsp;@(c.Name)</span>
+                            }
+                            </div>
+            }
+        </div>
+                @if (Tour.IsMultiCurrency())
+                {
+                    <div class="row">
+                        <div class="grid-cell">
+                            Currency: <b style='color: green'>@Tour?.Currency?.Name</b>
+                        </div>
+                        @foreach (var (c, i) in currencies)
+                        {
+                            var cc = Tour?.Currency ?? new ();
+                            var rate = cc.CurrencyRate > c.CurrencyRate ? cc.CurrencyRate * 1.0 / c.CurrencyRate : c.CurrencyRate * 1.0 / cc.CurrencyRate;
+                            var (fc, sc) = cc.CurrencyRate > c.CurrencyRate ? (cc, c) : (c, cc);
+                            <div class="grid-cell">
+                                @if (cc != c)
+                                {
+                                    <span style="font-size: x-small"><b style="@(fc == cc ? "color:green" : "")">@fc.Name</b> / <b style="@(sc == cc ? "color:green" : "")">@sc.Name:</b> @($"{rate:#.00}")</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+        </div>
+</div>
+</div>
 @code {
     [Parameter]
     public Tour Tour { get; set; } = new Tour();

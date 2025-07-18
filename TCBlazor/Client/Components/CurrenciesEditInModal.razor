@@ -11,13 +11,13 @@
        DestroyOnClose=@true
        Closable=@true
        Width="600">
-       <table>
-        <tr>
-            <td colspan="2">Tour <i>@tour.Name</i> Currencies</td>
-        </tr>
-        <tr>
-            <td><b>Current Currency</b></td>
-            <td>
+        <div class="grid-table" style="grid-template-columns: repeat(2,auto);">
+        <div class="row">
+           <div class="grid-header grid-cell-span-all-cols">Tour <i>@tour.Name</i> Currencies</div>
+        </div>
+        <div class="row">
+            <div class="grid-cell"><b>Current Currency</b></div>
+            <div class="grid-cell">
                     <Select @bind-Value=@(Currency)
                         TItemValue="Currency"
                         TItem="Currency"
@@ -25,12 +25,12 @@
                         AllowClear=@false
                         DataSource="Currencies"
                         IgnoreItemChangesLeadsToException="false" />
-            </td>
-        </tr>
-        <tr><td colspan="2"><hr/></td></tr>
-        <tr>
-            <td>Currencies in tour</td>
-            <td>
+            </div>
+        </div>
+        <div class="row"><div class="grid-header grid-cell-span-all-cols"><hr/></div></div>
+        <div class="row">
+            <div class="grid-cell">Currencies in tour</div>
+            <div class="grid-cell">
                 <ol>
                     @foreach (var c in Currencies){
                        <li>
@@ -41,20 +41,20 @@
                        </li>
                     }
                 </ol>
-            </td>
-        </tr>
-        <tr><td colspan="2"><hr/></td></tr>
-        <tr>
-            <td>Add Currency</td>
-            <td><ul>
+            </div>
+        </div>
+        <div class="row"><div class="grid-header grid-cell-span-all-cols"><hr/></div></div>
+        <div class="row">
+            <div class="grid-cell">Add Currency</div>
+            <div class="grid-cell"><ul>
                 <li>
                    Name: <input size="3" type="text" @bind-value=@newCurrency.Name /> 
                    Worth: <input style="width: 7em" type="number" @bind-value=@newCurrency.CurrencyRate />
                    <Button Size="small" @onclick=@(() => AddNew())>Add</Button>
                 </li>
-            </ul></td>
-        </tr>
-       </table>
+            </ul></div>
+        </div>
+       </div>
 
     </Modal>
 }
