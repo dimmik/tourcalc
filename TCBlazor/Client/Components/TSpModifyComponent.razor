@@ -6,48 +6,39 @@
                 $"background-color: {(string.IsNullOrWhiteSpace(spending.Color) ? "#e6ffff" : spending.Color)};"+
                 $" padding: 5px; border-radius: 5px; border: 1px solid black;")
     >
-<table style="width: 100%">
-    <thead>
-        <tr><th colspan="2" style="text-align: center">
-                        <span style="cursor:pointer;" @onclick=@(() => spending.Color = "")>(clear)</span> 
-                        <input type="color" @bind-value=@spending.Color/>
+<div class="grid-table" style="grid-template-columns: 1fr 2fr;">
+        <div class="grid-header grid-cell-span-all-cols">
+                    <span style="cursor:pointer;" @onclick=@(() => spending.Color = "")>(clear)</span> 
+                    <input type="color" @bind-value=@spending.Color/>
             @TitleText
-             <Switch @bind-Value=@(spending.IsDryRun) CheckedChildren="DryRun" UnCheckedChildren="Real" Size="small"/>
-             @if (spending.IsDryRun){
-                <Switch @bind-Value=@(spending.IncludeDryRunInCalc) CheckedChildren="Include" UnCheckedChildren="Omit"  Size="small"/>
-             }
-        </th></tr>
-    </thead>
-        <tr>
-            <td>Description:</td>
-            <td>
-                <Input @bind-Value=@(spending.Description)/>
-            </td>
-        </tr>
-        <tr>
-            <td>Amount:</td>
-            <td>
+            <Switch @bind-Value=@(spending.IsDryRun) CheckedChildren="DryRun" UnCheckedChildren="Real" Size="small"/>
+            @if (spending.IsDryRun){
+            <Switch @bind-Value=@(spending.IncludeDryRunInCalc) CheckedChildren="Include" UnCheckedChildren="Omit"  Size="small"/>
+            }
+        </div>
+        <div class="grid-cell label">Description:</div>
+        <div class="grid-cell">
+            <Input @bind-Value=@(spending.Description)/>
+        </div>
+        <div class="grid-cell label">Amount:</div>
+        <div class="grid-cell">
             <Input @bind-Value=@(spending.AmountInCents) Type="number"/>
-            </td>
-         </tr>
+        </div>
          @if (tour.IsMultiCurrency())
          {
-                <tr>
-                    <td>Currency:</td>
-                    <td>
-                        <Select @bind-Value=@(spending.Currency)
-                            TItemValue="Currency"
-                            TItem="Currency"
-                            LabelName="@nameof(Currency.Name)"
-                            AllowClear=@false
-                            DataSource="tour.Currencies"
-                            IgnoreItemChangesLeadsToException="false" />
-                    </td>
-                </tr>
+            <div class="grid-cell label">Currency:</div>
+            <div class="grid-cell">
+                <Select @bind-Value=@(spending.Currency)
+                    TItemValue="Currency"
+                    TItem="Currency"
+                    LabelName="@nameof(Currency.Name)"
+                    AllowClear=@false
+                    DataSource="tour.Currencies"
+                    IgnoreItemChangesLeadsToException="false" />
+            </div>
          }
-        <tr>
-            <td>Category:</td>
-            <td>
+        <div class="grid-cell label">Category:</div>
+        <div class="grid-cell">
             <Select
                 @bind-Value=@(spending.Type)
                 TItemValue="string"
@@ -57,11 +48,9 @@
                 DataSource="SpendingCategories"
                 IgnoreItemChangesLeadsToException="false"
                 />
-            </td>
-        </tr>
-        <tr>
-            <td>From:</td>
-            <td>
+        </div>
+        <div class="grid-cell label">From:</div>
+        <div class="grid-cell">
 
             <Select
                 OnSelectedItemChanged="OnFromSelectedChangedHandler"
@@ -72,25 +61,20 @@
                 DefaultActiveFirstItem="false" 
                 AllowClear=@true
             >
-                    <SelectOptions>
-			            @foreach(var p in TourPersons())
-			            {
-				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@PersonLabel(p) />
-			            }
-		            </SelectOptions>
-            </Select>
-            </td>
-        </tr>
-        <tr>
-            <td>To All:</td>
-            <td>
-
+            <SelectOptions>
+			    @foreach(var p in TourPersons())
+			    {
+				    <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@PersonLabel(p) />
+			    }
+		    </SelectOptions>
+        </Select>
+        </div>
+        <div class="grid-cell label">To All:</div>
+        <div class="grid-cell">
             <Switch @bind-Value=@(spending.ToAll)></Switch>
-            </td>
-        </tr>
-        <tr>
-            <td>To:</td>
-            <td>
+        </div>
+        <div class="grid-cell label">To:</div>
+        <div class="grid-cell">
             <Select Mode="multiple"
                 Placeholder="To..."
 		        @bind-Values="@_selectedValuesTo"
@@ -106,35 +90,30 @@
 			            }
 		            </SelectOptions>
             </Select>
-            </td>
-        </tr>
-        <tr>
-            <td>Date</td>
-            <td>
-                <input type="date" @bind-value=@spending.SpendingDate/>
-            </td>
-        </tr>
-        <tr>
-            <td colspan="2">
-                <div style="display: table; width: 100%">
-                        <div style="display: table-cell; align-content: flex-start; width: 65%; text-align: start;">
-                <Button Type="@AntDesign.ButtonType.Primary" Loading=@ShowInProgress @onclick=@SaveSpending>
-                    @($"{(IsItANewSpending() ? "Submit" : "Submit")}")
-                </Button>
-                <Button Danger=@true @onclick=@OnCancel>
-                    Cancel
-                </Button>
-                   </div>
-                        <div style="display: table-cell; align-content: flex-end; width: 35%; text-align: end;">
-                            <Button Type="@AntDesign.ButtonType.Primary" Danger=@true 
-                                Shape="@ButtonShape.Circle"
-                                Icon="@IconType.Outline.Close"
-                                @onclick=@(OnX == null ? () => NavManager.NavigateTo($"/tour/{tour.Id}") : OnX)/>
-                   </div>
+        </div>
+        <div class="grid-cell label">Date: </div>
+        <div class="grid-cell">
+            <input type="date" @bind-value=@spending.SpendingDate/>
+        </div>
+        <div class="grid-cell grid-cell-span-all-cols">
+            <div style="display: table; width: 100%">
+                    <div style="display: table-cell; align-content: flex-start; width: 65%; text-align: start;">
+            <Button Type="@AntDesign.ButtonType.Primary" Loading=@ShowInProgress @onclick=@SaveSpending>
+                @($"{(IsItANewSpending() ? "Submit" : "Submit")}")
+            </Button>
+            <Button Danger=@true @onclick=@OnCancel>
+                Cancel
+            </Button>
                 </div>
-            </td>
-        </tr>
-</table>
+                    <div style="display: table-cell; align-content: flex-end; width: 35%; text-align: end;">
+                        <Button Type="@AntDesign.ButtonType.Primary" Danger=@true 
+                            Shape="@ButtonShape.Circle"
+                            Icon="@IconType.Outline.Close"
+                            @onclick=@(OnX == null ? () => NavManager.NavigateTo($"/tour/{tour.Id}") : OnX)/>
+                </div>
+            </div>
+        </div>
+</div>
 </div>
 </div>
 

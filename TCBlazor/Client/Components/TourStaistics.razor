@@ -85,7 +85,7 @@
         </div>
         <div class="row">
             <div class="grid-cell">
-                Per Day: <AntDesign.InputNumber @bind-Value="duration" Min="1" Max="50"/>
+                Per Day: <input type="number" @bind-value="duration" min="1" max="50"/>
                     
             </div>
             @foreach (var (c, i) in currencies)
