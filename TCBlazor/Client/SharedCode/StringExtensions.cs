@@ -14,5 +14,11 @@
             for (int i = 0; i < str.Length; i += maxChunkSize)
                 yield return str.Substring(i, Math.Min(maxChunkSize, str.Length - i));
         }
+        public static string AsShortString(this string str, int maxLen = 10)
+        {
+            if (string.IsNullOrWhiteSpace(str)) return "";
+            if (str.Length < maxLen) return str;
+            return str.Substring(0, maxLen-1) + "…";
+        }
     }
 }
