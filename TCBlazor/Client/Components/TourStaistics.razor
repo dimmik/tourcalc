@@ -10,9 +10,10 @@
 1. spendings by category
 2. chart
 -->
-<div class="gtid-table" style="grid-template-columns: auto; min-width: 350px;">
+<div class="grid-table" style="grid-template-columns: auto; min-width: 350px;">
     <div class="grid-cell">
         <input type="checkbox" @bind="@chartDataByCat" id="chart_data" /> <label for="chart_data">@(chartDataByCat ? "By Category" : "By Person")</label>
+        <div class="center">
         @if (chartDataByCat)
         {
             <SimplePieChart Data="summary"
@@ -47,6 +48,7 @@
                 </ExtraControls>
             </SimplePieChart>
         }
+        </div>
     </div>
     <div class="grid-cell">
         @{
