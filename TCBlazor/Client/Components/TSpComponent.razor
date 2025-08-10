@@ -30,7 +30,7 @@ TopPadding="30"
             <span style="cursor:pointer;@(sortingField == SortingField.Type ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Type))>Cat&nbsp;</span>
             @if (ShowMassChange)
             {
-                <Button Size="small" @onclick=@(() => MassChangeCat = !MassChangeCat)>mass change cats</Button>
+                <Button Size="ButtonSize.Small" @onclick=@(() => MassChangeCat = !MassChangeCat)>mass change cats</Button>
                 if (MassChangeCat)
                 {
                     <b>Selected @(MassChangeIds.Values.Where(v => v).Count())</b>
@@ -46,7 +46,7 @@ TopPadding="30"
             }
             &nbsp; <span style="cursor: pointer; background-color:aquamarine" @onclick=@(() => OnToggleShowPlanned?.Invoke())>[@(ShowPlanned ? "-Balance Sh**t" : "+Balance Sh**t")]</span>
 
-            <Select Mode="multiple"
+            <Select Mode="SelectMode.Multiple"
             Placeholder="Categories"
             DataSource="TourCategories"
             @bind-Values="@filterCategories"
@@ -55,7 +55,7 @@ TopPadding="30"
             Style="width:100%;"
             DropdownMatchSelectWidth=@false
             HideSelected=@false
-            Size="small"
+            Size="InputSize.Small"
             MaxTagCount="@ResponsiveTag.Responsive"
             IgnoreItemChangesLeadsToException="false"
             AllowClear/>
@@ -99,11 +99,11 @@ TopPadding="30"
                     CheckedChildren="++" 
                     UnCheckedChildren="--" 
                     Style=@($"font-size:xx-small; background-color: {(spending.IncludeDryRunInCalc ? "green" : "gray")}")
-                    Size="small" 
+                    Size="InputSize.Small" 
                     OnChange=@(() => UpdateIncludeInDryRun(spending))
                     />
                     &nbsp;
-                    <Button Size="small" OnClick=@(() => MakeSpendingReal(spending))>+</Button>
+                    <Button Size="ButtonSize.Small" OnClick=@(() => MakeSpendingReal(spending))>+</Button>
                 </span>
             }
 

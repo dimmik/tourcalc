@@ -38,7 +38,7 @@ Closable=@true>
                 {
                     <small>@(" ")@curr.Name</small>
                 }
-                <Button Danger Size="small" @onclick=@(async () => {
+                <Button Danger Size="ButtonSize.Small" @onclick=@(async () => {
                             bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Add planned '{spending.Description}' : {spending.AmountInCurrentCurrency(tour)}?");
                             if (confirmed)
                             {

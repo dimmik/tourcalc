@@ -1,6 +1,6 @@
 ﻿@using TCalc.Logic
 <div style="@RowBg;height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
-    <Button Size="small" Style=@($"{RowFg};font-weight:bold") @onclick=@(() => open = true)>
+    <Button Size="ButtonSize.Small" Style=@($"{RowFg};font-weight:bold") @onclick=@(() => open = true)>
         @debt.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
         @{
             var willPay = tour.AmountAPersonWillPay(person);
@@ -180,7 +180,7 @@
         {
     <Template>
                                         <Button OnClick=@((e) => onOk())
-                    Type="primary">
+                    Type="ButtonType.Primary">
                                             Got It
                                         </Button>
     </Template>

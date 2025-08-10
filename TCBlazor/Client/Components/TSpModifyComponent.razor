@@ -11,9 +11,9 @@
                     <span style="cursor:pointer;" @onclick=@(() => spending.Color = "")>(clear)</span> 
                     <input type="color" @bind-value=@spending.Color/>
             @TitleText
-            <Switch @bind-Value=@(spending.IsDryRun) CheckedChildren="DryRun" UnCheckedChildren="Real" Size="small"/>
+            <Switch @bind-Value=@(spending.IsDryRun) CheckedChildren="DryRun" UnCheckedChildren="Real" Size="InputSize.Small"/>
             @if (spending.IsDryRun){
-            <Switch @bind-Value=@(spending.IncludeDryRunInCalc) CheckedChildren="Include" UnCheckedChildren="Omit"  Size="small"/>
+            <Switch @bind-Value=@(spending.IncludeDryRunInCalc) CheckedChildren="Include" UnCheckedChildren="Omit"  Size="InputSize.Small"/>
             }
         </div>
         <div class="grid-cell label">Description:</div>
@@ -22,7 +22,7 @@
         </div>
         <div class="grid-cell label">Amount:</div>
         <div class="grid-cell">
-            <Input @bind-Value=@(spending.AmountInCents) Type="number"/>
+            <Input @bind-Value=@(spending.AmountInCents) Type="InputType.Number"/>
         </div>
          @if (tour.IsMultiCurrency())
          {
@@ -75,7 +75,7 @@
         </div>
         <div class="grid-cell label">To:</div>
         <div class="grid-cell">
-            <Select Mode="multiple"
+            <Select Mode="SelectMode.Multiple"
                 Placeholder="To..."
 		        @bind-Values="@_selectedValuesTo"
 		        TItemValue="string"
@@ -253,7 +253,7 @@
                     <div style="display: flex; flex-wrap: nowrap; padding: 8px">
                         <Input Style="flex: auto" @bind-Value="@_cname"/>
                         <a style="flex: none; padding: 8px; display: block; cursor: pointer" @onclick="AddCatToList">
-                            <Icon Type="plus" Theme="outline"></Icon>
+                            <Icon Type="plus"></Icon>
                             Add Category
                         </a>
                      </div>

@@ -1,7 +1,7 @@
 ﻿@using TCalcCore.Engine
 @inject TourcalcEngine engine
 
-<Button Size="small" @onclick=@(() => open = true)>edit</Button>
+<Button Size="ButtonSize.Small" @onclick=@(() => open = true)>edit</Button>
 @if (open)
 {
     <Modal Title=@($"Edit {spending.Description}")

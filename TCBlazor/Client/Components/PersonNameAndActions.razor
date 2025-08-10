@@ -8,8 +8,8 @@
     @if (open)
     {
         <span style="display:block;">
-            <Button Size="small" Type="@AntDesign.ButtonType.Primary" OnClick=@(async () => await OnPersonEdit(person))>Edit</Button>
-            <Button Size="small" Danger=@true OnClick=@(async () => {
+            <Button Size="ButtonSize.Small" Type="@AntDesign.ButtonType.Primary" OnClick=@(async () => await OnPersonEdit(person))>Edit</Button>
+            <Button Size="ButtonSize.Small" Danger=@true OnClick=@(async () => {
                     var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
                     if (ok){
                         await OnPersonDelete(person);
@@ -17,7 +17,7 @@
                 })>
                 Delete
             </Button>
-            <Button Size="small" OnClick=@(async () => await OnPersonSpend(person))>Spend</Button>
+            <Button Size="ButtonSize.Small" OnClick=@(async () => await OnPersonSpend(person))>Spend</Button>
         </span>
     }
     
