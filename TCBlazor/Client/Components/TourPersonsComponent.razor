@@ -18,10 +18,10 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
         <div class="grid-header">Name
             @if (ShowWeightSpentReceived)
             {
-                <Button Size="small" @onclick=@(() => {ShowWeightSpentReceived = false; IsSpendReceivedSwitchedManually = true;})>&lt;</Button>
+                <Button Size="ButtonSize.Small" @onclick=@(() => {ShowWeightSpentReceived = false; IsSpendReceivedSwitchedManually = true;})>&lt;</Button>
             } else
             {
-                <Button Size="small" @onclick=@(() => {ShowWeightSpentReceived = true; IsSpendReceivedSwitchedManually = true;})>&gt;</Button>
+                <Button Size="ButtonSize.Small" @onclick=@(() => {ShowWeightSpentReceived = true; IsSpendReceivedSwitchedManually = true;})>&gt;</Button>
             }
 
         </div>
@@ -121,7 +121,7 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
             if (!AddingPerson)
             {
                 <div style="grid-column: 1 / -1;" class="grid-cell">
-                    <Button Size="small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
+                    <Button Size="ButtonSize.Small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
                 </div>
             } else
             {
@@ -322,20 +322,18 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
                 }
             }) 
         /> 
-        <Button 
-            Type="primary"
-            Size="small"
+        <Button Type="ButtonType.Primary"
+            Size="ButtonSize.Small"
             Loading=@IsSubmittingPerson
             @onclick=@(async () => {
                 await OnSubmit(pp, onSubmit);
             })>Save</Button>
 
         <span>&nbsp;|&nbsp;</span>
-        <Button 
-           Type="primary"
+        <Button Type="ButtonType.Primary"
            Shape="@ButtonShape.Circle"
            Icon="@IconType.Outline.Close"
-           Size="small"
+           Size="ButtonSize.Small"
            Danger=@true
            @onclick=@(() => onCloseButton())/>
         <div>→ 

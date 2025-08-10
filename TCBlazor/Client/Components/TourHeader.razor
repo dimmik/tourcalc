@@ -32,8 +32,8 @@
     {
         @if (subscriptionChecked == true)
         {
-            <Button Type="primary"
-                    Size="small"
+            <Button Type="ButtonType.Primary"
+                    Size="ButtonSize.Small"
                     Danger=@false
                     @onclick=@(() => NotificationSubscriptionAsync(isSubscribed))>
                 @(isSubscribed ? "Unscubscribe" : "Subscribe")

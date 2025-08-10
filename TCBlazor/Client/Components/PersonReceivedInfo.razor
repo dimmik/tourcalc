@@ -1,6 +1,6 @@
 ﻿@using TCalc.Logic
 <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
-    <Button Size="small" Style="color:red; font-weight: bold" @onclick=@(() => open = true)>
+    <Button Size="ButtonSize.Small" Style="color:red; font-weight: bold" @onclick=@(() => open = true)>
         @person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated) <span style="font-size:xx-small">@tour.CurrencyNameEmptyIfSingleCurrency()</span>
     </Button>
 </div>
@@ -106,8 +106,7 @@
         {
     <Template>
                                         <Button OnClick=@((e) => onOk())
-                        Type="primary"
-                                                >
+                        Type="ButtonType.Primary">
                                                     Got It
                                         </Button>
     </Template>

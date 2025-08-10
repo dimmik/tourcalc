@@ -37,7 +37,7 @@
                            Name: <input size="3" type="text" @bind-value=@c.Name /> 
                            Worth: <input style="width: 7em" type="number" @bind-value=@c.CurrencyRate />
                            <Button Shape="@ButtonShape.Circle"
-                                Icon="@IconType.Outline.Close" Size="small" Danger @onclick=@(() => Currencies.Remove(c))/>
+                                Icon="@IconType.Outline.Close" Size="ButtonSize.Small" Danger @onclick=@(() => Currencies.Remove(c))/>
                        </li>
                     }
                 </ol>
@@ -50,7 +50,7 @@
                 <li>
                    Name: <input size="3" type="text" @bind-value=@newCurrency.Name /> 
                    Worth: <input style="width: 7em" type="number" @bind-value=@newCurrency.CurrencyRate />
-                   <Button Size="small" @onclick=@(() => AddNew())>Add</Button>
+                   <Button Size="ButtonSize.Small" @onclick=@(() => AddNew())>Add</Button>
                 </li>
             </ul></div>
         </div>
