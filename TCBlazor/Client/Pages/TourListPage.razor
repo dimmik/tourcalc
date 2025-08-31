@@ -40,8 +40,8 @@ else
         Tour Name
         @if (AddingTour)
         {
-            <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)><b>X</b></span>
-            <Input type="InputType.Text" placeholder="New Tour Name" @bind-Value=@NewTourName/>
+            <span style="cursor:pointer;" @onclick=@(() => AddingTour = false)><b>X</b></span><br/>
+            <input type="text" placeholder="New Tour Name" @bind-value=@NewTourName/>
             <TextArea placeholder="Tour Json (optional)" @bind-value="NewTourJson"></TextArea>
                 @if (engine.Auth?.IsMaster ?? false)
                     {
