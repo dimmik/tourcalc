@@ -9,13 +9,8 @@ using TCalcStorage.Storage.MongoDB;
 using TCBlazor.Server;
 using Company.TCBlazor.Auth;
 using Company.TCBlazor.Storage;
-using Company.TCBlazor.TgBot;
 using Microsoft.OpenApi.Models;
 using Company.TCBlazor.Controllers;
-using System.Net.Http;
-using System;
-using System.IO;
-using System.Collections.Generic;
 
 namespace Company.TCBlazor
 {
