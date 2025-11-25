@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace TourCalcWebApp.Controllers
+namespace Company.TCBlazor.Controllers
 {
     public class StartupInfo
     {

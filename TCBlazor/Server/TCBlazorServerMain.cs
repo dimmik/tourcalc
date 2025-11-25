@@ -7,18 +7,27 @@ using TCalcCore.UI;
 using TCalcStorage.Storage;
 using TCalcStorage.Storage.MongoDB;
 using TCBlazor.Server;
-using TourCalcWebApp;
-using TourCalcWebApp.Auth;
-using TourCalcWebApp.Controllers;
-using TourCalcWebApp.Storage;
+using Company.TCBlazor.Auth;
+using Company.TCBlazor.Storage;
+using Company.TCBlazor.TgBot;
+using Microsoft.OpenApi.Models;
+using Company.TCBlazor.Controllers;
+using System.Net.Http;
+using System;
+using System.IO;
+using System.Collections.Generic;
 
 namespace Company.TCBlazor
 {
     public class TCBlazorServerMain
     {
+        private static Task WakeupServiceThread;
+
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+            var Configuration = new TcConfiguration(builder.Configuration);
 
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
             builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -29,11 +38,6 @@ namespace Company.TCBlazor
 
 
             // Add services to the container.
-            var assembly = typeof(TourController).Assembly;
-            builder.Services.AddControllers()
-                .AddApplicationPart(assembly)
-                .AddControllersAsServices();
-
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
                 {
@@ -41,10 +45,9 @@ namespace Company.TCBlazor
                 });
             builder.Services.AddRazorPages();
 
-            builder.Services.AddSwaggerGen();
+            SetupSwaggerDocs(builder.Services);
 
             // services for tourcalc
-            var Configuration = new TcConfiguration(builder.Configuration);
             builder.Services.AddSingleton<ITcConfiguration>(Configuration);
             // notifier
             builder.Services.AddSingleton<INotifier, WebPushNotifier>();
@@ -77,6 +80,8 @@ namespace Company.TCBlazor
             SetupAuth(builder.Services, Configuration);
 
             builder.Services.AddSingleton(new StartupInfo());
+            builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
 
             builder.Services.AddCors(
                 options => {
@@ -93,6 +98,8 @@ namespace Company.TCBlazor
                         .SetIsOriginAllowed(hostName => true));
                 }
             );
+
+            WakeupThread(Configuration);
 
             var app = builder.Build();
             // so that HttpContext.Connection.RemoteIpAddress returns real user ip address, not address of local proxy (nginx for example)
@@ -118,12 +125,12 @@ namespace Company.TCBlazor
             if (app.Environment.IsDevelopment())
             {
                 app.UseWebAssemblyDebugging();
-                app.MapGet("/debug/routes", (IEnumerable<EndpointDataSource> endpointSources) => 
+                app.MapGet("/debug/routes", (IEnumerable<EndpointDataSource> endpointSources) =>
                     {
                         return string.Join("\n", endpointSources.SelectMany(source => source.Endpoints));
                     }
                 );
-            
+
             }
             else
             {
@@ -143,9 +150,14 @@ namespace Company.TCBlazor
             app.UseHttpException();
 
             app.UseBlazorFrameworkFiles();
-            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                ServeUnknownFileTypes = true
+            });
 
             app.UseRouting();
+
+            app.UseCors("mypolicy");
 
             app.UseAuthentication();
             app.UseAuthorization();
@@ -162,7 +174,7 @@ namespace Company.TCBlazor
                 }
             });
 
-            
+
 
 
             app.Run();
@@ -206,5 +218,58 @@ namespace Company.TCBlazor
                 });
         }
 
+        private static void SetupSwaggerDocs(IServiceCollection services)
+        {
+            // Register the Swagger generator, defining 1 or more Swagger documents
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Tourcalc API", Version = "v1" });
+                // https://stackoverflow.com/questions/43447688/setting-up-swagger-asp-net-core-using-the-authorization-headers-bearer
+                c.AddSecurityDefinition("Bearer",
+                        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                        {
+                            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                            Description = "Please enter into field the word 'Bearer' following by space and JWT",
+                            Name = "Authorization",
+                            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey
+                        });
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement() {
+                    { new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                        {
+                            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                            Description = "Please enter into field the word 'Bearer' following by space and JWT",
+                            Name = "Authorization",
+                            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey
+                        }, new List<string>() } }
+
+                    );
+                // Set the comments path for the Swagger JSON and UI.
+                var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                c.IncludeXmlComments(xmlPath);
+            });
+        }
+
+        private static void WakeupThread(ITcConfiguration Configuration)
+        {
+            try
+            {
+                // wakeup thread
+                if (Configuration.GetValue("DoWakeup", false))
+                {
+                    var url = Configuration.GetValue<string>("WakeupUrl");
+                    HttpClient client = new()
+                    {
+                        Timeout = TimeSpan.FromMinutes(10)
+                    };
+                    WakeupServiceThread = client.GetAsync(url);
+                    Console.WriteLine($"thread status: {WakeupServiceThread.Status}");
+                }
+            }
+            catch
+            {
+                // well ...
+            }
+        }
     }
 }

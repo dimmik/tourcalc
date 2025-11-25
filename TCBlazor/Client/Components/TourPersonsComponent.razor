@@ -313,7 +313,7 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
                 }
             }) 
         /> 
-        <input @bind-value=@(pp.FamilyId) 
+        @{/*<input @bind-value=@(pp.FamilyId) 
                 size=2 
                 disabled=@IsSubmittingPerson
                 @onkeyup=@(async (e) => {
@@ -321,7 +321,7 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
                     await OnSubmit(pp, onSubmit);
                 }
             }) 
-        /> 
+        /> */}
         <Button Type="ButtonType.Primary"
             Size="ButtonSize.Small"
             Loading=@IsSubmittingPerson

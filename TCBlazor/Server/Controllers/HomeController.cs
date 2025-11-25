@@ -8,9 +8,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using TourCalcWebApp.Auth;
+using Company.TCBlazor;
+using Company.TCBlazor.Auth;
 
-namespace TourCalcWebApp.Controllers
+namespace Company.TCBlazor.Controllers
 {
     //[Route("/{*pathToStaticContent}")]
     //[Authorize]

@@ -11,9 +11,10 @@ using TCalc.Storage.MongoDB;
 using TCalcCore.UI;
 using TCalcStorage.Storage;
 using TCalcStorage.Storage.LiteDB;
-using TourCalcWebApp.Exceptions;
+using Company.TCBlazor;
+using Company.TCBlazor.Exceptions;
 
-namespace TourCalcWebApp.Storage
+namespace Company.TCBlazor.Storage
 {
     public class TourCalcStorage : ITourStorage
     {

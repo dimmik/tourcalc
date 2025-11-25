@@ -1,5 +1,5 @@
 ﻿
-namespace TourCalcWebApp.Auth
+namespace Company.TCBlazor.Auth
 {
     public interface IECDsaCryptoKey
     {

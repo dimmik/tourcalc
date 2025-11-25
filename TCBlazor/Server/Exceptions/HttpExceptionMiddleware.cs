@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 
-namespace TourCalcWebApp.Exceptions
+namespace Company.TCBlazor.Exceptions
 {
     internal class HttpExceptionMiddleware
     {

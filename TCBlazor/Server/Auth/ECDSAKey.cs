@@ -6,7 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 
-namespace TourCalcWebApp.Auth
+namespace Company.TCBlazor.Auth
 {
     public class ECDSAKey : IECDsaCryptoKey
     {

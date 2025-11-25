@@ -5,7 +5,7 @@ using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace TourCalcWebApp.Controllers
+namespace Company.TCBlazor.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

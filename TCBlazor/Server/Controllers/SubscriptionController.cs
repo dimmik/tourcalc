@@ -3,11 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using TCalcCore.Storage;
 using TCalcCore.UI;
 using TCBlazor.Client.SharedCode;
-using TourCalcWebApp;
+using Company.TCBlazor;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
-namespace TCBlazor.Server.Controllers
+namespace Company.TCBlazor.Controllers
 {
     [Route("api/[controller]")]
     [Authorize]

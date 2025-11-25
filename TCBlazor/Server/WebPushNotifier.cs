@@ -2,10 +2,10 @@
 using TCalcCore.Storage;
 using TCalcCore.UI;
 using TCBlazor.Client.SharedCode;
-using TourCalcWebApp;
+using Company.TCBlazor;
 using WebPush;
 
-namespace TCBlazor.Server
+namespace Company.TCBlazor
 {
     public class WebPushNotifier : INotifier
     {

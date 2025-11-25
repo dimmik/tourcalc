@@ -8,9 +8,9 @@ using TCalc.Domain;
 using TCalc.Logic;
 using TCalc.Storage;
 using Telegram.Bot.Types;
-using TourCalcWebApp.Auth;
+using Company.TCBlazor.Auth;
 
-namespace TourCalcWebApp.TgBot
+namespace Company.TCBlazor.TgBot
 {
     public class TourBotService
     {
