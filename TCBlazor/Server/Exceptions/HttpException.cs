@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Net;
 
-namespace TourCalcWebApp.Exceptions
+namespace Company.TCBlazor.Exceptions
 {
     public class HttpException : Exception
     {

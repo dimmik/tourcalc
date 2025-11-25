@@ -39,7 +39,8 @@ namespace TCalcCore.Network
         private static readonly string CodeThatForSureIsNotUsed = "__trashNoTours__";
         public async Task<string> GetToken(string scope, string code, bool isMd5, Action<string> errorHandler)
         {
-            var token = await http.GetStringAsync($"/api/Auth/token/{scope ?? "code"}/{code ?? CodeThatForSureIsNotUsed}{(isMd5 ? "/md5" : "")}", errorHandler);
+            var tokenUrl = $"/api/Auth/token/{scope ?? "code"}/{code ?? CodeThatForSureIsNotUsed}{(isMd5 ? "/md5" : "")}";
+            var token = await http.GetStringAsync(tokenUrl, errorHandler);
             return token;
         }
 

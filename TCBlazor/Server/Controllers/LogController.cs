@@ -7,9 +7,10 @@ using System.Text;
 using System.Threading.Tasks;
 using TCalcCore.Auth;
 using TCalcCore.Storage;
-using TourCalcWebApp.Auth;
+using Company.TCBlazor;
+using Company.TCBlazor.Auth;
 
-namespace TourCalcWebApp.Controllers
+namespace Company.TCBlazor.Controllers
 {
     [Route("api/[controller]")]
     [Authorize]

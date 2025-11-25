@@ -8,9 +8,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using TCalcCore.Auth;
-using TourCalcWebApp.Controllers;
+using Company.TCBlazor;
+using Company.TCBlazor.Controllers;
 
-namespace TourCalcWebApp.Auth
+namespace Company.TCBlazor.Auth
 {
     public static class AuthHelper
     {

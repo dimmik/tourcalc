@@ -17,11 +17,11 @@ using Org.BouncyCastle.Security;
 using TCalc.Domain;
 using TCalc.Storage;
 using TCalcCore.Auth;
-using TourCalcWebApp.Auth;
-using TourCalcWebApp.Exceptions;
-using TourCalcWebApp.Utils;
+using Company.TCBlazor.Auth;
+using Company.TCBlazor.Exceptions;
+using Company.TCBlazor.Utils;
 
-namespace TourCalcWebApp.Controllers
+namespace Company.TCBlazor.Controllers
 {
     [Route("api/[controller]")]
     [Authorize]
@@ -40,34 +40,6 @@ namespace TourCalcWebApp.Controllers
             tourStorage = storage;
         }
 
-        //[HttpGet("checkInstance")]
-        private string CheckInstance()
-        {
-            var now = DateTime.UtcNow;
-            return $"inst: {InstanceCreated} now: {now} diff: {(now - InstanceCreated).TotalSeconds} s";
-
-        }
-
-        //[HttpGet("longr/{delayInSec}/{numberOfIterations}")]
-        private async Task<IActionResult> LongRunning(int delayInSec, int numberOfIterations)
-        {
-            Stopwatch ssw = Stopwatch.StartNew();
-            var r = Response;
-            await r.SendResponseWithKeepalive(
-                delayInSec: delayInSec, 
-                contentType: "application/json",  
-                howToGetResult: () => {
-                    string start = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
-                    Task.Delay(delayInSec * numberOfIterations * 1000).Wait();
-                    string finish = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
-                    return JsonConvert.SerializeObject(new { start = start, finish = finish }); }, 
-                statusCode: 200,
-                timeout: TimeSpan.FromHours(2)
-                ).ConfigureAwait(false);
-            return new EmptyResult();
-        }
-
-        
 
         /// <summary>
         /// Random bytes in base64 format.
@@ -91,7 +63,7 @@ namespace TourCalcWebApp.Controllers
         /// <param name="signerKey">ECDSA crypto service</param>
         /// <returns>JWT Token</returns>
         [HttpGet("token/{scope}/{key}/{*isMd5}")]
-        public string GetToken(string scope, string key, string isMd5, [FromServices] IECDsaCryptoKey signerKey)
+        public string GetToken([FromServices] IECDsaCryptoKey signerKey, string scope, string key, string? isMd5 = null)
         {
 
             if (key == null) key = "";
@@ -129,14 +101,6 @@ namespace TourCalcWebApp.Controllers
             //    ? tours.Select(t => t.Id).ToList()
             //    : new string[0].ToList();
             return auth;
-        }
-
-        //[HttpGet("config_values")]
-        private Dictionary<string, RequestedConfigValue> GetConfigValues()
-        {
-            var auth = AuthHelper.GetAuthData(User, Configuration);
-            if (!auth.IsMaster) throw HttpException.Forbid("You are not admin");
-            return (Configuration as TcConfiguration)?.RequestedValues ?? new Dictionary<string, RequestedConfigValue>();
         }
 
         private AuthData Authorize(string scope, string accessCode, bool accessCodeIsMd5 = false)

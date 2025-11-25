@@ -6,14 +6,13 @@ using TCalc.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using TCalc.Logic;
-using TourCalcWebApp.Auth;
-using TourCalcWebApp.Exceptions;
+using Company.TCBlazor.Auth;
+using Company.TCBlazor.Exceptions;
 using System.Linq.Expressions;
-using TCalcStorage.Storage.LiteDB;
 using TCalcCore.Auth;
 using System.Threading.Tasks;
 
-namespace TourCalcWebApp.Controllers
+namespace Company.TCBlazor.Controllers
 {
     [Route("api/[controller]")]
     [Authorize]

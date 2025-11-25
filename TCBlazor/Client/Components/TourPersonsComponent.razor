@@ -1,5 +1,7 @@
-﻿@using TCalcCore.Engine
+@using TCalcCore.Engine
 @using TCalc.Logic
+@using TCalc.Domain
+@using AntDesign
 @inject TourcalcEngine engine
 
 @inject IJSRuntime JsRuntime
@@ -7,23 +9,28 @@
 
 @implements IDisposable
 
+<div>
+    <Button Type="@ButtonType.Primary" OnClick="@(() => ShowModal(new Person { GUID = "New" }))">
+        <Icon Type="plus" /> Add Person
+    </Button>
+</div>
 
 <TableTemplateDiv cols="@(ShowWeightSpentReceived ? 5 : 2)"
-Items="@_personsForRender"
-Context="personItem" 
-TopPadding="30"
-ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")    
->
+                  Items="@_personsForRender"
+                  Context="personItem"
+                  TopPadding="30"
+                  ConditionalItemIdxIncrement="@((p, idx) => p.Metadata != "Adding")">
     <TableHeader>
-        <div class="grid-header">Name
+        <div class="grid-header">
+            Name
             @if (ShowWeightSpentReceived)
             {
                 <Button Size="ButtonSize.Small" @onclick=@(() => {ShowWeightSpentReceived = false; IsSpendReceivedSwitchedManually = true;})>&lt;</Button>
-            } else
+            }
+            else
             {
                 <Button Size="ButtonSize.Small" @onclick=@(() => {ShowWeightSpentReceived = true; IsSpendReceivedSwitchedManually = true;})>&gt;</Button>
             }
-
         </div>
         @if (ShowWeightSpentReceived)
         {
@@ -35,14 +42,18 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
             @{
                 var debtor = CalcUtilities.GetDebtor(Tour);
             }
-            @if (debtor.p != null) {
+            @if (debtor.p != null)
+            {
                 <NoOp>
                     DEBTOR
-                    <b style = "font-weight: bolder; color: red" >@(debtor.p?.Name ?? "N/A")
-                        <span style = "color:green" > @debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency() </span>
+                    <b style="font-weight: bolder; color: red">
+                        @(debtor.p?.Name ?? "N/A")
+                        <span style="color:green"> @debtor.debt @Tour?.CurrencyNameEmptyIfSingleCurrency() </span>
                     </b>
                 </NoOp>
-            } else {
+            }
+            else
+            {
                 <NoOp>Debt</NoOp>
             }
         </div>
@@ -63,7 +74,8 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
                 fClass += " top-thick-border";
                 topRoundClass = " top-left-round";
             }
-            if (last) {
+            if (last)
+            {
                 bottomRoundClass = " bottom-left-round";
             }
             var veryLastClass = "";
@@ -72,71 +84,48 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
             {
                 veryLastClass = " bottom-thick-border";
             }
-
-
         }
-        @if (string.IsNullOrWhiteSpace(person.Metadata))
+        <div class="grid-cell @fClass left-thick-border @topRoundClass @bottomRoundClass @veryLastClass">
+            <PersonNameAndActions @key=@($"pna_{person.GUID}")
+                                  idx="idx"
+                                  person="person"
+                                  tour="Tour"
+                                  OnPersonDelete="OnPersonDelete"
+                                  OnPersonEdit="@((p) => ShowModal(p))"
+                                  OnPersonSpend=@((p) => {
+                                NavManager.NavigateTo($"tour/{Tour?.GUID ?? "000"}/spending/add/{p.GUID}");
+                                return Task.CompletedTask;
+                            }) />
+        </div>
+        @if (ShowWeightSpentReceived)
         {
-            <div class="grid-cell @fClass left-thick-border @topRoundClass @bottomRoundClass @veryLastClass">
-                <PersonNameAndActions 
-                @key=@($"pna_{person.GUID}")
-                idx="idx"
-                person="person"
-                tour="Tour"
-                OnPersonDelete="OnPersonDelete"
-                OnPersonEdit=@((p) => {
-                        p.Metadata = "Editing";
-                        StateHasChanged();
-                        return Task.CompletedTask;
-                    })
-                OnPersonSpend=@((p) => {
-                        NavManager.NavigateTo($"tour/{Tour?.GUID ?? "000"}/spending/add/{p.GUID}");
-                        return Task.CompletedTask;
-                    })
-                />
-            </div>
-            @if (ShowWeightSpentReceived)
-            {
-                <div class="grid-cell @fClass @veryLastClass">
-                    <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
-                        @person.Weight 
-                    </div>
-                </div>
-                <div class="grid-cell @fClass @veryLastClass"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}") /></div>
-                <div class="grid-cell @fClass @veryLastClass"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></div>
-            }
             <div class="grid-cell @fClass @veryLastClass">
-                <PersonDebt @key=@($"debt_{person.GUID}")
-                debt="Debt(person)"
-                person="person"
-                tour=@(Tour ?? new Tour())
-                minMeaningfulAmount=@(Tour?.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt) ?? 0) />
-            </div>
-        } 
-        else if (person.Metadata == "Editing")
-        {
-            @AddEditCodeBlock(person, () => (person ?? new Person()).Metadata = "", OnPersonEdit)
-        } else if (person.Metadata == "Adding")
-        {
-            if (!AddingPerson)
-            {
-                <div style="grid-column: 1 / -1;" class="grid-cell">
-                    <Button Size="ButtonSize.Small" @onclick=@(() => AddingPerson = !AddingPerson)>+ Add Person</Button>
+                <div style="height: 100%; width: 100%; display:flex;align-items:center;justify-content:center;">
+                    @person.Weight
                 </div>
-            } else
-            {
-                @AddEditCodeBlock(person, () => AddingPerson = !AddingPerson, OnPersonAdd)
-            }
+            </div>
+            <div class="grid-cell @fClass @veryLastClass"><PersonSpentInfo tour=@Tour person="person" @key=@($"psi_{person.GUID}") /></div>
+            <div class="grid-cell @fClass @veryLastClass"><PersonReceivedInfo tour=@Tour person="person" @key=@($"pri_{person.GUID}") /></div>
         }
+        <div class="grid-cell @fClass @veryLastClass">
+            <PersonDebt @key=@($"debt_{person.GUID}")
+                        debt="Debt(person)"
+                        person="person"
+                        tour=@(Tour ?? new Tour())
+                        minMeaningfulAmount=@(Tour?.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt) ?? 0) />
+        </div>
     </RowTemplate>
 </TableTemplateDiv>
 
-@code {
-    private Tour? Tour { get; set; } = null;
-    private Currency? currency = null;
+<PersonEditModal Person="@_personToEdit"
+                 Tour="@Tour"
+                 Visible="@_isModalVisible"
+                 OnOk="HandleModalOk"
+                 OnCancel="HandleModalCancel" />
 
+@code {
     [Parameter]
-    public Tour? tour { get; set; } = null;
+    public Tour? Tour { get; set; } = null;
 
     [Parameter]
     public Func<Person, Task> OnPersonEdit { get; set; } = p => Task.CompletedTask;
@@ -145,9 +134,8 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
     [Parameter]
     public Func<Person, Task> OnPersonDelete { get; set; } = p => Task.CompletedTask;
 
-    Dictionary<string, Person> EditingPersons { get; set; } = new Dictionary<string, Person>();
-
-    bool AddingPerson = false;
+    private bool _isModalVisible = false;
+    private Person _personToEdit = new();
 
     bool ShowWeightSpentReceived = true;
     bool IsSpendReceivedSwitchedManually = false;
@@ -159,20 +147,13 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
 
     private List<Person> _personsForRender = new List<Person>();
 
-
-
     protected override async Task OnInitializedAsync()
     {
         settings = await engine.GetUISettings();
         await OnResize();
         BrowserResizeService.OnResize += OnResize;
-        engine.onPersonAddStart += SubmittingOn;
-        engine.onPersonAddFinish += SubmittingOff;
-        engine.onPersonEditStart += SubmittingOn;
-        engine.onPersonEditFinish += SubmittingOff;
-        engine.onPersonDeleteStart += SubmittingOn;
-        engine.onPersonDeleteFinish += SubmittingOff;
     }
+
     private async Task OnResize()
     {
         if (settings.Collapse_Columns_In_Person_List_On_Smaller_Screen && !IsSpendReceivedSwitchedManually)
@@ -187,53 +168,30 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
             }
         }
     }
+
     public void Dispose()
     {
-        engine.onPersonAddStart -= SubmittingOn;
-        engine.onPersonAddFinish -= SubmittingOff;
-        engine.onPersonEditStart -= SubmittingOn;
-        engine.onPersonEditFinish -= SubmittingOff;
-        engine.onPersonDeleteStart -= SubmittingOn;
-        engine.onPersonDeleteFinish -= SubmittingOff;
         BrowserResizeService.OnResize -= OnResize;
     }
-    private Task SubmittingOn()
-    {
-        IsSubmittingPerson = true; 
-        StateHasChanged(); 
-        return Task.CompletedTask;
-    }
-    private Task SubmittingOff()
-    {
-        IsSubmittingPerson = false; 
-        StateHasChanged(); 
-        return Task.CompletedTask;
-    }
 
-    private Tour GetTourInCurrency()
-    {
-        var calc = new TourCalculator(tour, currency);
-        return calc.SuggestFinalPayments();
-    }
-
-    private Dictionary<Person, (int familyId, bool firstInFamily, bool lastInFamily, int idx)> familyMapping = new(); 
+    private Dictionary<Person, (int familyId, bool firstInFamily, bool lastInFamily, int idx)> familyMapping = new();
 
     protected override void OnParametersSet()
     {
-        currency = tour?.Currency ?? new Currency();
-        Tour = GetTourInCurrency();
-        EditingPersons = GetPersons().Select(p => p.SafeClone<Person>()).ToDictionary(p => p.GUID);
-        _personsForRender = GetPersons().ToList();
+        _personsForRender = GetSortedTourPersons().ToList();
         int fid = 0;
         Person? prevPerson = null;
         int index = 0;
-        foreach (var p in _personsForRender){
+        foreach (var p in _personsForRender)
+        {
             index++;
             bool first = false;
-            if (string.IsNullOrWhiteSpace(p.ParentId)){
+            if (string.IsNullOrWhiteSpace(p.ParentId))
+            {
                 first = true;
                 fid++;
-                if (prevPerson != null) {
+                if (prevPerson != null)
+                {
                     var (ffid, fff, fl, idx) = familyMapping[prevPerson];
                     familyMapping[prevPerson] = (ffid, fff, true, idx); // last in family1
                 }
@@ -250,27 +208,9 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
 
     private long Debt(Person p)
     {
-        if (tour == null) return 0;
+        if (Tour == null) return 0;
         // round to MinimumMeaningfulDebt
-        return Math.Abs(p.Debt()) > tour.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt) ? p.Debt() : 0;
-    }
-
-
-    private Dictionary<string, bool> personFamilyOdd = new();
-
-    private IEnumerable<Person> GetPersons()
-    {
-        var pps = GetSortedTourPersons();
-        int cnt = 0;
-        foreach (var pp in pps)
-        {
-            if (string.IsNullOrWhiteSpace(pp.ParentId))
-            {
-                cnt++;
-            }
-            personFamilyOdd[pp.GUID] = cnt % 2 == 0;
-        }
-        return new[] { new Person() { Name = "", Metadata = "Adding", GUID = "New" } }.Concat(pps);
+        return Math.Abs(p.Debt()) > Tour.GetAmountInCurrentCurrencyFromMinValued(settings.MinimumMeaningfulDebt) ? p.Debt() : 0;
     }
 
     private IEnumerable<Person> GetSortedTourPersons()
@@ -278,106 +218,42 @@ ConditionalItemIdxIncrement=@((p, idx) => p.Metadata != "Adding")
         return Tour?.Persons?.SortedByNameAndDependency() ?? Enumerable.Empty<Person>();
     }
 
-    private bool IsSubmittingPerson { get; set; } = false;
-    private bool Submitted { get; set; } = false;
-
-    private async Task OnSubmit(Person pp, Func<Person, Task> onSubmit)
+    private Task ShowModal(Person person)
     {
-        if (pp == null) return;
-        if (string.IsNullOrWhiteSpace(pp?.Name))
+        _personToEdit = person;
+        _isModalVisible = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleModalOk(Person person)
+    {
+        if (string.IsNullOrWhiteSpace(person.Name))
         {
-            await JsRuntime.InvokeVoidAsync("alert", $"Person name should not be blank");
+            await JsRuntime.InvokeVoidAsync("alert", "Person name should not be blank");
             return;
         }
-        await onSubmit(pp);
-        Submitted = true;
+
+        if (person.GUID == "New")
+        {
+            await OnPersonAdd(person);
+        }
+        else
+        {
+            await OnPersonEdit(person);
+        }
+        _isModalVisible = false;
     }
 
-    private RenderFragment AddEditCodeBlock(Person person, Action onCloseButton, Func<Person, Task> onSubmit)
+    private Task HandleModalCancel()
     {
-        Person pp = EditingPersons.ContainsKey(person.GUID) ? EditingPersons[person.GUID] : new Person();
-        pp.Metadata = "";
-        return __builder =>
-        {
-    <div class="grid-cell">
-        @if (IsSubmittingPerson)
-        {
-            <div>submitting...</div>
-        }
-        <input @bind-value=@(pp.Name) 
-                size=7 
-                disabled=@IsSubmittingPerson
-                @onkeyup=@(async (e) => {
-                if (e.Code == "Enter" || e.Code == "NumpadEnter"){
-                    await OnSubmit(pp, onSubmit);
-                }
-            }) 
-        /> 
-        <input @bind-value=@(pp.FamilyId) 
-                size=2 
-                disabled=@IsSubmittingPerson
-                @onkeyup=@(async (e) => {
-                if (e.Code == "Enter" || e.Code == "NumpadEnter"){
-                    await OnSubmit(pp, onSubmit);
-                }
-            }) 
-        /> 
-        <Button Type="ButtonType.Primary"
-            Size="ButtonSize.Small"
-            Loading=@IsSubmittingPerson
-            @onclick=@(async () => {
-                await OnSubmit(pp, onSubmit);
-            })>Save</Button>
-
-        <span>&nbsp;|&nbsp;</span>
-        <Button Type="ButtonType.Primary"
-           Shape="@ButtonShape.Circle"
-           Icon="@IconType.Outline.Close"
-           Size="ButtonSize.Small"
-           Danger=@true
-           @onclick=@(() => onCloseButton())/>
-        <div>→ 
-        <nobr>
-             <Select
-                @bind-Value="pp.ParentId"
-                TItemValue="string"
-		        TItem="string"
-                Placeholder="Payer"
-                Style="display: inline-block;"
-                Disabled=@IsSubmittingPerson
-                DropdownMatchSelectWidth=@false
-                AllowClear=@true
-                DefaultActiveFirstItem="true"
-                EnableSearch
-            >
-            <SelectOptions>
-            @foreach (var p in (Tour?.Persons ?? new List<Person>()).Where(ppp => ppp.GUID != pp.GUID))
-            {
-                <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@p.Name />
-            }
-            </SelectOptions>
-        </Select>
-        </nobr>
-        </div>
-    </div>
-    <div style="grid-column: 2 / -1;" class="grid-cell">
-        <input @bind-value=@(pp.Weight) size="3" disabled=@IsSubmittingPerson/>
-        @if (settings.Show_Debug_UI){
-            <span>g: <input @bind-value=@(pp.GroupId) size="3" disabled=@IsSubmittingPerson/></span>
-        }
-    </div>
-        };
-
-        
+        _isModalVisible = false;
+        return Task.CompletedTask;
     }
-
-
 
     class BrowserDimension
     {
         public int Width { get; set; }
         public int Height { get; set; }
     }
-
-
 }

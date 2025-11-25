@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace TourCalcWebApp.Utils
+namespace Company.TCBlazor.Utils
 {
     public static class HttpUtils
     {

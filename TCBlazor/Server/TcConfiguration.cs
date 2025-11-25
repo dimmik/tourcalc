@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 
-namespace TourCalcWebApp
+namespace Company.TCBlazor
 {
     public class TcConfiguration : ITcConfiguration
     {
