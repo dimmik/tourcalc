@@ -10,7 +10,6 @@ using TCalc.Storage;
 using TCalc.Storage.MongoDB;
 using TCalcCore.UI;
 using TCalcStorage.Storage;
-using TCalcStorage.Storage.LiteDB;
 using Company.TCBlazor;
 using Company.TCBlazor.Exceptions;
 
@@ -37,14 +36,7 @@ namespace Company.TCBlazor.Storage
             bool isVersionEditable = Configuration.GetValue("TourVersionEditable", false);
 
             var providerType = Configuration.GetValue("StorageType", "InMemory");
-            if (providerType.ToLower() == "LiteDb".ToLower())
-            {
-                var rootFolder = Configuration.GetValue("DatabaseRootFolder", Path.DirectorySeparatorChar == '\\' ? @"d:\home\" : "/home/");
-                var dbPath = $"{rootFolder}{Configuration.GetValue<string>("DatabaseRelativePath", $@"Tour.db")}";
-                Directory.CreateDirectory(Path.GetDirectoryName(dbPath));
-                provider = new LiteDbTourStorage(dbPath);
-            }
-            else if (providerType.ToLower() == "MongoDb".ToLower())
+            if (providerType.ToLower() == "MongoDb".ToLower())
             {
                 var url = Configuration.GetValue<string>("MongoDbUrl");
                 var username = Configuration.GetValue<string>("MongoDbUsername");
