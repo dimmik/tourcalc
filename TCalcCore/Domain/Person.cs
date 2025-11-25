@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Text;
 
 namespace TCalc.Domain
 {
     public class Person : AbstractItem
     {
+        [Required]
         public string Name { get; set; } = $"New Person";
         public int Weight { get; set; } = 100;
         public long SpentInCents { get; set; } = 0;

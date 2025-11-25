@@ -1,0 +1,93 @@
+@using TCalc.Domain
+@using TCalcCore.Engine
+@using AntDesign
+@using System.ComponentModel.DataAnnotations
+
+@inject TourcalcEngine engine
+
+<Modal Title="@(IsAdding ? "Add Person" : $"Edit {Person?.Name}")"
+       Visible="@Visible"
+       OnOk="@(async (e) => await HandleOk(e))"
+       OnCancel="@(async (e) => await HandleCancel(e))"
+       Footer="null">
+    <Form Model="@_person"
+          LabelColSpan="8"
+          WrapperColSpan="16"
+          OnFinish="OnFinish"
+          OnFinishFailed="OnFinishFailed">
+        <FormItem Label="Name">
+            <Input @bind-Value="@_person.Name" />
+        </FormItem>
+        <FormItem Label="Weight">
+            <AntDesign.InputNumber @bind-Value="@_person.Weight" />
+        </FormItem>
+        <FormItem Label="Parent">
+            <Select @bind-Value="@_person.ParentId"
+                    TItemValue="string"
+                    TItem="string"
+                    Placeholder="Select a parent"
+                    AllowClear="true">
+                @foreach (var p in Tour?.Persons.Where(p => p.GUID != _person.GUID) ?? new List<Person>())
+                {
+                    <SelectOption Value="@p.GUID" Label="@p.Name" />
+                }
+            </Select>
+        </FormItem>
+        <div style="text-align: right;">
+            <Button OnClick="HandleCancel">Cancel</Button>
+            <Button Type="@ButtonType.Primary" HtmlType="submit">Save</Button>
+        </div>
+    </Form>
+</Modal>
+
+@code {
+    [Parameter]
+    public Tour? Tour { get; set; }
+
+    [Parameter]
+    public Person? Person { get; set; }
+
+    [Parameter]
+    public bool Visible { get; set; }
+
+    [Parameter]
+    public EventCallback<Person> OnOk { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private Person _person = new();
+    private bool IsAdding => string.IsNullOrEmpty(Person?.GUID) || Person?.GUID == "New";
+
+    protected override void OnParametersSet()
+    {
+        if (Person != null)
+        {
+            _person = Person.SafeClone<Person>();
+        }
+        else
+        {
+            _person = new Person();
+        }
+    }
+
+    private async Task HandleOk(MouseEventArgs e)
+    {
+        await OnOk.InvokeAsync(_person);
+    }
+
+    private async Task HandleCancel(MouseEventArgs e)
+    {
+        await OnCancel.InvokeAsync(null);
+    }
+
+    private async Task OnFinish(EditContext editContext)
+    {
+        await OnOk.InvokeAsync(_person);
+    }
+
+    private void OnFinishFailed(EditContext editContext)
+    {
+        // Handle form validation errors if any
+    }
+}
