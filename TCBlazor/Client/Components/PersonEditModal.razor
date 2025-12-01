@@ -27,7 +27,7 @@
                     TItem="string"
                     Placeholder="Select a parent"
                     AllowClear="true">
-                @foreach (var p in Tour?.Persons.Where(p => p.GUID != _person.GUID) ?? new List<Person>())
+                @foreach (var p in Tour?.Persons.Where(p => p.GUID != _person.GUID && string.IsNullOrWhiteSpace(p.ParentId)) ?? new List<Person>())
                 {
                     <SelectOption Value="@p.GUID" Label="@p.Name" />
                 }
