@@ -165,6 +165,13 @@
 
     protected override void OnParametersSet()
     {
+        var tourSpendingTypes = tour?.Spendings
+            ?.Where(s => !s.Planned)
+            ?.Where(s => !string.IsNullOrWhiteSpace(s.Type))
+            ?.OrderByDescending(s => s.DateCreated)
+            ?.Select(s => s.Type)?.Distinct()
+            ?.ToArray();
+
         if (spending.GUID != TheSpending.GUID)
         {
             spending = TheSpending.SafeClone<Spending>();
@@ -173,17 +180,21 @@
                 spending.SpendingDate = DateTime.Now;
             }
         }
+
+        if (tourSpendingTypes is not null && tourSpendingTypes.Length > 0 && IsItANewSpending())
+        {
+            spending.Type = tourSpendingTypes[0];
+        }
+
         _selectedValuesTo = spending.ToGuid;
+
         SpendingCategories = (
-            tour?.Spendings
-                ?.Where(s => !s.Planned)
-                ?.Where(s => !string.IsNullOrWhiteSpace(s.Type))
-                ?.Select(s => s.Type)?.Distinct()
-                ?.OrderBy(s => s) ?? Enumerable.Empty<string>()
+                tourSpendingTypes?.OrderBy(s => s) ?? Enumerable.Empty<string>()
             )
             .Concat(new[] { "Common" }) // add a common
             .Distinct()
             .ToList();
+        
     }
 
     IEnumerable<string> _selectedValuesTo = new List<string>();
