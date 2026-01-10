@@ -1,0 +1,15 @@
+﻿@page "/tour/{tid}/spending/add/"
+@inject NavigationManager NavManager
+
+...
+
+@code {
+	[Parameter]
+	public string? tid { get; set; }
+	protected override Task OnInitializedAsync()
+	{
+		var spAddPage = $"/tour/{tid}?action=addspending&addanother=true";
+		NavManager.NavigateTo(spAddPage);
+		return Task.CompletedTask;
+	}
+}
