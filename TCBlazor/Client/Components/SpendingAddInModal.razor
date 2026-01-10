@@ -1,0 +1,106 @@
+@using TCalcCore.Engine
+@using TCalcCore.UI
+@inject TourcalcEngine engine
+@inject IJSRuntime JsRuntime
+
+@if (open)
+{
+    <Modal Title=@("Add spending")
+       Visible="@open"
+       Footer=@(footer)
+       OnOk=@(async (e) => await SaveSpending(TheSpending))
+       OnCancel=@((e) => CloseModal())
+       DestroyOnClose=@true
+       Closable=@true
+       Width="600"
+       >
+        <TSpModifyComponent
+            tour=@tour
+            TheSpending=@TheSpending
+            OnSave=@(async (s) => await SaveSpending(s))
+            OnFromChanged=@((g) => {})
+            OnCancel=@(() => CloseModal())
+            OnX=@(() => CloseModal())
+            TitleText="NEW"
+        />
+    </Modal>
+}
+
+@code {
+    [Parameter]
+    public Tour tour { get; set; } = new();
+    [Parameter]
+    public EventCallback OnSpendingAdded { get; set; }
+
+    private Spending TheSpending = new();
+    private bool open = false;
+    private bool addAnother = false;
+    private UISettings settings = new();
+    private string? personId = null;
+
+    private RenderFragment footer =>
+        @<div style="display: flex; justify-content: space-between; width: 100%;">
+            <div>
+                <Checkbox @bind-Value=addAnother>Add another</Checkbox>
+            </div>
+            <div>
+                <Button OnClick=@((e) => CloseModal())>Cancel</Button>
+                <Button Type="ButtonType.Primary" OnClick=@(async (e) => await SaveSpending(TheSpending))>OK</Button>
+            </div>
+        </div>;
+
+    public void OpenModal(string? personId = null, bool addAnother = false)
+    {
+        this.personId = personId;
+        this.addAnother = addAnother;
+        open = true;
+        InitNewSpending();
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        open = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveSpending(Spending s)
+    {
+        _ = engine.RequestAddSpending(tour.Id, s);
+        await engine.SetWhoAmI(s.FromGuid);
+
+        if (addAnother)
+        {
+            InitNewSpending();
+            StateHasChanged();
+        }
+        else
+        {
+            CloseModal();
+        }
+        if (OnSpendingAdded.HasDelegate)
+        {
+            await OnSpendingAdded.InvokeAsync(s);
+        }
+    }
+
+    private void InitNewSpending()
+    {
+        var whoAmI = personId ?? ""; // You might want to get this from engine or a service
+        TheSpending = new Spending
+        {
+            GUID = Guid.NewGuid().ToString("N"),
+            Description = "",
+            AmountInCents = 0,
+            IsPartialWeighted = true,
+            ToAll = settings.Spending_ToAll_DefaultOn,
+            ToGuid = new List<string>(),
+            FromGuid = whoAmI
+        };
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await engine.GetUISettings();
+    }
+}
