@@ -32,15 +32,17 @@
         await engine.PickUpAuthInfo();
         var settings = await engine.GetUISettings();
 
-        var spAddPage = $"/tour/{tid}/spending/add/";
+        var spAddPage = $"/tour/{tid}?action=addspending&addanother=true";
         var mainTourPage = $"/tour/{tid}";
 
-        var url = settings.Default_Tour_Page_Is_Add_Spending ? spAddPage : mainTourPage;
+        await engine.RequestClearLocalTourList(reloadFromServer: false);
         if (finalizing)
         {
-            url = mainTourPage;
+            NavManager.NavigateTo(mainTourPage);
         }
-        await engine.RequestClearLocalTourList(reloadFromServer: false);
-        NavManager.NavigateTo(url);
+        else
+        {
+            NavManager.NavigateTo(settings.Default_Tour_Page_Is_Add_Spending ? spAddPage : mainTourPage);
+        }
     }
 }

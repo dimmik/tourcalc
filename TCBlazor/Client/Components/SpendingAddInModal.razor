@@ -49,9 +49,10 @@
             </div>
         </div>;
 
-    public void OpenModal(string? personId = null)
+    public void OpenModal(string? personId = null, bool addAnother = false)
     {
         this.personId = personId;
+        this.addAnother = addAnother;
         open = true;
         InitNewSpending();
         StateHasChanged();
