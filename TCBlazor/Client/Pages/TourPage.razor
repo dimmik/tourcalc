@@ -49,7 +49,7 @@ else
         </div>
         <div style="display: table-cell; width: 50%; align-content: flex-end; text-align: end;">
             <a href=@GetHref("spendings")>Spendings</a>
-            <Button Type="ButtonType.Primary" Size="ButtonSize.Small" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
+            <Button Type="ButtonType.Primary" Size="ButtonSize.Small" Danger=@true @onclick=@(async () => _spendingAddInModal.OpenModal(await GetDefaultFromGuid()))>SPEND</Button>
         </div>
     </div>
     @if (ShowPersons)
@@ -67,6 +67,7 @@ else
             p.GUID = IdHelper.NewId();
             _ = engine.RequestAddPerson(tour?.Id, p);
         })
+        SpendingAddInModal="_spendingAddInModal"
         />
     }
     <!--Spendings-->
@@ -77,7 +78,7 @@ else
     </div>
     <div style="display: table-cell; width: 60%; align-content: flex-end; text-align: end;">
         <a href=@GetHref("persons")>Persons</a>
-            <Button Type="ButtonType.Primary" Size="ButtonSize.Small" Danger=@true @onclick=@(() => NavManager.NavigateTo($"/tour/{tour?.Id}/spending/add/"))>SPEND</Button>
+        <Button Type="ButtonType.Primary" Size="ButtonSize.Small" Danger=@true @onclick=@(async () => _spendingAddInModal.OpenModal(await GetDefaultFromGuid()))>SPEND</Button>
     </div>
     </div>
     @if (ShowSpendings){
@@ -110,15 +111,13 @@ else
                     else
                     {
                         <SpendingEditInModal spending=@s tour=@tour @key=@($"sp_ed_mod_{s.GUID}")/>
-                    <NavLink href=@($"/tour/{tour?.Id}/spending/edit/{s.GUID}")>&nbsp; 
-                        <span style="border:solid 1px black">-&gt;</span>                    
-                    </NavLink>
                     }
             </EditActionTemplate>
         </TSpComponent>
     }
 }
 <AnchorNavigation />
+<SpendingAddInModal @ref="_spendingAddInModal" tour="tour" />
 @code {
     [Parameter]
     public string? TourId { get; set; }
@@ -139,6 +138,8 @@ else
     public bool isSubscribed = false;
     public bool? subscriptionChecked = null;
 
+    private SpendingAddInModal _spendingAddInModal = new();
+
     protected override async Task OnInitializedAsync()
     {
         settings = await engine.GetUISettings();
@@ -148,6 +149,24 @@ else
         // send command to load tour with certain id
         _ = engine.RequestTourLoad(TourId);
         
+    }
+
+    private async Task<string?> GetDefaultFromGuid()
+    {
+        var whoAmI = await engine.GetWhoAmI();
+        if (!string.IsNullOrWhiteSpace(whoAmI) && tour?.Persons.Any(p => p.GUID == whoAmI) == true)
+        {
+            return whoAmI;
+        }
+
+        var lastSpending = tour?.Spendings
+            .Where(s => !s.Planned)
+            .Where(s => !(s.Description ?? "").StartsWith("X"))
+            .Where(s => s.Type != "Family")
+            .OrderByDescending(s => s.SpendingDate)
+            .FirstOrDefault();
+
+        return lastSpending?.FromGuid;
     }
 
     public void Dispose()

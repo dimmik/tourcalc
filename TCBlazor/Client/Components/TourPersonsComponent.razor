@@ -93,7 +93,7 @@
                                   OnPersonDelete="OnPersonDelete"
                                   OnPersonEdit="@((p) => ShowModal(p))"
                                   OnPersonSpend=@((p) => {
-                                NavManager.NavigateTo($"tour/{Tour?.GUID ?? "000"}/spending/add/{p.GUID}");
+                                SpendingAddInModal.OpenModal(p.GUID);
                                 return Task.CompletedTask;
                             }) />
         </div>
@@ -126,6 +126,8 @@
 @code {
     [Parameter]
     public Tour? Tour { get; set; } = null;
+    [Parameter]
+    public SpendingAddInModal SpendingAddInModal { get; set; } = new();
 
     [Parameter]
     public Func<Person, Task> OnPersonEdit { get; set; } = p => Task.CompletedTask;
