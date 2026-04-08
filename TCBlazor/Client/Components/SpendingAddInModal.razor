@@ -5,10 +5,10 @@
 
 @if (open)
 {
-    <Modal Title=@("Add spending")
+    <Modal Title=@("Add spending x")
        Visible="@open"
        Footer=@(footer)
-       OnOk=@(async (e) => await SaveSpending(TheSpending))
+       OnOk=@(async (e) => CloseModal())
        OnCancel=@((e) => CloseModal())
        DestroyOnClose=@true
        Closable=@true
@@ -45,7 +45,6 @@
             </div>
             <div>
                 <Button OnClick=@((e) => CloseModal())>Cancel</Button>
-                <Button Type="ButtonType.Primary" OnClick=@(async (e) => await SaveSpending(TheSpending))>OK</Button>
             </div>
         </div>;
 
