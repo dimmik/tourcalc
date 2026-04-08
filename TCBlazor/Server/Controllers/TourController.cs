@@ -184,7 +184,10 @@ namespace Company.TCBlazor.Controllers
                 throw HttpException.Forbid(forbidMessage);
             }
             tourJson.GUID = IdHelper.NewId();
-            tourJson.AccessCodeMD5 = authData.IsMaster ? AuthHelper.CreateMD5(accessCode) : authData.AccessCodeMD5s().First();
+            var resolvedMd5 = authData.IsMaster ? AuthHelper.CreateMD5(accessCode) : authData.AccessCodeMD5s().FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(resolvedMd5))
+                throw HttpException.Forbid("No valid access code associated with this token");
+            tourJson.AccessCodeMD5 = resolvedMd5;
             tourJson.DateCreated = DateTime.Now;
             tourStorage.AddTour(tourJson);
             return tourJson.GUID;
@@ -229,6 +232,7 @@ namespace Company.TCBlazor.Controllers
                     tourJson.StateGUID = IdHelper.NewStateGuid();
                 }
                 tourJson.GUID = tourid;
+                tourJson.AccessCodeMD5 = tour.AccessCodeMD5; // never trust the body; preserve from stored record
                 TourStorage_StoreTour(tourJson);
                 return tourJson.GUID;
             }

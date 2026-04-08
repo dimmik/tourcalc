@@ -20,9 +20,9 @@ namespace TCalcCore.Auth
     public static class ADHelpers
     {
         private static readonly char Delim = ';';
-        public static IEnumerable<string> AccessCodeMD5s(this AuthData me) 
+        public static IEnumerable<string> AccessCodeMD5s(this AuthData me)
         {
-            if (string.IsNullOrWhiteSpace(me.AccessCodeMD5)) return new[] { me.AccessCodeMD5 };
+            if (string.IsNullOrWhiteSpace(me.AccessCodeMD5)) return Enumerable.Empty<string>();
             return me.AccessCodeMD5.Split(Delim);
         }
         public static char AuthTokensDelim(this AuthData _)

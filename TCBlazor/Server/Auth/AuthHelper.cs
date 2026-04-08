@@ -33,10 +33,6 @@ namespace Company.TCBlazor.Auth
                     : new AuthData(); // default no-access
             }
 
-            if (string.IsNullOrWhiteSpace(authData.AccessCodeMD5))
-            {
-                authData.AccessCodeMD5 = "WrongMd5";
-            }
             sw.Stop();
             return authData;
         }
