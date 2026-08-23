@@ -1,0 +1,131 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using TCalcCore.Engine
+
+@inject TourcalcEngine engine
+@inject IJSRuntime JsRuntime
+
+@* Same two operations as the classic editor (SetTourCurrencies / SetTourCurrency),
+   but it explains what a "worth" actually is, which the old one never did. *@
+
+<button type="button" class="tcn-hero-link" title="Currencies of this tour" @onclick=@Open>
+    @tour.Currency.Name
+</button>
+
+@if (open)
+{
+    <Modal Visible=@true
+           Footer="null"
+           Closable=@false
+           DestroyOnClose=@true
+           MaskClosable=@true
+           OnCancel=@(e => open = false)
+           WrapClassName="tcn-sheet"
+           BodyStyle="padding:0"
+           Width="480">
+
+        <div class="tcn-sheet-head">
+            <div class="tcn-sheet-title">Currencies of @tour.Name</div>
+            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)>✕</button>
+        </div>
+
+        <div class="tcn-sheet-body">
+            <div class="tcn-field">
+                <div class="tcn-label">Main currency</div>
+                <div class="tcn-chips">
+                    @foreach (var c in currencies)
+                    {
+                        <span class="tcn-chip tcn-filter-chip @(current?.Name == c.Name ? "is-on" : "")"
+                              @key=@($"cur_{c.Name}") @onclick=@(() => current = c)>@NameOf(c)</span>
+                    }
+                </div>
+                <div class="tcn-hint">Totals and balances are calculated in this one.</div>
+            </div>
+
+            <div class="tcn-field">
+                <div class="tcn-label">Rates</div>
+                <div class="tcn-hint" style="margin: 0 0 8px 0">
+                    “Worth” is what one unit is worth on any scale you like — only the ratio matters.
+                    If one euro is 118 dinars, put 100 next to the dinar and 11800 next to the euro.
+                </div>
+                @if (!currencies.Any())
+                {
+                    <div class="tcn-hint">No currencies yet — add one below.</div>
+                }
+                @foreach (var c in currencies)
+                {
+                    <div class="tcn-currow" @key=@($"row_{c.Name}_{currencies.IndexOf(c)}")>
+                        <input class="tcn-input tcn-cur-name" type="text" placeholder="EUR" @bind-value=@c.Name />
+                        <span class="tcn-cur-worth-label">worth</span>
+                        <input class="tcn-input tcn-cur-rate" type="number" min="1" @bind-value=@c.CurrencyRate />
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" title="Remove"
+                                @onclick=@(() => Remove(c))>✕</button>
+                    </div>
+                }
+            </div>
+
+            <div class="tcn-field">
+                <div class="tcn-label">Add a currency</div>
+                <div class="tcn-currow">
+                    <input class="tcn-input tcn-cur-name" type="text" placeholder="USD" @bind-value=@newCurrency.Name />
+                    <span class="tcn-cur-worth-label">worth</span>
+                    <input class="tcn-input tcn-cur-rate" type="number" min="1" @bind-value=@newCurrency.CurrencyRate />
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary" @onclick=@AddNew>Add</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tcn-sheet-foot">
+            <span style="flex:1 1 auto"></span>
+            <button type="button" class="tcn-btn" @onclick=@(() => open = false)>Cancel</button>
+            <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Apply>Save</button>
+        </div>
+    </Modal>
+}
+
+@code {
+    [Parameter]
+    public Tour tour { get; set; } = new();
+
+    private bool open = false;
+    private Currency? current = null;
+    private List<Currency> currencies = new();
+    private Currency newCurrency = new() { Name = "", CurrencyRate = 100 };
+
+    private static string NameOf(Currency c) => string.IsNullOrWhiteSpace(c.Name) ? "(unnamed)" : c.Name;
+
+    private void Open()
+    {
+        // work on copies so Cancel really cancels
+        currencies = tour.Currencies.Select(c => new Currency { Name = c.Name, CurrencyRate = c.CurrencyRate }).ToList();
+        current = currencies.FirstOrDefault(c => c.Name == tour.Currency.Name)
+                  ?? new Currency { Name = tour.Currency.Name, CurrencyRate = tour.Currency.CurrencyRate };
+        newCurrency = new Currency { Name = "", CurrencyRate = 100 };
+        open = true;
+    }
+
+    private async Task Remove(Currency c)
+    {
+        var ok = await JsRuntime.InvokeAsync<bool>("confirm",
+            $"Remove {NameOf(c)} from this tour? Expenses recorded in it will be read in the main currency.");
+        if (ok)
+        {
+            currencies.Remove(c);
+            if (current?.Name == c.Name) current = currencies.FirstOrDefault();
+        }
+    }
+
+    private void AddNew()
+    {
+        if (string.IsNullOrWhiteSpace(newCurrency.Name)) return;
+        currencies.Add(newCurrency);
+        newCurrency = new Currency { Name = "", CurrencyRate = 100 };
+    }
+
+    private void Apply()
+    {
+        var chosen = current ?? currencies.FirstOrDefault() ?? Currency.Default;
+        _ = engine.RequestEditTourProps(tour, ("SetTourCurrencies", currencies), ("SetTourCurrency", chosen));
+        open = false;
+    }
+}

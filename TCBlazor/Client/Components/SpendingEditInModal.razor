@@ -1,8 +1,24 @@
-﻿@using TCalcCore.Engine
+@using TCalcCore.Engine
 @inject TourcalcEngine engine
+@inject UiModeService uiMode
 
-<Button Size="ButtonSize.Small" @onclick=@(() => open = true)>edit</Button>
-@if (open)
+@if (uiMode.IsNew)
+{
+    <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => open = true)>edit</button>
+}
+else
+{
+    <Button Size="ButtonSize.Small" @onclick=@(() => open = true)>edit</Button>
+}
+@if (open && uiMode.IsNew)
+{
+    <SpendingModalNew tour=@tour
+                      TheSpending=@spending
+                      Title=@($"Edit expense")
+                      OnSave=@(EventCallback.Factory.Create<Spending>(this, SaveSpending))
+                      OnClose=@(EventCallback.Factory.Create(this, () => open = false)) />
+}
+else if (open)
 {
     <Modal Title=@($"Edit {spending.Description}")
        Visible="@open"

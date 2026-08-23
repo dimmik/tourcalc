@@ -1,4 +1,4 @@
-﻿@page "/goto/{transientAccessCode}/{tid}"
+@page "/goto/{transientAccessCode}/{tid}"
 
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
@@ -6,7 +6,11 @@
 @inject NavigationManager NavManager
 
 
-<h3>Redirecting...</h3>
+<div class="tcn-splash">
+    <span class="tcn-splash-logo">🧭</span>
+    <div class="tcn-splash-title">Opening the tour…</div>
+    <div class="tcn-splash-sub"><span class="tcn-spin">⟳</span> checking your link</div>
+</div>
 
 @code {
     [Parameter]

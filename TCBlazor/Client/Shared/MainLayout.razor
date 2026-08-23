@@ -16,12 +16,62 @@
 <div class="page">
 @if (engine.Auth == null)
 {
-   <div style="text-align:center">Checking auth</div>
+   <div class="tcn-splash"><span class="tcn-spin">⟳</span> Checking access…</div>
 }
     else
     {
 
-        if (!LoggingIn)
+        if (uiMode.IsNew && (LoggingIn || engine.Auth.Type == "None"))
+        {
+            @* the first screen anyone sees - worth more than a bare input *@
+            <Modal Visible=@true
+                   Footer="null"
+                   Closable=@false
+                   MaskClosable=@false
+                   Keyboard=@false
+                   WrapClassName="tcn-sheet tcn-login"
+                   BodyStyle="padding:0"
+                   Width="420">
+                <div class="tcn-sheet-head">
+                    <span class="tcn-login-logo">🧭</span>
+                    <div class="tcn-sheet-title">Tourcalc</div>
+                </div>
+                <div class="tcn-sheet-body">
+                    <p class="tcn-login-lead">Enter the access code for your tour to continue.</p>
+                    @if (loginError)
+                    {
+                        <div class="tcn-errors">Could not log in. Check the code and your connection, then try again.</div>
+                    }
+                    <div class="tcn-field">
+                        <div class="tcn-label">Access code</div>
+                        <input class="tcn-input tcn-login-input" type="text" autocomplete="off"
+                               placeholder="your code" disabled=@LoggingIn
+                               @bind-value="code" @bind-value:event="oninput"
+                               @onkeyup=@(async (e) => {
+                                   if (e.Code == "Enter" || e.Code == "NumpadEnter") { await LogIn(); }
+                               }) />
+                    </div>
+                    <div class="tcn-hint">Opening a tour link logs you in automatically - a code is only needed when you arrive without one.</div>
+                </div>
+                <div class="tcn-sheet-foot">
+                    <span style="flex:1 1 auto"></span>
+                    <button type="button" class="tcn-btn tcn-btn-primary"
+                            disabled=@(LoggingIn || string.IsNullOrWhiteSpace(code))
+                            @onclick="LogIn">
+                        @if (LoggingIn)
+                        {
+                            <span class="tcn-spin">⟳</span>
+                            <span>Logging in…</span>
+                        }
+                        else
+                        {
+                            <span>Log in</span>
+                        }
+                    </button>
+                </div>
+            </Modal>
+        }
+        else if (!LoggingIn)
         {
             @if (engine.Auth.Type == "None")
             {
@@ -113,6 +163,7 @@
     private string? code;
 
     private bool LoggingIn = false;
+    private bool loginError = false;
     private string Title = "Wait...";
     private Tour? tour = null;
 
@@ -191,6 +242,7 @@
     private async Task LogIn()
     {
         LoggingIn = true;
+        loginError = false;
         try {
             var scope = "code"; // "admin"
             var c = code;
@@ -208,6 +260,9 @@
         }
         await engine.RequestClearLocalTourList(reloadFromServer: false);
         LoggingIn = false;
+        // still anonymous means the code was not accepted
+        loginError = engine.Auth?.Type == "None";
+        if (!loginError) code = "";
     }
     RenderFragment dummyFooter =
     @<span></span>

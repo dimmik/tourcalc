@@ -1,0 +1,83 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@implements IDisposable
+
+@inject IJSRuntime JsRuntime
+@inject NavigationManager NavManager
+
+@* Copies the invite link instead of navigating to it - following it yourself,
+   which is what the plain <a> did, is never what you want here. *@
+
+<button type="button" class="@CssClass" title="@Url" @onclick=@Copy>
+    @if (copied)
+    {
+        <span>✓ copied</span>
+    }
+    else
+    {
+        <span>@Text</span>
+    }
+</button>
+
+@if (failed)
+{
+    @* the browser refused to copy - show it so it can be copied by hand *@
+    <input class="tcn-input tcn-sharefallback" type="text" readonly value="@Url" />
+}
+
+@code {
+    [Parameter]
+    public Tour? Tour { get; set; }
+
+    [Parameter]
+    public string Text { get; set; } = "share link";
+
+    [Parameter]
+    public string CssClass { get; set; } = "tcn-hero-link";
+
+    private bool copied = false;
+    private bool failed = false;
+    private CancellationTokenSource? resetCts;
+
+    private string Url => $"{NavManager.BaseUri}goto/{Tour?.AccessCodeMD5}/{Tour?.Id}";
+
+    private async Task Copy()
+    {
+        bool ok;
+        try
+        {
+            ok = await JsRuntime.InvokeAsync<bool>("tcCopyText", Url);
+        }
+        catch
+        {
+            ok = false;
+        }
+
+        failed = !ok;
+        copied = ok;
+        StateHasChanged();
+
+        if (!ok) return;
+
+        // let the confirmation fade on its own
+        resetCts?.Cancel();
+        resetCts = new CancellationTokenSource();
+        var token = resetCts.Token;
+        try
+        {
+            await Task.Delay(1800, token);
+            copied = false;
+            StateHasChanged();
+        }
+        catch (TaskCanceledException)
+        {
+            // superseded by another click
+        }
+    }
+
+    public void Dispose()
+    {
+        resetCts?.Cancel();
+        resetCts?.Dispose();
+    }
+}

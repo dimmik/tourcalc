@@ -1,0 +1,258 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using SimpleBlazorPieChart
+@using TCalc.Logic
+
+@* The stat cell in a person card plus the dialog behind it. Replaces the three
+   legacy components (PersonSpentInfo / PersonReceivedInfo / PersonDebt) in the
+   new UI - same figures, laid out as rows instead of a table. *@
+
+<div class="tcn-stat">
+    <span class="tcn-stat-label">@Label</span>
+    <button type="button" class="tcn-statbtn @ValueClass" @onclick=@(() => open = true)>
+        @NewUi.Money(HeadlineAmount)
+        @if (Kind == BreakdownKind.Balance && ShowWillPay)
+        {
+            <span class="tcn-statbtn-note">[@NewUi.Money(willPay)]</span>
+        }
+    </button>
+</div>
+
+@if (open)
+{
+    <Modal Visible=@true
+           Footer="null"
+           Closable=@false
+           DestroyOnClose=@true
+           MaskClosable=@true
+           OnCancel=@(e => open = false)
+           WrapClassName="tcn-sheet"
+           BodyStyle="padding:0"
+           Width="520">
+
+        <div class="tcn-sheet-head">
+            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name)</span>
+            <div class="tcn-sheet-title">@Title</div>
+            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)>✕</button>
+        </div>
+
+        <div class="tcn-sheet-body">
+            @if (Kind == BreakdownKind.Balance)
+            {
+                @BalanceBody
+            }
+            else
+            {
+                @ListBody
+            }
+        </div>
+
+        <div class="tcn-sheet-foot">
+            <span style="flex:1 1 auto"></span>
+            <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => open = false)>Got it</button>
+        </div>
+    </Modal>
+}
+
+@code {
+    public enum BreakdownKind { Paid, Share, Balance }
+
+    [Parameter]
+    public BreakdownKind Kind { get; set; }
+
+    [Parameter]
+    public Person person { get; set; } = new();
+
+    [Parameter]
+    public Tour tour { get; set; } = new();
+
+    [Parameter]
+    public long debt { get; set; }
+
+    [Parameter]
+    public int minMeaningfulAmount { get; set; }
+
+    private bool open = false;
+    private bool willPayFlag;
+    private long willPay;
+    private IEnumerable<Spending> settleSpendings = Enumerable.Empty<Spending>();
+
+    private string CurName => tour.CurrencyNameEmptyIfSingleCurrency();
+
+    private string Label => Kind switch
+    {
+        BreakdownKind.Paid => "Paid",
+        BreakdownKind.Share => "Own share",
+        _ => "Balance",
+    };
+
+    private long HeadlineAmount => Kind switch
+    {
+        BreakdownKind.Paid => person.SpentInCents,
+        BreakdownKind.Share => person.ReceivedInCents,
+        _ => debt,
+    };
+
+    private bool ShowWillPay =>
+        string.IsNullOrWhiteSpace(person.ParentId) && Math.Abs(willPay - debt) > 5;
+
+    private string ValueClass => Kind switch
+    {
+        BreakdownKind.Paid => "is-paid",
+        BreakdownKind.Share => "",
+        _ => debt > 0 ? "is-owing" : debt < 0 ? "is-owed" : "",
+    };
+
+    private string Title => Kind switch
+    {
+        BreakdownKind.Paid => $"{person.Name} paid {NewUi.Money(person.SpentInCents)} {CurName}",
+        BreakdownKind.Share => $"{person.Name}'s share is {NewUi.Money(person.ReceivedInCents)} {CurName}",
+        _ => $"{person.Name} will {(willPayFlag ? "pay" : "collect")} {NewUi.Money(SettleTotal)} {CurName}",
+    };
+
+    private long SettleTotal => settleSpendings
+        .Where(s => tour.DebtStatusOfSpending(s, person) != "JustOk")
+        .Sum(s => s.AmountInCurrentCurrency(tour));
+
+    protected override void OnParametersSet()
+    {
+        (willPayFlag, settleSpendings) = CalcUtilities.GetPayOrReceiveSpendings(tour, person, minMeaningfulAmount);
+        willPay = tour.AmountAPersonWillPay(person);
+    }
+
+    private IEnumerable<SpendingInfo> Infos =>
+        Kind == BreakdownKind.Paid ? person.SpentSendingInfo : person.ReceivedSendingInfo;
+
+    private IEnumerable<(string Name, int Amount)> PieData =>
+        Infos.Where(si => !string.IsNullOrWhiteSpace(si.Type))
+             .GroupBy(si => si.Type)
+             .Select(g => (g.Key, (int)g.Sum(si => Kind == BreakdownKind.Paid
+                                                    ? si.TotalSpendingAmountInCents
+                                                    : si.ReceivedAmountInCents)))
+             .OrderByDescending(x => x.Item2);
+
+    private RenderFragment ListBody => __builder =>
+    {
+        var pie = PieData.ToList();
+        var infos = Infos.ToList();
+        long running = 0;
+
+        if (pie.Any())
+        {
+            <div class="tcn-chartbox" style="margin-bottom: 12px;">
+                <SimplePieChart ShowSubcategories=@true ShowAbsoluteNumbers=@true Width="100px" Data=@pie />
+            </div>
+        }
+
+        if (!infos.Any())
+        {
+            <div class="tcn-empty">Nothing recorded yet.</div>
+        }
+
+        <div class="tcn-brk">
+            @foreach (var si in infos)
+            {
+                var amount = Kind == BreakdownKind.Paid ? si.TotalSpendingAmountInCents : si.ReceivedAmountInCents;
+                running += amount;
+                var tint = si.IsSpendingToAll ? "" : si.ToNames.Length == 1 ? "is-personal" : "is-partial";
+                <div class="tcn-brk-row @tint" @key=@($"{si.SpendingDescription}_{running}")>
+                    <div class="tcn-brk-main">
+                        <div class="tcn-brk-title">@si.SpendingDescription</div>
+                        <div class="tcn-brk-sub">
+                            @if (!string.IsNullOrWhiteSpace(si.Type))
+                            {
+                                <span class="tcn-chip tcn-chip-primary">@si.Type</span>
+                            }
+                            @if (Kind == BreakdownKind.Share && !string.IsNullOrWhiteSpace(si.From))
+                            {
+                                <span>from <b>@si.From</b></span>
+                            }
+                            @if (si.IsSpendingToAll)
+                            {
+                                <span>for everyone</span>
+                            }
+                            else if (si.ToNames.Any())
+                            {
+                                <span>for @string.Join(", ", si.ToNames)</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="tcn-brk-amt">
+                        @NewUi.Money(amount) <small>@CurName</small>
+                        @if (Kind == BreakdownKind.Share && si.TotalSpendingAmountInCents != 0)
+                        {
+                            <div class="tcn-brk-note">
+                                @($"{si.ReceivedAmountInCents * 100.0 / si.TotalSpendingAmountInCents:0.0}")% of @NewUi.Money(si.TotalSpendingAmountInCents)
+                            </div>
+                        }
+                        @if (si.Currency != tour.Currency)
+                        {
+                            <div class="tcn-brk-note">
+                                @NewUi.Money(Kind == BreakdownKind.Paid ? si.OriginalTotalSpendingAmountInCents : si.OriginalReceivedAmountInCents) @si.Currency.Name
+                            </div>
+                        }
+                        <div class="tcn-brk-note">running @NewUi.Money(running)</div>
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    private RenderFragment BalanceBody => __builder =>
+    {
+        var rows = settleSpendings.Where(s => tour.DebtStatusOfSpending(s, person) != "JustOk").ToList();
+        var total = rows.Sum(s => s.AmountInCurrentCurrency(tour));
+
+        <div class="tcn-brk-summary @(willPayFlag ? "is-owing" : "is-owed")">
+            <div class="tcn-brk-summary-label">@(willPayFlag ? "Needs to pay" : "Will collect")</div>
+            <div class="tcn-brk-summary-value">@NewUi.Money(total) <small>@CurName</small></div>
+        </div>
+
+        @if (willPayFlag && total != 0)
+        {
+            var totalWeight = tour.Persons.Sum(p => p.Weight);
+            if (totalWeight == 0) { totalWeight = 1; }
+            var relatives = tour.Persons.Where(p => p.ParentId == person.GUID).Sum(p => p.Weight);
+            var coeff = (person.Weight + relatives) * 1.0 / totalWeight - 1;
+            if (coeff == 0) { coeff = 1; }
+            var toSpend = (long)Math.Round(-total * 1.0 / coeff);
+            <div class="tcn-hint">
+                Spending about <b>@NewUi.Money(toSpend) @CurName</b> more on everyone would even this out.
+            </div>
+        }
+
+        <FamilyBudgetInfo tour=@tour person=@person />
+
+        @if (!rows.Any())
+        {
+            <div class="tcn-empty" style="margin-top:10px">Nothing left to settle.</div>
+        }
+        else
+        {
+            <div class="tcn-brk" style="margin-top:10px">
+                @foreach (var s in rows)
+                {
+                    var other = willPayFlag
+                        ? tour.Persons.FirstOrDefault(p => p.GUID == s.ToGuid.FirstOrDefault())
+                        : tour.Persons.FirstOrDefault(p => p.GUID == s.FromGuid);
+                    <div class="tcn-brk-row @(willPayFlag ? "is-owing" : "is-owed")" @key=@($"bal_{s.GUID}")>
+                        <div class="tcn-brk-main">
+                            <div class="tcn-brk-title">
+                                <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(other?.Name)">@NewUi.Initials(other?.Name)</span>
+                                @(willPayFlag ? "to " : "from ")<b>@(other?.Name ?? "n/a")</b>
+                            </div>
+                        </div>
+                        <div class="tcn-brk-amt">@NewUi.Money(s.AmountInCurrentCurrency(tour)) <small>@CurName</small></div>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="tcn-hint" style="margin-top:10px">
+            Raw balance <b>@NewUi.Money(debt) @CurName</b>@foreach (var c in tour.Currencies.Where(c => c != tour.Currency))
+            {
+                <span>, @NewUi.Money(debt * tour.Currency.CurrencyRate * 1.0 / c.CurrencyRate) @c.Name</span>
+            }
+        </div>
+    };
+}

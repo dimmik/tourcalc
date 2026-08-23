@@ -1,0 +1,148 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using TCalc.Logic
+
+@* Re-thought "add / edit person" dialog. Same three fields as the classic
+   PersonEditModal (name, weight, parent), laid out for a thumb. *@
+
+@if (Visible)
+{
+    <Modal Visible=@true
+           Footer="null"
+           Closable=@false
+           DestroyOnClose=@true
+           MaskClosable=@true
+           OnCancel=@(e => OnCancel.InvokeAsync())
+           WrapClassName="tcn-sheet"
+           BodyStyle="padding:0"
+           Width="460">
+
+        <div class="tcn-sheet-head">
+            <div class="tcn-sheet-title">@(IsAdding ? "Add person" : $"Edit {Person?.Name}")</div>
+            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => OnCancel.InvokeAsync())>✕</button>
+        </div>
+
+        <div class="tcn-sheet-body">
+            @if (errors.Any())
+            {
+                <div class="tcn-errors">
+                    @foreach (var e in errors)
+                    {
+                        <div>@e</div>
+                    }
+                </div>
+            }
+
+            <div class="tcn-field">
+                <div class="tcn-label">Name</div>
+                <div class="tcn-namerow">
+                    <span class="tcn-avatar" style="background:@NewUi.AvatarColor(_person.Name)">@NewUi.Initials(_person.Name)</span>
+                    <input class="tcn-input" type="text" placeholder="Who is joining?"
+                           @bind-value=@_person.Name @bind-value:event="oninput" />
+                </div>
+            </div>
+
+            <div class="tcn-field">
+                <div class="tcn-label">Share of the common expenses</div>
+                <div class="tcn-chips">
+                    @foreach (var (w, label) in weightPresets)
+                    {
+                        <span class="tcn-chip tcn-filter-chip @(_person.Weight == w ? "is-on" : "")"
+                              @key=@($"w_{w}") @onclick=@(() => _person.Weight = w)>@label</span>
+                    }
+                </div>
+                <div class="tcn-row" style="margin-top:8px">
+                    <span class="tcn-hint" style="margin:0">custom</span>
+                    <input class="tcn-input" style="width:100px" type="number" min="0" @bind-value=@_person.Weight />
+                </div>
+                <div class="tcn-hint">A full share is 100. Someone on 50 pays for half as much of everything shared.</div>
+            </div>
+
+            <div class="tcn-field">
+                <div class="tcn-label">Paid for by</div>
+                <div class="tcn-pchips">
+                    <button type="button" class="tcn-pchip @(string.IsNullOrWhiteSpace(_person.ParentId) ? "is-on" : "")"
+                            @onclick=@(() => _person.ParentId = null)>
+                        <span class="tcn-pchip-name">Pays for themselves</span>
+                    </button>
+                    @foreach (var p in Parents())
+                    {
+                        <button type="button" class="tcn-pchip @(_person.ParentId == p.GUID ? "is-on" : "")"
+                                @key=@($"par_{p.GUID}") @onclick=@(() => _person.ParentId = p.GUID)>
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name)</span>
+                            <span class="tcn-pchip-name">@p.Name</span>
+                        </button>
+                    }
+                </div>
+                <div class="tcn-hint">Children and partners can be settled through one person instead of paying separately.</div>
+            </div>
+        </div>
+
+        <div class="tcn-sheet-foot">
+            <span style="flex:1 1 auto"></span>
+            <button type="button" class="tcn-btn" @onclick=@(() => OnCancel.InvokeAsync())>Cancel</button>
+            <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Save>@(IsAdding ? "Add person" : "Save")</button>
+        </div>
+    </Modal>
+}
+
+@code {
+    [Parameter]
+    public Tour? Tour { get; set; }
+
+    [Parameter]
+    public Person? Person { get; set; }
+
+    [Parameter]
+    public bool Visible { get; set; }
+
+    [Parameter]
+    public EventCallback<Person> OnOk { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private Person _person = new();
+    private List<string> errors = new();
+
+    private bool IsAdding => string.IsNullOrEmpty(Person?.GUID) || Person?.GUID == "New";
+
+    private readonly (int weight, string label)[] weightPresets = new[]
+    {
+        (100, "Full · 100"),
+        (75, "75"),
+        (50, "Half · 50"),
+        (25, "25"),
+        (0, "Free · 0"),
+    };
+
+    private IEnumerable<Person> Parents()
+        => Tour?.Persons?.Where(p => p.GUID != _person.GUID && string.IsNullOrWhiteSpace(p.ParentId))
+               .SortedByNameAndDependency()
+           ?? Enumerable.Empty<Person>();
+
+    private string _loadedFor = "";
+
+    protected override void OnParametersSet()
+    {
+        // only re-seed the form when a different person is opened, otherwise a
+        // background tour refresh would wipe what is being typed
+        var key = $"{Person?.GUID}|{Visible}";
+        if (_loadedFor == key) return;
+        _loadedFor = key;
+        _person = Person != null ? Person.SafeClone<Person>() : new Person();
+        if (IsAdding && _person.Name == "New Person") _person.Name = "";
+        errors.Clear();
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(_person.Name))
+        {
+            errors = new List<string> { "Please give this person a name" };
+            StateHasChanged();
+            return;
+        }
+        await OnOk.InvokeAsync(_person);
+    }
+}

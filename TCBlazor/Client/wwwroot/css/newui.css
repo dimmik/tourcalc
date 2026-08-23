@@ -205,6 +205,101 @@ body.tcn-on {
             color: #fff;
         }
 
+/* ---- "a new version is ready" ------------------------------------------
+   Deliberately an offer and not a demand: a pill that catches the eye once
+   and then just sits there. Nothing blocks, nothing reloads by itself. */
+
+.tcn-update {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: #fbbf24;
+    color: #3b2708;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: .2px;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, .75);
+    animation: tcn-update-attn 2.6s ease-out 3;
+}
+
+    .tcn-update:hover {
+        background: #fcd34d;
+    }
+
+    .tcn-update:active {
+        transform: scale(.96);
+    }
+
+.tcn-update-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #b45309;
+    flex: 0 0 auto;
+}
+
+/* three gentle rings, then it stops asking for attention */
+@keyframes tcn-update-attn {
+    0% {
+        box-shadow: 0 0 0 0 rgba(251, 191, 36, .7);
+    }
+
+    60% {
+        box-shadow: 0 0 0 10px rgba(251, 191, 36, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tcn-update {
+        animation: none;
+    }
+}
+
+/* ---- per-tour push subscription ---------------------------------------- */
+
+.tcn-bell {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 9px;
+    border: 1px solid rgba(255, 255, 255, .45);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 18px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+    .tcn-bell:hover {
+        background: rgba(255, 255, 255, .28);
+    }
+
+    .tcn-bell.is-on {
+        background: #fff;
+        border-color: #fff;
+        color: var(--tcn-primary-dark);
+    }
+
+    .tcn-bell:disabled {
+        opacity: .6;
+        cursor: default;
+    }
+
+
 /* ---------------------------------------------------------------- cards -- */
 
 .tcn-card {
@@ -1204,6 +1299,817 @@ textarea.tcn-input {
         cursor: pointer;
     }
 
+/* ===========================================================================
+   Sheet dialogs - the new-UI "add expense" and "add person" forms. The Ant
+   Modal is used only as the overlay; everything inside is ours, so its own
+   header/footer chrome is switched off here.
+   =========================================================================== */
+
+.tcn-sheet .ant-modal-header,
+.tcn-sheet .ant-modal-close {
+    display: none !important;
+}
+
+.tcn-sheet .ant-modal-content {
+    border-radius: var(--tcn-radius);
+    overflow: hidden;
+}
+
+.tcn-sheet .ant-modal-body {
+    padding: 0 !important;
+}
+
+.tcn-sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    background: linear-gradient(120deg, #4f46e5 0%, #6d28d9 100%);
+    color: #fff;
+}
+
+.tcn-sheet-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tcn-sheet-x {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+    .tcn-sheet-x:hover {
+        background: rgba(255, 255, 255, .32);
+    }
+
+.tcn-sheet-body {
+    padding: 14px 16px;
+    max-height: 66vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.tcn-sheet-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--tcn-border);
+    background: var(--tcn-surface-2);
+}
+
+/* on a phone the dialog becomes a full-height sheet */
+@media (max-width: 560px) {
+    .tcn-sheet .ant-modal {
+        top: 0;
+        max-width: 100vw;
+        margin: 0;
+        padding-bottom: 0;
+    }
+
+    /* head pinned, body scrolls, footer parked at the bottom of the screen */
+    .tcn-sheet .ant-modal-content {
+        border-radius: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tcn-sheet .ant-modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tcn-sheet-head,
+    .tcn-sheet-foot {
+        flex: 0 0 auto;
+    }
+
+    .tcn-sheet-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+    }
+
+        .tcn-sheet-foot .tcn-btn {
+            padding: 10px 14px;
+        }
+}
+
+/* ---- form pieces ---- */
+
+.tcn-field {
+    margin-bottom: 16px;
+}
+
+.tcn-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+    .tcn-label-row .tcn-switchline {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 600;
+        font-size: 12.5px;
+    }
+
+.tcn-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--tcn-muted);
+}
+
+.tcn-linkbtn {
+    border: 0;
+    background: transparent;
+    color: var(--tcn-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 4px;
+    text-decoration: underline;
+}
+
+.tcn-errors {
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-red-soft);
+    border: 1px solid #f5cdd6;
+    color: var(--tcn-red);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+    .tcn-errors div + div {
+        margin-top: 4px;
+    }
+
+/* the amount is the one number that matters, so it gets the room */
+.tcn-amount {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-primary-soft);
+    border: 1px solid #dcdffa;
+}
+
+.tcn-amount-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tcn-amount-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    outline: none;
+    font-size: 30px;
+    font-weight: 750;
+    color: var(--tcn-text);
+    font-variant-numeric: tabular-nums;
+    padding: 0;
+    /* the spinners fight with the big type */
+    -moz-appearance: textfield;
+}
+
+    .tcn-amount-input::-webkit-outer-spin-button,
+    .tcn-amount-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    .tcn-amount-input::placeholder {
+        color: var(--tcn-faint);
+    }
+
+.tcn-amount-curr {
+    flex: 0 0 auto;
+    border: 1px solid #dcdffa;
+    background: var(--tcn-surface);
+    border-radius: var(--tcn-radius-sm);
+    padding: 6px 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--tcn-primary-dark);
+    cursor: pointer;
+}
+
+    .tcn-amount-curr.is-static {
+        border-color: transparent;
+        background: transparent;
+        cursor: default;
+    }
+
+/* person pickers */
+.tcn-pchips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tcn-pchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 11px 4px 5px;
+    border: 1px solid var(--tcn-border-strong);
+    border-radius: 999px;
+    background: var(--tcn-surface);
+    color: var(--tcn-text);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+    cursor: pointer;
+    max-width: 100%;
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+
+    .tcn-pchip:hover {
+        border-color: var(--tcn-primary);
+        background: var(--tcn-primary-soft);
+    }
+
+    .tcn-pchip.is-on {
+        background: var(--tcn-primary);
+        border-color: var(--tcn-primary);
+        color: #fff;
+    }
+
+.tcn-pchip-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 2px;
+}
+
+.tcn-pchip > .tcn-avatar {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .5) inset;
+}
+
+.tcn-namerow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+    .tcn-namerow .tcn-input {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 16px;
+    }
+
+.tcn-input-date {
+    width: auto;
+    min-width: 160px;
+}
+
+.tcn-colour {
+    width: 44px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--tcn-border-strong);
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface);
+    cursor: pointer;
+}
+
+
+/* ---- login sheet and the transient splash screens ----------------------- */
+
+.tcn-login .tcn-sheet-head {
+    gap: 12px;
+}
+
+.tcn-login-logo {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.tcn-login-lead {
+    margin: 0 0 14px 0;
+    font-size: 14px;
+    color: var(--tcn-muted);
+}
+
+.tcn-login-input {
+    font-size: 17px;
+    letter-spacing: .5px;
+    padding: 10px 12px;
+}
+
+/* used before the shell exists, so it centres itself on a bare page */
+.tcn-splash {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 60vh;
+    padding: 30px 16px;
+    text-align: center;
+    color: var(--tcn-muted);
+    font-size: 14px;
+}
+
+.tcn-splash-logo {
+    font-size: 34px;
+    line-height: 1;
+}
+
+.tcn-splash-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--tcn-text);
+}
+
+.tcn-splash-sub {
+    font-size: 13px;
+    color: var(--tcn-muted);
+}
+
+
+/* ---- settings rows ------------------------------------------------------ */
+
+.tcn-setrow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+    .tcn-setrow:last-child {
+        border-bottom: 0;
+    }
+
+.tcn-settext {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tcn-setname {
+    font-size: 14.5px;
+    font-weight: 650;
+    color: var(--tcn-text);
+    line-height: 1.3;
+}
+
+.tcn-setdesc {
+    margin-top: 3px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--tcn-muted);
+}
+
+.tcn-sethint {
+    padding: 12px 14px 0 14px;
+    font-size: 12.5px;
+    color: var(--tcn-muted);
+    font-style: italic;
+}
+
+.tcn-setnum {
+    flex: 0 0 auto;
+    width: 96px;
+    text-align: right;
+}
+
+/* a real switch instead of a bare checkbox */
+.tcn-toggle {
+    flex: 0 0 auto;
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 26px;
+    cursor: pointer;
+}
+
+    .tcn-toggle input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .tcn-toggle span {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: var(--tcn-border-strong);
+        transition: background .15s ease;
+    }
+
+        .tcn-toggle span::after {
+            content: "";
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .3);
+            transition: transform .15s ease;
+        }
+
+    .tcn-toggle input:checked + span {
+        background: var(--tcn-primary);
+    }
+
+        .tcn-toggle input:checked + span::after {
+            transform: translateX(18px);
+        }
+
+    .tcn-toggle input:focus-visible + span {
+        box-shadow: 0 0 0 3px var(--tcn-primary-soft);
+    }
+
+
+/* ---- currencies editor -------------------------------------------------- */
+
+.tcn-hero-link {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+    .tcn-hero-link:hover {
+        color: #fff;
+        opacity: .85;
+    }
+
+.tcn-currow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tcn-cur-name {
+    flex: 1 1 80px;
+    min-width: 0;
+    text-transform: uppercase;
+}
+
+.tcn-cur-worth-label {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--tcn-muted);
+}
+
+.tcn-cur-rate {
+    flex: 0 1 110px;
+    min-width: 0;
+    text-align: right;
+}
+
+
+/* ---- stats tab ---------------------------------------------------------- */
+
+.tcn-chartbox {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+}
+
+.tcn-statgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.tcn-statcard {
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-statcard-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-statcard-value {
+    margin-top: 3px;
+    font-size: 19px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    color: var(--tcn-text);
+}
+
+    .tcn-statcard-value small {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+.tcn-statcard-extra {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--tcn-muted);
+}
+
+.tcn-daysinput {
+    width: 62px;
+    padding: 3px 6px;
+    font-size: 12.5px;
+    text-align: right;
+    display: inline-block;
+}
+
+.tcn-ratetable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+    .tcn-ratetable th,
+    .tcn-ratetable td {
+        padding: 8px 12px;
+        text-align: right;
+        white-space: nowrap;
+        border-bottom: 1px solid var(--tcn-border);
+    }
+
+        .tcn-ratetable th:first-child,
+        .tcn-ratetable td:first-child {
+            text-align: left;
+            color: var(--tcn-muted);
+        }
+
+    .tcn-ratetable th {
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: var(--tcn-muted);
+        font-weight: 700;
+    }
+
+        .tcn-ratetable th.is-main {
+            color: var(--tcn-primary);
+        }
+
+    .tcn-ratetable tbody td {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+    }
+
+    .tcn-ratetable tr:last-child td {
+        border-bottom: 0;
+    }
+
+
+/* ---- family budget card (inside the balance dialog) --------------------- */
+
+.tcn-budget {
+    margin: 10px 0;
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border);
+}
+
+.tcn-budget-title {
+    margin-bottom: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-budget-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 0;
+    font-variant-numeric: tabular-nums;
+}
+
+    .tcn-budget-row + .tcn-budget-row {
+        border-top: 1px dashed var(--tcn-border);
+    }
+
+.tcn-budget-perday {
+    font-weight: 700;
+    color: var(--tcn-amber);
+}
+
+
+/* ---- person breakdown --------------------------------------------------- */
+
+.tcn-statbtn {
+    display: block;
+    width: 100%;
+    padding: 6px 4px;
+    border: 1px solid var(--tcn-border);
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface);
+    color: var(--tcn-text);
+    font-size: 13.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: border-color .12s ease, background .12s ease;
+}
+
+    .tcn-statbtn:hover {
+        border-color: var(--tcn-primary);
+        background: var(--tcn-primary-soft);
+    }
+
+    .tcn-statbtn.is-paid {
+        color: var(--tcn-green);
+    }
+
+    .tcn-statbtn.is-owing {
+        color: var(--tcn-red);
+        background: var(--tcn-red-soft);
+        border-color: #f5cdd6;
+    }
+
+    .tcn-statbtn.is-owed {
+        color: var(--tcn-green);
+        background: var(--tcn-green-soft);
+        border-color: #c4ece0;
+    }
+
+.tcn-statbtn-note {
+    font-size: 10.5px;
+    font-weight: 600;
+    opacity: .75;
+}
+
+.tcn-brk-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+    .tcn-brk-row:last-child {
+        border-bottom: 0;
+    }
+
+    .tcn-brk-row.is-personal {
+        background: var(--tcn-green-soft);
+    }
+
+    .tcn-brk-row.is-partial {
+        background: #eff6ff;
+    }
+
+    .tcn-brk-row.is-owing {
+        background: var(--tcn-red-soft);
+    }
+
+    .tcn-brk-row.is-owed {
+        background: var(--tcn-green-soft);
+    }
+
+    .tcn-brk-row.is-personal,
+    .tcn-brk-row.is-partial,
+    .tcn-brk-row.is-owing,
+    .tcn-brk-row.is-owed {
+        padding-left: 8px;
+        padding-right: 8px;
+        border-radius: var(--tcn-radius-sm);
+        border-bottom-color: transparent;
+        margin-bottom: 2px;
+    }
+
+.tcn-brk-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tcn-brk-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.tcn-brk-sub {
+    margin-top: 3px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+}
+
+.tcn-brk-amt {
+    flex: 0 0 auto;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+    .tcn-brk-amt small {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+.tcn-brk-note {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--tcn-muted);
+}
+
+.tcn-brk-summary {
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    margin-bottom: 10px;
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border);
+}
+
+    .tcn-brk-summary.is-owing {
+        background: var(--tcn-red-soft);
+        border-color: #f5cdd6;
+    }
+
+    .tcn-brk-summary.is-owed {
+        background: var(--tcn-green-soft);
+        border-color: #c4ece0;
+    }
+
+.tcn-brk-summary-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-brk-summary-value {
+    margin-top: 2px;
+    font-size: 22px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+    .tcn-brk-summary-value small {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+
 /* ------------------------------------------- legacy bits reused as-is -- */
 
 /* SyncStatusComponent renders a bare span with an inline background */
@@ -1229,24 +2135,91 @@ textarea.tcn-input {
     cursor: pointer;
 }
 
-/* The add/edit spending form is shared with the classic UI, so it is only
-   re-styled while the new interface is active. The coloured box around it is
-   the user's own spending colour - that one is left alone. */
+/* ===========================================================================
+   The dialogs (spending form, "spent"/"received"/"debt" breakdowns, balance,
+   currencies, versions) are shared with the classic UI, so they are only
+   re-styled while the new interface is active - hence the body.tcn-on prefix
+   and the attribute selectors that reach the components' inline styles.
+   The coloured box around the spending form is the user's own spending
+   colour, so that one is left alone.
+   =========================================================================== */
+
 body.tcn-on .ant-modal-content {
     border-radius: var(--tcn-radius);
     overflow: hidden;
+    box-shadow: var(--tcn-shadow-lg);
+}
+
+body.tcn-on .ant-modal-header {
+    background: var(--tcn-surface-2);
+    border-bottom: 1px solid var(--tcn-border);
+    padding: 12px 16px;
+}
+
+body.tcn-on .ant-modal-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--tcn-text);
+    line-height: 1.35;
+}
+
+body.tcn-on .ant-modal-body {
+    padding: 14px;
+}
+
+body.tcn-on .ant-modal-footer {
+    border-top: 1px solid var(--tcn-border);
+    padding: 10px 14px;
+}
+
+/* the breakdown dialogs hard-code a 55vh box that is scrollable even when empty */
+body.tcn-on .ant-modal-body div[style*="55vh"] {
+    height: auto !important;
+    max-height: 62vh;
+    overflow: auto !important;
+    scrollbar-width: thin;
+}
+
+/* the pie chart sits in a 75%-wide box with a grey hairline border */
+body.tcn-on .ant-modal-body div[style*="#dddddd"] {
+    width: 100% !important;
+    margin-bottom: 12px !important;
+    padding: 10px;
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border) !important;
+    border-radius: var(--tcn-radius-sm);
 }
 
 body.tcn-on .ant-modal-body .grid-table {
     background: transparent !important;
     box-shadow: none !important;
+    border-radius: 0;
+    overflow: visible;
 }
 
 body.tcn-on .ant-modal-body .grid-cell,
 body.tcn-on .ant-modal-body .grid-header {
     background: transparent !important;
     border-right: 0 !important;
-    padding: 6px 4px;
+    padding: 8px 6px;
+    /* auto tracks would otherwise size to max-content and scroll sideways */
+    min-width: 0;
+    overflow-wrap: break-word;
+}
+
+body.tcn-on .ant-modal-body .row .grid-cell {
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+body.tcn-on .ant-modal-body .row:last-child .grid-cell {
+    border-bottom: 0;
+}
+
+body.tcn-on .ant-modal-body .grid-header {
+    border-bottom: 1px solid var(--tcn-border-strong);
+    color: var(--tcn-muted);
+    font-size: 12px;
+    text-align: left;
 }
 
 body.tcn-on .ant-modal-body .grid-cell.label {
@@ -1254,6 +2227,96 @@ body.tcn-on .ant-modal-body .grid-cell.label {
     font-weight: 600;
     font-size: 12.5px;
 }
+
+/* the row tints carry meaning, so they survive the transparent reset - softened */
+body.tcn-on .ant-modal-body .grid-cell.Pleasure {
+    background: var(--tcn-green-soft) !important;
+    color: var(--tcn-green);
+}
+
+body.tcn-on .ant-modal-body .grid-cell.Bankrupt {
+    background: var(--tcn-red-soft) !important;
+    color: var(--tcn-red);
+}
+
+body.tcn-on .ant-modal-body .grid-cell.s-personal {
+    background: var(--tcn-green-soft) !important;
+}
+
+body.tcn-on .ant-modal-body .grid-cell.s-partial {
+    background: #eff6ff !important;
+}
+
+/* keep the amount on one line and drop its "% of total" note underneath */
+body.tcn-on .ant-modal-body .grid-cell.balance > b {
+    white-space: nowrap;
+}
+
+body.tcn-on .ant-modal-body .grid-cell.balance > span[style*="xx-small"] {
+    display: block;
+    color: var(--tcn-muted);
+}
+
+/* bare html inputs (currencies, dates) next to the Ant ones */
+body.tcn-on .ant-modal-body input[type=text]:not(.ant-input):not(.tcn-input):not(.tcn-amount-input),
+body.tcn-on .ant-modal-body input[type=number]:not(.ant-input):not(.tcn-input):not(.tcn-amount-input),
+body.tcn-on .ant-modal-body input[type=date]:not(.ant-input):not(.tcn-input) {
+    max-width: 100%;
+    border: 1px solid var(--tcn-border-strong);
+    border-radius: var(--tcn-radius-sm);
+    padding: 5px 8px;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+body.tcn-on .grid-cell-no-data {
+    background: var(--tcn-surface-2) !important;
+    color: var(--tcn-muted);
+    border-radius: var(--tcn-radius-sm);
+    padding: 16px;
+}
+
+/* xx-small is unreadable on a phone */
+body.tcn-on .ant-modal-body [style*="xx-small"] {
+    font-size: 11px !important;
+}
+
+/* the category tag is painted yellow-on-green inline */
+body.tcn-on .ant-modal-body span[style*="background-color: yellow"] {
+    background: var(--tcn-primary-soft) !important;
+    color: var(--tcn-primary-dark) !important;
+    font-style: normal !important;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 1px 8px;
+    white-space: nowrap;
+}
+
+/* the "original currency" tag */
+body.tcn-on .ant-modal-body span[style*="blanchedalmond"] {
+    display: inline-block;
+    background: var(--tcn-amber-soft) !important;
+    color: var(--tcn-amber) !important;
+    border-radius: 999px;
+    padding: 0 7px;
+    margin-top: 2px;
+}
+
+/* Ant buttons inside the new UI follow its palette, danger ones stay red */
+body.tcn-on .ant-btn {
+    border-radius: var(--tcn-radius-sm);
+}
+
+body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
+    background: var(--tcn-primary);
+    border-color: var(--tcn-primary);
+}
+
+    body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous):hover,
+    body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous):focus {
+        background: var(--tcn-primary-dark);
+        border-color: var(--tcn-primary-dark);
+    }
 
 /* DynaForm builds a two-column grid whose labels are long enough to overflow a phone */
 .tcn-dynaform .grid-table {
@@ -1386,4 +2449,11 @@ body.tcn-on .ant-modal-body .grid-cell.label {
         bottom: 14px;
         padding: 13px 18px;
     }
+}
+
+/* the copy fallback field, only shown when the browser blocks the clipboard */
+.tcn-sharefallback {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
 }

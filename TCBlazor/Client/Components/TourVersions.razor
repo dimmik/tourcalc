@@ -1,5 +1,7 @@
-﻿@using TCalcCore.Engine
+@using TCalcCore.Engine
 @inject TourcalcEngine engine
+@inject UiModeService uiMode
+@inject IJSRuntime JsRuntime
 
 
 <span style="cursor:pointer; border:solid 1px black" @onclick=@(() => open=true)>@Text</span>
@@ -69,6 +71,13 @@ else // free up memory. Better to load again
 
     private async Task RestoreTour(Tour t)
     {
+        if (uiMode.IsNew)
+        {
+            // it does not overwrite anything - it adds a copy - so say so
+            var ok = await JsRuntime.InvokeAsync<bool>("confirm",
+                $"Restore this version? The current tour stays as it is - the version is added as a separate copy.");
+            if (!ok) return;
+        }
         var tt = await engine.DataSvc.LoadTour(id: t.Id, onTourAvailable: (_a, _b, _c) => Task.CompletedTask);
         var cloned = tt.SafeClone<Tour>();
         cloned.Name = $"{Tour?.Name ?? "na"} (v {t.DateVersioned : yyyy-MM-dd HH:mm:ss} before {t.VersionComment})";

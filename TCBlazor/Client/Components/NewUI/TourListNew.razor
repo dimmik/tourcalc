@@ -136,7 +136,7 @@ else
                 {
                     <div class="tcn-details">
                         <div class="tcn-row">
-                            <a class="tcn-btn tcn-btn-sm" href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>🔗 Share link</a>
+                            <ShareLinkButton Tour=@tour Text="🔗 Share link" CssClass="tcn-btn tcn-btn-sm" @key=@($"share_{tour.Id}") />
                             <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => OnCloneTour.InvokeAsync((tour, false)))>Clone</button>
                             <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => OnCloneTour.InvokeAsync((tour, true)))>Clone w/o expenses</button>
                             <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => OnCopyJson.InvokeAsync(tour))>Copy JSON</button>

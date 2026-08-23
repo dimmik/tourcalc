@@ -60,22 +60,15 @@ else
                 </div>
 
                 <div class="tcn-person-stats">
-                    <div class="tcn-stat">
-                        <span class="tcn-stat-label">Paid</span>
-                        <PersonSpentInfo tour=@Tour person=@person @key=@($"psi_{person.GUID}") />
-                    </div>
-                    <div class="tcn-stat tcn-stat--share">
-                        <span class="tcn-stat-label">Own share</span>
-                        <PersonReceivedInfo tour=@Tour person=@person @key=@($"pri_{person.GUID}") />
-                    </div>
-                    <div class="tcn-stat tcn-stat--balance">
-                        <span class="tcn-stat-label">Balance</span>
-                        <PersonDebt @key=@($"debt_{person.GUID}")
-                                    debt="debt"
-                                    person="person"
-                                    tour=@Tour
-                                    minMeaningfulAmount=@MinMeaningful />
-                    </div>
+                    <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Paid"
+                                     tour=@Tour person=@person debt="debt" minMeaningfulAmount=@MinMeaningful
+                                     @key=@($"paid_{person.GUID}") />
+                    <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Share"
+                                     tour=@Tour person=@person debt="debt" minMeaningfulAmount=@MinMeaningful
+                                     @key=@($"share_{person.GUID}") />
+                    <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Balance"
+                                     tour=@Tour person=@person debt="debt" minMeaningfulAmount=@MinMeaningful
+                                     @key=@($"bal_{person.GUID}") />
                 </div>
 
                 <div class="tcn-person-actions">
@@ -88,11 +81,11 @@ else
     </div>
 }
 
-<PersonEditModal Person="@_personToEdit"
-                 Tour="@Tour"
-                 Visible="@_isModalVisible"
-                 OnOk="HandleModalOk"
-                 OnCancel="HandleModalCancel" />
+<PersonModalNew Person="@_personToEdit"
+                Tour="@Tour"
+                Visible="@_isModalVisible"
+                OnOk="HandleModalOk"
+                OnCancel="HandleModalCancel" />
 
 @code {
     [Parameter]

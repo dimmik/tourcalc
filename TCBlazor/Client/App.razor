@@ -1,4 +1,4 @@
-﻿<Router AppAssembly="@typeof(App).Assembly">
+<Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
         @{
             bool isTransientAccess = routeData.RouteValues.ContainsKey("transientAccessCode");
@@ -16,7 +16,11 @@
     <NotFound>
         <PageTitle>Not found</PageTitle>
         <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
+            <div class="tcn-empty" role="alert">
+                <span class="tcn-empty-icon">🧭</span>
+                <div class="tcn-empty-title">Nothing at this address</div>
+                <div>The link may be outdated. <a href="/tourlist">Go to your tours</a>.</div>
+            </div>
         </LayoutView>
     </NotFound>
 </Router>

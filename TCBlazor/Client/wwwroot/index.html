@@ -59,6 +59,31 @@
             };
         };
         // /window size
+        // new UI: copy to clipboard, returns false when the browser refuses
+        // (navigator.clipboard needs a secure context, hence the execCommand fallback)
+        window.tcCopyText = async function (text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                }
+            } catch (e) { /* fall through */ }
+            try {
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.top = '-1000px';
+                document.body.appendChild(ta);
+                ta.select();
+                var ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                return !!ok;
+            } catch (e) {
+                return false;
+            }
+        };
+        // /copy
         // new UI: toggles a body class so the page background matches the active interface
         window.tcSetUiMode = function (isNew) {
             if (isNew) {

@@ -1,0 +1,330 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using TCalc.Logic
+@using TCalcCore.UI
+
+@* Re-thought "add / edit spending" dialog for the new UI. It edits exactly the
+   same fields as the classic TSpModifyComponent - nothing more, nothing less -
+   so both forms stay interchangeable; only the layout is different. *@
+
+<Modal Visible=@true
+       Footer="null"
+       Closable=@false
+       DestroyOnClose=@true
+       MaskClosable=@true
+       OnCancel=@(e => Close())
+       WrapClassName="tcn-sheet"
+       BodyStyle="padding:0"
+       Width="540">
+
+    <div class="tcn-sheet-head">
+        <div class="tcn-sheet-title">@Title</div>
+        <button type="button" class="tcn-sheet-x" title="Close" @onclick=@Close>✕</button>
+    </div>
+
+    <div class="tcn-sheet-body">
+        @if (errors.Any())
+        {
+            <div class="tcn-errors">
+                @foreach (var e in errors)
+                {
+                    <div>@e</div>
+                }
+            </div>
+        }
+
+        <div class="tcn-amount" style="@AmountBoxStyle">
+            <div class="tcn-label">Amount</div>
+            <div class="tcn-amount-row">
+                <input class="tcn-amount-input" type="number" inputmode="decimal" placeholder="0"
+                       @bind-value=@AmountText />
+                @if (tour.IsMultiCurrency())
+                {
+                    <select class="tcn-amount-curr" value=@(spending.Currency?.Id) @onchange=@PickCurrency>
+                        @foreach (var c in tour.Currencies)
+                        {
+                            <option value=@c.Id>@c.Name</option>
+                        }
+                    </select>
+                }
+                else if (!string.IsNullOrWhiteSpace(tour.Currency?.Name))
+                {
+                    <span class="tcn-amount-curr is-static">@tour.Currency.Name</span>
+                }
+            </div>
+        </div>
+
+        <div class="tcn-field">
+            <div class="tcn-label">What for</div>
+            <input class="tcn-input" type="text" placeholder="Dinner, tickets, taxi…"
+                   @bind-value=@spending.Description @bind-value:event="oninput" />
+        </div>
+
+        <div class="tcn-field">
+            <div class="tcn-label">Paid by</div>
+            <div class="tcn-pchips">
+                @foreach (var p in Persons())
+                {
+                    <button type="button" class="tcn-pchip @(spending.FromGuid == p.GUID ? "is-on" : "")"
+                            @key=@($"from_{p.GUID}") @onclick=@(() => SetFrom(p))>
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name)</span>
+                        <span class="tcn-pchip-name">@(IsChild(p) ? "⤷ " : "")@p.Name</span>
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="tcn-field">
+            <div class="tcn-label tcn-label-row">
+                <span>Split between</span>
+                <label class="tcn-switchline">
+                    <input type="checkbox" checked=@spending.ToAll @onchange=@ToggleToAll />
+                    everyone
+                </label>
+            </div>
+            @if (spending.ToAll)
+            {
+                <div class="tcn-hint">Shared by all @tour.Persons.Count participants, by weight.</div>
+            }
+            else
+            {
+                <div class="tcn-pchips">
+                    @foreach (var p in Persons())
+                    {
+                        <button type="button" class="tcn-pchip @(spending.ToGuid.Contains(p.GUID) ? "is-on" : "")"
+                                @key=@($"to_{p.GUID}") @onclick=@(() => ToggleTo(p))>
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name)</span>
+                            <span class="tcn-pchip-name">@(IsChild(p) ? "⤷ " : "")@p.Name</span>
+                        </button>
+                    }
+                </div>
+                <div class="tcn-hint">
+                    @if (spending.ToGuid.Count == 0)
+                    {
+                        <span>Pick who this expense is for.</span>
+                    }
+                    else
+                    {
+                        <span>@spending.ToGuid.Count selected</span>
+                        <button type="button" class="tcn-linkbtn" @onclick=@(() => spending.ToGuid = new List<string>())>clear</button>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="tcn-field">
+            <div class="tcn-label">Category</div>
+            <div class="tcn-chips">
+                @foreach (var c in categories)
+                {
+                    <span class="tcn-chip tcn-filter-chip @(spending.Type == c ? "is-on" : "")"
+                          @key=@($"cat_{c}") @onclick=@(() => spending.Type = spending.Type == c ? "" : c)>@c</span>
+                }
+                <span class="tcn-chip tcn-filter-chip" @onclick=@(() => addingCategory = !addingCategory)>+ new</span>
+            </div>
+            @if (addingCategory)
+            {
+                <div class="tcn-row" style="margin-top:8px">
+                    <input class="tcn-input" style="flex:1 1 140px" type="text" placeholder="Category name" @bind-value=@newCategory />
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary" @onclick=@AddCategory>Add</button>
+                </div>
+            }
+        </div>
+
+        <div class="tcn-field">
+            <div class="tcn-label">Date</div>
+            <input class="tcn-input tcn-input-date" type="date" @bind-value=@spending.SpendingDate />
+        </div>
+
+        <button type="button" class="tcn-btn tcn-btn-ghost tcn-btn-block" @onclick=@(() => showMore = !showMore)>
+            @(showMore ? "▾" : "▸") More options
+        </button>
+
+        @if (showMore)
+        {
+            <div class="tcn-field" style="margin-top:8px">
+                <label class="tcn-switchline">
+                    <input type="checkbox" checked=@spending.IsDryRun @onchange=@ToggleDryRun />
+                    Draft — a possible expense, not a real one yet
+                </label>
+                @if (spending.IsDryRun)
+                {
+                    <label class="tcn-switchline" style="margin-top:6px">
+                        <input type="checkbox" checked=@spending.IncludeDryRunInCalc
+                               @onchange=@(e => spending.IncludeDryRunInCalc = (bool)(e.Value ?? false)) />
+                        Still count it in the balance
+                    </label>
+                }
+                <div class="tcn-row" style="margin-top:10px">
+                    <span class="tcn-label" style="margin:0">Colour</span>
+                    <input type="color" class="tcn-colour" @bind-value=@spending.Color />
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-ghost" @onclick=@(() => spending.Color = "")>reset</button>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="tcn-sheet-foot">
+        @if (ShowAddAnother)
+        {
+            <label class="tcn-switchline">
+                <input type="checkbox" checked=@AddAnother
+                       @onchange=@(e => AddAnotherChanged.InvokeAsync((bool)(e.Value ?? false))) />
+                Add another
+            </label>
+        }
+        <span style="flex:1 1 auto"></span>
+        <button type="button" class="tcn-btn" @onclick=@Close>Cancel</button>
+        <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Save>@SaveText</button>
+    </div>
+</Modal>
+
+@code {
+    [Parameter]
+    public Tour tour { get; set; } = new();
+
+    [Parameter]
+    public Spending TheSpending { get; set; } = new();
+
+    [Parameter]
+    public string Title { get; set; } = "New expense";
+
+    [Parameter]
+    public bool ShowAddAnother { get; set; } = false;
+
+    [Parameter]
+    public bool AddAnother { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> AddAnotherChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<Spending> OnSave { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private Spending spending = new();
+    private List<string> categories = new();
+    private List<string> errors = new();
+    private bool addingCategory = false;
+    private string newCategory = "";
+    private bool showMore = false;
+
+    /// <summary>Empty instead of a leading 0, so the field does not have to be cleared first.</summary>
+    private string AmountText
+    {
+        get => spending.AmountInCents == 0 ? "" : spending.AmountInCents.ToString();
+        set => spending.AmountInCents = long.TryParse(value, out var v) ? v : 0;
+    }
+
+    private string SaveText => IsNewSpending() ? "Add expense" : "Save";
+
+    private string AmountBoxStyle =>
+        string.IsNullOrWhiteSpace(spending.Color) ? "" : $"background: {spending.Color};";
+
+    private bool IsNewSpending() => !tour.Spendings.Any(s => !s.Planned && s.GUID == spending.GUID);
+
+    private bool IsChild(Person p) => !string.IsNullOrWhiteSpace(p.ParentId);
+
+    private IEnumerable<Person> Persons() => (tour?.Persons ?? new()).SortedByNameAndDependency();
+
+    protected override void OnParametersSet()
+    {
+        var tourTypes = tour?.Spendings
+            ?.Where(s => !s.Planned)
+            ?.Where(s => !string.IsNullOrWhiteSpace(s.Type))
+            ?.OrderByDescending(s => s.DateCreated)
+            ?.Select(s => s.Type)?.Distinct()
+            ?.ToArray();
+
+        if (spending.GUID != TheSpending.GUID)
+        {
+            spending = TheSpending.SafeClone<Spending>();
+            errors.Clear();
+            if (IsNewSpending())
+            {
+                spending.Currency = tour.Currency;
+                spending.SpendingDate = DateTime.Now;
+            }
+        }
+
+        // a new expense starts in the most recently used category, same as the classic form
+        if (tourTypes is not null && tourTypes.Length > 0 && IsNewSpending())
+        {
+            spending.Type = tourTypes[0];
+        }
+
+        categories = (tourTypes?.OrderBy(s => s) ?? Enumerable.Empty<string>())
+            .Concat(new[] { "Common" })
+            .Concat(string.IsNullOrWhiteSpace(spending.Type) ? Enumerable.Empty<string>() : new[] { spending.Type })
+            .Distinct()
+            .ToList();
+    }
+
+    private void SetFrom(Person p)
+    {
+        spending.FromGuid = p.GUID;
+    }
+
+    private void ToggleToAll(ChangeEventArgs e)
+    {
+        spending.ToAll = (bool)(e.Value ?? false);
+    }
+
+    private void ToggleTo(Person p)
+    {
+        var list = spending.ToGuid ?? new List<string>();
+        if (!list.Remove(p.GUID)) list.Add(p.GUID);
+        spending.ToGuid = list;
+    }
+
+    private void ToggleDryRun(ChangeEventArgs e)
+    {
+        spending.IsDryRun = (bool)(e.Value ?? false);
+        if (!spending.IsDryRun) spending.IncludeDryRunInCalc = false;
+    }
+
+    private void PickCurrency(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString();
+        var c = tour.Currencies?.FirstOrDefault(cc => cc.Id == id);
+        if (c != null) spending.Currency = c;
+    }
+
+    private void AddCategory()
+    {
+        var c = (newCategory ?? "").Trim();
+        if (c.Length == 0) return;
+        if (!categories.Contains(c)) categories.Add(c);
+        spending.Type = c;
+        newCategory = "";
+        addingCategory = false;
+    }
+
+    private async Task Save()
+    {
+        errors = Validate();
+        if (errors.Any())
+        {
+            StateHasChanged();
+            return;
+        }
+        await OnSave.InvokeAsync(spending);
+    }
+
+    private List<string> Validate()
+    {
+        var err = new List<string>();
+        if (spending.AmountInCents == 0) err.Add("Amount should not be 0");
+        if (string.IsNullOrWhiteSpace(spending.Description)) err.Add("Please specify what the money went for");
+        if (!spending.ToAll && (spending.ToGuid ?? new List<string>()).Count == 0) err.Add("Pick who this expense is for, or turn on “everyone”");
+        if (string.IsNullOrWhiteSpace(spending.FromGuid)) err.Add("Pick who paid");
+        return err;
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+}
