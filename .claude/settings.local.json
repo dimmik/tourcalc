@@ -2,7 +2,32 @@
   "permissions": {
     "allow": [
       "Bash(git log:*)",
-      "Bash(grep -i \"\\\\.cs$\")"
+      "Bash(grep -i \"\\\\.cs$\")",
+      "Bash(git -C /mnt/c/tmp/suth/tourcalc-git status --short)",
+      "Bash(git -C /mnt/c/tmp/suth/tourcalc-git log --oneline -10)",
+      "Bash(dotnet --version)",
+      "Bash(dotnet --info)",
+      "Read(//usr/share/dotnet/sdk/**)",
+      "Read(//usr/share/dotnet/shared/**)",
+      "Bash(\"/mnt/c/Program Files/dotnet/dotnet.exe\" build TCBlazor/Client/TCBlazor.Client.csproj -v q --nologo)",
+      "Bash(python3 *)",
+      "Bash(ASPNETCORE_ENVIRONMENT=Development /mnt/c/Program Files/dotnet/dotnet.exe run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5136/)",
+      "Bash(mkdir -p /mnt/c/tmp/tcshots)",
+      "Read(//mnt/c/tmp/**)",
+      "Bash(\"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --user-data-dir=\"C:\\\\tmp\\\\tcshots\\\\profile\" --window-size=430,1600 --virtual-time-budget=30000 --screenshot=\"C:\\\\tmp\\\\tcshots\\\\01-goto.png\" \"http://localhost:5136/goto/1C0369EA42B2F746D3DF1E66BCB2DE46/zscph2y\")",
+      "Bash(\"/mnt/c/Program Files/dotnet/dotnet.exe\" build TCBlazor/Server/TCBlazor.Server.csproj -v q --nologo)",
+      "Bash(\"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --user-data-dir=\"C:\\\\tmp\\\\tcshots\\\\profile\" --window-size=560,1550 --virtual-time-budget=25000 --screenshot=\"C:\\\\tmp\\\\tcshots\\\\m390.png\" \"http://localhost:5136/_mobiletest.html\")",
+      "Bash(\"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --user-data-dir=\"C:\\\\tmp\\\\tcshots\\\\profile\" --window-size=560,1300 --virtual-time-budget=25000 --screenshot=\"C:\\\\tmp\\\\tcshots\\\\list-390.png\" \"http://localhost:5136/_mobiletest.html?u=/tourlist&h=1250\")",
+      "Bash(\"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --user-data-dir=\"C:\\\\tmp\\\\tcshots\\\\profile\" --window-size=1000,1000 --virtual-time-budget=25000 --screenshot=\"C:\\\\tmp\\\\tcshots\\\\list-wide.png\" \"http://localhost:5136/tourlist\")",
+      "Bash(\"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --user-data-dir=\"C:\\\\tmp\\\\tcshots\\\\profile\" --window-size=560,1300 --virtual-time-budget=25000 --screenshot=\"C:\\\\tmp\\\\tcshots\\\\old-mode.png\" \"http://localhost:5136/_mobiletest.html?u=/tour/zscph2y&h=1250&sel=.tcn-uiswitch-opt&txt=old\")",
+      "Bash(\"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --user-data-dir=\"C:\\\\tmp\\\\tcshots\\\\profile\" --window-size=560,700 --virtual-time-budget=25000 --screenshot=\"C:\\\\tmp\\\\tcshots\\\\old-hdr.png\" \"http://localhost:5136/_mobiletest.html?u=/tour/zscph2y&h=650\")",
+      "Bash(pkill -f \"TCBlazor.Server\")",
+      "Bash(\"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --user-data-dir=\"C:\\\\tmp\\\\tcshots\\\\p2\" --window-size=560,1000 --virtual-time-budget=28000 --screenshot=\"C:\\\\tmp\\\\tcshots\\\\fab-modal2.png\" \"http://localhost:5136/_mobiletest.html?u=/tour/zscph2y&h=950&sel=.tcn-fab\")",
+      "Bash(\"/mnt/c/Program Files/dotnet/dotnet.exe\" build Tourcalc.sln -v q --nologo)",
+      "Bash(\"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --user-data-dir=\"C:\\\\tmp\\\\tcshots\\\\p3\" --window-size=700,900 --virtual-time-budget=28000 --screenshot=\"C:\\\\tmp\\\\tcshots\\\\dom.png\" \"http://localhost:5136/_mt.html?u=/tour/zscph2y&h=400&sel=.tcn-tab&txt=people\")",
+      "Bash(\"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --user-data-dir=\"C:\\\\tmp\\\\tcs2\\\\fresh\" --window-size=900,900 --virtual-time-budget=30000 --screenshot=\"C:\\\\tmp\\\\tcs2\\\\default.png\" \"http://localhost:5136/goto/1C0369EA42B2F746D3DF1E66BCB2DE46/zscph2y\")",
+      "Bash('/mnt/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --no-sandbox --hide-scrollbars '--user-data-dir=C:\\\\tmp\\\\tcs2\\\\fresh' --window-size=900,500 --virtual-time-budget=28000 '--screenshot=C:\\\\tmp\\\\tcs2\\\\switched.png' http://localhost:5136/_mt.html)"
     ]
   }
 }

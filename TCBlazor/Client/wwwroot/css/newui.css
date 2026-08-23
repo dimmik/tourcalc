@@ -1,0 +1,1389 @@
+/* ==========================================================================
+   Tourcalc "new UI" design system.
+   Everything here is namespaced with .tcn- so it never collides with
+   the legacy markup or with Ant Design's own classes.
+   ========================================================================== */
+
+:root {
+    --tcn-bg: #f1f4f9;
+    --tcn-surface: #ffffff;
+    --tcn-surface-2: #f7f9fc;
+    --tcn-border: #e3e8ef;
+    --tcn-border-strong: #cfd6e2;
+    --tcn-text: #111827;
+    --tcn-muted: #667085;
+    --tcn-faint: #98a2b3;
+
+    --tcn-primary: #4f46e5;
+    --tcn-primary-dark: #4338ca;
+    --tcn-primary-soft: #eef2ff;
+
+    --tcn-green: #047857;
+    --tcn-green-soft: #ecfdf5;
+    --tcn-red: #be123c;
+    --tcn-red-soft: #fff1f2;
+    --tcn-amber: #b45309;
+    --tcn-amber-soft: #fffbeb;
+    --tcn-cyan-soft: #ecfeff;
+
+    --tcn-radius: 14px;
+    --tcn-radius-sm: 9px;
+    --tcn-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 6px 16px -6px rgba(16, 24, 40, .12);
+    --tcn-shadow-lg: 0 12px 32px -8px rgba(16, 24, 40, .22);
+}
+
+/* --------------------------------------------------------------- shell -- */
+
+body.tcn-on {
+    background: var(--tcn-bg);
+    color: var(--tcn-text);
+    -webkit-font-smoothing: antialiased;
+}
+
+.tcn-shell {
+    min-height: 100vh;
+    background: var(--tcn-bg);
+    display: flex;
+    flex-direction: column;
+}
+
+.tcn-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    height: 52px;
+    color: #fff;
+    background: linear-gradient(120deg, #4f46e5 0%, #6d28d9 55%, #7e22ce 100%);
+    box-shadow: 0 2px 10px rgba(79, 70, 229, .28);
+}
+
+.tcn-brand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .16);
+    color: #fff !important;
+    font-size: 17px;
+    text-decoration: none !important;
+    transition: background .15s ease;
+}
+
+    .tcn-brand:hover {
+        background: rgba(255, 255, 255, .3);
+    }
+
+.tcn-topbar-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: .1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.tcn-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+.tcn-iconbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .14);
+    color: #fff;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: background .15s ease, transform .1s ease;
+}
+
+    .tcn-iconbtn:hover {
+        background: rgba(255, 255, 255, .3);
+        color: #fff;
+    }
+
+    .tcn-iconbtn:active {
+        transform: scale(.94);
+    }
+
+    .tcn-iconbtn.tcn-danger {
+        background: rgba(255, 120, 120, .28);
+    }
+
+.tcn-main {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 14px 12px 96px 12px;
+}
+
+/* ------------------------------------------------------------ ui switch -- */
+
+.tcn-uiswitch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .14);
+    font-size: 12px;
+    line-height: 1;
+}
+
+.tcn-uiswitch-opt {
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, .78);
+    padding: 5px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+    .tcn-uiswitch-opt.is-active {
+        background: #fff;
+        color: var(--tcn-primary-dark);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+    }
+
+/* single-button variant, sized to survive the cramped classic header */
+.tcn-uiswitch-single {
+    display: inline-block;
+    border: 1px solid rgba(255, 255, 255, .6);
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    border-radius: 999px;
+    padding: 1px 8px;
+    margin: 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    cursor: pointer;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+    .tcn-uiswitch-single:hover {
+        background: rgba(255, 255, 255, .32);
+    }
+
+/* the same switch, rendered on a light background (legacy header / settings) */
+.tcn-uiswitch.tcn-uiswitch-light {
+    background: var(--tcn-primary-soft);
+    border: 1px solid #dfe3f7;
+}
+
+    .tcn-uiswitch.tcn-uiswitch-light .tcn-uiswitch-opt {
+        color: var(--tcn-primary-dark);
+    }
+
+        .tcn-uiswitch.tcn-uiswitch-light .tcn-uiswitch-opt.is-active {
+            background: var(--tcn-primary);
+            color: #fff;
+        }
+
+/* ---------------------------------------------------------------- cards -- */
+
+.tcn-card {
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    border-radius: var(--tcn-radius);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-section {
+    margin-bottom: 14px;
+}
+
+.tcn-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 2px 8px 2px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+    .tcn-section-title .tcn-count {
+        font-weight: 700;
+        color: var(--tcn-primary);
+        background: var(--tcn-primary-soft);
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 12px;
+        letter-spacing: 0;
+    }
+
+/* ------------------------------------------------------------------ hero -- */
+
+.tcn-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 16px;
+    margin-bottom: 14px;
+    border-radius: var(--tcn-radius);
+    color: #fff;
+    background: linear-gradient(125deg, #4338ca 0%, #6d28d9 60%, #9333ea 100%);
+    box-shadow: var(--tcn-shadow-lg);
+}
+
+    .tcn-hero::after {
+        content: "";
+        position: absolute;
+        right: -60px;
+        top: -80px;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .08);
+    }
+
+.tcn-hero-top {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.tcn-hero-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.tcn-hero-sub {
+    position: relative;
+    margin-top: 4px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, .78);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+}
+
+    .tcn-hero-sub a {
+        color: #fff;
+        text-decoration: underline;
+    }
+
+.tcn-hero-metrics {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+}
+
+@media (min-width: 640px) {
+    .tcn-hero-metrics {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.tcn-metric {
+    background: rgba(255, 255, 255, .13);
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: var(--tcn-radius-sm);
+    padding: 8px 10px;
+}
+
+.tcn-metric-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    color: rgba(255, 255, 255, .72);
+}
+
+.tcn-metric-value {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+    .tcn-metric-value small {
+        font-size: 11px;
+        font-weight: 600;
+        opacity: .8;
+    }
+
+/* ------------------------------------------------------------------ tabs -- */
+
+.tcn-tabs {
+    position: sticky;
+    top: 52px;
+    z-index: 30;
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 14px;
+    border-radius: 999px;
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-tab {
+    flex: 1 1 0;
+    border: 0;
+    background: transparent;
+    border-radius: 999px;
+    padding: 9px 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--tcn-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background .15s ease, color .15s ease;
+}
+
+    .tcn-tab:hover {
+        background: var(--tcn-surface-2);
+        color: var(--tcn-text);
+    }
+
+    .tcn-tab.is-active {
+        background: var(--tcn-primary);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, .35);
+    }
+
+    .tcn-tab .tcn-tab-badge {
+        display: inline-block;
+        margin-left: 5px;
+        padding: 0 6px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: rgba(0, 0, 0, .07);
+    }
+
+    .tcn-tab.is-active .tcn-tab-badge {
+        background: rgba(255, 255, 255, .25);
+    }
+
+/* there is no room for the counters on a phone - the tab labels win */
+@media (max-width: 459px) {
+    .tcn-tab .tcn-tab-badge {
+        display: none;
+    }
+}
+
+/* --------------------------------------------------------------- person -- */
+
+.tcn-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tcn-person {
+    padding: 12px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+    transition: border-color .15s ease;
+}
+
+    .tcn-person.is-child {
+        margin-left: 20px;
+        border-left: 3px solid var(--tcn-primary-soft);
+    }
+
+.tcn-person-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tcn-avatar {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+    .tcn-avatar.tcn-avatar-sm {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
+    }
+
+.tcn-person-id {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tcn-person-name {
+    font-size: 15.5px;
+    font-weight: 650;
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+.tcn-person-meta {
+    margin-top: 1px;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tcn-person-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--tcn-border);
+}
+
+.tcn-stat {
+    text-align: center;
+    min-width: 0;
+}
+
+.tcn-stat-label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-faint);
+    margin-bottom: 1px;
+}
+
+/* Ant buttons that the reused legacy detail components render inside a stat */
+.tcn-stat .ant-btn {
+    width: 100%;
+    padding: 0 4px;
+    border-radius: var(--tcn-radius-sm) !important;
+    border-color: var(--tcn-border) !important;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tcn-stat > div {
+    height: auto !important;
+}
+
+/* the legacy "received" component paints itself red - here it is just a number */
+.tcn-stat--share .ant-btn {
+    color: var(--tcn-text) !important;
+}
+
+.tcn-person-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.tcn-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--tcn-muted);
+    background: var(--tcn-surface);
+    border: 1px dashed var(--tcn-border-strong);
+    border-radius: var(--tcn-radius);
+}
+
+    .tcn-empty .tcn-empty-icon {
+        font-size: 30px;
+        display: block;
+        margin-bottom: 6px;
+    }
+
+    .tcn-empty .tcn-empty-title {
+        font-weight: 650;
+        color: var(--tcn-text);
+        margin-bottom: 2px;
+    }
+
+/* --------------------------------------------------------------- buttons -- */
+
+.tcn-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid var(--tcn-border-strong);
+    background: var(--tcn-surface);
+    color: var(--tcn-text);
+    border-radius: var(--tcn-radius-sm);
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s ease, border-color .15s ease, transform .1s ease;
+}
+
+    .tcn-btn:hover {
+        background: var(--tcn-surface-2);
+        border-color: var(--tcn-faint);
+    }
+
+    .tcn-btn:active {
+        transform: scale(.97);
+    }
+
+    .tcn-btn.tcn-btn-primary {
+        background: var(--tcn-primary);
+        border-color: var(--tcn-primary);
+        color: #fff;
+    }
+
+        .tcn-btn.tcn-btn-primary:hover {
+            background: var(--tcn-primary-dark);
+            border-color: var(--tcn-primary-dark);
+        }
+
+    .tcn-btn.tcn-btn-success {
+        background: var(--tcn-green);
+        border-color: var(--tcn-green);
+        color: #fff;
+    }
+
+    .tcn-btn.tcn-btn-danger {
+        color: var(--tcn-red);
+        border-color: #f3c8d1;
+        background: var(--tcn-red-soft);
+    }
+
+    .tcn-btn.tcn-btn-ghost {
+        background: transparent;
+        border-color: transparent;
+        color: var(--tcn-muted);
+    }
+
+        .tcn-btn.tcn-btn-ghost:hover {
+            background: var(--tcn-surface-2);
+            color: var(--tcn-text);
+        }
+
+    .tcn-btn.tcn-btn-sm {
+        padding: 5px 9px;
+        font-size: 12px;
+    }
+
+    .tcn-btn.tcn-btn-block {
+        width: 100%;
+    }
+
+    .tcn-btn:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
+.tcn-fab {
+    position: fixed;
+    right: max(16px, calc(50vw - 528px));
+    bottom: 20px;
+    z-index: 45;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 20px;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(120deg, #4f46e5, #7c3aed);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 10px 24px -6px rgba(79, 70, 229, .65);
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+    .tcn-fab:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 28px -6px rgba(79, 70, 229, .7);
+    }
+
+    .tcn-fab:active {
+        transform: scale(.96);
+    }
+
+/* ----------------------------------------------------------------- chips -- */
+
+.tcn-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 650;
+    line-height: 1.6;
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border);
+    color: var(--tcn-muted);
+    white-space: nowrap;
+}
+
+    .tcn-chip.tcn-chip-green {
+        background: var(--tcn-green-soft);
+        border-color: #c4ece0;
+        color: var(--tcn-green);
+    }
+
+    .tcn-chip.tcn-chip-red {
+        background: var(--tcn-red-soft);
+        border-color: #f5cdd6;
+        color: var(--tcn-red);
+    }
+
+    .tcn-chip.tcn-chip-amber {
+        background: var(--tcn-amber-soft);
+        border-color: #f4e0b5;
+        color: var(--tcn-amber);
+    }
+
+    .tcn-chip.tcn-chip-primary {
+        background: var(--tcn-primary-soft);
+        border-color: #dcdffa;
+        color: var(--tcn-primary-dark);
+    }
+
+.tcn-filter-chip {
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s ease, border-color .15s ease;
+}
+
+    .tcn-filter-chip.is-on {
+        background: var(--tcn-primary);
+        border-color: var(--tcn-primary);
+        color: #fff;
+    }
+
+.tcn-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* -------------------------------------------------------------- settle up -- */
+
+.tcn-settle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-settle-flow {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.tcn-settle-who {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 650;
+}
+
+.tcn-settle-arrow {
+    flex: 0 0 auto;
+    color: var(--tcn-primary);
+    font-weight: 700;
+}
+
+.tcn-settle-amount {
+    flex: 0 0 auto;
+    font-size: 15px;
+    font-weight: 750;
+    color: var(--tcn-text);
+    font-variant-numeric: tabular-nums;
+}
+
+    .tcn-settle-amount small {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+.tcn-allsettled {
+    padding: 26px 16px;
+    text-align: center;
+    border-radius: var(--tcn-radius);
+    background: linear-gradient(140deg, #ecfdf5, #f0fdfa);
+    border: 1px solid #c4ece0;
+}
+
+    .tcn-allsettled .tcn-allsettled-icon {
+        font-size: 34px;
+    }
+
+    .tcn-allsettled .tcn-allsettled-title {
+        margin-top: 4px;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--tcn-green);
+    }
+
+    .tcn-allsettled .tcn-allsettled-sub {
+        font-size: 13px;
+        color: var(--tcn-muted);
+    }
+
+.tcn-bal-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tcn-bal-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.tcn-bal-amount {
+    flex: 0 0 auto;
+    font-weight: 700;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------- balance bar -- */
+
+.tcn-balancebar {
+    display: grid;
+    grid-template-columns: 1fr 8px 1fr;
+    align-items: center;
+    gap: 0;
+    height: 8px;
+    margin-top: 8px;
+}
+
+.tcn-balancebar-neg,
+.tcn-balancebar-pos {
+    height: 8px;
+    background: var(--tcn-surface-2);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* left half = money coming back to the person, right half = money they owe */
+.tcn-balancebar-neg > i {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--tcn-green);
+    border-radius: 4px;
+    display: block;
+}
+
+.tcn-balancebar-pos > i {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--tcn-red);
+    border-radius: 4px;
+    display: block;
+}
+
+.tcn-balancebar-mid {
+    height: 12px;
+    border-left: 1px dashed var(--tcn-border-strong);
+}
+
+/* ------------------------------------------------------------- spendings -- */
+
+.tcn-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.tcn-search {
+    flex: 1 1 180px;
+    max-width: 380px;
+    min-width: 0;
+    position: relative;
+}
+
+    .tcn-search input {
+        width: 100%;
+        border: 1px solid var(--tcn-border-strong);
+        border-radius: var(--tcn-radius-sm);
+        background: var(--tcn-surface);
+        padding: 8px 30px 8px 32px;
+        font-size: 14px;
+        color: var(--tcn-text);
+        outline: none;
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+        .tcn-search input:focus {
+            border-color: var(--tcn-primary);
+            box-shadow: 0 0 0 3px var(--tcn-primary-soft);
+        }
+
+    .tcn-search .tcn-search-icon {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--tcn-faint);
+        font-size: 13px;
+        pointer-events: none;
+    }
+
+    .tcn-search .tcn-search-clear {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 0;
+        background: transparent;
+        color: var(--tcn-faint);
+        cursor: pointer;
+        font-size: 15px;
+        line-height: 1;
+    }
+
+.tcn-daygroup {
+    margin-bottom: 12px;
+}
+
+.tcn-dayhead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 4px 6px 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--tcn-muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+
+    .tcn-dayhead .tcn-daysum {
+        font-weight: 700;
+        color: var(--tcn-text);
+        text-transform: none;
+        letter-spacing: 0;
+        font-variant-numeric: tabular-nums;
+    }
+
+.tcn-sp {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    border-radius: var(--tcn-radius);
+    box-shadow: var(--tcn-shadow);
+    border-left: 4px solid var(--tcn-border);
+}
+
+    .tcn-sp + .tcn-sp {
+        margin-top: 8px;
+    }
+
+    .tcn-sp.tcn-sp-planned {
+        border-left-color: #f59e0b;
+        background: var(--tcn-amber-soft);
+    }
+
+    .tcn-sp.tcn-sp-family {
+        border-left-color: #06b6d4;
+        background: var(--tcn-cyan-soft);
+    }
+
+    .tcn-sp.tcn-sp-dry {
+        border-left-color: #f97316;
+        background: #fff7ed;
+        border-style: dashed;
+    }
+
+    .tcn-sp.tcn-sp-payback {
+        border-left-color: #10b981;
+        background: var(--tcn-green-soft);
+    }
+
+.tcn-sp-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tcn-sp-title {
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.tcn-sp-meta {
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.tcn-sp-to {
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+    word-break: break-word;
+}
+
+    .tcn-sp-to b {
+        color: var(--tcn-text);
+        font-weight: 600;
+    }
+
+.tcn-sp-right {
+    flex: 0 0 auto;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.tcn-sp-amount {
+    font-size: 15.5px;
+    font-weight: 750;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+    .tcn-sp-amount small {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+.tcn-sp-orig {
+    font-size: 11px;
+    color: var(--tcn-muted);
+    font-style: italic;
+    white-space: nowrap;
+}
+
+.tcn-sp-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+    /* the reused legacy "edit" modal renders an Ant button - make it fit in */
+    .tcn-sp-actions .ant-btn {
+        border-radius: var(--tcn-radius-sm) !important;
+        font-size: 12px;
+        height: 26px;
+        padding: 0 9px;
+    }
+
+.tcn-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    font-size: 12.5px;
+    color: var(--tcn-muted);
+    box-shadow: var(--tcn-shadow);
+}
+
+    .tcn-summary b {
+        color: var(--tcn-text);
+        font-variant-numeric: tabular-nums;
+    }
+
+/* ------------------------------------------------------------- tour list -- */
+
+.tcn-tourgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.tcn-tour {
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+
+    .tcn-tour:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--tcn-shadow-lg);
+        border-color: var(--tcn-border-strong);
+    }
+
+    .tcn-tour.is-archived {
+        opacity: .72;
+        background: var(--tcn-surface-2);
+    }
+
+.tcn-tour-name {
+    font-size: 16.5px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--tcn-text);
+    text-decoration: none;
+    word-break: break-word;
+}
+
+    .tcn-tour-name:hover {
+        color: var(--tcn-primary);
+    }
+
+.tcn-tour-meta {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--tcn-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: center;
+}
+
+.tcn-tour-badges {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tcn-tour-actions {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px dashed var(--tcn-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.tcn-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    margin-bottom: 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-primary);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-input {
+    width: 100%;
+    border: 1px solid var(--tcn-border-strong);
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface);
+    padding: 8px 10px;
+    font-size: 14px;
+    color: var(--tcn-text);
+    outline: none;
+    font-family: inherit;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+    .tcn-input:focus {
+        border-color: var(--tcn-primary);
+        box-shadow: 0 0 0 3px var(--tcn-primary-soft);
+    }
+
+textarea.tcn-input {
+    min-height: 72px;
+    resize: vertical;
+}
+
+.tcn-field-label {
+    font-size: 11.5px;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--tcn-muted);
+}
+
+.tcn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.tcn-switchline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--tcn-muted);
+    cursor: pointer;
+    user-select: none;
+}
+
+    .tcn-switchline input {
+        width: 15px;
+        height: 15px;
+        accent-color: var(--tcn-primary);
+        cursor: pointer;
+    }
+
+/* ------------------------------------------- legacy bits reused as-is -- */
+
+/* SyncStatusComponent renders a bare span with an inline background */
+.tcn-topbar-actions > span:not(:empty) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* UpdateAvailableDetector renders its own unstyled button */
+.tcn-topbar-actions > button:not(.tcn-iconbtn) {
+    border: 0;
+    border-radius: 9px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* The add/edit spending form is shared with the classic UI, so it is only
+   re-styled while the new interface is active. The coloured box around it is
+   the user's own spending colour - that one is left alone. */
+body.tcn-on .ant-modal-content {
+    border-radius: var(--tcn-radius);
+    overflow: hidden;
+}
+
+body.tcn-on .ant-modal-body .grid-table {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+body.tcn-on .ant-modal-body .grid-cell,
+body.tcn-on .ant-modal-body .grid-header {
+    background: transparent !important;
+    border-right: 0 !important;
+    padding: 6px 4px;
+}
+
+body.tcn-on .ant-modal-body .grid-cell.label {
+    color: var(--tcn-muted);
+    font-weight: 600;
+    font-size: 12.5px;
+}
+
+/* DynaForm builds a two-column grid whose labels are long enough to overflow a phone */
+.tcn-dynaform .grid-table {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    background: transparent !important;
+    border-radius: 0;
+    box-shadow: none !important;
+    overflow: visible;
+}
+
+.tcn-dynaform .grid-cell {
+    background: transparent !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--tcn-border);
+    padding: 9px 4px;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.tcn-dynaform .row:last-child .grid-cell {
+    border-bottom: 0;
+}
+
+.tcn-dynaform .row div {
+    opacity: 1 !important;
+}
+
+.tcn-dynaform .grid-cell b {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--tcn-text);
+    word-break: break-word;
+}
+
+.tcn-dynaform input[type=number],
+.tcn-dynaform input[type=text] {
+    width: 92px;
+    border: 1px solid var(--tcn-border-strong);
+    border-radius: var(--tcn-radius-sm);
+    padding: 5px 8px;
+    font-size: 13px;
+}
+
+.tcn-dynaform input[type=checkbox] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--tcn-primary);
+}
+
+/* TourVersions renders a span with a hard-coded black border */
+.tcn-legacy-btn > span {
+    display: inline-block;
+    border: 1px solid var(--tcn-border-strong) !important;
+    border-radius: var(--tcn-radius-sm);
+    padding: 5px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tcn-text);
+    background: var(--tcn-surface);
+}
+
+.tcn-hero .tcn-legacy-btn > span {
+    border: 1px solid rgba(255, 255, 255, .45) !important;
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    padding: 1px 7px;
+    font-size: 12px;
+    border-radius: 7px;
+}
+
+/* --------------------------------------------------------------- helpers -- */
+
+.tcn-spin {
+    display: inline-block;
+    animation: tcn-rot 1s linear infinite;
+}
+
+@keyframes tcn-rot {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.tcn-loading {
+    padding: 42px 16px;
+    text-align: center;
+    color: var(--tcn-muted);
+    font-size: 14px;
+}
+
+.tcn-scroll-x {
+    overflow-x: auto;
+}
+
+.tcn-mono {
+    font-variant-numeric: tabular-nums;
+}
+
+.tcn-pos {
+    color: var(--tcn-green);
+}
+
+.tcn-neg {
+    color: var(--tcn-red);
+}
+
+.tcn-details {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--tcn-border);
+}
+
+@media (max-width: 560px) {
+    .tcn-main {
+        padding: 10px 8px 96px 8px;
+    }
+
+    .tcn-hero-name {
+        font-size: 18px;
+    }
+
+    .tcn-tab {
+        font-size: 12.5px;
+        padding: 8px 4px;
+    }
+
+    .tcn-fab {
+        right: 14px;
+        bottom: 14px;
+        padding: 13px 18px;
+    }
+}

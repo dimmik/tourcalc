@@ -1,0 +1,165 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using TCalc.Logic
+@using TCalcCore.Engine
+
+@inject TourcalcEngine engine
+@inject IJSRuntime JsRuntime
+
+<div class="tcn-toolbar">
+    <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => ShowEdit(new Person { GUID = "New" }))>
+        + Add person
+    </button>
+    @if (Tour.Persons.Any())
+    {
+        <span class="tcn-chip">@Tour.Persons.Count people</span>
+        <span class="tcn-chip">total weight @Tour.Persons.Sum(p => p.Weight)</span>
+    }
+</div>
+
+@if (!Tour.Persons.Any())
+{
+    <div class="tcn-empty">
+        <span class="tcn-empty-icon">👥</span>
+        <div class="tcn-empty-title">No participants yet</div>
+        <div>Add everyone who takes part in the tour — then you can start recording expenses.</div>
+    </div>
+}
+else
+{
+    <div class="tcn-list">
+        @foreach (var person in Tour.Persons.SortedByNameAndDependency())
+        {
+            var isChild = !string.IsNullOrWhiteSpace(person.ParentId);
+            var debt = Debt(person);
+            <div class="tcn-person @(isChild ? "is-child" : "")" @key=@($"pers_{person.GUID}")>
+                <div class="tcn-person-head">
+                    <span class="tcn-avatar" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name)</span>
+                    <div class="tcn-person-id">
+                        <div class="tcn-person-name">@person.Name</div>
+                        <div class="tcn-person-meta">
+                            <span>weight @person.Weight</span>
+                            @if (isChild)
+                            {
+                                <span>paid by <b>@NewUi.PersonName(Tour, person.ParentId)</b></span>
+                            }
+                        </div>
+                    </div>
+                    @if (debt > 0)
+                    {
+                        <span class="tcn-chip tcn-chip-red">owes @NewUi.Money(debt)</span>
+                    }
+                    else if (debt < 0)
+                    {
+                        <span class="tcn-chip tcn-chip-green">gets @NewUi.Money(-debt)</span>
+                    }
+                    else
+                    {
+                        <span class="tcn-chip">settled</span>
+                    }
+                </div>
+
+                <div class="tcn-person-stats">
+                    <div class="tcn-stat">
+                        <span class="tcn-stat-label">Paid</span>
+                        <PersonSpentInfo tour=@Tour person=@person @key=@($"psi_{person.GUID}") />
+                    </div>
+                    <div class="tcn-stat tcn-stat--share">
+                        <span class="tcn-stat-label">Own share</span>
+                        <PersonReceivedInfo tour=@Tour person=@person @key=@($"pri_{person.GUID}") />
+                    </div>
+                    <div class="tcn-stat tcn-stat--balance">
+                        <span class="tcn-stat-label">Balance</span>
+                        <PersonDebt @key=@($"debt_{person.GUID}")
+                                    debt="debt"
+                                    person="person"
+                                    tour=@Tour
+                                    minMeaningfulAmount=@MinMeaningful />
+                    </div>
+                </div>
+
+                <div class="tcn-person-actions">
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary" @onclick=@(() => SpendFor(person))>💸 Spend</button>
+                    <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => ShowEdit(person))>Edit</button>
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" @onclick=@(() => DeletePerson(person))>Delete</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<PersonEditModal Person="@_personToEdit"
+                 Tour="@Tour"
+                 Visible="@_isModalVisible"
+                 OnOk="HandleModalOk"
+                 OnCancel="HandleModalCancel" />
+
+@code {
+    [Parameter]
+    public Tour Tour { get; set; } = new();
+
+    [Parameter]
+    public UISettings Settings { get; set; } = new();
+
+    [Parameter]
+    public SpendingAddInModal AddModal { get; set; } = new();
+
+    private bool _isModalVisible = false;
+    private Person _personToEdit = new();
+
+    private int MinMeaningful => Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+
+    private long Debt(Person p)
+    {
+        // hide amounts that are only rounding noise
+        return Math.Abs(p.Debt()) > MinMeaningful ? p.Debt() : 0;
+    }
+
+    private void ShowEdit(Person person)
+    {
+        _personToEdit = person;
+        _isModalVisible = true;
+        StateHasChanged();
+    }
+
+    private void SpendFor(Person person)
+    {
+        AddModal.OpenModal(person.GUID);
+    }
+
+    private async Task DeletePerson(Person person)
+    {
+        var ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?");
+        if (ok)
+        {
+            _ = engine.RequestDeletePerson(Tour?.Id, person);
+        }
+    }
+
+    private Task HandleModalCancel()
+    {
+        _isModalVisible = false;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleModalOk(Person person)
+    {
+        if (string.IsNullOrWhiteSpace(person.Name))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Person name should not be blank");
+            return;
+        }
+        if (person.GUID == "New")
+        {
+            // keep the id stable between the local copy and the server one, otherwise
+            // a child added right after would attach to the wrong parent
+            person.GUID = IdHelper.NewId();
+            _ = engine.RequestAddPerson(Tour?.Id, person);
+        }
+        else
+        {
+            _ = engine.RequestEditPerson(Tour?.Id, person);
+        }
+        _isModalVisible = false;
+    }
+}

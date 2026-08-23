@@ -17,10 +17,35 @@
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavManager
 
+@inject UiModeService uiMode
+
 
 @if (tour == null)
 {
-    <span>Tour loading...</span>
+    @if (uiMode.IsNew)
+    {
+        <div class="tcn-loading"><span class="tcn-spin">⟳</span> Loading the tour…</div>
+    }
+    else
+    {
+        <span>Tour loading...</span>
+    }
+}
+else if (uiMode.IsNew)
+{
+    engine.SendMessage("Title", tour.Name);
+    engine.SendMessage("Tour", tour);
+    <PageTitle>@tour.Name</PageTitle>
+    <TourPageNew Tour=@(tourLocal ?? tour)
+                 RawTour=@tour
+                 Settings=@settings
+                 IsFresh=@isFresh
+                 StoredDt=@storedDt
+                 SelectedCurrency=@curr
+                 OnCurrencyChanged=@(EventCallback.Factory.Create<Currency?>(this, OnDisplayCurrencyChanged))
+                 AddModal=@_spendingAddInModal
+                 InitialSection=@InitialSection
+                 GetDefaultPayer=@GetDefaultFromGuid />
 }
 else
 {
@@ -148,8 +173,19 @@ else
 
         // subscribe to tour loaded event
         engine.onTourLoaded += OnTourLoaded;
+        uiMode.OnChanged += OnUiModeChanged;
         // send command to load tour with certain id
         _ = engine.RequestTourLoad(TourId);
+    }
+
+    private void OnUiModeChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private Task OnDisplayCurrencyChanged(Currency? c)
+    {
+        curr = c ?? tour?.Currency;
+        tourLocal = GetTourInCurrency(tour?.SafeClone<Tour>() ?? new());
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private async Task<string?> GetDefaultFromGuid()
@@ -173,6 +209,7 @@ else
     public void Dispose()
     {
         engine.onTourLoaded -= OnTourLoaded;
+        uiMode.OnChanged -= OnUiModeChanged;
     }
     private Tour GetTourInCurrency(Tour t)
     {
@@ -220,6 +257,17 @@ else
         StateHasChanged();
         return Task.CompletedTask;
     }
+    /// <summary>Last path segment of /tour/{id}/persons | /tour/{id}/spendings, empty for the plain tour route.</summary>
+    private string InitialSection
+    {
+        get
+        {
+            var path = new Uri(NavManager.Uri).AbsolutePath.TrimEnd('/');
+            var last = path.Substring(path.LastIndexOf('/') + 1);
+            return last is "persons" or "spendings" ? last : "";
+        }
+    }
+
     string GetId(string l) => $"{l}";
     string GetHref(string l) => $"/tour/{TourId}#" + GetId(l);
 }

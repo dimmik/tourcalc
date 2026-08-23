@@ -59,6 +59,15 @@
             };
         };
         // /window size
+        // new UI: toggles a body class so the page background matches the active interface
+        window.tcSetUiMode = function (isNew) {
+            if (isNew) {
+                document.body.classList.add("tcn-on");
+            } else {
+                document.body.classList.remove("tcn-on");
+            }
+        };
+        // /new UI
         // resize
         window.browserResize = {
             registerResizeCallback: function () {
@@ -285,6 +294,7 @@
     <link rel="stylesheet" href="css/font-awesome.min.css">
     <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
+    <link href="css/newui.css" rel="stylesheet" />
     <link href="TCBlazor.Client.styles.css" rel="stylesheet" />
     <link href="manifest.json" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />

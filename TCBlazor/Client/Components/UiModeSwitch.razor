@@ -1,0 +1,44 @@
+@inject UiModeService uiMode
+
+@if (Single)
+{
+    @* one small button that flips to the other interface - for the cramped classic header *@
+    <button type="button" class="tcn-uiswitch-single" title="Switch the interface"
+            @onclick=@(() => Set(!uiMode.IsNew))>
+        ⇄ @(uiMode.IsNew ? "Classic" : "New UI")
+    </button>
+}
+else
+{
+    @* segmented "New / Classic" control *@
+    <span class="tcn-uiswitch @(Light ? "tcn-uiswitch-light" : "")" title="Switch between the new and the classic interface">
+        <button type="button"
+                class="tcn-uiswitch-opt @(uiMode.IsNew ? "is-active" : "")"
+                @onclick=@(() => Set(true))>
+            @(Compact ? "New" : "New UI")
+        </button>
+        <button type="button"
+                class="tcn-uiswitch-opt @(uiMode.IsNew ? "" : "is-active")"
+                @onclick=@(() => Set(false))>
+            @(Compact ? "Old" : "Classic")
+        </button>
+    </span>
+}
+
+@code {
+    [Parameter]
+    public bool Compact { get; set; } = true;
+
+    /// <summary>Use the light-background variant (for the settings page).</summary>
+    [Parameter]
+    public bool Light { get; set; } = false;
+
+    /// <summary>Render a single toggle button instead of the two-option control.</summary>
+    [Parameter]
+    public bool Single { get; set; } = false;
+
+    private async Task Set(bool isNew)
+    {
+        await uiMode.SetMode(isNew);
+    }
+}

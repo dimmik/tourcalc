@@ -1,0 +1,234 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using TCalcCore.Engine
+
+<div class="tcn-toolbar">
+    <div class="tcn-search">
+        <span class="tcn-search-icon">🔎</span>
+        <input type="text" placeholder="Find a tour" value="@search"
+               @oninput=@(e => search = e.Value?.ToString() ?? "") />
+        @if (!string.IsNullOrEmpty(search))
+        {
+            <button type="button" class="tcn-search-clear" title="Clear" @onclick=@(() => search = "")>×</button>
+        }
+    </div>
+    <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => adding = !adding)>
+        @(adding ? "× Cancel" : "+ New tour")
+    </button>
+    <label class="tcn-switchline">
+        <input type="checkbox" checked=@ShowArchived @onchange=@(() => ShowArchivedChanged.InvokeAsync(!ShowArchived)) />
+        Show archived
+    </label>
+    @if (InProgress)
+    {
+        <span class="tcn-chip tcn-chip-amber"><span class="tcn-spin">⟳</span> saving…</span>
+    }
+</div>
+
+@if (adding)
+{
+    <div class="tcn-form">
+        <div>
+            <div class="tcn-field-label">Tour name</div>
+            <input class="tcn-input" type="text" placeholder="Alps 2026" @bind-value=@newName />
+        </div>
+        @if (IsMaster)
+        {
+            <div>
+                <div class="tcn-field-label">Access code</div>
+                <input class="tcn-input" type="text" placeholder="code" @bind-value=@newCode />
+            </div>
+        }
+        <div>
+            <div class="tcn-field-label">Tour JSON (optional)</div>
+            <textarea class="tcn-input" placeholder="paste an exported tour to start from it" @bind=@newJson></textarea>
+        </div>
+        <div class="tcn-row">
+            <button type="button" class="tcn-btn tcn-btn-primary" disabled=@InProgress @onclick=@Add>Create tour</button>
+            <button type="button" class="tcn-btn" @onclick=@(() => adding = false)>Cancel</button>
+        </div>
+    </div>
+}
+
+@{
+    var shown = Filtered().ToList();
+}
+
+@if (!shown.Any())
+{
+    <div class="tcn-empty">
+        <span class="tcn-empty-icon">🧳</span>
+        <div class="tcn-empty-title">@(string.IsNullOrWhiteSpace(search) ? "No tours here yet" : "Nothing matches your search")</div>
+        <div>
+            @if (string.IsNullOrWhiteSpace(search))
+            {
+                <span>Create a tour, add the people, and start recording who paid for what.</span>
+            }
+            else
+            {
+                <span>Try another name@(ShowArchived ? "" : ", or turn on \"Show archived\"").</span>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="tcn-tourgrid">
+        @foreach (var tour in shown)
+        {
+            <div class="tcn-tour @(tour.IsArchived ? "is-archived" : "")" @key=@($"tour_{tour.Id}")>
+                @if (editingId == tour.Id)
+                {
+                    <div class="tcn-field-label">Name</div>
+                    <input class="tcn-input" type="text" disabled=@InProgress @bind-value=@tour.Name />
+                    <div class="tcn-field-label" style="margin-top:6px">Days</div>
+                    <input class="tcn-input" type="number" disabled=@InProgress @bind-value=@tour.Duration />
+                    <div class="tcn-row" style="margin-top:8px">
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
+                                @onclick=@(async () => { editingId = null; await OnSaveTour.InvokeAsync(tour); })>
+                            Save
+                        </button>
+                        <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => editingId = null)>Cancel</button>
+                    </div>
+                }
+                else
+                {
+                    <a class="tcn-tour-name" href=@($"tour/{tour.Id}")>@tour.Name</a>
+                    <div class="tcn-tour-meta">
+                        <span>@tour.DateCreated.ToString("dd.MM.yyyy")</span>
+                        <span>·</span>
+                        <span>@tour.Duration days</span>
+                    </div>
+                    <div class="tcn-tour-badges">
+                        @if (tour.IsFinalizing)
+                        {
+                            <span class="tcn-chip tcn-chip-amber">settling up</span>
+                        }
+                        @if (tour.IsArchived)
+                        {
+                            <span class="tcn-chip">archived</span>
+                        }
+                    </div>
+                }
+
+                <div class="tcn-tour-actions">
+                    <label class="tcn-switchline" title="Mark the tour as being settled up">
+                        <input type="checkbox" checked=@tour.IsFinalizing disabled=@InProgress
+                               @onchange=@(() => OnToggleFinalizing.InvokeAsync(tour)) />
+                        settling
+                    </label>
+                    <label class="tcn-switchline" title="Hide the tour from the default list">
+                        <input type="checkbox" checked=@tour.IsArchived disabled=@InProgress
+                               @onchange=@(() => OnToggleArchived.InvokeAsync(tour)) />
+                        archived
+                    </label>
+                    <span style="flex:1 1 auto"></span>
+                    <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => editingId = editingId == tour.Id ? null : tour.Id)>
+                        Rename
+                    </button>
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-ghost"
+                            @onclick=@(() => moreId = moreId == tour.Id ? null : tour.Id)>
+                        @(moreId == tour.Id ? "▾ less" : "⋯ more")
+                    </button>
+                </div>
+
+                @if (moreId == tour.Id)
+                {
+                    <div class="tcn-details">
+                        <div class="tcn-row">
+                            <a class="tcn-btn tcn-btn-sm" href=@($"/goto/{tour.AccessCodeMD5}/{tour.Id}")>🔗 Share link</a>
+                            <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => OnCloneTour.InvokeAsync((tour, false)))>Clone</button>
+                            <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => OnCloneTour.InvokeAsync((tour, true)))>Clone w/o expenses</button>
+                            <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => OnCopyJson.InvokeAsync(tour))>Copy JSON</button>
+                            <span class="tcn-legacy-btn"><TourVersions @key=@($"tvn_{tour.Id}") Tour=@tour Text="Versions" /></span>
+                            <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" @onclick=@(() => OnDeleteTour.InvokeAsync(tour))>Delete tour</button>
+                        </div>
+                        @if (IsMaster)
+                        {
+                            <div class="tcn-row" style="margin-top:8px">
+                                <span class="tcn-field-label">code for clones</span>
+                                <input class="tcn-input" style="width:auto" type="text" placeholder="code" @bind-value=@newCode />
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IEnumerable<Tour> Tours { get; set; } = Enumerable.Empty<Tour>();
+
+    [Parameter]
+    public bool IsMaster { get; set; }
+
+    [Parameter]
+    public bool InProgress { get; set; }
+
+    [Parameter]
+    public bool ShowArchived { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> ShowArchivedChanged { get; set; }
+
+    /// <summary>(name, json, code)</summary>
+    [Parameter]
+    public EventCallback<(string, string, string)> OnAddTour { get; set; }
+
+    [Parameter]
+    public EventCallback<Tour> OnSaveTour { get; set; }
+
+    [Parameter]
+    public EventCallback<Tour> OnToggleFinalizing { get; set; }
+
+    [Parameter]
+    public EventCallback<Tour> OnToggleArchived { get; set; }
+
+    [Parameter]
+    public EventCallback<Tour> OnDeleteTour { get; set; }
+
+    /// <summary>(tour, strip spendings)</summary>
+    [Parameter]
+    public EventCallback<(Tour, bool)> OnCloneTour { get; set; }
+
+    [Parameter]
+    public EventCallback<Tour> OnCopyJson { get; set; }
+
+    [Parameter]
+    public string DefaultCode { get; set; } = "new";
+
+    private string search = "";
+    private bool adding = false;
+    private string newName = "";
+    private string newJson = "";
+    private string newCode = "";
+    private string? editingId = null;
+    private string? moreId = null;
+
+    protected override void OnInitialized()
+    {
+        newCode = DefaultCode;
+    }
+
+    private IEnumerable<Tour> Filtered()
+    {
+        var res = Tours ?? Enumerable.Empty<Tour>();
+        if (!ShowArchived) res = res.Where(t => !t.IsArchived);
+        var q = search.Trim();
+        if (q.Length > 0)
+        {
+            res = res.Where(t => (t.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase));
+        }
+        return res;
+    }
+
+    private async Task Add()
+    {
+        await OnAddTour.InvokeAsync((newName, newJson, newCode));
+        adding = false;
+        newName = "";
+        newJson = "";
+    }
+}

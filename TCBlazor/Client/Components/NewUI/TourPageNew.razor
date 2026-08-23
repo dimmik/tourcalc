@@ -1,0 +1,201 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using TCalc.Logic
+@using TCalcCore.Engine
+
+@inject TourcalcEngine engine
+@inject IJSRuntime JsRuntime
+
+@{
+    var curName = Tour.CurrencyNameEmptyIfSingleCurrency();
+    var realSpendings = Tour.Spendings.Where(s => !s.Planned).ToList();
+    var totalSpent = realSpendings
+        .Where(s => !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc))
+        .Sum(s => s.AmountInCurrentCurrency(Tour));
+    var minMeaningful = Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+    var openTransfers = Tour.Spendings
+        .Where(s => s.Planned && !s.Description.StartsWith("Family"))
+        .Where(s => Math.Abs(s.AmountInCurrentCurrency(Tour)) > minMeaningful)
+        .ToList();
+    var leftToSettle = openTransfers.Sum(s => s.AmountInCurrentCurrency(Tour));
+}
+
+<div class="tcn-hero">
+    <div class="tcn-hero-top">
+        <div class="tcn-hero-name">@Tour.Name</div>
+        <button type="button" class="tcn-iconbtn" title="Reload from the server" @onclick=@Reload>
+            <span class="@(reloading ? "tcn-spin" : "")">⟳</span>
+        </button>
+    </div>
+    <div class="tcn-hero-sub">
+        <span title="@($"{StoredDt:yyyy-MM-dd HH:mm:ss}")">
+            @(IsFresh ? "from server" : "local copy") · @($"{StoredDt:dd.MM HH:mm}")
+        </span>
+        <span>·</span>
+        <span><CurrenciesEditInModal tour=@RawTour /></span>
+        <span>·</span>
+        <a href=@($"/goto/{Tour.AccessCodeMD5}/{Tour.Id}")>share link</a>
+        <span>·</span>
+        <span class="tcn-legacy-btn"><TourVersions @key=@($"tvn_{Tour.Id}") Tour=@RawTour Text="versions" /></span>
+    </div>
+
+    @if (RawTour.IsMultiCurrency())
+    {
+        <div class="tcn-hero-sub" style="margin-top:8px">
+            <span>show amounts in</span>
+            <select class="tcn-input" style="width:auto; padding:4px 8px; font-size:13px;"
+                    value="@(SelectedCurrency?.Id ?? "")"
+                    @onchange=@OnCurrencyPicked>
+                @foreach (var c in RawTour.Currencies)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        </div>
+    }
+
+    <div class="tcn-hero-metrics">
+        <div class="tcn-metric">
+            <div class="tcn-metric-label">Total spent</div>
+            <div class="tcn-metric-value">@NewUi.Money(totalSpent) <small>@curName</small></div>
+        </div>
+        <div class="tcn-metric">
+            <div class="tcn-metric-label">People</div>
+            <div class="tcn-metric-value">@Tour.Persons.Count</div>
+        </div>
+        <div class="tcn-metric">
+            <div class="tcn-metric-label">Expenses</div>
+            <div class="tcn-metric-value">@realSpendings.Count</div>
+        </div>
+        <div class="tcn-metric">
+            <div class="tcn-metric-label">Left to settle</div>
+            <div class="tcn-metric-value">
+                @if (openTransfers.Any())
+                {
+                    <span>@NewUi.Money(leftToSettle) <small>@curName</small></span>
+                }
+                else
+                {
+                    <span>all done ✓</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<nav class="tcn-tabs">
+    <button type="button" class="tcn-tab @(tab == Tab.Balance ? "is-active" : "")" @onclick=@(() => tab = Tab.Balance)>
+        Balance
+        @if (openTransfers.Any())
+        {
+            <span class="tcn-tab-badge">@openTransfers.Count</span>
+        }
+    </button>
+    <button type="button" class="tcn-tab @(tab == Tab.People ? "is-active" : "")" @onclick=@(() => tab = Tab.People)>
+        People <span class="tcn-tab-badge">@Tour.Persons.Count</span>
+    </button>
+    <button type="button" class="tcn-tab @(tab == Tab.Expenses ? "is-active" : "")" @onclick=@(() => tab = Tab.Expenses)>
+        Expenses <span class="tcn-tab-badge">@realSpendings.Count</span>
+    </button>
+    <button type="button" class="tcn-tab @(tab == Tab.Stats ? "is-active" : "")" @onclick=@(() => tab = Tab.Stats)>
+        Stats
+    </button>
+</nav>
+
+@if (tab == Tab.Balance)
+{
+    <BalanceTab Tour=@Tour Settings=@Settings />
+}
+else if (tab == Tab.People)
+{
+    <PeopleTab Tour=@Tour Settings=@Settings AddModal=@AddModal />
+}
+else if (tab == Tab.Expenses)
+{
+    <ExpensesTab Tour=@Tour RawTour=@RawTour Settings=@Settings />
+}
+else
+{
+    <div class="tcn-card tcn-scroll-x" style="padding: 12px;">
+        <TourStaistics Tour=@Tour />
+    </div>
+}
+
+<button type="button" class="tcn-fab" @onclick=@AddSpending>
+    <span style="font-size:18px; line-height:1">＋</span> Spend
+</button>
+
+@code {
+    /// <summary>Tour converted into the currency the user picked for display.</summary>
+    [Parameter]
+    public Tour Tour { get; set; } = new();
+
+    /// <summary>Tour as loaded - edit forms must see the original currencies.</summary>
+    [Parameter]
+    public Tour RawTour { get; set; } = new();
+
+    [Parameter]
+    public UISettings Settings { get; set; } = new();
+
+    [Parameter]
+    public bool IsFresh { get; set; }
+
+    [Parameter]
+    public DateTimeOffset StoredDt { get; set; } = DateTimeOffset.Now;
+
+    [Parameter]
+    public Currency? SelectedCurrency { get; set; }
+
+    [Parameter]
+    public EventCallback<Currency?> OnCurrencyChanged { get; set; }
+
+    [Parameter]
+    public SpendingAddInModal AddModal { get; set; } = new();
+
+    [Parameter]
+    public Func<Task<string?>> GetDefaultPayer { get; set; } = () => Task.FromResult<string?>(null);
+
+    /// <summary>"persons" / "spendings" - the legacy per-section routes land on the matching tab.</summary>
+    [Parameter]
+    public string? InitialSection { get; set; }
+
+    private enum Tab { Balance, People, Expenses, Stats }
+    private Tab tab = Tab.Expenses;
+    private bool reloading = false;
+    private bool tabInitialized = false;
+
+    protected override void OnParametersSet()
+    {
+        if (!tabInitialized)
+        {
+            tab = InitialSection switch
+            {
+                "persons" => Tab.People,
+                "spendings" => Tab.Expenses,
+                // a tour that is being settled up opens on the payments,
+                // any other one opens where the expenses are added
+                _ => (RawTour.IsFinalizing && !RawTour.IsArchived) ? Tab.Balance : Tab.Expenses,
+            };
+            tabInitialized = true;
+        }
+    }
+
+    private async Task Reload()
+    {
+        reloading = true;
+        await engine.RequestTourLoad(RawTour.Id, forceLoadFromServer: true);
+        reloading = false;
+    }
+
+    private async Task AddSpending()
+    {
+        AddModal.OpenModal(await GetDefaultPayer());
+    }
+
+    private async Task OnCurrencyPicked(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString();
+        var c = RawTour.Currencies.FirstOrDefault(cc => cc.Id == id);
+        await OnCurrencyChanged.InvokeAsync(c);
+    }
+}
