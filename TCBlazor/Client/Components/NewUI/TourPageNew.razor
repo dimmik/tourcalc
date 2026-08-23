@@ -6,6 +6,8 @@
 @inject TourcalcEngine engine
 @inject IJSRuntime JsRuntime
 
+@implements IDisposable
+
 @{
     var curName = Tour.CurrencyNameEmptyIfSingleCurrency();
     var realSpendings = Tour.Spendings.Where(s => !s.Planned).ToList();
@@ -23,13 +25,33 @@
 <div class="tcn-hero">
     <div class="tcn-hero-top">
         <div class="tcn-hero-name">@Tour.Name</div>
-        <button type="button" class="tcn-iconbtn" title="Reload from the server" @onclick=@Reload>
+        <button type="button" class="tcn-iconbtn" title="Reload from the server"
+                disabled=@reloading @onclick=@Reload>
             <span class="@(reloading ? "tcn-spin" : "")">⟳</span>
         </button>
     </div>
     <div class="tcn-hero-sub">
         <span title="@($"{StoredDt:yyyy-MM-dd HH:mm:ss}")">
-            @(IsFresh ? "from server" : "local copy") · @($"{StoredDt:dd.MM HH:mm}")
+            @if (reloading)
+            {
+                <span class="tcn-refresh-note">asking the server…</span>
+            }
+            else if (outcome == RefreshOutcome.Updated)
+            {
+                <span class="tcn-refresh-note is-ok">✓ new data received</span>
+            }
+            else if (outcome == RefreshOutcome.UpToDate)
+            {
+                <span class="tcn-refresh-note is-ok">✓ server has nothing newer</span>
+            }
+            else if (outcome == RefreshOutcome.Failed)
+            {
+                <span class="tcn-refresh-note is-bad">✕ server did not answer — showing the local copy</span>
+            }
+            else
+            {
+                <span>@(IsFresh ? "from server" : "local copy") · @Ago(StoredDt)</span>
+            }
         </span>
         <span>·</span>
         <span><CurrenciesModalNew tour=@RawTour @key=@($"cur_{Tour.Id}") /></span>
@@ -161,6 +183,14 @@ else
     private enum Tab { Balance, People, Expenses, Stats }
     private Tab tab = Tab.Expenses;
     private bool reloading = false;
+    private CancellationTokenSource? tickCts;
+
+    private enum RefreshOutcome { None, Updated, UpToDate, Failed }
+    private RefreshOutcome outcome = RefreshOutcome.None;
+
+    // set from the engine callback: it fires only when the server actually returned a tour
+    private bool serverAnswered = false;
+    private Tour? serverTour = null;
     private bool tabInitialized = false;
 
     protected override void OnParametersSet()
@@ -181,9 +211,101 @@ else
 
     private async Task Reload()
     {
+        if (reloading) return;
         reloading = true;
+        outcome = RefreshOutcome.None;
+        serverAnswered = false;
+        serverTour = null;
+        var before = Fingerprint(RawTour);
+        var started = DateTime.UtcNow;
+
         await engine.RequestTourLoad(RawTour.Id, forceLoadFromServer: true);
+
+        // the call is awaited all the way down, so by now the callback has run - or never will
+        outcome = !serverAnswered
+            ? RefreshOutcome.Failed
+            : Fingerprint(serverTour) == before ? RefreshOutcome.UpToDate : RefreshOutcome.Updated;
+
+        // a local server answers in milliseconds - hold the spinner long enough to be seen
+        var minVisible = TimeSpan.FromMilliseconds(450);
+        var elapsed = DateTime.UtcNow - started;
+        if (elapsed < minVisible) await Task.Delay(minVisible - elapsed);
         reloading = false;
+        StateHasChanged();
+
+        // a failure deserves a longer look than a success
+        var shown = outcome == RefreshOutcome.Failed ? 5000 : 2200;
+        var mine = outcome;
+        await Task.Delay(shown);
+        if (outcome == mine)
+        {
+            outcome = RefreshOutcome.None;
+            StateHasChanged();
+        }
+    }
+
+    private Task OnAnyTourLoaded(Tour t, bool isFromServer, DateTimeOffset dt)
+    {
+        if (isFromServer)
+        {
+            serverAnswered = true;
+            serverTour = t;
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Cheap "did anything actually change" stamp - counts and totals catch any real edit.</summary>
+    private static string Fingerprint(Tour? t)
+    {
+        if (t == null) return "";
+        var sp = t.Spendings ?? new List<Spending>();
+        return string.Join("|",
+            t.Name,
+            t.Persons?.Count ?? 0,
+            sp.Count,
+            sp.Sum(x => x.AmountInCents),
+            t.Duration, t.IsFinalizing, t.IsArchived, t.TourCurrencyId);
+    }
+
+    /// <summary>Relative age - an absolute HH:mm looks identical after two refreshes a minute apart.</summary>
+    private static string Ago(DateTimeOffset dt)
+    {
+        var d = DateTimeOffset.Now - dt;
+        if (d.TotalSeconds < 45) return "just now";
+        if (d.TotalMinutes < 60) return $"{(int)d.TotalMinutes} min ago";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours} h ago";
+        return dt.ToString("dd.MM HH:mm");
+    }
+
+    protected override void OnInitialized()
+    {
+        engine.onTourLoaded += OnAnyTourLoaded;
+        // keeps "just now" from ageing into a lie while the page stays open
+        tickCts = new CancellationTokenSource();
+        _ = TickLoop(tickCts.Token);
+    }
+
+    private async Task TickLoop(CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(30000, ct);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // component gone
+        }
+    }
+
+    public void Dispose()
+    {
+        engine.onTourLoaded -= OnAnyTourLoaded;
+        tickCts?.Cancel();
+        tickCts?.Dispose();
     }
 
     private async Task AddSpending()

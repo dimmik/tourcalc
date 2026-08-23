@@ -357,10 +357,13 @@ body.tcn-on {
         height: 220px;
         border-radius: 50%;
         background: rgba(255, 255, 255, .08);
+        /* purely decorative - it sits over the refresh button and would eat its clicks */
+        pointer-events: none;
     }
 
 .tcn-hero-top {
     position: relative;
+    z-index: 1;
     display: flex;
     align-items: flex-start;
     gap: 10px;
@@ -2457,3 +2460,23 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
     margin-top: 6px;
     font-size: 12px;
 }
+
+/* what the refresh button actually achieved - stated plainly, then it fades away */
+.tcn-refresh-note {
+    display: inline-block;
+    padding: 1px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .2);
+    color: #fff;
+    font-weight: 700;
+}
+
+    .tcn-refresh-note.is-ok {
+        background: #ecfdf5;
+        color: #047857;
+    }
+
+    .tcn-refresh-note.is-bad {
+        background: #fef2f2;
+        color: #b91c1c;
+    }
