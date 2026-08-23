@@ -1,17 +1,29 @@
-﻿@inject IJSRuntime _jsRuntime
+@inject IJSRuntime _jsRuntime
+@inject UiModeService uiMode
 @inject ILocalLogger logger
 
 
 @if (_newVersionAvailable)
 {
-    <button style="background-color: Beige; color:darkgreen" onclick="window.location.reload()">
-        update
-    </button>
+    @if (uiMode.IsNew)
+    {
+        @* an offer, never a demand - reloading is up to the user *@
+        <button type="button" class="tcn-update" onclick="window.location.reload()"
+                title="A new version is ready. Reload whenever it suits you - nothing is lost if you wait.">
+            <span class="tcn-update-dot"></span>Update
+        </button>
+    }
+    else
+    {
+        <button style="background-color: Beige; color:darkgreen" onclick="window.location.reload()">
+            update
+        </button>
+    }
 }
 
 @code {
 
-    private bool _newVersionAvailable = false;
+    private bool _newVersionAvailable = true; // TEMP-TEST
 
     protected override async Task OnInitializedAsync()
     {

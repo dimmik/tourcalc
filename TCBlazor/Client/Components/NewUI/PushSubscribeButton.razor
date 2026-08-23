@@ -1,0 +1,100 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using TCalcCore.Engine
+
+@inject TourcalcEngine engine
+@inject ITokenStorage tokenStorage
+@inject TCalcCore.Network.EnrichedHttpClient hClient
+@inject IJSRuntime JsRuntime
+
+@* Per-tour web push subscription. Same calls as the classic TourHeader panel,
+   just reachable without opening a statistics drawer first. Hidden entirely
+   unless the Web_Push_Notifications setting is on. *@
+
+@if (settings.Web_Push_Notifications && Tour is not null)
+{
+    @if (subscriptionChecked == null)
+    {
+        <button type="button" class="tcn-bell" disabled>⏳ checking…</button>
+    }
+    else if (subscriptionChecked == true)
+    {
+        <button type="button" class="tcn-bell @(isSubscribed ? "is-on" : "")"
+                disabled=@busy
+                title=@(isSubscribed
+                          ? "You get a push when someone changes this tour. Click to stop."
+                          : "Get a push when someone changes this tour.")
+                @onclick=@Toggle>
+            @(isSubscribed ? "🔔 notified" : "🔕 notify me")
+        </button>
+    }
+    else
+    {
+        <button type="button" class="tcn-bell" title="Could not reach the notification service - click to retry"
+                @onclick=@CheckIfSubscribed>
+            🔕 retry
+        </button>
+    }
+}
+
+@code {
+    [Parameter]
+    public Tour? Tour { get; set; }
+
+    private UISettings settings = new();
+    private bool? subscriptionChecked = null;
+    private bool isSubscribed = false;
+    private bool busy = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await engine.GetUISettings();
+        if (settings.Web_Push_Notifications)
+        {
+            _ = CheckIfSubscribed();
+        }
+    }
+
+    private async Task CheckIfSubscribed()
+    {
+        subscriptionChecked = null;
+        StateHasChanged();
+
+        bool httpError = false;
+        bool isAllowed = await JsRuntime.InvokeAsync<bool>("checkNotificationAllowed", null);
+        if (isAllowed)
+        {
+            var token = await tokenStorage.GetToken();
+            var pKey = await hClient.CallWithAuthToken<string>("api/subscription/publickey", token, HttpMethod.Get, null, (m) => { httpError = true; });
+            if (!httpError)
+            {
+                var subscription = await JsRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription", pKey);
+                isSubscribed = await hClient.CallWithAuthToken<bool>($"api/subscription/check/{Tour?.Id}", token, HttpMethod.Post, subscription, (m) => { httpError = true; });
+            }
+        }
+        subscriptionChecked = !httpError;
+        StateHasChanged();
+    }
+
+    private async Task Toggle()
+    {
+        busy = true;
+        try
+        {
+            var token = await tokenStorage.GetToken();
+            var pKey = await hClient.CallWithAuthToken<string>("api/subscription/publickey", token, HttpMethod.Get, null, (m) => { });
+            // this is what raises the browser permission prompt the first time
+            var subscription = await JsRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription", pKey);
+            if (subscription != null)
+            {
+                var action = isSubscribed ? "unsubscribe" : "subscribe";
+                _ = await hClient.CallWithAuthToken<string>($"api/subscription/{action}/{Tour?.Id}", token, HttpMethod.Post, subscription, (m) => { });
+                isSubscribed = !isSubscribed;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

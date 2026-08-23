@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#334}iframe{border:0;background:#fff}</style></head><body>
+<iframe id="f"></iframe>
+<script>
+var p=new URLSearchParams(location.search);
+localStorage.setItem('__tc_ui_mode', p.get('mode')||'new');
+localStorage.setItem('__tc_ui_mode_stored_datetime', JSON.stringify(new Date()));
+if (p.get('push')) {
+  var s = {}; try { s = JSON.parse(localStorage.getItem('__tc_ui_settings')||'{}'); } catch(e){}
+  s.Web_Push_Notifications = true;
+  localStorage.setItem('__tc_ui_settings', JSON.stringify(s));
+  localStorage.setItem('__tc_ui_settings_stored_datetime', JSON.stringify(new Date()));
+}
+var f=document.getElementById('f');
+f.style.width=(p.get('w')||430)+'px'; f.style.height=(p.get('h')||1000)+'px';
+f.src=p.get('u')||'/tour/zscph2y';
+</script></body></html>

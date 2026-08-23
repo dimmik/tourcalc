@@ -37,6 +37,7 @@
         <a href=@($"/goto/{Tour.AccessCodeMD5}/{Tour.Id}")>share link</a>
         <span>·</span>
         <span class="tcn-legacy-btn"><TourVersions @key=@($"tvn_{Tour.Id}") Tour=@RawTour Text="versions" /></span>
+        <PushSubscribeButton Tour=@RawTour @key=@($"push_{Tour.Id}") />
     </div>
 
     @if (RawTour.IsMultiCurrency())

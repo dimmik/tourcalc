@@ -2,8 +2,20 @@
 @using TCalcCore.UI
 @inject TourcalcEngine engine
 @inject IJSRuntime JsRuntime
+@inject UiModeService uiMode
 
-@if (open)
+@if (open && uiMode.IsNew)
+{
+    <SpendingModalNew tour=@tour
+                      TheSpending=@TheSpending
+                      Title="New expense"
+                      ShowAddAnother=@true
+                      AddAnother=@addAnother
+                      AddAnotherChanged=@(EventCallback.Factory.Create<bool>(this, v => addAnother = v))
+                      OnSave=@(EventCallback.Factory.Create<Spending>(this, SaveSpending))
+                      OnClose=@(EventCallback.Factory.Create(this, CloseModal)) />
+}
+else if (open)
 {
     <Modal Title=@("Add spending x")
        Visible="@open"
