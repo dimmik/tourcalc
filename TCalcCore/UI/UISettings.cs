@@ -1,4 +1,4 @@
-﻿namespace TCalcCore.UI
+namespace TCalcCore.UI
 {
     public class UISettings
     {
@@ -12,5 +12,7 @@
         public bool In_Add_Spending_Page_Filter_by_Chosen_Payer { get; set; } = false;
         public bool Spending_ToAll_DefaultOn { get; set; } = true;
         public bool Web_Push_Notifications { get; set; } = false;
+        /// <summary>New UI: make every number tappable, opening a dialog that explains where it comes from.</summary>
+        public bool Explain_Numbers { get; set; } = false;
     }
 }

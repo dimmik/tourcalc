@@ -80,27 +80,47 @@
     <div class="tcn-hero-metrics">
         <div class="tcn-metric">
             <div class="tcn-metric-label">Total spent</div>
-            <div class="tcn-metric-value">@NewUi.Money(totalSpent) <small>@curName</small></div>
+            <div class="tcn-metric-value">
+                <Explain Enabled=@Explainable Title="Total spent" Headline=@($"{NewUi.Money(totalSpent)} {curName}")
+                         Details=@TotalSpentDetails>
+                    @NewUi.Money(totalSpent)
+                </Explain>
+                <small>@curName</small>
+            </div>
         </div>
         <div class="tcn-metric">
             <div class="tcn-metric-label">People</div>
-            <div class="tcn-metric-value">@Tour.Persons.Count</div>
+            <div class="tcn-metric-value">
+                <Explain Enabled=@Explainable Title="People in this tour" Headline=@($"{Tour.Persons.Count} people")
+                         Details=@PeopleDetails>
+                    @Tour.Persons.Count
+                </Explain>
+            </div>
         </div>
         <div class="tcn-metric">
             <div class="tcn-metric-label">Expenses</div>
-            <div class="tcn-metric-value">@realSpendings.Count</div>
+            <div class="tcn-metric-value">
+                <Explain Enabled=@Explainable Title="Recorded expenses" Headline=@($"{realSpendings.Count} entries")
+                         Details=@ExpensesDetails>
+                    @realSpendings.Count
+                </Explain>
+            </div>
         </div>
         <div class="tcn-metric">
             <div class="tcn-metric-label">Left to settle</div>
             <div class="tcn-metric-value">
-                @if (openTransfers.Any())
-                {
-                    <span>@NewUi.Money(leftToSettle) <small>@curName</small></span>
-                }
-                else
-                {
-                    <span>all done ✓</span>
-                }
+                <Explain Enabled=@Explainable Title="Left to settle"
+                         Headline=@(openTransfers.Any() ? $"{NewUi.Money(leftToSettle)} {curName}" : "Nothing left")
+                         Details=@SettleDetails>
+                    @if (openTransfers.Any())
+                    {
+                        <span>@NewUi.Money(leftToSettle) <small>@curName</small></span>
+                    }
+                    else
+                    {
+                        <span>all done ✓</span>
+                    }
+                </Explain>
             </div>
         </div>
     </div>
@@ -175,6 +195,107 @@ else
 
     [Parameter]
     public Func<Task<string?>> GetDefaultPayer { get; set; } = () => Task.FromResult<string?>(null);
+
+    private bool Explainable => Settings.Explain_Numbers;
+
+    private RenderFragment TotalSpentDetails => __builder =>
+    {
+        var counted = Tour.Spendings.Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc)).ToList();
+        var total = counted.Sum(s => s.AmountInCurrentCurrency(Tour));
+        var skipped = Tour.Spendings.Count(s => !s.Planned) - counted.Count;
+        var byCat = counted.GroupBy(s => s.Type).Select(g => (Cat: g.Key, Sum: g.Sum(x => x.AmountInCurrentCurrency(Tour)))).OrderByDescending(x => x.Sum).ToList();
+        <div class="tcn-facts">
+            @foreach (var c in byCat)
+            {
+                <div>@c.Cat <span class="tcn-hint">@(total == 0 ? 0 : c.Sum * 100 / total)%</span></div>
+                <div>@NewUi.Money(c.Sum)</div>
+            }
+        </div>
+        <div class="tcn-explain-note">
+            Adds up every expense that has a category and is not a draft.
+            @if (skipped > 0)
+            {
+                <span> @skipped entr@(skipped == 1 ? "y is" : "ies are") left out — paybacks and drafts do not count as spending.</span>
+            }
+        </div>
+    };
+
+    private RenderFragment PeopleDetails => __builder =>
+    {
+        var totalWeight = Tour.Persons.Sum(p => p.Weight);
+        <div class="tcn-facts">
+            @foreach (var p in Tour.Persons.SortedByNameAndDependency())
+            {
+                <div>
+                    @p.Name
+                    @if (!string.IsNullOrWhiteSpace(p.ParentId))
+                    {
+                        <span class="tcn-hint"> · paid for by @NewUi.PersonName(Tour, p.ParentId)</span>
+                    }
+                </div>
+                <div>@p.Weight <span class="tcn-hint">@(totalWeight == 0 ? 0 : p.Weight * 100 / totalWeight)%</span></div>
+            }
+        </div>
+        <div class="tcn-explain-note">
+            Weights decide how a shared expense is split: total weight here is @totalWeight,
+            so someone on 100 carries @(totalWeight == 0 ? 0 : 100 * 100 / totalWeight)% of anything shared by everyone.
+        </div>
+    };
+
+    private RenderFragment ExpensesDetails => __builder =>
+    {
+        var real = Tour.Spendings.Where(s => !s.Planned).ToList();
+        var drafts = real.Count(s => s.IsDryRun);
+        var paybacks = real.Count(s => s.Description.StartsWith("X "));
+        var family = real.Count(s => s.Description.StartsWith("Family "));
+        var counted = real.Count(s => !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc));
+        <div class="tcn-facts">
+            <div>Counted as spending</div>
+            <div>@counted</div>
+            <div>Drafts</div>
+            <div>@drafts</div>
+            <div>Paybacks (X …)</div>
+            <div>@paybacks</div>
+            <div>Inside families</div>
+            <div>@family</div>
+            @if (real.Any())
+            {
+                <div>First</div>
+                <div>@real.Min(s => s.SpendingDate).ToString("dd.MM.yyyy")</div>
+                <div>Last</div>
+                <div>@real.Max(s => s.SpendingDate).ToString("dd.MM.yyyy")</div>
+                <div>Average entry</div>
+                <div>@NewUi.Money(real.Sum(s => s.AmountInCurrentCurrency(Tour)) / real.Count)</div>
+            }
+        </div>
+    };
+
+    private RenderFragment SettleDetails => __builder =>
+    {
+        var minMeaningful = Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+        var transfers = Tour.Spendings
+            .Where(s => s.Planned && !s.Description.StartsWith("Family"))
+            .Where(s => Math.Abs(s.AmountInCurrentCurrency(Tour)) > minMeaningful)
+            .OrderByDescending(s => s.AmountInCurrentCurrency(Tour)).ToList();
+        if (!transfers.Any())
+        {
+            <div class="tcn-explain-note">Everyone is square — no payments are left between the participants.</div>
+        }
+        else
+        {
+            <div class="tcn-facts">
+                @foreach (var t in transfers)
+                {
+                    <div>@NewUi.PersonName(Tour, t.FromGuid) → @NewUi.PersonName(Tour, t.ToGuid.FirstOrDefault())</div>
+                    <div>@NewUi.Money(t.AmountInCurrentCurrency(Tour))</div>
+                }
+            </div>
+            <div class="tcn-explain-note">
+                @transfers.Count payment@(transfers.Count == 1 ? "" : "s") would even everyone out.
+                Anything under @NewUi.Money(minMeaningful) @Tour.CurrencyNameEmptyIfSingleCurrency() is treated as settled.
+            </div>
+        }
+    };
 
     /// <summary>"persons" / "spendings" - the legacy per-section routes land on the matching tab.</summary>
     [Parameter]
