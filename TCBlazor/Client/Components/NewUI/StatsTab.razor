@@ -1,0 +1,253 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using SimpleBlazorPieChart
+@using ColorSequenceGenerator
+@using TCalcCore.Engine
+
+@inject TourcalcEngine engine
+
+@* Same numbers as the classic TourStaistics panel - the maths is ported as is -
+   just laid out as cards instead of a nested table. *@
+
+<div class="tcn-toolbar">
+    <span class="tcn-chip tcn-filter-chip @(byCategory ? "is-on" : "")" @onclick=@(() => byCategory = true)>By category</span>
+    <span class="tcn-chip tcn-filter-chip @(byCategory ? "" : "is-on")" @onclick=@(() => byCategory = false)>By person</span>
+</div>
+
+@if (!slices.Any())
+{
+    <div class="tcn-empty">
+        <span class="tcn-empty-icon">📊</span>
+        <div class="tcn-empty-title">Nothing to chart yet</div>
+        <div>Expenses need a category before they show up in the statistics.</div>
+    </div>
+}
+else
+{
+    <div class="tcn-card" style="padding: 14px; margin-bottom: 14px;">
+        <div class="tcn-chartbox">
+            <SimplePieChart Data="slices"
+                            ColorSequenceGenerator="csg"
+                            ShowSubcategories=@true
+                            ShowAbsoluteNumbers=@true
+                            RenderExtraControls="settings.Show_Debug_UI">
+                <ExtraControls>
+                    <div class="tcn-row" style="margin-top:8px">
+                        <span class="tcn-hint" style="margin:0">seed</span>
+                        <input type="color" class="tcn-colour" @bind-value="@SeedBind" />
+                        <input class="tcn-input" style="width:110px" type="number" @bind-value="@MagicBind" />
+                    </div>
+                </ExtraControls>
+            </SimplePieChart>
+        </div>
+    </div>
+
+    <div class="tcn-section">
+        <div class="tcn-section-title">Totals</div>
+
+        @if (categoryNames.Count > 1)
+        {
+            <div class="tcn-chips" style="margin-bottom: 10px;">
+                <span class="tcn-chip tcn-filter-chip @(string.IsNullOrWhiteSpace(selectedCat) ? "is-on" : "")"
+                      @onclick=@(() => selectedCat = "")>everything</span>
+                @foreach (var c in categoryNames.Where(c => !string.IsNullOrWhiteSpace(c)))
+                {
+                    <span class="tcn-chip tcn-filter-chip @(selectedCat == c ? "is-on" : "")"
+                          @key=@($"tcat_{c}") @onclick=@(() => selectedCat = c)>@c</span>
+                }
+            </div>
+        }
+
+        <div class="tcn-statgrid">
+            <div class="tcn-statcard">
+                <div class="tcn-statcard-label">Total</div>
+                <div class="tcn-statcard-value">@NewUi.Money(CatTotal) <small>@CurName</small></div>
+            </div>
+            <div class="tcn-statcard">
+                <div class="tcn-statcard-label">Per person (@adultPersonWeight w)</div>
+                <div class="tcn-statcard-value">@NewUi.Money(PerPerson) <small>@CurName</small></div>
+            </div>
+            <div class="tcn-statcard">
+                <div class="tcn-statcard-label">Per person per day</div>
+                <div class="tcn-statcard-value">@NewUi.Money(PerPerson / (duration == 0 ? 1 : duration)) <small>@CurName</small></div>
+                <div class="tcn-statcard-extra">
+                    over <input class="tcn-input tcn-daysinput" type="number" min="1" max="50" @bind-value="duration" /> days
+                </div>
+            </div>
+        </div>
+
+        @if (Tour.IsMultiCurrency())
+        {
+            <div class="tcn-card tcn-scroll-x" style="margin-top: 12px;">
+                <table class="tcn-ratetable">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            @foreach (var c in OtherCurrencies)
+                            {
+                                <th class="@(c == Tour.Currency ? "is-main" : "")">@c.Name</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Total</td>
+                            @foreach (var c in OtherCurrencies)
+                            {
+                                <td>@NewUi.Money(InCurrency(CatTotal, c))</td>
+                            }
+                        </tr>
+                        <tr>
+                            <td>Per person</td>
+                            @foreach (var c in OtherCurrencies)
+                            {
+                                <td>@NewUi.Money(InCurrency(PerPerson, c))</td>
+                            }
+                        </tr>
+                        <tr>
+                            <td>Per day</td>
+                            @foreach (var c in OtherCurrencies)
+                            {
+                                <td>@NewUi.Money(InCurrency(PerPerson / (duration == 0 ? 1 : duration), c))</td>
+                            }
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Tour Tour { get; set; } = new();
+
+    private UISettings settings = new();
+    private bool byCategory = true;
+    private int duration = 4;
+    private string selectedCat = "";
+
+    private CSG csg = new();
+    private int Magic = -1;
+    private string? Seed = null;
+
+    private long totalSpent = 0;
+    private int totalWeight = 100;
+    private int adultPersonWeight = 100;
+    private Dictionary<string, long> totalSpentByCat = new() { { "", 0 } };
+    private Dictionary<string, int> totalWeightByCat = new() { { "", 0 } };
+    private List<string> categoryNames = new();
+
+    private IEnumerable<(string Name, int Amount)> byCat = Enumerable.Empty<(string, int)>();
+    private IEnumerable<(string Name, int Amount)> byPerson = Enumerable.Empty<(string, int)>();
+
+    private IEnumerable<(string Name, int Amount)> slices => byCategory ? byCat : byPerson;
+
+    private string CurName => Tour.CurrencyNameEmptyIfSingleCurrency();
+
+    private IEnumerable<Currency> OtherCurrencies
+        => (Tour.Currencies ?? Enumerable.Empty<Currency>()).OrderByDescending(c => c.CurrencyRate);
+
+    private long CatTotal => totalSpentByCat.TryGetValue(selectedCat, out var v) ? v : 0;
+
+    private long PerPerson
+    {
+        get
+        {
+            var w = totalWeightByCat.TryGetValue(selectedCat, out var ww) && ww != 0 ? ww : totalWeight;
+            if (w == 0) w = 100;
+            return CatTotal * adultPersonWeight / w;
+        }
+    }
+
+    private double InCurrency(long amountInTourCurrency, Currency c)
+        => amountInTourCurrency * (Tour.Currency?.CurrencyRate ?? 100) * 1.0 / c.CurrencyRate;
+
+    public int MagicBind
+    {
+        get => Magic;
+        set { Magic = value; csg.Magic = Magic * 1.0 / 1000; }
+    }
+
+    public string? SeedBind
+    {
+        get => Seed;
+        set { Seed = value; csg.Seed = Seed; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await engine.GetUISettings();
+        csg = new CSG { Magic = settings.Magic_Piechart_Color_Scheme_Number * 1.0 / 1000 };
+        Magic = settings.Magic_Piechart_Color_Scheme_Number;
+        Seed = csg.Seed.ToString("#");
+        Recalculate();
+    }
+
+    protected override void OnParametersSet()
+    {
+        duration = Tour.Duration > 0 ? Tour.Duration : 4;
+        Recalculate();
+    }
+
+    private IEnumerable<Spending> Counted()
+        => Tour.Spendings
+            .Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc));
+
+    private void Recalculate()
+    {
+        try
+        {
+            var counted = Counted().ToList();
+
+            totalSpent = counted.Sum(s => s.AmountInCurrentCurrency(Tour));
+            totalWeight = Tour.Persons.Sum(p => p.Weight);
+            if (totalWeight == 0) totalWeight = 100;
+
+            totalSpentByCat = counted
+                .GroupBy(s => s.Type)
+                .ToDictionary(g => g.Key, g => g.Sum(s => s.AmountInCurrentCurrency(Tour)));
+
+            // average weight the money in a category was split across
+            totalWeightByCat = counted
+                .GroupBy(s => s.Type)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (int)Math.Round(g.Average(s => s.ToAll
+                        ? Tour.Persons.Sum(p => p.Weight)
+                        : s.ToGuid.Sum(guid => Tour.Persons.FirstOrDefault(p => p.GUID == guid)?.Weight ?? 0))));
+
+            totalSpentByCat[""] = totalSpent;
+            totalWeightByCat[""] = totalWeight;
+
+            // a "full share" person: a parent if there are children, otherwise the lightest one
+            if (Tour.Persons.Any(p => !string.IsNullOrWhiteSpace(p.ParentId)))
+            {
+                var parentId = Tour.Persons.First(p => !string.IsNullOrWhiteSpace(p.ParentId)).ParentId;
+                var parent = Tour.Persons.FirstOrDefault(p => p.GUID == parentId);
+                if (parent != null) adultPersonWeight = parent.Weight;
+            }
+            else if (Tour.Persons.Any(p => p.Weight > 0))
+            {
+                adultPersonWeight = Tour.Persons.Where(p => p.Weight > 0).Min(p => p.Weight);
+            }
+
+            categoryNames = totalSpentByCat.Keys.OrderBy(k => k).ToList();
+            if (!totalSpentByCat.ContainsKey(selectedCat)) selectedCat = "";
+
+            byCat = counted
+                .GroupBy(s => s.Type)
+                .Select(g => (g.Key, (int)g.Sum(s => s.AmountInCurrentCurrency(Tour))))
+                .OrderByDescending(x => x.Item2);
+
+            byPerson = counted
+                .GroupBy(s => (Tour.Persons.FirstOrDefault(p => p.GUID == s.FromGuid)?.Name ?? "n/a").AsShortString())
+                .Select(g => (g.Key, (int)g.Sum(s => s.AmountInCurrentCurrency(Tour))))
+                .OrderByDescending(x => x.Item2);
+        }
+        catch
+        {
+            // a half-loaded tour can make this fail - the panel just stays empty
+        }
+    }
+}

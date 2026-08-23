@@ -1,0 +1,164 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@* Hand-written settings screen: the reflection-driven DynaForm can only show
+   raw property names, which say nothing about what a setting actually does.
+   Each row saves immediately, same as the classic form did. *@
+
+<div class="tcn-section">
+    <div class="tcn-section-title">Balance &amp; expenses</div>
+    <div class="tcn-card">
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
+                <div class="tcn-setname">Ignore debts smaller than</div>
+                <div class="tcn-setdesc">
+                    Anything below this is treated as settled, so rounding leftovers of a few
+                    coins stop showing up as debts.
+                </div>
+            </div>
+            <input class="tcn-input tcn-setnum" type="number" min="0" value=@Settings.MinimumMeaningfulDebt
+                   @onchange=@(e => SetInt(v => Settings.MinimumMeaningfulDebt = v, e)) />
+        </div>
+
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
+                <div class="tcn-setname">New expense is for everyone</div>
+                <div class="tcn-setdesc">
+                    Pre-selects “everyone” when you add an expense. Turn off if most of your
+                    spending is for one or two people.
+                </div>
+            </div>
+            <label class="tcn-toggle">
+                <input type="checkbox" checked=@Settings.Spending_ToAll_DefaultOn
+                       @onchange=@(e => SetBool(v => Settings.Spending_ToAll_DefaultOn = v, e)) />
+                <span></span>
+            </label>
+        </div>
+
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
+                <div class="tcn-setname">Tour links open the expense form</div>
+                <div class="tcn-setdesc">
+                    Following a shared tour link jumps straight to adding an expense instead of
+                    the tour overview.
+                </div>
+            </div>
+            <label class="tcn-toggle">
+                <input type="checkbox" checked=@Settings.Default_Tour_Page_Is_Add_Spending
+                       @onchange=@(e => SetBool(v => Settings.Default_Tour_Page_Is_Add_Spending = v, e)) />
+                <span></span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<div class="tcn-section">
+    <div class="tcn-section-title">Notifications</div>
+    <div class="tcn-card">
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
+                <div class="tcn-setname">Push notifications</div>
+                <div class="tcn-setdesc">
+                    Shows a subscribe button on each tour, so the browser can notify you when
+                    someone else changes it.
+                </div>
+            </div>
+            <label class="tcn-toggle">
+                <input type="checkbox" checked=@Settings.Web_Push_Notifications
+                       @onchange=@(e => SetBool(v => Settings.Web_Push_Notifications = v, e)) />
+                <span></span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<div class="tcn-section">
+    <div class="tcn-section-title">Charts</div>
+    <div class="tcn-card">
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
+                <div class="tcn-setname">Colour scheme</div>
+                <div class="tcn-setdesc">
+                    Seed number for the pie chart palette on the Stats tab. Change it if two
+                    categories end up looking alike.
+                </div>
+            </div>
+            <input class="tcn-input tcn-setnum" type="number" value=@Settings.Magic_Piechart_Color_Scheme_Number
+                   @onchange=@(e => SetInt(v => Settings.Magic_Piechart_Color_Scheme_Number = v, e)) />
+        </div>
+
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
+                <div class="tcn-setname">Show colour controls on the chart</div>
+                <div class="tcn-setdesc">Adds the seed colour picker next to the pie chart.</div>
+            </div>
+            <label class="tcn-toggle">
+                <input type="checkbox" checked=@Settings.Show_Debug_UI
+                       @onchange=@(e => SetBool(v => Settings.Show_Debug_UI = v, e)) />
+                <span></span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<div class="tcn-section">
+    <div class="tcn-section-title">Classic interface only</div>
+    <div class="tcn-card">
+        <div class="tcn-sethint">These three change nothing while the new interface is on.</div>
+
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
+                <div class="tcn-setname">Bulk category change</div>
+                <div class="tcn-setdesc">Adds checkboxes to the classic expense list for changing many categories at once.</div>
+            </div>
+            <label class="tcn-toggle">
+                <input type="checkbox" checked=@Settings.Show_Mass_Spending_Change
+                       @onchange=@(e => SetBool(v => Settings.Show_Mass_Spending_Change = v, e)) />
+                <span></span>
+            </label>
+        </div>
+
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
+                <div class="tcn-setname">Collapse the people table on narrow screens</div>
+                <div class="tcn-setdesc">Hides the weight / spent / received columns in the classic people list.</div>
+            </div>
+            <label class="tcn-toggle">
+                <input type="checkbox" checked=@Settings.Collapse_Columns_In_Person_List_On_Smaller_Screen
+                       @onchange=@(e => SetBool(v => Settings.Collapse_Columns_In_Person_List_On_Smaller_Screen = v, e)) />
+                <span></span>
+            </label>
+        </div>
+
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
+                <div class="tcn-setname">“Narrow screen” width</div>
+                <div class="tcn-setdesc">Below this many pixels the columns above collapse.</div>
+            </div>
+            <input class="tcn-input tcn-setnum" type="number" min="0" value=@Settings.Smaller_Screen_Width
+                   @onchange=@(e => SetInt(v => Settings.Smaller_Screen_Width = v, e)) />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public UISettings Settings { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<UISettings> OnSave { get; set; }
+
+    private async Task SetBool(Action<bool> apply, ChangeEventArgs e)
+    {
+        apply((bool)(e.Value ?? false));
+        await OnSave.InvokeAsync(Settings);
+    }
+
+    private async Task SetInt(Action<int> apply, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v))
+        {
+            apply(v);
+            await OnSave.InvokeAsync(Settings);
+        }
+    }
+}

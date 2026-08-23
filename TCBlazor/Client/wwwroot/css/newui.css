@@ -1607,6 +1607,509 @@ textarea.tcn-input {
 }
 
 
+/* ---- login sheet and the transient splash screens ----------------------- */
+
+.tcn-login .tcn-sheet-head {
+    gap: 12px;
+}
+
+.tcn-login-logo {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.tcn-login-lead {
+    margin: 0 0 14px 0;
+    font-size: 14px;
+    color: var(--tcn-muted);
+}
+
+.tcn-login-input {
+    font-size: 17px;
+    letter-spacing: .5px;
+    padding: 10px 12px;
+}
+
+/* used before the shell exists, so it centres itself on a bare page */
+.tcn-splash {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 60vh;
+    padding: 30px 16px;
+    text-align: center;
+    color: var(--tcn-muted);
+    font-size: 14px;
+}
+
+.tcn-splash-logo {
+    font-size: 34px;
+    line-height: 1;
+}
+
+.tcn-splash-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--tcn-text);
+}
+
+.tcn-splash-sub {
+    font-size: 13px;
+    color: var(--tcn-muted);
+}
+
+
+/* ---- settings rows ------------------------------------------------------ */
+
+.tcn-setrow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+    .tcn-setrow:last-child {
+        border-bottom: 0;
+    }
+
+.tcn-settext {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tcn-setname {
+    font-size: 14.5px;
+    font-weight: 650;
+    color: var(--tcn-text);
+    line-height: 1.3;
+}
+
+.tcn-setdesc {
+    margin-top: 3px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--tcn-muted);
+}
+
+.tcn-sethint {
+    padding: 12px 14px 0 14px;
+    font-size: 12.5px;
+    color: var(--tcn-muted);
+    font-style: italic;
+}
+
+.tcn-setnum {
+    flex: 0 0 auto;
+    width: 96px;
+    text-align: right;
+}
+
+/* a real switch instead of a bare checkbox */
+.tcn-toggle {
+    flex: 0 0 auto;
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 26px;
+    cursor: pointer;
+}
+
+    .tcn-toggle input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .tcn-toggle span {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: var(--tcn-border-strong);
+        transition: background .15s ease;
+    }
+
+        .tcn-toggle span::after {
+            content: "";
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .3);
+            transition: transform .15s ease;
+        }
+
+    .tcn-toggle input:checked + span {
+        background: var(--tcn-primary);
+    }
+
+        .tcn-toggle input:checked + span::after {
+            transform: translateX(18px);
+        }
+
+    .tcn-toggle input:focus-visible + span {
+        box-shadow: 0 0 0 3px var(--tcn-primary-soft);
+    }
+
+
+/* ---- currencies editor -------------------------------------------------- */
+
+.tcn-hero-link {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+    .tcn-hero-link:hover {
+        color: #fff;
+        opacity: .85;
+    }
+
+.tcn-currow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tcn-cur-name {
+    flex: 1 1 80px;
+    min-width: 0;
+    text-transform: uppercase;
+}
+
+.tcn-cur-worth-label {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--tcn-muted);
+}
+
+.tcn-cur-rate {
+    flex: 0 1 110px;
+    min-width: 0;
+    text-align: right;
+}
+
+
+/* ---- stats tab ---------------------------------------------------------- */
+
+.tcn-chartbox {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+}
+
+.tcn-statgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.tcn-statcard {
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-statcard-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-statcard-value {
+    margin-top: 3px;
+    font-size: 19px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    color: var(--tcn-text);
+}
+
+    .tcn-statcard-value small {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+.tcn-statcard-extra {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--tcn-muted);
+}
+
+.tcn-daysinput {
+    width: 62px;
+    padding: 3px 6px;
+    font-size: 12.5px;
+    text-align: right;
+    display: inline-block;
+}
+
+.tcn-ratetable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+    .tcn-ratetable th,
+    .tcn-ratetable td {
+        padding: 8px 12px;
+        text-align: right;
+        white-space: nowrap;
+        border-bottom: 1px solid var(--tcn-border);
+    }
+
+        .tcn-ratetable th:first-child,
+        .tcn-ratetable td:first-child {
+            text-align: left;
+            color: var(--tcn-muted);
+        }
+
+    .tcn-ratetable th {
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: var(--tcn-muted);
+        font-weight: 700;
+    }
+
+        .tcn-ratetable th.is-main {
+            color: var(--tcn-primary);
+        }
+
+    .tcn-ratetable tbody td {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+    }
+
+    .tcn-ratetable tr:last-child td {
+        border-bottom: 0;
+    }
+
+
+/* ---- family budget card (inside the balance dialog) --------------------- */
+
+.tcn-budget {
+    margin: 10px 0;
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border);
+}
+
+.tcn-budget-title {
+    margin-bottom: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-budget-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 0;
+    font-variant-numeric: tabular-nums;
+}
+
+    .tcn-budget-row + .tcn-budget-row {
+        border-top: 1px dashed var(--tcn-border);
+    }
+
+.tcn-budget-perday {
+    font-weight: 700;
+    color: var(--tcn-amber);
+}
+
+
+/* ---- person breakdown --------------------------------------------------- */
+
+.tcn-statbtn {
+    display: block;
+    width: 100%;
+    padding: 6px 4px;
+    border: 1px solid var(--tcn-border);
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface);
+    color: var(--tcn-text);
+    font-size: 13.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: border-color .12s ease, background .12s ease;
+}
+
+    .tcn-statbtn:hover {
+        border-color: var(--tcn-primary);
+        background: var(--tcn-primary-soft);
+    }
+
+    .tcn-statbtn.is-paid {
+        color: var(--tcn-green);
+    }
+
+    .tcn-statbtn.is-owing {
+        color: var(--tcn-red);
+        background: var(--tcn-red-soft);
+        border-color: #f5cdd6;
+    }
+
+    .tcn-statbtn.is-owed {
+        color: var(--tcn-green);
+        background: var(--tcn-green-soft);
+        border-color: #c4ece0;
+    }
+
+.tcn-statbtn-note {
+    font-size: 10.5px;
+    font-weight: 600;
+    opacity: .75;
+}
+
+.tcn-brk-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+    .tcn-brk-row:last-child {
+        border-bottom: 0;
+    }
+
+    .tcn-brk-row.is-personal {
+        background: var(--tcn-green-soft);
+    }
+
+    .tcn-brk-row.is-partial {
+        background: #eff6ff;
+    }
+
+    .tcn-brk-row.is-owing {
+        background: var(--tcn-red-soft);
+    }
+
+    .tcn-brk-row.is-owed {
+        background: var(--tcn-green-soft);
+    }
+
+    .tcn-brk-row.is-personal,
+    .tcn-brk-row.is-partial,
+    .tcn-brk-row.is-owing,
+    .tcn-brk-row.is-owed {
+        padding-left: 8px;
+        padding-right: 8px;
+        border-radius: var(--tcn-radius-sm);
+        border-bottom-color: transparent;
+        margin-bottom: 2px;
+    }
+
+.tcn-brk-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tcn-brk-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.tcn-brk-sub {
+    margin-top: 3px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+}
+
+.tcn-brk-amt {
+    flex: 0 0 auto;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+    .tcn-brk-amt small {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+.tcn-brk-note {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--tcn-muted);
+}
+
+.tcn-brk-summary {
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    margin-bottom: 10px;
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border);
+}
+
+    .tcn-brk-summary.is-owing {
+        background: var(--tcn-red-soft);
+        border-color: #f5cdd6;
+    }
+
+    .tcn-brk-summary.is-owed {
+        background: var(--tcn-green-soft);
+        border-color: #c4ece0;
+    }
+
+.tcn-brk-summary-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-brk-summary-value {
+    margin-top: 2px;
+    font-size: 22px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+    .tcn-brk-summary-value small {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+
 /* ------------------------------------------- legacy bits reused as-is -- */
 
 /* SyncStatusComponent renders a bare span with an inline background */

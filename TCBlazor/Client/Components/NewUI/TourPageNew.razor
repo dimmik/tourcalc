@@ -32,7 +32,7 @@
             @(IsFresh ? "from server" : "local copy") · @($"{StoredDt:dd.MM HH:mm}")
         </span>
         <span>·</span>
-        <span><CurrenciesEditInModal tour=@RawTour /></span>
+        <span><CurrenciesModalNew tour=@RawTour @key=@($"cur_{Tour.Id}") /></span>
         <span>·</span>
         <a href=@($"/goto/{Tour.AccessCodeMD5}/{Tour.Id}")>share link</a>
         <span>·</span>
@@ -117,9 +117,7 @@ else if (tab == Tab.Expenses)
 }
 else
 {
-    <div class="tcn-card tcn-scroll-x" style="padding: 12px;">
-        <TourStaistics Tour=@Tour />
-    </div>
+    <StatsTab Tour=@Tour />
 }
 
 <button type="button" class="tcn-fab" @onclick=@AddSpending>

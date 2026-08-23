@@ -33,22 +33,21 @@
     <div class="tcn-section">
         <div class="tcn-section-title">App</div>
         <div class="tcn-card" style="padding: 14px;">
-            <button type="button" class="tcn-btn" @onclick=@(() => JsRuntime.InvokeVoidAsync("window.manualCheckRegistration"))>
-                Check for updates
-            </button>
+            <div class="tcn-row" style="justify-content: space-between;">
+                <div class="tcn-settext">
+                    <div class="tcn-setname">Version</div>
+                    <div class="tcn-setdesc">Checks the server for a newer build. An Update button appears in the header if there is one.</div>
+                </div>
+                <button type="button" class="tcn-btn" @onclick=@(() => JsRuntime.InvokeVoidAsync("window.manualCheckRegistration"))>
+                    Check for updates
+                </button>
+            </div>
         </div>
     </div>
 
-    <div class="tcn-section">
-        <div class="tcn-section-title">Preferences</div>
-        <div class="tcn-card tcn-dynaform" style="padding: 6px 14px;">
-            <DynaForm Item=@settings
-                      OnSave=@(async (s) => {
-                            await engine.SetUISettings(s);
-                      })
-            />
-        </div>
-    </div>
+    <SettingsForm Settings=@settings
+                  OnSave=@(EventCallback.Factory.Create<UISettings>(this, async (s) => await engine.SetUISettings(s))) />
+
 }
 else
 {
