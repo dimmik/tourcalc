@@ -275,7 +275,9 @@ else
                 <div class="tcn-sp-actions">
                     @if (s.Planned)
                     {
-                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-success" @onclick=@(() => MarkPaid(s))>✓ Paid</button>
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-settle"
+                                title="Record that this money has actually changed hands"
+                                @onclick=@(() => MarkPaid(s))>Mark paid</button>
                     }
                     else
                     {

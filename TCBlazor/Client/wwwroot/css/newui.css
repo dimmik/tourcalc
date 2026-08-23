@@ -2544,3 +2544,17 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
     line-height: 1.5;
     color: var(--tcn-muted);
 }
+
+/* "Mark paid" is an action, not a status - a solid green tick reads as "already done",
+   so it stays neutral until you are actually on it */
+.tcn-btn.tcn-btn-settle {
+    background: var(--tcn-surface);
+    border-color: var(--tcn-border-strong);
+    color: var(--tcn-text);
+}
+
+    .tcn-btn.tcn-btn-settle:hover {
+        background: var(--tcn-green);
+        border-color: var(--tcn-green);
+        color: #fff;
+    }
