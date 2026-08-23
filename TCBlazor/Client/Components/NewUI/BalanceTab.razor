@@ -35,6 +35,10 @@
         <div class="tcn-section-title">
             Who pays whom <span class="tcn-count">@transfers.Count</span>
         </div>
+        <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
+            Suggested payments — none of them has happened yet.
+            Hit <b>Mark paid</b> once the money really moves, and the row disappears.
+        </div>
         <div class="tcn-list">
             @foreach (var s in transfers)
             {
@@ -59,9 +63,10 @@
                             <small>&nbsp;@curName</small>
                         }
                     </div>
-                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-success" title="Record this payment as a real transfer"
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-settle"
+                            title="Record that this money has actually changed hands"
                             @onclick=@(() => MarkPaid(s))>
-                        ✓ Paid
+                        Mark paid
                     </button>
                 </div>
             }
@@ -222,7 +227,7 @@
         </div>
         <div class="tcn-explain-note">
             Nobody chose this payment — it is one of the transfers the app picked to square everyone
-            up with as few payments as possible. Tapping “Paid” records it as a real transfer,
+            up with as few payments as possible. It has not happened yet: “Mark paid” is what records it,
             after which both balances move towards zero.
         </div>
     };
