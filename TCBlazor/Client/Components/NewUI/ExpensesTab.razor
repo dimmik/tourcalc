@@ -53,7 +53,15 @@
 {
     <div class="tcn-summary">
         <span><b>@shown.Count</b> expenses</span>
-        <span>total <b>@NewUi.Money(shown.Sum(s => s.AmountInCurrentCurrency(Tour)))</b> @curName</span>
+        <span>
+            total
+            <Explain Enabled=@Explainable Title="Total of the shown expenses"
+                     Headline=@($"{NewUi.Money(shown.Sum(s => s.AmountInCurrentCurrency(Tour)))} {curName}")
+                     Details=@ShownTotalDetails(shown)>
+                <b>@NewUi.Money(shown.Sum(s => s.AmountInCurrentCurrency(Tour)))</b>
+            </Explain>
+            @curName
+        </span>
         <span>from <b>@shown.Min(s => s.SpendingDate).ToString("dd.MM.yyyy")</b> to <b>@shown.Max(s => s.SpendingDate).ToString("dd.MM.yyyy")</b></span>
         @if (shown.Count != all.Count)
         {
@@ -87,7 +95,14 @@ else if (sortBy == Sort.Date)
         <div class="tcn-daygroup" @key=@($"day_{day.Key.Ticks}")>
             <div class="tcn-dayhead">
                 <span>@NewUi.DayLabel(day.Key)</span>
-                <span class="tcn-daysum">@NewUi.Money(day.Sum(s => s.AmountInCurrentCurrency(Tour))) @curName</span>
+                <span class="tcn-daysum">
+                    <Explain Enabled=@Explainable Title=@($"{NewUi.DayLabel(day.Key)}")
+                             Headline=@($"{NewUi.Money(day.Sum(s => s.AmountInCurrentCurrency(Tour)))} {curName}")
+                             Details=@DayDetails(day.ToList())>
+                        @NewUi.Money(day.Sum(s => s.AmountInCurrentCurrency(Tour)))
+                    </Explain>
+                    @curName
+                </span>
             </div>
             @foreach (var s in day)
             {
@@ -244,7 +259,10 @@ else
             </div>
             <div class="tcn-sp-right">
                 <div class="tcn-sp-amount">
-                    @NewUi.Money(amount)
+                    <Explain Enabled=@Explainable Title=@s.Description Headline=@($"{NewUi.Money(amount)} {curName}")
+                             Details=@SpendingDetails(s)>
+                        @NewUi.Money(amount)
+                    </Explain>
                     @if (!string.IsNullOrEmpty(curName))
                     {
                         <small>&nbsp;@curName</small>
@@ -273,6 +291,91 @@ else
                     }
                 </div>
             </div>
+        </div>
+    };
+
+    private bool Explainable => Settings.Explain_Numbers;
+
+    private RenderFragment ShownTotalDetails(List<Spending> shown) => __builder =>
+    {
+        var cur = Tour.CurrencyNameEmptyIfSingleCurrency();
+        var byCat = shown.GroupBy(x => string.IsNullOrWhiteSpace(x.Type) ? "(no category)" : x.Type)
+            .Select(g => (Cat: g.Key, Sum: g.Sum(x => x.AmountInCurrentCurrency(Tour)), N: g.Count()))
+            .OrderByDescending(x => x.Sum).ToList();
+        <div class="tcn-facts">
+            @foreach (var c in byCat)
+            {
+                <div>@c.Cat <span class="tcn-hint">@c.N entr@(c.N == 1 ? "y" : "ies")</span></div>
+                <div>@NewUi.Money(c.Sum)</div>
+            }
+        </div>
+        <div class="tcn-explain-note">
+            This is the sum of what is currently on screen, filters included — not necessarily the tour total.
+        </div>
+    };
+
+    private RenderFragment DayDetails(List<Spending> day) => __builder =>
+    {
+        <div class="tcn-facts">
+            @foreach (var x in day.OrderByDescending(x => x.AmountInCurrentCurrency(Tour)))
+            {
+                <div>@x.Description <span class="tcn-hint">@NewUi.PersonName(Tour, x.FromGuid)</span></div>
+                <div>@NewUi.Money(x.AmountInCurrentCurrency(Tour))</div>
+            }
+        </div>
+    };
+
+    private RenderFragment SpendingDetails(Spending sp) => __builder =>
+    {
+        var cur = Tour.CurrencyNameEmptyIfSingleCurrency();
+        var amount = sp.AmountInCurrentCurrency(Tour);
+        var receivers = sp.ToAll
+            ? Tour.Persons.ToList()
+            : Tour.Persons.Where(p => sp.ToGuid.Contains(p.GUID)).ToList();
+        var weight = receivers.Sum(p => p.Weight);
+        <div class="tcn-facts">
+            <div>Paid by</div>
+            <div>@NewUi.PersonName(Tour, sp.FromGuid)</div>
+            <div>When</div>
+            <div>@sp.SpendingDate.ToString("dd.MM.yyyy HH:mm")</div>
+            @if (!string.IsNullOrWhiteSpace(sp.Type))
+            {
+                <div>Category</div>
+                <div>@sp.Type</div>
+            }
+            @if (Tour.IsMultiCurrency() && sp.Currency != Tour.Currency)
+            {
+                <div>Entered as</div>
+                <div>@NewUi.Money(sp.AmountInCents) @sp.Currency.Name</div>
+            }
+        </div>
+
+        <div class="tcn-label" style="margin-top:14px">Split between @receivers.Count</div>
+        <div class="tcn-facts">
+            @foreach (var p in receivers.OrderByDescending(p => p.Weight).ThenBy(p => p.Name))
+            {
+                var share = weight == 0 ? 0 : amount * p.Weight / weight;
+                <div>@p.Name <span class="tcn-hint">weight @p.Weight</span></div>
+                <div>@NewUi.Money(share)</div>
+            }
+        </div>
+        <div class="tcn-explain-note">
+            @if (sp.ToAll)
+            {
+                <span>Shared by everyone in the tour, split by weight.</span>
+            }
+            else if (receivers.Count == 1)
+            {
+                <span>Charged to one person only.</span>
+            }
+            else
+            {
+                <span>Charged to @receivers.Count people, split by weight (total weight @weight).</span>
+            }
+            @if (sp.IsDryRun)
+            {
+                <span> This is a draft@(sp.IncludeDryRunInCalc ? " and it is counted in the balance." : " and it is not counted in the balance.")</span>
+            }
         </div>
     };
 

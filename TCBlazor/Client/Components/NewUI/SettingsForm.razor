@@ -36,6 +36,21 @@
 
         <div class="tcn-setrow">
             <div class="tcn-settext">
+                <div class="tcn-setname">Tap any number for details</div>
+                <div class="tcn-setdesc">
+                    Turns every figure — totals, balances, counts — into something you can tap
+                    to see where it came from. Off by default because it underlines a lot of text.
+                </div>
+            </div>
+            <label class="tcn-toggle">
+                <input type="checkbox" checked=@Settings.Explain_Numbers
+                       @onchange=@(e => SetBool(v => Settings.Explain_Numbers = v, e)) />
+                <span></span>
+            </label>
+        </div>
+
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
                 <div class="tcn-setname">Tour links open the expense form</div>
                 <div class="tcn-setdesc">
                     Following a shared tour link jumps straight to adding an expense instead of

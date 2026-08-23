@@ -49,7 +49,11 @@
                         <span class="tcn-settle-who">@(to?.Name ?? "n/a")</span>
                     </div>
                     <div class="tcn-settle-amount">
-                        @NewUi.Money(s.AmountInCurrentCurrency(Tour))
+                        <Explain Enabled=@Explainable Title="Why this payment"
+                                 Headline=@($"{NewUi.Money(s.AmountInCurrentCurrency(Tour))} {curName}")
+                                 Details=@TransferDetails(s)>
+                            @NewUi.Money(s.AmountInCurrentCurrency(Tour))
+                        </Explain>
                         @if (!string.IsNullOrEmpty(curName))
                         {
                             <small>&nbsp;@curName</small>
@@ -114,18 +118,22 @@
                         <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(b.person.Name)">@NewUi.Initials(b.person.Name)</span>
                         <span class="tcn-bal-name">@b.person.Name</span>
                         <span class="tcn-bal-amount @(b.amount > 0 ? "tcn-neg" : b.amount < 0 ? "tcn-pos" : "")">
-                            @if (b.amount > 0)
-                            {
-                                <span>owes @NewUi.Money(b.amount)</span>
-                            }
-                            else if (b.amount < 0)
-                            {
-                                <span>gets @NewUi.Money(-b.amount)</span>
-                            }
-                            else
-                            {
-                                <span style="color: var(--tcn-faint)">settled</span>
-                            }
+                            <Explain Enabled=@Explainable Title=@($"{b.person.Name}: how this balance is made")
+                                     Headline=@(b.amount > 0 ? $"owes {NewUi.Money(b.amount)} {curName}" : b.amount < 0 ? $"gets {NewUi.Money(-b.amount)} {curName}" : "settled")
+                                     Details=@PersonBalanceDetails(b.person)>
+                                @if (b.amount > 0)
+                                {
+                                    <span>owes @NewUi.Money(b.amount)</span>
+                                }
+                                else if (b.amount < 0)
+                                {
+                                    <span>gets @NewUi.Money(-b.amount)</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--tcn-faint)">settled</span>
+                                }
+                            </Explain>
                         </span>
                     </div>
                     <div class="tcn-balancebar">
@@ -184,6 +192,70 @@
             .OrderByDescending(pa => pa.amount);
 
     private static int Pct(long value, long scale) => (int)Math.Round(Math.Min(100.0, value * 100.0 / scale));
+
+    private bool Explainable => Settings.Explain_Numbers;
+
+    private RenderFragment TransferDetails(Spending s) => __builder =>
+    {
+        var cur = Tour.CurrencyNameEmptyIfSingleCurrency();
+        var from = Tour.Persons.FirstOrDefault(p => p.GUID == s.FromGuid);
+        var to = Tour.Persons.FirstOrDefault(p => p.GUID == s.ToGuid.FirstOrDefault());
+        <div class="tcn-facts">
+            <div>Pays</div>
+            <div>@(from?.Name ?? "n/a")</div>
+            <div>Receives</div>
+            <div>@(to?.Name ?? "n/a")</div>
+            @if (from != null)
+            {
+                <div>@from.Name paid in total</div>
+                <div>@NewUi.Money(from.SpentInCents)</div>
+                <div>@from.Name‘s own share</div>
+                <div>@NewUi.Money(from.ReceivedInCents)</div>
+            }
+            @if (to != null)
+            {
+                <div>@to.Name paid in total</div>
+                <div>@NewUi.Money(to.SpentInCents)</div>
+                <div>@to.Name‘s own share</div>
+                <div>@NewUi.Money(to.ReceivedInCents)</div>
+            }
+        </div>
+        <div class="tcn-explain-note">
+            Nobody chose this payment — it is one of the transfers the app picked to square everyone
+            up with as few payments as possible. Tapping “Paid” records it as a real transfer,
+            after which both balances move towards zero.
+        </div>
+    };
+
+    private RenderFragment PersonBalanceDetails(Person p) => __builder =>
+    {
+        var cur = Tour.CurrencyNameEmptyIfSingleCurrency();
+        var kids = Tour.Persons.Where(x => x.ParentId == p.GUID).ToList();
+        <div class="tcn-facts">
+            <div>Paid for the group</div>
+            <div>@NewUi.Money(p.SpentInCents)</div>
+            <div>Own share of everything</div>
+            <div>@NewUi.Money(p.ReceivedInCents)</div>
+            <div>Difference</div>
+            <div>@NewUi.Money(p.Debt())</div>
+            @foreach (var k in kids)
+            {
+                <div>+ @k.Name (paid for by @p.Name)</div>
+                <div>@NewUi.Money(k.Debt())</div>
+            }
+            <div>Net to settle</div>
+            <div>@NewUi.Money(Tour.AmountAPersonWillPay(p))</div>
+        </div>
+        <div class="tcn-explain-note">
+            Own share minus what they paid. A positive number means they consumed more than they
+            put in, so they owe;
+            @if (kids.Any())
+            {
+                <span> the people they cover are rolled into their net figure;</span>
+            }
+            a negative one means the group owes them.
+        </div>
+    };
 
     private async Task MarkPaid(Spending s)
     {

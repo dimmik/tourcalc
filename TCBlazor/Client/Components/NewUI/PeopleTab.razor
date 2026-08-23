@@ -13,7 +13,14 @@
     @if (Tour.Persons.Any())
     {
         <span class="tcn-chip">@Tour.Persons.Count people</span>
-        <span class="tcn-chip">total weight @Tour.Persons.Sum(p => p.Weight)</span>
+        <span class="tcn-chip">
+            total weight
+            <Explain Enabled=@Explainable Title="Total weight"
+                     Headline=@($"{Tour.Persons.Sum(p => p.Weight)}")
+                     Details=@WeightDetails>
+                @Tour.Persons.Sum(p => p.Weight)
+            </Explain>
+        </span>
     }
 </div>
 
@@ -38,25 +45,35 @@ else
                     <div class="tcn-person-id">
                         <div class="tcn-person-name">@person.Name</div>
                         <div class="tcn-person-meta">
-                            <span>weight @person.Weight</span>
+                            <span>
+                                weight
+                                <Explain Enabled=@Explainable Title=@($"{person.Name}: weight {person.Weight}")
+                                         Details=@PersonWeightDetails(person)>
+                                    @person.Weight
+                                </Explain>
+                            </span>
                             @if (isChild)
                             {
                                 <span>paid by <b>@NewUi.PersonName(Tour, person.ParentId)</b></span>
                             }
                         </div>
                     </div>
-                    @if (debt > 0)
-                    {
-                        <span class="tcn-chip tcn-chip-red">owes @NewUi.Money(debt)</span>
-                    }
-                    else if (debt < 0)
-                    {
-                        <span class="tcn-chip tcn-chip-green">gets @NewUi.Money(-debt)</span>
-                    }
-                    else
-                    {
-                        <span class="tcn-chip">settled</span>
-                    }
+                    <Explain Enabled=@Explainable Title=@($"{person.Name}: where this comes from")
+                             Headline=@(debt > 0 ? $"owes {NewUi.Money(debt)}" : debt < 0 ? $"gets {NewUi.Money(-debt)}" : "settled")
+                             Details=@PersonDebtDetails(person, debt)>
+                        @if (debt > 0)
+                        {
+                            <span class="tcn-chip tcn-chip-red">owes @NewUi.Money(debt)</span>
+                        }
+                        else if (debt < 0)
+                        {
+                            <span class="tcn-chip tcn-chip-green">gets @NewUi.Money(-debt)</span>
+                        }
+                        else
+                        {
+                            <span class="tcn-chip">settled</span>
+                        }
+                    </Explain>
                 </div>
 
                 <div class="tcn-person-stats">
@@ -107,6 +124,77 @@ else
         // hide amounts that are only rounding noise
         return Math.Abs(p.Debt()) > MinMeaningful ? p.Debt() : 0;
     }
+
+    private bool Explainable => Settings.Explain_Numbers;
+
+    private RenderFragment WeightDetails => __builder =>
+    {
+        var total = Tour.Persons.Sum(p => p.Weight);
+        <div class="tcn-facts">
+            @foreach (var p in Tour.Persons.SortedByNameAndDependency())
+            {
+                <div>@p.Name</div>
+                <div>@p.Weight <span class="tcn-hint">@(total == 0 ? 0 : p.Weight * 100 / total)%</span></div>
+            }
+        </div>
+        <div class="tcn-explain-note">
+            Every expense shared by everyone is divided in these proportions. A child on 50
+            costs half of what an adult on 100 does.
+        </div>
+    };
+
+    private RenderFragment PersonWeightDetails(Person p) => __builder =>
+    {
+        var total = Tour.Persons.Sum(x => x.Weight);
+        var share = total == 0 ? 0 : p.Weight * 100.0 / total;
+        <div class="tcn-facts">
+            <div>Weight</div>
+            <div>@p.Weight</div>
+            <div>Total weight in the tour</div>
+            <div>@total</div>
+            <div>Share of anything shared by all</div>
+            <div>@($"{share:0.0}")%</div>
+        </div>
+        <div class="tcn-explain-note">
+            Out of every 1 000 spent on the whole group, @NewUi.Money((long)Math.Round(share * 10)) lands on @p.Name.
+        </div>
+    };
+
+    private RenderFragment PersonDebtDetails(Person p, long d) => __builder =>
+    {
+        var cur = Tour.CurrencyNameEmptyIfSingleCurrency();
+        var kids = Tour.Persons.Where(x => x.ParentId == p.GUID).ToList();
+        <div class="tcn-facts">
+            <div>Paid for the group</div>
+            <div>@NewUi.Money(p.SpentInCents)</div>
+            <div>Own share of everything</div>
+            <div>@NewUi.Money(p.ReceivedInCents)</div>
+            <div>Own share − paid</div>
+            <div>@NewUi.Money(p.Debt())</div>
+            @foreach (var k in kids)
+            {
+                <div>@k.Name (paid for by @p.Name)</div>
+                <div>@NewUi.Money(k.Debt())</div>
+            }
+            <div>Net to settle</div>
+            <div>@NewUi.Money(Tour.AmountAPersonWillPay(p))</div>
+        </div>
+        <div class="tcn-explain-note">
+            @if (d == 0)
+            {
+                <span>Anything under @NewUi.Money(MinMeaningful) @cur counts as settled, so this shows as square.</span>
+            }
+            else if (d > 0)
+            {
+                <span>@p.Name used more than they paid for, so the difference is owed to the others.</span>
+            }
+            else
+            {
+                <span>@p.Name paid more than they used, so the group owes them the difference.</span>
+            }
+            The three cells below — Paid, Own share and Balance — open the full itemised lists.
+        </div>
+    };
 
     private void ShowEdit(Person person)
     {

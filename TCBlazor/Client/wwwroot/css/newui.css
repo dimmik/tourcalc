@@ -2480,3 +2480,67 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
         background: #fef2f2;
         color: #b91c1c;
     }
+
+/* ---- tap-a-number-for-details ------------------------------------------- */
+
+.tcn-explain {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+    border-bottom: 1px dotted currentColor;
+}
+
+    .tcn-explain:hover {
+        opacity: .8;
+    }
+
+.tcn-explain-headline {
+    margin-bottom: 12px;
+    font-size: 26px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--tcn-text);
+}
+
+/* a plain two-column list used by most explanations */
+.tcn-facts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0;
+}
+
+    .tcn-facts > div {
+        padding: 8px 2px;
+        border-bottom: 1px solid var(--tcn-border);
+        min-width: 0;
+        overflow-wrap: break-word;
+    }
+
+    .tcn-facts > div:nth-child(even) {
+        text-align: right;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        padding-left: 10px;
+    }
+
+    .tcn-facts > div:nth-last-child(-n+2) {
+        border-bottom: 0;
+    }
+
+.tcn-explain-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border);
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--tcn-muted);
+}

@@ -1,0 +1,71 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@* Wraps a number so it can be tapped for an explanation. With the setting off it
+   renders the value and nothing else - no button, no wrapper, no cost. *@
+
+@if (!Enabled)
+{
+    @ChildContent
+}
+else
+{
+    <button type="button" class="tcn-explain @CssClass" title="@($"What is “{Title}”?")"
+            @onclick=@(() => open = true) @onclick:stopPropagation="true">
+        @ChildContent
+    </button>
+
+    @if (open)
+    {
+        <Modal Visible=@true
+               Footer="null"
+               Closable=@false
+               DestroyOnClose=@true
+               MaskClosable=@true
+               OnCancel=@(e => open = false)
+               WrapClassName="tcn-sheet"
+               BodyStyle="padding:0"
+               Width="520">
+            <div class="tcn-sheet-head">
+                <div class="tcn-sheet-title">@Title</div>
+                <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)>✕</button>
+            </div>
+            <div class="tcn-sheet-body">
+                @if (!string.IsNullOrWhiteSpace(Headline))
+                {
+                    <div class="tcn-explain-headline">@Headline</div>
+                }
+                @Details
+            </div>
+            <div class="tcn-sheet-foot">
+                <span style="flex:1 1 auto"></span>
+                <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => open = false)>Got it</button>
+            </div>
+        </Modal>
+    }
+}
+
+@code {
+    /// <summary>When false the value is rendered untouched.</summary>
+    [Parameter]
+    public bool Enabled { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Details";
+
+    /// <summary>Big restatement of the value at the top of the dialog.</summary>
+    [Parameter]
+    public string? Headline { get; set; }
+
+    /// <summary>The value as it appears in the page.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>What to show when it is tapped.</summary>
+    [Parameter]
+    public RenderFragment? Details { get; set; }
+
+    [Parameter]
+    public string CssClass { get; set; } = "";
+
+    private bool open = false;
+}
