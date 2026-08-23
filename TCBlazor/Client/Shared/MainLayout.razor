@@ -1,10 +1,12 @@
-﻿@using AntDesign
+@using AntDesign
 
 @inherits LayoutComponentBase
 @implements IDisposable
 
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
+
+@inject UiModeService uiMode
 
 @inject IJSRuntime JS
 
@@ -13,7 +15,7 @@
 
 <div class="page">
 @if (engine.Auth == null)
-{ 
+{
    <div style="text-align:center">Checking auth</div>
 }
     else
@@ -37,6 +39,26 @@
                 </span>
                 </AntDesign.Modal>
             }
+            else if (uiMode.IsNew)
+            {
+                <div class="tcn-shell">
+                    <header class="tcn-topbar">
+                        <a class="tcn-brand" href="/tourlist" title="Tour list">🧭</a>
+                        <div class="tcn-topbar-title" @onclick="OnTitleClick" title="@Title">@Title</div>
+                        <div class="tcn-topbar-actions">
+                            <SyncStatusComponent/>
+                            <UpdateAvailableDetector/>
+                            <UiModeSwitch/>
+                            <a class="tcn-iconbtn" href="/settings" title="Settings">⚙</a>
+                            <button type="button"
+                                    class="tcn-iconbtn @(engine.Auth.IsMaster ? "tcn-danger" : "")"
+                                    title=@(engine.Auth.IsMaster ? "Log out (master)" : "Log out")
+                                    @onclick=@(async () => await LogOut())>⏻</button>
+                        </div>
+                    </header>
+                    <main class="tcn-main">@Body</main>
+                </div>
+            }
             else
             {
                 <Layout >
@@ -45,10 +67,11 @@
                             <a class="navbar-brand" style="margin: 3px; padding: 5px;" href="">
                                 <span class="oi oi-home" aria-hidden="true"></span>
                             </a>&nbsp;&nbsp;
-                            <span style="color:white; font-size: clamp(6px, 4vw, 18px);@(tour == null ? "" : "cursor:pointer;")" 
+                            <span style="color:white; font-size: clamp(6px, 4vw, 18px);@(tour == null ? "" : "cursor:pointer;")"
                                 @onclick="OnTitleClick">
                                 @(Title.Length > 2000 ? $"{Title.Substring(0, 17)}..." : Title)
                             </span>&nbsp;&nbsp;
+                            <UiModeSwitch Single="true"/>
                         </div>
                         <div style="display: table-cell; align-content: flex-end; width: 35%; text-align: end;">
                             <span><SyncStatusComponent/></span>
@@ -70,7 +93,7 @@
                 </Layout>
             }
 
-        } 
+        }
         else
         {
             <AntDesign.Modal
@@ -96,11 +119,40 @@
     protected override async Task OnInitializedAsync()
     {
         engine.onMessageReceived += OnMessageReceived;
+        uiMode.OnChanged += OnUiModeChanged;
+        await uiMode.Init();
         await engine.PickUpAuthInfo();
     }
     public void Dispose()
     {
         engine.onMessageReceived -= OnMessageReceived;
+        uiMode.OnChanged -= OnUiModeChanged;
+    }
+    private void OnUiModeChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await ApplyBodyClass();
+            StateHasChanged();
+        });
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ApplyBodyClass();
+        }
+    }
+    private async Task ApplyBodyClass()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("tcSetUiMode", uiMode.IsNew);
+        }
+        catch
+        {
+            // JS not available (prerender) - the class is cosmetic only
+        }
     }
     private Task OnMessageReceived(string type, object payload)
     {
@@ -149,7 +201,7 @@
                 c = scC[1];
             }
             await engine.LogIn(scope, c);
-        } 
+        }
         catch
         {
             // TODO handle 2022-12-09 - what it is?..

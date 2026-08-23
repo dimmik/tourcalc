@@ -1,23 +1,82 @@
-﻿@page "/settings"
+@page "/settings"
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
+@inject UiModeService uiMode
+
 @inject IJSRuntime JsRuntime
 
-<h3>UI Settings</h3>
+@implements IDisposable
 
-<Button @onclick=@(() => JsRuntime.InvokeVoidAsync("window.manualCheckRegistration"))>Check Update</Button>
+@{
+    engine.SendMessage("Title", "Settings");
+    engine.SendMessage("Tour", null);
+}
 
-<DynaForm Item=@settings
-          OnSave=@(async (s) => {
-                    await engine.SetUISettings(s);
-                })
-/>
+@if (uiMode.IsNew)
+{
+    <div class="tcn-section">
+        <div class="tcn-section-title">Interface</div>
+        <div class="tcn-card" style="padding: 14px;">
+            <div class="tcn-row" style="justify-content: space-between;">
+                <div>
+                    <div style="font-weight: 650;">Look and feel</div>
+                    <div style="font-size: 12.5px; color: var(--tcn-muted);">
+                        The classic interface keeps every legacy control; the new one is the redesigned, mobile-first view.
+                    </div>
+                </div>
+                <UiModeSwitch Compact="false" Light="true" />
+            </div>
+        </div>
+    </div>
+
+    <div class="tcn-section">
+        <div class="tcn-section-title">App</div>
+        <div class="tcn-card" style="padding: 14px;">
+            <button type="button" class="tcn-btn" @onclick=@(() => JsRuntime.InvokeVoidAsync("window.manualCheckRegistration"))>
+                Check for updates
+            </button>
+        </div>
+    </div>
+
+    <div class="tcn-section">
+        <div class="tcn-section-title">Preferences</div>
+        <div class="tcn-card tcn-dynaform" style="padding: 6px 14px;">
+            <DynaForm Item=@settings
+                      OnSave=@(async (s) => {
+                            await engine.SetUISettings(s);
+                      })
+            />
+        </div>
+    </div>
+}
+else
+{
+    <h3>UI Settings</h3>
+
+    <div style="margin-bottom: 8px;">
+        Interface: <UiModeSwitch Compact="false" Light="true" />
+    </div>
+
+    <Button @onclick=@(() => JsRuntime.InvokeVoidAsync("window.manualCheckRegistration"))>Check Update</Button>
+
+    <DynaForm Item=@settings
+              OnSave=@(async (s) => {
+                        await engine.SetUISettings(s);
+                    })
+    />
+}
 
 @code {
     private UISettings settings = new UISettings();
     protected override async Task OnInitializedAsync()
     {
+        uiMode.OnChanged += OnUiModeChanged;
         settings = await engine.GetUISettings();
     }
+    public void Dispose()
+    {
+        uiMode.OnChanged -= OnUiModeChanged;
+    }
+    private void OnUiModeChanged() => _ = InvokeAsync(StateHasChanged);
 }

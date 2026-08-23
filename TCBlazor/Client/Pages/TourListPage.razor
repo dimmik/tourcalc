@@ -15,6 +15,8 @@
 
 @inject IJSRuntime JsRuntime
 
+@inject UiModeService uiMode
+
 @implements IDisposable
 
 @{
@@ -24,8 +26,31 @@
 
 @if (tours == null)
 {
-    <h3>Tour List</h3>
-    <span>Tours loading...</span>
+    @if (uiMode.IsNew)
+    {
+        <div class="tcn-loading"><span class="tcn-spin">⟳</span> Loading your tours…</div>
+    }
+    else
+    {
+        <h3>Tour List</h3>
+        <span>Tours loading...</span>
+    }
+}
+else if (uiMode.IsNew)
+{
+    <TourListNew Tours=@(tours.Tours ?? new List<Tour>())
+                 IsMaster=@(engine.Auth?.IsMaster ?? false)
+                 InProgress=@InProgress
+                 ShowArchived=@ShowArchived
+                 ShowArchivedChanged=@(EventCallback.Factory.Create<bool>(this, v => ShowArchived = v))
+                 DefaultCode=@defaultNoCode
+                 OnAddTour=@(EventCallback.Factory.Create<(string, string, string)>(this, t => AddNewTour(t.Item1, t.Item2, t.Item3)))
+                 OnSaveTour=@(EventCallback.Factory.Create<Tour>(this, ChangeTourNameAndDuration))
+                 OnToggleFinalizing=@(EventCallback.Factory.Create<Tour>(this, OnFinChange))
+                 OnToggleArchived=@(EventCallback.Factory.Create<Tour>(this, OnArchChange))
+                 OnDeleteTour=@(EventCallback.Factory.Create<Tour>(this, OnDelete))
+                 OnCloneTour=@(EventCallback.Factory.Create<(Tour, bool)>(this, t => CloneTour(t.Item1, t.Item2)))
+                 OnCopyJson=@(EventCallback.Factory.Create<Tour>(this, CopyTourJsonToCb)) />
 }
 else
 {
@@ -132,6 +157,7 @@ else
         //engine.onTourLoaded
         engine.onTourLoaded += OnTourLoaded;
         engine.onTourListLoaded += OnTourListLoaded;
+        uiMode.OnChanged += OnUiModeChanged;
         (ShowArchived, _) = await localStorage.GetObject<bool>($"showArc_{engine.Auth.AccessCodeMD5}", () => false);
 
         _ = engine.RequestTourListLoad();
@@ -140,7 +166,9 @@ else
     {
         engine.onTourLoaded -= OnTourLoaded;
         engine.onTourListLoaded -= OnTourListLoaded;
+        uiMode.OnChanged -= OnUiModeChanged;
     }
+    private void OnUiModeChanged() => _ = InvokeAsync(StateHasChanged);
 
     private Task OnTourLoaded(Tour tour, bool fromSrv, DateTimeOffset updated)
     {
@@ -151,22 +179,24 @@ else
         return Task.CompletedTask;
     }
 
-    private async Task AddNewTour()
+    private Task AddNewTour() => AddNewTour(NewTourName, NewTourJson, NewTourCode);
+
+    private async Task AddNewTour(string name, string json, string codeInput)
     {
-        var code = GetCode();
-        if (!string.IsNullOrWhiteSpace(NewTourName) && !string.IsNullOrWhiteSpace(code))
+        var code = GetCode(codeInput);
+        if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(code))
         {
             InProgress = true;
             Tour t = new();
-            if (!string.IsNullOrWhiteSpace(NewTourJson))
+            if (!string.IsNullOrWhiteSpace(json))
             {
                 try
                 {
-                    t = JsonSerializer.Deserialize<Tour>(NewTourJson) ?? t;
+                    t = JsonSerializer.Deserialize<Tour>(json) ?? t;
                 }
                 catch { }
             }
-            t.Name = NewTourName;
+            t.Name = name;
             _ = engine.RequestAddTour(t, code);
             AddingTour = false;
             NewTourName = "";
@@ -176,9 +206,11 @@ else
             await JsRuntime.InvokeVoidAsync("alert", $"Please specify tour name {((engine.Auth?.IsMaster ?? false) ? "and code" : "")}");
         }
     }
-    private string GetCode()
+    private string GetCode() => GetCode(NewTourCode);
+
+    private string GetCode(string codeInput)
     {
-        var code = NewTourCode;
+        var code = codeInput;
         if ((engine.Auth?.IsMaster ?? false) && code == defaultNoCode)
         {
             code = Guid.NewGuid().ToString();

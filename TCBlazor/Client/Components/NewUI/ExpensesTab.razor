@@ -1,0 +1,307 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using TCalc.Logic
+@using TCalcCore.Engine
+
+@inject TourcalcEngine engine
+@inject IJSRuntime JsRuntime
+
+@{
+    var all = RealSpendings().ToList();
+    var shown = Filter(all).ToList();
+    var curName = Tour.CurrencyNameEmptyIfSingleCurrency();
+    var categories = all.Select(s => s.Type).Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().OrderBy(t => t).ToList();
+}
+
+<div class="tcn-toolbar">
+    <div class="tcn-search">
+        <span class="tcn-search-icon">🔎</span>
+        <input type="text" placeholder="Search by description, payer or category" value="@search"
+               @oninput=@(e => search = e.Value?.ToString() ?? "") />
+        @if (!string.IsNullOrEmpty(search))
+        {
+            <button type="button" class="tcn-search-clear" title="Clear" @onclick=@(() => search = "")>×</button>
+        }
+    </div>
+    <button type="button" class="tcn-btn tcn-btn-sm @(sortBy == Sort.Date ? "tcn-btn-primary" : "")" @onclick=@(() => ToggleSort(Sort.Date))>
+        Date @(sortBy == Sort.Date ? (desc ? "↓" : "↑") : "")
+    </button>
+    <button type="button" class="tcn-btn tcn-btn-sm @(sortBy == Sort.Amount ? "tcn-btn-primary" : "")" @onclick=@(() => ToggleSort(Sort.Amount))>
+        Amount @(sortBy == Sort.Amount ? (desc ? "↓" : "↑") : "")
+    </button>
+</div>
+
+@if (categories.Any())
+{
+    <div class="tcn-chips" style="margin-bottom: 10px;">
+        @foreach (var c in categories)
+        {
+            <span class="tcn-chip tcn-filter-chip @(activeCategories.Contains(c) ? "is-on" : "")"
+                  @key=@($"cat_{c}")
+                  @onclick=@(() => ToggleCategory(c))>
+                @c
+            </span>
+        }
+        @if (activeCategories.Any())
+        {
+            <span class="tcn-chip tcn-filter-chip" @onclick=@(() => activeCategories.Clear())>clear ×</span>
+        }
+    </div>
+}
+
+@if (shown.Any())
+{
+    <div class="tcn-summary">
+        <span><b>@shown.Count</b> expenses</span>
+        <span>total <b>@NewUi.Money(shown.Sum(s => s.AmountInCurrentCurrency(Tour)))</b> @curName</span>
+        <span>from <b>@shown.Min(s => s.SpendingDate).ToString("dd.MM.yyyy")</b> to <b>@shown.Max(s => s.SpendingDate).ToString("dd.MM.yyyy")</b></span>
+        @if (shown.Count != all.Count)
+        {
+            <span style="color: var(--tcn-primary)">filtered out of @all.Count</span>
+        }
+    </div>
+}
+
+@if (!all.Any())
+{
+    <div class="tcn-empty">
+        <span class="tcn-empty-icon">🧾</span>
+        <div class="tcn-empty-title">No expenses yet</div>
+        <div>Tap <b>Spend</b> to record who paid for what.</div>
+    </div>
+}
+else if (!shown.Any())
+{
+    <div class="tcn-empty">
+        <span class="tcn-empty-icon">🔍</span>
+        <div class="tcn-empty-title">Nothing matches the filter</div>
+        <div>Try a different search text or clear the category filter.</div>
+    </div>
+}
+else if (sortBy == Sort.Date)
+{
+    var byDay = shown.GroupBy(s => s.SpendingDate.Date);
+    var days = desc ? byDay.OrderByDescending(g => g.Key) : byDay.OrderBy(g => g.Key);
+    foreach (var day in days)
+    {
+        <div class="tcn-daygroup" @key=@($"day_{day.Key.Ticks}")>
+            <div class="tcn-dayhead">
+                <span>@NewUi.DayLabel(day.Key)</span>
+                <span class="tcn-daysum">@NewUi.Money(day.Sum(s => s.AmountInCurrentCurrency(Tour))) @curName</span>
+            </div>
+            @foreach (var s in day)
+            {
+                @SpendingRow(s)
+            }
+        </div>
+    }
+}
+else
+{
+    <div>
+        @foreach (var s in shown)
+        {
+            @SpendingRow(s)
+        }
+    </div>
+}
+
+@if (PlannedCount > 0)
+{
+    <div class="tcn-section" style="margin-top: 14px;">
+        <button type="button" class="tcn-btn tcn-btn-ghost tcn-btn-block" @onclick=@(() => showPlanned = !showPlanned)>
+            @(showPlanned ? "▾ Hide the suggested settle-up payments" : $"▸ Show the {PlannedCount} suggested settle-up payments")
+        </button>
+        @if (showPlanned)
+        {
+            <div style="margin-top: 8px;">
+                @foreach (var s in PlannedSpendings())
+                {
+                    @SpendingRow(s)
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Tour Tour { get; set; } = new();
+
+    /// <summary>The un-converted tour - the edit form has to work with the original currencies.</summary>
+    [Parameter]
+    public Tour RawTour { get; set; } = new();
+
+    [Parameter]
+    public UISettings Settings { get; set; } = new();
+
+    private bool showPlanned = false;
+    private string search = "";
+    private HashSet<string> activeCategories = new();
+    private enum Sort { Date, Amount }
+    private Sort sortBy = Sort.Date;
+    private bool desc = true;
+
+    private int PlannedCount => PlannedSpendings().Count();
+
+    private long MinMeaningful => Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+
+    private IEnumerable<Spending> RealSpendings()
+        => (Tour?.Spendings ?? new List<Spending>()).Where(s => !s.Planned);
+
+    private IEnumerable<Spending> PlannedSpendings()
+        => (Tour?.Spendings ?? new List<Spending>())
+            .Where(s => s.Planned && Math.Abs(s.AmountInCurrentCurrency(Tour)) > MinMeaningful)
+            .OrderBy(s => s.Description.StartsWith("Family") ? 0 : 1)
+            .ThenByDescending(s => s.AmountInCurrentCurrency(Tour));
+
+    private IEnumerable<Spending> Filter(IEnumerable<Spending> src)
+    {
+        var res = src;
+        if (activeCategories.Any())
+        {
+            res = res.Where(s => activeCategories.Contains(s.Type ?? ""));
+        }
+        var q = search.Trim();
+        if (q.Length > 0)
+        {
+            res = res.Where(s =>
+                (s.Description ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (s.Type ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || NewUi.PersonName(Tour, s.FromGuid).Contains(q, StringComparison.OrdinalIgnoreCase));
+        }
+        res = sortBy == Sort.Amount
+            ? (desc ? res.OrderByDescending(s => s.AmountInCurrentCurrency(Tour)) : res.OrderBy(s => s.AmountInCurrentCurrency(Tour)))
+            : (desc ? res.OrderByDescending(s => s.SpendingDate) : res.OrderBy(s => s.SpendingDate));
+        return res;
+    }
+
+    private void ToggleSort(Sort s)
+    {
+        if (sortBy == s) { desc = !desc; }
+        else { sortBy = s; desc = true; }
+    }
+
+    private void ToggleCategory(string c)
+    {
+        if (!activeCategories.Remove(c)) activeCategories.Add(c);
+    }
+
+    private static string RowClass(Spending s)
+    {
+        if (s.Planned) return s.Description.StartsWith("Family ") ? "tcn-sp-family" : "tcn-sp-planned";
+        if (s.IsDryRun) return "tcn-sp-dry";
+        if (s.Description.StartsWith("X ")) return "tcn-sp-payback";
+        if (s.Description.StartsWith("Family ")) return "tcn-sp-family";
+        return "";
+    }
+
+    private RenderFragment SpendingRow(Spending s) => __builder =>
+    {
+        var from = Tour.Persons.FirstOrDefault(p => p.GUID == s.FromGuid);
+        var curName = Tour.CurrencyNameEmptyIfSingleCurrency();
+        var amount = s.AmountInCurrentCurrency(Tour);
+
+        <div class="tcn-sp @RowClass(s)" @key=@($"sp_{s.GUID}")>
+            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)" title="@(from?.Name)">
+                @NewUi.Initials(from?.Name)
+            </span>
+            <div class="tcn-sp-body">
+                <div class="tcn-sp-title">@s.Description</div>
+                <div class="tcn-sp-meta">
+                    <span>@(from?.Name ?? "n/a")</span>
+                    <span>·</span>
+                    <span>@s.SpendingDate.ToString("dd.MM.yyyy HH:mm")</span>
+                    @if (!string.IsNullOrWhiteSpace(s.Type))
+                    {
+                        <span class="tcn-chip tcn-chip-primary">@s.Type</span>
+                    }
+                    @if (s.IsDryRun)
+                    {
+                        <span class="tcn-chip tcn-chip-amber">draft@(s.IncludeDryRunInCalc ? " · counted" : " · not counted")</span>
+                    }
+                    @if (s.Planned)
+                    {
+                        <span class="tcn-chip tcn-chip-amber">suggested</span>
+                    }
+                </div>
+                <div class="tcn-sp-to">
+                    @if (s.ToAll)
+                    {
+                        <span>for <b>everyone</b></span>
+                    }
+                    else
+                    {
+                        <span>
+                            for <b>@string.Join(", ", s.ToGuid.Select(g => NewUi.PersonName(Tour, g)).OrderBy(n => n))</b>
+                            @if (!s.IsPartialWeighted && s.ToGuid.Count > 1)
+                            {
+                                <span class="tcn-chip" style="margin-left:6px">split equally</span>
+                            }
+                        </span>
+                    }
+                </div>
+            </div>
+            <div class="tcn-sp-right">
+                <div class="tcn-sp-amount">
+                    @NewUi.Money(amount)
+                    @if (!string.IsNullOrEmpty(curName))
+                    {
+                        <small>&nbsp;@curName</small>
+                    }
+                </div>
+                @if (Tour.IsMultiCurrency() && s.Currency != Tour.Currency)
+                {
+                    <div class="tcn-sp-orig">@NewUi.Money(s.AmountInCents) @s.Currency.Name</div>
+                }
+                <div class="tcn-sp-actions">
+                    @if (s.Planned)
+                    {
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-success" @onclick=@(() => MarkPaid(s))>✓ Paid</button>
+                    }
+                    else
+                    {
+                        @if (s.IsDryRun)
+                        {
+                            <button type="button" class="tcn-btn tcn-btn-sm" title="Turn this draft into a real expense"
+                                    @onclick=@(() => MakeReal(s))>
+                                make real
+                            </button>
+                        }
+                        <SpendingEditInModal spending=@s tour=@RawTour @key=@($"sp_ed_{s.GUID}") />
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" title="Delete" @onclick=@(() => Delete(s))>✕</button>
+                    }
+                </div>
+            </div>
+        </div>
+    };
+
+    private async Task Delete(Spending s)
+    {
+        bool ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Delete spending '{s.Description}'?");
+        if (ok)
+        {
+            _ = engine.RequestDeleteSpending(Tour?.Id, s);
+        }
+    }
+
+    private Task MakeReal(Spending s)
+    {
+        s.IsDryRun = false;
+        _ = engine.RequestEditSpending(Tour?.Id, s);
+        return Task.CompletedTask;
+    }
+
+    private async Task MarkPaid(Spending s)
+    {
+        var from = NewUi.PersonName(Tour, s.FromGuid);
+        var to = NewUi.PersonName(Tour, s.ToGuid.FirstOrDefault());
+        bool ok = await JsRuntime.InvokeAsync<bool>("confirm",
+            $"Record that {from} paid {NewUi.Money(s.AmountInCurrentCurrency(Tour))} to {to}?");
+        if (!ok) return;
+        var ss = s.SafeClone<Spending>();
+        ss.Type = "";
+        ss.Color = ss.Description.StartsWith("X") ? "lightgreen" : "lightgray";
+        _ = engine.RequestAddSpending(Tour?.Id, ss);
+    }
+}

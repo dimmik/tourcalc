@@ -26,6 +26,7 @@ namespace Company.WebApplication1
                 .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
                 .AddScoped<ITokenStorage, CookieTokenStorage>()
                 .AddSingleton<ITourcalcLocalStorage, TourcalcLocalStorage>()
+                .AddSingleton<UiModeService>()
                 .AddScoped<EnrichedHttpClient>()
                 .AddScoped<ITourRetriever, HttpBasedTourRetriever>()
                 .AddScoped<ITCDataService, TCDataService>()

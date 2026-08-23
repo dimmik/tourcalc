@@ -1,0 +1,200 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using TCalc.Logic
+@using TCalcCore.Engine
+
+@inject TourcalcEngine engine
+@inject IJSRuntime JsRuntime
+
+@{
+    var transfers = Transfers().ToList();
+    var familyTransfers = FamilyTransfers().ToList();
+    var curName = Tour.CurrencyNameEmptyIfSingleCurrency();
+}
+
+<div class="tcn-section">
+    @if (!transfers.Any())
+    {
+        <div class="tcn-allsettled">
+            <div class="tcn-allsettled-icon">🎉</div>
+            <div class="tcn-allsettled-title">Everyone is settled up</div>
+            <div class="tcn-allsettled-sub">
+                @if (!Tour.Spendings.Any(s => !s.Planned))
+                {
+                    <span>Add the first expense and the split will show up here.</span>
+                }
+                else
+                {
+                    <span>No payments are left between the participants.</span>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="tcn-section-title">
+            Who pays whom <span class="tcn-count">@transfers.Count</span>
+        </div>
+        <div class="tcn-list">
+            @foreach (var s in transfers)
+            {
+                var from = Tour.Persons.FirstOrDefault(p => p.GUID == s.FromGuid);
+                var to = Tour.Persons.FirstOrDefault(p => p.GUID == s.ToGuid.FirstOrDefault());
+                <div class="tcn-settle" @key=@($"tr_{s.GUID}")>
+                    <div class="tcn-settle-flow">
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name)</span>
+                        <span class="tcn-settle-who">@(from?.Name ?? "n/a")</span>
+                        <span class="tcn-settle-arrow">→</span>
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name)</span>
+                        <span class="tcn-settle-who">@(to?.Name ?? "n/a")</span>
+                    </div>
+                    <div class="tcn-settle-amount">
+                        @NewUi.Money(s.AmountInCurrentCurrency(Tour))
+                        @if (!string.IsNullOrEmpty(curName))
+                        {
+                            <small>&nbsp;@curName</small>
+                        }
+                    </div>
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-success" title="Record this payment as a real transfer"
+                            @onclick=@(() => MarkPaid(s))>
+                        ✓ Paid
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (familyTransfers.Any())
+{
+    <div class="tcn-section">
+        <div class="tcn-section-title">
+            <span class="tcn-btn tcn-btn-ghost tcn-btn-sm" @onclick=@(() => showFamily = !showFamily)>
+                @(showFamily ? "▾" : "▸") Inside families
+            </span>
+            <span class="tcn-count">@familyTransfers.Count</span>
+        </div>
+        @if (showFamily)
+        {
+            <div class="tcn-list">
+                @foreach (var s in familyTransfers)
+                {
+                    var from = Tour.Persons.FirstOrDefault(p => p.GUID == s.FromGuid);
+                    var to = Tour.Persons.FirstOrDefault(p => p.GUID == s.ToGuid.FirstOrDefault());
+                    <div class="tcn-settle" @key=@($"ftr_{s.GUID}")>
+                        <div class="tcn-settle-flow">
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name)</span>
+                            <span class="tcn-settle-who">@(from?.Name ?? "n/a")</span>
+                            <span class="tcn-settle-arrow">→</span>
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name)</span>
+                            <span class="tcn-settle-who">@(to?.Name ?? "n/a")</span>
+                        </div>
+                        <div class="tcn-settle-amount">@NewUi.Money(s.AmountInCurrentCurrency(Tour))</div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@{
+    var balances = Balances().ToList();
+    var scale = balances.Any() ? balances.Max(b => Math.Abs(b.amount)) : 0;
+    if (scale == 0) scale = 1;
+}
+@if (balances.Any())
+{
+    <div class="tcn-section">
+        <div class="tcn-section-title">Balances</div>
+        <div class="tcn-card" style="padding: 12px;">
+            @foreach (var b in balances)
+            {
+                <div style="margin-bottom: 12px;" @key=@($"bal_{b.person.GUID}")>
+                    <div class="tcn-bal-row">
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(b.person.Name)">@NewUi.Initials(b.person.Name)</span>
+                        <span class="tcn-bal-name">@b.person.Name</span>
+                        <span class="tcn-bal-amount @(b.amount > 0 ? "tcn-neg" : b.amount < 0 ? "tcn-pos" : "")">
+                            @if (b.amount > 0)
+                            {
+                                <span>owes @NewUi.Money(b.amount)</span>
+                            }
+                            else if (b.amount < 0)
+                            {
+                                <span>gets @NewUi.Money(-b.amount)</span>
+                            }
+                            else
+                            {
+                                <span style="color: var(--tcn-faint)">settled</span>
+                            }
+                        </span>
+                    </div>
+                    <div class="tcn-balancebar">
+                        <div class="tcn-balancebar-neg">
+                            @if (b.amount < 0)
+                            {
+                                <i style="width:@(Pct(-b.amount, scale))%"></i>
+                            }
+                        </div>
+                        <div class="tcn-balancebar-mid"></div>
+                        <div class="tcn-balancebar-pos">
+                            @if (b.amount > 0)
+                            {
+                                <i style="width:@(Pct(b.amount, scale))%"></i>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            <div style="display:flex; justify-content:space-between; font-size:11px; color: var(--tcn-faint); text-transform:uppercase; letter-spacing:.5px;">
+                <span>gets money back</span>
+                <span>owes money</span>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Tour Tour { get; set; } = new();
+
+    [Parameter]
+    public UISettings Settings { get; set; } = new();
+
+    private bool showFamily = false;
+
+    private long MinMeaningful => Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+
+    private IEnumerable<Spending> Transfers()
+        => (Tour?.Spendings ?? new List<Spending>())
+            .Where(s => s.Planned && !s.Description.StartsWith("Family"))
+            .Where(s => Math.Abs(s.AmountInCurrentCurrency(Tour)) > MinMeaningful)
+            .OrderByDescending(s => s.AmountInCurrentCurrency(Tour));
+
+    private IEnumerable<Spending> FamilyTransfers()
+        => (Tour?.Spendings ?? new List<Spending>())
+            .Where(s => s.Planned && s.Description.StartsWith("Family"))
+            .Where(s => Math.Abs(s.AmountInCurrentCurrency(Tour)) > MinMeaningful)
+            .OrderByDescending(s => s.AmountInCurrentCurrency(Tour));
+
+    private IEnumerable<(Person person, long amount)> Balances()
+        => (Tour?.Persons ?? new List<Person>())
+            .Where(p => string.IsNullOrWhiteSpace(p.ParentId))
+            .Select(p => (person: p, amount: Tour.AmountAPersonWillPay(p)))
+            .Where(pa => Math.Abs(pa.amount) > MinMeaningful)
+            .OrderByDescending(pa => pa.amount);
+
+    private static int Pct(long value, long scale) => (int)Math.Round(Math.Min(100.0, value * 100.0 / scale));
+
+    private async Task MarkPaid(Spending s)
+    {
+        var from = NewUi.PersonName(Tour, s.FromGuid);
+        var to = NewUi.PersonName(Tour, s.ToGuid.FirstOrDefault());
+        var amount = NewUi.Money(s.AmountInCurrentCurrency(Tour));
+        bool ok = await JsRuntime.InvokeAsync<bool>("confirm", $"Record that {from} paid {amount} to {to}?");
+        if (!ok) return;
+        var ss = s.SafeClone<Spending>();
+        ss.Type = "";
+        ss.Color = ss.Description.StartsWith("X") ? "lightgreen" : "lightgray";
+        _ = engine.RequestAddSpending(Tour?.Id, ss);
+    }
+}
