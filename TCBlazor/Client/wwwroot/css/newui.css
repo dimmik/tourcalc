@@ -2450,3 +2450,10 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
         padding: 13px 18px;
     }
 }
+
+/* the copy fallback field, only shown when the browser blocks the clipboard */
+.tcn-sharefallback {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+}
