@@ -45,10 +45,10 @@
                 var to = Tour.Persons.FirstOrDefault(p => p.GUID == s.ToGuid.FirstOrDefault());
                 <div class="tcn-settle" @key=@($"tr_{s.GUID}")>
                     <div class="tcn-settle-flow">
-                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name)</span>
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name, Tour)</span>
                         <span class="tcn-settle-who">@(from?.Name ?? "n/a")</span>
                         <span class="tcn-settle-arrow">→</span>
-                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name)</span>
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name, Tour)</span>
                         <span class="tcn-settle-who">@(to?.Name ?? "n/a")</span>
                     </div>
                     <div class="tcn-settle-amount">
@@ -91,10 +91,10 @@
                     var to = Tour.Persons.FirstOrDefault(p => p.GUID == s.ToGuid.FirstOrDefault());
                     <div class="tcn-settle" @key=@($"ftr_{s.GUID}")>
                         <div class="tcn-settle-flow">
-                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name)</span>
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name, Tour)</span>
                             <span class="tcn-settle-who">@(from?.Name ?? "n/a")</span>
                             <span class="tcn-settle-arrow">→</span>
-                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name)</span>
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name, Tour)</span>
                             <span class="tcn-settle-who">@(to?.Name ?? "n/a")</span>
                         </div>
                         <div class="tcn-settle-amount">@NewUi.Money(s.AmountInCurrentCurrency(Tour))</div>
@@ -119,7 +119,7 @@
             {
                 <div style="margin-bottom: 12px;" @key=@($"bal_{b.person.GUID}")>
                     <div class="tcn-bal-row">
-                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(b.person.Name)">@NewUi.Initials(b.person.Name)</span>
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(b.person.Name)">@NewUi.Initials(b.person.Name, Tour)</span>
                         <span class="tcn-bal-name">@b.person.Name</span>
                         <span class="tcn-bal-amount @(b.amount > 0 ? "tcn-neg" : b.amount < 0 ? "tcn-pos" : "")">
                             <Explain Enabled=@Explainable Title=@($"{b.person.Name}: how this balance is made")
@@ -231,14 +231,14 @@
             {
                 <div>@from.Name paid in total</div>
                 <div>@NewUi.Money(from.SpentInCents)</div>
-                <div>@from.Name‘s own share</div>
+                <div>@from.Name was charged</div>
                 <div>@NewUi.Money(from.ReceivedInCents)</div>
             }
             @if (to != null)
             {
                 <div>@to.Name paid in total</div>
                 <div>@NewUi.Money(to.SpentInCents)</div>
-                <div>@to.Name‘s own share</div>
+                <div>@to.Name was charged</div>
                 <div>@NewUi.Money(to.ReceivedInCents)</div>
             }
         </div>
@@ -256,7 +256,7 @@
         <div class="tcn-facts">
             <div>Paid for the group</div>
             <div>@NewUi.Money(p.SpentInCents)</div>
-            <div>Own share of everything</div>
+            <div>Charged for their part</div>
             <div>@NewUi.Money(p.ReceivedInCents)</div>
             <div>Difference</div>
             <div>@NewUi.Money(p.Debt())</div>
@@ -269,8 +269,8 @@
             <div>@NewUi.Money(Tour.AmountAPersonWillPay(p))</div>
         </div>
         <div class="tcn-explain-note">
-            Own share minus what they paid. A positive number means they consumed more than they
-            put in, so they owe;
+            What they were charged minus what they paid. A positive number means their part of
+            the spending cost more than they put in, so they owe;
             @if (kids.Any())
             {
                 <span> the people they cover are rolled into their net figure;</span>

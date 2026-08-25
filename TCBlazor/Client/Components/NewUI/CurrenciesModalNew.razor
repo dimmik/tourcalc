@@ -5,8 +5,10 @@
 @inject TourcalcEngine engine
 @inject IJSRuntime JsRuntime
 
-@* Same two operations as the classic editor (SetTourCurrencies / SetTourCurrency),
-   but it explains what a "worth" actually is, which the old one never did. *@
+@* Same two operations as the classic editor (SetTourCurrencies / SetTourCurrency).
+   The list always ends with a blank row, so there is nothing to "add" and nothing to
+   forget to add - the old separate Add button silently dropped whatever was typed
+   into it if you pressed Save instead. *@
 
 @* deliberately not just the currency name: next to "show amounts in" it read as the same
    control, while this one changes the tour for everybody *@
@@ -32,13 +34,23 @@
         </div>
 
         <div class="tcn-sheet-body">
+            @if (errors.Any())
+            {
+                <div class="tcn-errors">
+                    @foreach (var e in errors)
+                    {
+                        <div>@e</div>
+                    }
+                </div>
+            }
+
             <div class="tcn-field">
                 <div class="tcn-label">Main currency</div>
                 <div class="tcn-chips">
-                    @foreach (var c in currencies)
+                    @foreach (var c in Filled())
                     {
-                        <span class="tcn-chip tcn-filter-chip @(current?.Name == c.Name ? "is-on" : "")"
-                              @key=@($"cur_{c.Name}") @onclick=@(() => current = c)>@NameOf(c)</span>
+                        <span class="tcn-chip tcn-filter-chip @(ReferenceEquals(current, c) ? "is-on" : "")"
+                              @key=@($"cur_{c.Id}") @onclick=@(() => current = c)>@c.Name</span>
                     }
                 </div>
                 <div class="tcn-hint">
@@ -54,29 +66,37 @@
                     “Worth” is what one unit is worth on any scale you like — only the ratio matters.
                     If one euro is 118 dinars, put 100 next to the dinar and 11800 next to the euro.
                 </div>
-                @if (!currencies.Any())
+
+                @for (int i = 0; i < currencies.Count; i++)
                 {
-                    <div class="tcn-hint">No currencies yet — add one below.</div>
-                }
-                @foreach (var c in currencies)
-                {
-                    <div class="tcn-currow" @key=@($"row_{c.Name}_{currencies.IndexOf(c)}")>
-                        <input class="tcn-input tcn-cur-name" type="text" placeholder="EUR" @bind-value=@c.Name />
+                    var idx = i;
+                    var c = currencies[idx];
+                    var blank = IsBlank(c);
+                    <div class="tcn-currow" @key=@idx>
+                        <input class="tcn-input tcn-cur-name" type="text"
+                               placeholder=@(blank ? "add a currency…" : "")
+                               value=@c.Name
+                               @oninput=@(e => OnNameInput(idx, e)) />
                         <span class="tcn-cur-worth-label">worth</span>
-                        <input class="tcn-input tcn-cur-rate" type="number" min="1" @bind-value=@c.CurrencyRate />
-                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" title="Remove"
-                                @onclick=@(() => Remove(c))>✕</button>
+                        <input class="tcn-input tcn-cur-rate" type="number" min="1"
+                               value=@c.CurrencyRate
+                               @onchange=@(e => OnRateInput(idx, e)) />
+                        @if (blank)
+                        {
+                            <span class="tcn-currow-spacer"></span>
+                        }
+                        else
+                        {
+                            <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" title="Remove"
+                                    @onclick=@(() => Remove(idx))>✕</button>
+                        }
                     </div>
                 }
-            </div>
 
-            <div class="tcn-field">
-                <div class="tcn-label">Add a currency</div>
-                <div class="tcn-currow">
-                    <input class="tcn-input tcn-cur-name" type="text" placeholder="USD" @bind-value=@newCurrency.Name />
-                    <span class="tcn-cur-worth-label">worth</span>
-                    <input class="tcn-input tcn-cur-rate" type="number" min="1" @bind-value=@newCurrency.CurrencyRate />
-                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary" @onclick=@AddNew>Add</button>
+                <div class="tcn-hint">
+                    Renaming keeps the amounts: expenses stay attached to the currency they were
+                    entered in, whatever you call it now. Removing one does not — those expenses
+                    would be read in the main currency.
                 </div>
             </div>
         </div>
@@ -96,42 +116,100 @@
     private bool open = false;
     private Currency? current = null;
     private List<Currency> currencies = new();
-    private Currency newCurrency = new() { Name = "", CurrencyRate = 100 };
+    private List<string> errors = new();
 
-    private static string NameOf(Currency c) => string.IsNullOrWhiteSpace(c.Name) ? "(unnamed)" : c.Name;
+    private static bool IsBlank(Currency c) => string.IsNullOrWhiteSpace(c.Name);
+
+    private IEnumerable<Currency> Filled() => currencies.Where(c => !IsBlank(c));
 
     private void Open()
     {
-        // work on copies so Cancel really cancels
-        currencies = tour.Currencies.Select(c => new Currency { Name = c.Name, CurrencyRate = c.CurrencyRate }).ToList();
-        current = currencies.FirstOrDefault(c => c.Name == tour.Currency.Name)
-                  ?? new Currency { Name = tour.Currency.Name, CurrencyRate = tour.Currency.CurrencyRate };
-        newCurrency = new Currency { Name = "", CurrencyRate = 100 };
+        // Id is copied on purpose. It is what an expense is matched against, so keeping it
+        // is what lets a currency be renamed without re-reading old expenses in another one.
+        // (It used to survive only because IndexOf in a @key happened to materialise it.)
+        currencies = tour.Currencies
+            .Select(c => new Currency { Id = c.Id, Name = c.Name, CurrencyRate = c.CurrencyRate })
+            .ToList();
+        current = currencies.FirstOrDefault(c => c.Id == tour.Currency.Id) ?? currencies.FirstOrDefault();
+        errors.Clear();
+        EnsureTrailingBlank();
         open = true;
     }
 
-    private async Task Remove(Currency c)
+    private void EnsureTrailingBlank()
     {
-        var ok = await JsRuntime.InvokeAsync<bool>("confirm",
-            $"Remove {NameOf(c)} from this tour? Expenses recorded in it will be read in the main currency.");
-        if (ok)
+        // exactly one empty row at the end, always
+        while (currencies.Count > 0 && IsBlank(currencies[currencies.Count - 1])
+               && currencies.Count > 1 && IsBlank(currencies[currencies.Count - 2]))
         {
-            currencies.Remove(c);
-            if (current?.Name == c.Name) current = currencies.FirstOrDefault();
+            currencies.RemoveAt(currencies.Count - 1);
+        }
+        if (currencies.Count == 0 || !IsBlank(currencies[currencies.Count - 1]))
+        {
+            currencies.Add(new Currency { Name = "", CurrencyRate = 100 });
         }
     }
 
-    private void AddNew()
+    private void OnNameInput(int idx, ChangeEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(newCurrency.Name)) return;
-        currencies.Add(newCurrency);
-        newCurrency = new Currency { Name = "", CurrencyRate = 100 };
+        if (idx >= currencies.Count) return;
+        currencies[idx].Name = e.Value?.ToString() ?? "";
+        EnsureTrailingBlank();
+    }
+
+    private void OnRateInput(int idx, ChangeEventArgs e)
+    {
+        if (idx >= currencies.Count) return;
+        if (int.TryParse(e.Value?.ToString(), out var v))
+        {
+            currencies[idx].CurrencyRate = v;
+        }
+    }
+
+    private async Task Remove(int idx)
+    {
+        if (idx >= currencies.Count) return;
+        var c = currencies[idx];
+        var ok = await JsRuntime.InvokeAsync<bool>("confirm",
+            $"Remove {c.Name} from this tour? Expenses recorded in it will be read in the main currency.");
+        if (!ok) return;
+        var wasCurrent = ReferenceEquals(current, c);
+        currencies.RemoveAt(idx);
+        EnsureTrailingBlank();
+        if (wasCurrent) current = Filled().FirstOrDefault();
     }
 
     private void Apply()
     {
-        var chosen = current ?? currencies.FirstOrDefault() ?? Currency.Default;
-        _ = engine.RequestEditTourProps(tour, ("SetTourCurrencies", currencies), ("SetTourCurrency", chosen));
+        var kept = Filled().ToList();
+        errors = Validate(kept);
+        if (errors.Any())
+        {
+            StateHasChanged();
+            return;
+        }
+        var chosen = kept.FirstOrDefault(c => ReferenceEquals(c, current)) ?? kept.FirstOrDefault() ?? Currency.Default;
+        _ = engine.RequestEditTourProps(tour, ("SetTourCurrencies", kept), ("SetTourCurrency", chosen));
         open = false;
+    }
+
+    private static List<string> Validate(List<Currency> kept)
+    {
+        var err = new List<string>();
+        if (!kept.Any())
+        {
+            err.Add("A tour needs at least one currency");
+            return err;
+        }
+        // the rate ends up as a divisor when amounts are converted
+        foreach (var c in kept.Where(c => c.CurrencyRate <= 0))
+        {
+            err.Add($"“{c.Name}” needs a worth above zero");
+        }
+        foreach (var g in kept.GroupBy(c => c.Name.Trim()).Where(g => g.Count() > 1))
+        {
+            err.Add($"“{g.Key}” is listed more than once — names have to be unique");
+        }
+        return err;
     }
 }

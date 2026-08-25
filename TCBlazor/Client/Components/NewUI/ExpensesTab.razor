@@ -69,8 +69,14 @@
         @if (shownOther != 0)
         {
             @* this is exactly why the header total and this one used to disagree *@
-            <span class="tcn-hint" title="Paybacks and uncounted drafts are money moving around, not money spent">
-                + @NewUi.Money(shownOther) not counted as spending
+            <span class="tcn-hint">
+                +
+                @* always tappable, setting or no setting: "uncounted" begs the question by itself *@
+                <Explain Enabled="true" Title="Not counted as spending"
+                         Headline=@($"{NewUi.Money(shownOther)} {curName}")
+                         Details=@UncountedDetails(shown)>
+                    @NewUi.Money(shownOther) @UncountedLabel(shown)
+                </Explain>
             </span>
         }
         <span>from <b>@shown.Min(s => s.SpendingDate).ToString("dd.MM.yyyy")</b> to <b>@shown.Max(s => s.SpendingDate).ToString("dd.MM.yyyy")</b></span>
@@ -120,7 +126,14 @@ else if (sortBy == Sort.Date)
                     @curName
                     @if (dayOther != 0)
                     {
-                        <span class="tcn-hint">&nbsp;+@NewUi.Money(dayOther) uncounted</span>
+                        <span class="tcn-hint">
+                            &nbsp;+
+                            <Explain Enabled="true" Title=@($"Not counted on {NewUi.DayLabel(day.Key)}")
+                                     Headline=@($"{NewUi.Money(dayOther)} {curName}")
+                                     Details=@UncountedDetails(dayRows)>
+                                @NewUi.Money(dayOther) @UncountedLabel(dayRows)
+                            </Explain>
+                        </span>
                     }
                 </span>
             </div>
@@ -241,7 +254,7 @@ else
 
         <div class="tcn-sp @RowClass(s)" @key=@($"sp_{s.GUID}")>
             <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)" title="@(from?.Name)">
-                @NewUi.Initials(from?.Name)
+                @NewUi.Initials(from?.Name, Tour)
             </span>
             <div class="tcn-sp-body">
                 <div class="tcn-sp-title">@s.Description</div>
@@ -337,6 +350,63 @@ else
             Only entries that count as spending are added up here — a payback or an uncounted draft
             moves money without spending it. Filters apply, so this is not necessarily the tour total.
         </div>
+    };
+
+    /// <summary>A draft that was never switched into the calculation.</summary>
+    private static bool IsUncountedDraft(Spending s) => s.IsDryRun && !s.IncludeDryRunInCalc;
+
+    /// <summary>No category: what "Mark paid" writes down - people squaring up between themselves.</summary>
+    private static bool IsSettlingUp(Spending s) => !IsUncountedDraft(s) && string.IsNullOrWhiteSpace(s.Type);
+
+    /// <summary>Name the reason when there is only one - most of the time no tap is needed.</summary>
+    private static string UncountedLabel(IEnumerable<Spending> rows)
+    {
+        var un = rows.Where(s => !CountsAsSpending(s)).ToList();
+        var drafts = un.Count(IsUncountedDraft);
+        var transfers = un.Count(IsSettlingUp);
+        if (drafts > 0 && transfers > 0) return "uncounted";
+        if (drafts > 0) return drafts == 1 ? "draft" : "drafts";
+        return "settling up";
+    }
+
+    private RenderFragment UncountedDetails(IEnumerable<Spending> rows) => __builder =>
+    {
+        var cur = Tour.CurrencyNameEmptyIfSingleCurrency();
+        var un = rows.Where(s => !CountsAsSpending(s)).ToList();
+        var transfers = un.Where(IsSettlingUp).ToList();
+        var drafts = un.Where(IsUncountedDraft).ToList();
+
+        if (transfers.Any())
+        {
+            <div class="tcn-label">Settling up · @NewUi.Money(transfers.Sum(x => x.AmountInCurrentCurrency(Tour))) @cur</div>
+            <div class="tcn-facts">
+                @foreach (var x in transfers.OrderByDescending(x => x.AmountInCurrentCurrency(Tour)))
+                {
+                    <div>@x.Description <span class="tcn-hint">@NewUi.PersonName(Tour, x.FromGuid)</span></div>
+                    <div>@NewUi.Money(x.AmountInCurrentCurrency(Tour))</div>
+                }
+            </div>
+            <div class="tcn-explain-note">
+                Money handed from one person to another to clear a debt. It was already counted when
+                the original expense was recorded — counting it again would double it.
+            </div>
+        }
+
+        if (drafts.Any())
+        {
+            <div class="tcn-label" style="margin-top:14px">Drafts · @NewUi.Money(drafts.Sum(x => x.AmountInCurrentCurrency(Tour))) @cur</div>
+            <div class="tcn-facts">
+                @foreach (var x in drafts.OrderByDescending(x => x.AmountInCurrentCurrency(Tour)))
+                {
+                    <div>@x.Description <span class="tcn-hint">@NewUi.PersonName(Tour, x.FromGuid)</span></div>
+                    <div>@NewUi.Money(x.AmountInCurrentCurrency(Tour))</div>
+                }
+            </div>
+            <div class="tcn-explain-note">
+                Written down as a maybe, not as something that happened. Open the entry and turn on
+                “Still count it in the balance” to include it.
+            </div>
+        }
     };
 
     private RenderFragment DayDetails(List<Spending> day) => __builder =>

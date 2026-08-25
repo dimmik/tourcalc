@@ -595,26 +595,6 @@ body.tcn-on {
     margin-bottom: 1px;
 }
 
-/* Ant buttons that the reused legacy detail components render inside a stat */
-.tcn-stat .ant-btn {
-    width: 100%;
-    padding: 0 4px;
-    border-radius: var(--tcn-radius-sm) !important;
-    border-color: var(--tcn-border) !important;
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.tcn-stat > div {
-    height: auto !important;
-}
-
-/* the legacy "received" component paints itself red - here it is just a number */
-.tcn-stat--share .ant-btn {
-    color: var(--tcn-text) !important;
-}
-
 .tcn-person-actions {
     display: flex;
     gap: 6px;
@@ -1149,6 +1129,8 @@ body.tcn-on {
 .tcn-summary {
     display: flex;
     flex-wrap: wrap;
+    /* baseline, so the smaller "uncounted" note sits on the same line as the rest */
+    align-items: baseline;
     gap: 6px 14px;
     padding: 10px 12px;
     margin-bottom: 10px;
@@ -1448,6 +1430,12 @@ textarea.tcn-input {
     margin-top: 6px;
     font-size: 12px;
     color: var(--tcn-muted);
+}
+
+/* ...but as a direct flex item that margin would drop it below its neighbours */
+.tcn-summary > .tcn-hint,
+.tcn-row > .tcn-hint {
+    margin-top: 0;
 }
 
 .tcn-linkbtn {
@@ -2454,13 +2442,6 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
     }
 }
 
-/* the copy fallback field, only shown when the browser blocks the clipboard */
-.tcn-sharefallback {
-    display: block;
-    margin-top: 6px;
-    font-size: 12px;
-}
-
 /* what the refresh button actually achieved - stated plainly, then it fades away */
 .tcn-refresh-note {
     display: inline-block;
@@ -2665,4 +2646,70 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
     font-size: 13px;
     font-weight: 700;
     box-shadow: var(--tcn-shadow-lg);
+}
+
+/* keeps the trailing blank currency row aligned with the ones that have a remove button */
+.tcn-currow-spacer {
+    flex: 0 0 auto;
+    width: 30px;
+}
+
+/* ---- sign-in screen ------------------------------------------------------
+   Deliberately a screen and not a modal: a dialog with nothing behind it and
+   no way to dismiss is a trap, especially in a standalone PWA. */
+
+.tcn-signin {
+    display: flex;
+    justify-content: center;
+    padding-top: 8vh;
+}
+
+.tcn-signin-card {
+    width: 100%;
+    max-width: 380px;
+    padding: 24px 22px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+    text-align: left;
+}
+
+.tcn-signin-logo {
+    font-size: 34px;
+    line-height: 1;
+    text-align: center;
+}
+
+.tcn-signin-title {
+    margin: 6px 0 10px 0;
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+    color: var(--tcn-text);
+}
+
+/* own debt shown next to the family total when the two differ */
+.tcn-person-owe {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.tcn-person-own {
+    font-size: 11px;
+    color: var(--tcn-muted);
+    white-space: nowrap;
+}
+
+/* the balance cell can carry a second line now, so it must not clip it */
+.tcn-statbtn {
+    white-space: normal;
+}
+
+.tcn-statbtn-note {
+    display: block;
+    margin-top: 1px;
 }

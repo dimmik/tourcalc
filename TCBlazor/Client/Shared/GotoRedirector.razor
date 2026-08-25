@@ -5,48 +5,132 @@
 
 @inject NavigationManager NavManager
 
+@implements IDisposable
 
-<div class="tcn-splash">
-    <span class="tcn-splash-logo">🧭</span>
-    <div class="tcn-splash-title">Opening the tour…</div>
-    <div class="tcn-splash-sub"><span class="tcn-spin">⟳</span> checking your link</div>
-</div>
+@* This page has no layout chrome at all (GoToLanding is just @Body), so if the redirect
+   never completes there is nothing on screen to tap. It now gives up out loud instead of
+   spinning forever. *@
+
+@if (!stuck)
+{
+    <div class="tcn-splash">
+        <span class="tcn-splash-logo">🧭</span>
+        <div class="tcn-splash-title">Opening the tour…</div>
+        <div class="tcn-splash-sub"><span class="tcn-spin">⟳</span> checking your link</div>
+    </div>
+}
+else
+{
+    <div class="tcn-splash">
+        <span class="tcn-splash-logo">🧭</span>
+        <div class="tcn-splash-title">Could not open the tour</div>
+        <div class="tcn-splash-sub">
+            The link may be wrong, or the server did not answer.
+        </div>
+        <div class="tcn-row" style="margin-top:14px; justify-content:center">
+            <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Retry>Try again</button>
+            <a class="tcn-btn" href="/tourlist">Go to my tours</a>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter]
     public string? transientAccessCode {get; set;}
     [Parameter]
     public string? tid {get; set;}
+
+    private bool stuck = false;
+    private CancellationTokenSource? watchdog;
+
     protected override async Task OnInitializedAsync()
     {
-        await engine.PickUpAuthInfo();
-        var auth = engine.Auth;
-        var codes = auth?.AccessCodeMD5s() ?? new string[0];
-        var effectiveCode = string.Join(auth.AuthTokensDelim(), codes.Concat(new[] { transientAccessCode }).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct());
-        await engine.LogIn("code", effectiveCode, md5Code: true);
-        // now try to get a tour
-        Tour tt = await engine.LoadFromServerAndReturnBareTour(tid);
-        bool finalizing = false;
-        if (tt == null)
-        {
-            await engine.LogIn("code", transientAccessCode, md5Code: false);
-            tt = await engine.LoadFromServerAndReturnBareTour(tid);
-        } 
-        finalizing = tt?.IsFinalizing ?? false;
-        await engine.PickUpAuthInfo();
-        var settings = await engine.GetUISettings();
+        await Go();
+    }
 
-        var spAddPage = $"/tour/{tid}?action=addspending&addanother=true";
-        var mainTourPage = $"/tour/{tid}";
+    private async Task Go()
+    {
+        stuck = false;
+        StartWatchdog();
+        try
+        {
+            await engine.PickUpAuthInfo();
+            var auth = engine.Auth;
+            var codes = auth?.AccessCodeMD5s() ?? new string[0];
+            var effectiveCode = string.Join(auth.AuthTokensDelim(), codes.Concat(new[] { transientAccessCode }).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct());
+            await engine.LogIn("code", effectiveCode, md5Code: true);
+            // now try to get a tour
+            Tour tt = await engine.LoadFromServerAndReturnBareTour(tid);
+            bool finalizing = false;
+            if (tt == null)
+            {
+                await engine.LogIn("code", transientAccessCode, md5Code: false);
+                tt = await engine.LoadFromServerAndReturnBareTour(tid);
+            }
+            if (tt == null)
+            {
+                ShowStuck();
+                return;
+            }
+            finalizing = tt.IsFinalizing;
+            await engine.PickUpAuthInfo();
+            var settings = await engine.GetUISettings();
 
-        await engine.RequestClearLocalTourList(reloadFromServer: false);
-        if (finalizing)
-        {
-            NavManager.NavigateTo(mainTourPage);
+            var spAddPage = $"/tour/{tid}?action=addspending&addanother=true";
+            var mainTourPage = $"/tour/{tid}";
+
+            await engine.RequestClearLocalTourList(reloadFromServer: false);
+            watchdog?.Cancel();
+            if (finalizing)
+            {
+                NavManager.NavigateTo(mainTourPage);
+            }
+            else
+            {
+                NavManager.NavigateTo(settings.Default_Tour_Page_Is_Add_Spending ? spAddPage : mainTourPage);
+            }
         }
-        else
+        catch
         {
-            NavManager.NavigateTo(settings.Default_Tour_Page_Is_Add_Spending ? spAddPage : mainTourPage);
+            // a dead network used to leave the user staring at the spinner forever
+            ShowStuck();
         }
+    }
+
+    private void StartWatchdog()
+    {
+        watchdog?.Cancel();
+        watchdog = new CancellationTokenSource();
+        var token = watchdog.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(15000, token);
+                if (!token.IsCancellationRequested) await InvokeAsync(ShowStuck);
+            }
+            catch (TaskCanceledException)
+            {
+                // navigated away in time
+            }
+        });
+    }
+
+    private void ShowStuck()
+    {
+        watchdog?.Cancel();
+        stuck = true;
+        StateHasChanged();
+    }
+
+    private async Task Retry()
+    {
+        await Go();
+    }
+
+    public void Dispose()
+    {
+        watchdog?.Cancel();
+        watchdog?.Dispose();
     }
 }

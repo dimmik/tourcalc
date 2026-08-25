@@ -36,7 +36,7 @@
             <div class="tcn-field">
                 <div class="tcn-label">Name</div>
                 <div class="tcn-namerow">
-                    <span class="tcn-avatar" style="background:@NewUi.AvatarColor(_person.Name)">@NewUi.Initials(_person.Name)</span>
+                    <span class="tcn-avatar" style="background:@NewUi.AvatarColor(_person.Name)">@NewUi.Initials(_person.Name, Tour)</span>
                     <input class="tcn-input" type="text" placeholder="Who is joining?"
                            @bind-value=@_person.Name @bind-value:event="oninput" />
                 </div>
@@ -72,7 +72,7 @@
                     {
                         <button type="button" class="tcn-pchip @(_person.ParentId == p.GUID ? "is-on" : "")"
                                 @key=@($"par_{p.GUID}") @onclick=@(() => _person.ParentId = p.GUID)>
-                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name)</span>
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name, Tour)</span>
                             <span class="tcn-pchip-name">@p.Name</span>
                         </button>
                     }
