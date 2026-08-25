@@ -27,7 +27,7 @@ else
                Width="520">
             <div class="tcn-sheet-head">
                 <div class="tcn-sheet-title">@Title</div>
-                <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)>✕</button>
+                <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)><TcIcon Name="close" /></button>
             </div>
             <div class="tcn-sheet-body">
                 @if (!string.IsNullOrWhiteSpace(Headline))

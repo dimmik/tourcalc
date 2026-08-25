@@ -34,7 +34,7 @@
         <div class="tcn-sheet-head">
             <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name, tour)</span>
             <div class="tcn-sheet-title">@Title</div>
-            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)>✕</button>
+            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)><TcIcon Name="close" /></button>
         </div>
 
         <div class="tcn-sheet-body">

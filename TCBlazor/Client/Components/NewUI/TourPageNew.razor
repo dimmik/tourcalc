@@ -28,7 +28,7 @@
         <TourEditModal Tour=@RawTour @key=@($"ed_{Tour.Id}") />
         <button type="button" class="tcn-iconbtn" title="Reload from the server" aria-label="Reload from the server"
                 disabled=@reloading @onclick=@Reload>
-            <span class="@(reloading ? "tcn-spin" : "")">⟳</span>
+            <span class="@(reloading ? "tcn-spin" : "")"><TcIcon Name="refresh" /></span>
         </button>
     </div>
     <div class="tcn-hero-sub">

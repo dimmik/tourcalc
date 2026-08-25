@@ -30,7 +30,7 @@
 
         <div class="tcn-sheet-head">
             <div class="tcn-sheet-title">Currencies of @tour.Name</div>
-            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)>✕</button>
+            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)><TcIcon Name="close" /></button>
         </div>
 
         <div class="tcn-sheet-body">
@@ -88,7 +88,7 @@
                         else
                         {
                             <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" title="Remove"
-                                    @onclick=@(() => Remove(idx))>✕</button>
+                                    @onclick=@(() => Remove(idx))><TcIcon Name="close" /></button>
                         }
                     </div>
                 }

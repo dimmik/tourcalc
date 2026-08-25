@@ -16,7 +16,7 @@
 <div class="page">
 @if (engine.Auth == null)
 {
-   <div class="tcn-splash"><span class="tcn-spin">⟳</span> Checking access…</div>
+   <div class="tcn-splash"><span class="tcn-spin"><TcIcon Name="refresh" /></span> Checking access…</div>
 }
     else
     {
@@ -59,7 +59,7 @@
                                     @onclick="LogIn">
                                 @if (LoggingIn)
                                 {
-                                    <span class="tcn-spin">⟳</span>
+                                    <span class="tcn-spin"><TcIcon Name="refresh" /></span>
                                     <span>Logging in…</span>
                                 }
                                 else
@@ -104,12 +104,12 @@
                             <SyncStatusComponent/>
                             <UpdateAvailableDetector/>
                             <UiModeSwitch/>
-                            <a class="tcn-iconbtn" href="/settings" title="Settings" aria-label="Settings">⚙</a>
+                            <a class="tcn-iconbtn" href="/settings" title="Settings" aria-label="Settings"><TcIcon Name="settings" /></a>
                             <button type="button"
                                     class="tcn-iconbtn @(engine.Auth.IsMaster ? "tcn-danger" : "")"
                                     title=@(engine.Auth.IsMaster ? "Log out (master)" : "Log out")
                                     aria-label="Log out"
-                                    @onclick=@(async () => await LogOut())>⏻</button>
+                                    @onclick=@(async () => await LogOut())><TcIcon Name="logout" /></button>
                         </div>
                     </header>
                     <main class="tcn-main">@Body</main>
