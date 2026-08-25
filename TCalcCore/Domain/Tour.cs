@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using TCalc.Logic;
@@ -36,7 +36,7 @@ namespace TCalc.Domain
                 {
                     TourCurrencyId = Currencies.First().Id;
                 }
-                return Currencies.Where(c => c.Id == TourCurrencyId).First().Clone();
+                return CheapCopy(Currencies.Where(c => c.Id == TourCurrencyId).First());
             }
             set
             {
@@ -46,6 +46,14 @@ namespace TCalc.Domain
                     Spendings = Spendings.Where(s => !s.Planned).ToList();
                 }
             }
+        }
+
+        // Callers may keep and even mutate what they get, so this still hands out a copy -
+        // but building it by hand instead of a JSON round-trip. The property is read once per
+        // amount conversion, i.e. thousands of times per render on a large tour.
+        private static Currency CheapCopy(Currency c)
+        {
+            return new Currency { Id = c.Id, Name = c.Name, CurrencyRate = c.CurrencyRate };
         }
         public void PrepareForStoring()
         {

@@ -116,6 +116,9 @@
 
     protected override void OnParametersSet()
     {
+        // Paid and Own share do not use any of this, and the component sits three times
+        // on every person card - scanning all spendings three times per person was wasteful
+        if (Kind != BreakdownKind.Balance) return;
         (willPayFlag, settleSpendings) = CalcUtilities.GetPayOrReceiveSpendings(tour, person, minMeaningfulAmount);
         willPay = tour.AmountAPersonWillPay(person);
     }

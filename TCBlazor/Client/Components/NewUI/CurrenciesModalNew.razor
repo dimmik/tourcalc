@@ -8,8 +8,10 @@
 @* Same two operations as the classic editor (SetTourCurrencies / SetTourCurrency),
    but it explains what a "worth" actually is, which the old one never did. *@
 
-<button type="button" class="tcn-hero-link" title="Currencies of this tour" @onclick=@Open>
-    @tour.Currency.Name
+@* deliberately not just the currency name: next to "show amounts in" it read as the same
+   control, while this one changes the tour for everybody *@
+<button type="button" class="tcn-hero-chip" title="Edit the currencies of this tour" @onclick=@Open>
+    ⚙ currencies
 </button>
 
 @if (open)
@@ -39,7 +41,11 @@
                               @key=@($"cur_{c.Name}") @onclick=@(() => current = c)>@NameOf(c)</span>
                     }
                 </div>
-                <div class="tcn-hint">Totals and balances are calculated in this one.</div>
+                <div class="tcn-hint">
+                    Totals and balances are calculated in this one. It is a property of the tour —
+                    changing it affects everyone. To change only what <i>you</i> see, use
+                    “show amounts in” in the header instead.
+                </div>
             </div>
 
             <div class="tcn-field">

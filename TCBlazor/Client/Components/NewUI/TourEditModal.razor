@@ -1,0 +1,81 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@using TCalcCore.Engine
+@inject TourcalcEngine engine
+
+@* Name and length used to be editable only from the tour list, which is awkward when the
+   Stats tab is doing per-day maths in front of you. *@
+
+<button type="button" class="tcn-iconbtn" title="Edit the tour name and length"
+        aria-label="Edit the tour name and length" @onclick=@Open>✎</button>
+
+@if (open)
+{
+    <Modal Visible=@true
+           Footer="null"
+           Closable=@false
+           DestroyOnClose=@true
+           MaskClosable=@true
+           OnCancel=@(e => open = false)
+           WrapClassName="tcn-sheet"
+           BodyStyle="padding:0"
+           Width="440">
+
+        <div class="tcn-sheet-head">
+            <div class="tcn-sheet-title">Edit tour</div>
+            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)>✕</button>
+        </div>
+
+        <div class="tcn-sheet-body">
+            @if (error)
+            {
+                <div class="tcn-errors">The tour needs a name.</div>
+            }
+            <div class="tcn-field">
+                <div class="tcn-label">Name</div>
+                <input class="tcn-input" type="text" @bind-value=@name @bind-value:event="oninput" />
+            </div>
+            <div class="tcn-field">
+                <div class="tcn-label">Length in days</div>
+                <input class="tcn-input" style="width:110px" type="number" min="1" @bind-value=@duration />
+                <div class="tcn-hint">Used by the Stats tab to work out the per-day figures.</div>
+            </div>
+        </div>
+
+        <div class="tcn-sheet-foot">
+            <span style="flex:1 1 auto"></span>
+            <button type="button" class="tcn-btn" @onclick=@(() => open = false)>Cancel</button>
+            <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Save>Save</button>
+        </div>
+    </Modal>
+}
+
+@code {
+    [Parameter]
+    public Tour Tour { get; set; } = new();
+
+    private bool open = false;
+    private bool error = false;
+    private string name = "";
+    private int duration = 1;
+
+    private void Open()
+    {
+        name = Tour.Name;
+        duration = Tour.Duration;
+        error = false;
+        open = true;
+    }
+
+    private void Save()
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            error = true;
+            return;
+        }
+        var t = new Tour { Id = Tour.Id, Name = name.Trim(), Duration = duration };
+        _ = engine.RequestEditTourProps(t, ("changename", t), ("duration", t));
+        open = false;
+    }
+}

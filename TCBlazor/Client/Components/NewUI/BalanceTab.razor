@@ -36,8 +36,7 @@
             Who pays whom <span class="tcn-count">@transfers.Count</span>
         </div>
         <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
-            Suggested payments — none of them has happened yet.
-            Hit <b>Mark paid</b> once the money really moves, and the row disappears.
+            Nothing here is paid yet — these are the payments that would square everyone up.
         </div>
         <div class="tcn-list">
             @foreach (var s in transfers)
@@ -177,24 +176,42 @@
 
     private long MinMeaningful => Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
 
+    // the threshold is hoisted: as a property it was re-evaluated for every element,
+    // and each evaluation reaches into Tour.Currency and scans all currencies
     private IEnumerable<Spending> Transfers()
-        => (Tour?.Spendings ?? new List<Spending>())
+    {
+        var min = MinMeaningful;
+        return (Tour?.Spendings ?? new List<Spending>())
             .Where(s => s.Planned && !s.Description.StartsWith("Family"))
-            .Where(s => Math.Abs(s.AmountInCurrentCurrency(Tour)) > MinMeaningful)
-            .OrderByDescending(s => s.AmountInCurrentCurrency(Tour));
+            .Select(s => (sp: s, amount: s.AmountInCurrentCurrency(Tour)))
+            .Where(x => Math.Abs(x.amount) > min)
+            .OrderByDescending(x => x.amount)
+            .Select(x => x.sp)
+            .ToList();
+    }
 
     private IEnumerable<Spending> FamilyTransfers()
-        => (Tour?.Spendings ?? new List<Spending>())
+    {
+        var min = MinMeaningful;
+        return (Tour?.Spendings ?? new List<Spending>())
             .Where(s => s.Planned && s.Description.StartsWith("Family"))
-            .Where(s => Math.Abs(s.AmountInCurrentCurrency(Tour)) > MinMeaningful)
-            .OrderByDescending(s => s.AmountInCurrentCurrency(Tour));
+            .Select(s => (sp: s, amount: s.AmountInCurrentCurrency(Tour)))
+            .Where(x => Math.Abs(x.amount) > min)
+            .OrderByDescending(x => x.amount)
+            .Select(x => x.sp)
+            .ToList();
+    }
 
     private IEnumerable<(Person person, long amount)> Balances()
-        => (Tour?.Persons ?? new List<Person>())
+    {
+        var min = MinMeaningful;
+        return (Tour?.Persons ?? new List<Person>())
             .Where(p => string.IsNullOrWhiteSpace(p.ParentId))
             .Select(p => (person: p, amount: Tour.AmountAPersonWillPay(p)))
-            .Where(pa => Math.Abs(pa.amount) > MinMeaningful)
-            .OrderByDescending(pa => pa.amount);
+            .Where(pa => Math.Abs(pa.amount) > min)
+            .OrderByDescending(pa => pa.amount)
+            .ToList();
+    }
 
     private static int Pct(long value, long scale) => (int)Math.Round(Math.Min(100.0, value * 100.0 / scale));
 

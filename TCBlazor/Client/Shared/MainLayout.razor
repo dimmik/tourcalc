@@ -93,16 +93,17 @@
             {
                 <div class="tcn-shell">
                     <header class="tcn-topbar">
-                        <a class="tcn-brand" href="/tourlist" title="Tour list">🧭</a>
+                        <a class="tcn-brand" href="/tourlist" title="Tour list" aria-label="Tour list">🧭</a>
                         <div class="tcn-topbar-title" @onclick="OnTitleClick" title="@Title">@Title</div>
                         <div class="tcn-topbar-actions">
                             <SyncStatusComponent/>
                             <UpdateAvailableDetector/>
                             <UiModeSwitch/>
-                            <a class="tcn-iconbtn" href="/settings" title="Settings">⚙</a>
+                            <a class="tcn-iconbtn" href="/settings" title="Settings" aria-label="Settings">⚙</a>
                             <button type="button"
                                     class="tcn-iconbtn @(engine.Auth.IsMaster ? "tcn-danger" : "")"
                                     title=@(engine.Auth.IsMaster ? "Log out (master)" : "Log out")
+                                    aria-label="Log out"
                                     @onclick=@(async () => await LogOut())>⏻</button>
                         </div>
                     </header>

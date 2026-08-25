@@ -1,0 +1,85 @@
+@namespace TCBlazor.Client.Components.NewUI
+
+@implements IDisposable
+
+@* Just the "from server · 3 min ago" line. It lives in its own component so the 30-second
+   tick that keeps the wording honest repaints this label instead of the whole tour page. *@
+
+<span title="@($"{StoredDt:yyyy-MM-dd HH:mm:ss}")">
+    @if (Reloading)
+    {
+        <span class="tcn-refresh-note">asking the server…</span>
+    }
+    else if (Outcome == RefreshOutcome.Updated)
+    {
+        <span class="tcn-refresh-note is-ok">✓ new data received</span>
+    }
+    else if (Outcome == RefreshOutcome.UpToDate)
+    {
+        <span class="tcn-refresh-note is-ok">✓ server has nothing newer</span>
+    }
+    else if (Outcome == RefreshOutcome.Failed)
+    {
+        <span class="tcn-refresh-note is-bad">✕ server did not answer — showing the local copy</span>
+    }
+    else
+    {
+        <span>@(IsFresh ? "from server" : "local copy") · @Ago(StoredDt)</span>
+    }
+</span>
+
+@code {
+    public enum RefreshOutcome { None, Updated, UpToDate, Failed }
+
+    [Parameter]
+    public bool IsFresh { get; set; }
+
+    [Parameter]
+    public DateTimeOffset StoredDt { get; set; } = DateTimeOffset.Now;
+
+    [Parameter]
+    public bool Reloading { get; set; }
+
+    [Parameter]
+    public RefreshOutcome Outcome { get; set; } = RefreshOutcome.None;
+
+    private CancellationTokenSource? tickCts;
+
+    protected override void OnInitialized()
+    {
+        tickCts = new CancellationTokenSource();
+        _ = TickLoop(tickCts.Token);
+    }
+
+    private async Task TickLoop(CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(30000, ct);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // component gone
+        }
+    }
+
+    public void Dispose()
+    {
+        tickCts?.Cancel();
+        tickCts?.Dispose();
+    }
+
+    /// <summary>Relative age - an absolute HH:mm looks identical after two refreshes a minute apart.</summary>
+    private static string Ago(DateTimeOffset dt)
+    {
+        var d = DateTimeOffset.Now - dt;
+        if (d.TotalSeconds < 45) return "just now";
+        if (d.TotalMinutes < 60) return $"{(int)d.TotalMinutes} min ago";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours} h ago";
+        return dt.ToString("dd.MM HH:mm");
+    }
+}

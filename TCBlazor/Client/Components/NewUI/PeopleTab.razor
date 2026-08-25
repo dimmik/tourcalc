@@ -24,6 +24,14 @@
     }
 </div>
 
+@if (Tour.Persons.Any())
+{
+    <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
+        <b>Paid</b> — what they put in · <b>Own share</b> — what their part of the spending cost ·
+        <b>Balance</b> — the difference. Tap any of the three for the itemised list.
+    </div>
+}
+
 @if (!Tour.Persons.Any())
 {
     <div class="tcn-empty">
@@ -117,12 +125,20 @@ else
     private bool _isModalVisible = false;
     private Person _personToEdit = new();
 
-    private int MinMeaningful => Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+    private int _minMeaningful = 0;
+    private int MinMeaningful => _minMeaningful;
+
+    protected override void OnParametersSet()
+    {
+        // computed once per render instead of twice per person
+        _minMeaningful = Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+    }
 
     private long Debt(Person p)
     {
         // hide amounts that are only rounding noise
-        return Math.Abs(p.Debt()) > MinMeaningful ? p.Debt() : 0;
+        var d = p.Debt();
+        return Math.Abs(d) > _minMeaningful ? d : 0;
     }
 
     private bool Explainable => Settings.Explain_Numbers;

@@ -55,7 +55,10 @@
                     <span class="tcn-hint" style="margin:0">custom</span>
                     <input class="tcn-input" style="width:100px" type="number" min="0" @bind-value=@_person.Weight />
                 </div>
-                <div class="tcn-hint">A full share is 100. Someone on 50 pays for half as much of everything shared.</div>
+                <div class="tcn-hint">
+                    A full share is 100. Someone on 50 pays for half as much of everything shared.
+                    A custom 0 means they pay for nothing at all.
+                </div>
             </div>
 
             <div class="tcn-field">
@@ -113,7 +116,6 @@
         (75, "75"),
         (50, "Half · 50"),
         (25, "25"),
-        (0, "Free · 0"),
     };
 
     private IEnumerable<Person> Parents()

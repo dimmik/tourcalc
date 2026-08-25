@@ -11,6 +11,10 @@
     var shown = Filter(all).ToList();
     var curName = Tour.CurrencyNameEmptyIfSingleCurrency();
     var categories = all.Select(s => s.Type).Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().OrderBy(t => t).ToList();
+    // one pass instead of recomputing the same sums for the headline, the value and the details
+    var shownCounted = shown.Where(CountsAsSpending).Sum(s => s.AmountInCurrentCurrency(Tour));
+    var shownOther = shown.Where(s => !CountsAsSpending(s)).Sum(s => s.AmountInCurrentCurrency(Tour));
+    var planned = PlannedSpendings().ToList();
 }
 
 <div class="tcn-toolbar">
@@ -54,14 +58,21 @@
     <div class="tcn-summary">
         <span><b>@shown.Count</b> expenses</span>
         <span>
-            total
-            <Explain Enabled=@Explainable Title="Total of the shown expenses"
-                     Headline=@($"{NewUi.Money(shown.Sum(s => s.AmountInCurrentCurrency(Tour)))} {curName}")
+            spent
+            <Explain Enabled=@Explainable Title="Spending in the shown expenses"
+                     Headline=@($"{NewUi.Money(shownCounted)} {curName}")
                      Details=@ShownTotalDetails(shown)>
-                <b>@NewUi.Money(shown.Sum(s => s.AmountInCurrentCurrency(Tour)))</b>
+                <b>@NewUi.Money(shownCounted)</b>
             </Explain>
             @curName
         </span>
+        @if (shownOther != 0)
+        {
+            @* this is exactly why the header total and this one used to disagree *@
+            <span class="tcn-hint" title="Paybacks and uncounted drafts are money moving around, not money spent">
+                + @NewUi.Money(shownOther) not counted as spending
+            </span>
+        }
         <span>from <b>@shown.Min(s => s.SpendingDate).ToString("dd.MM.yyyy")</b> to <b>@shown.Max(s => s.SpendingDate).ToString("dd.MM.yyyy")</b></span>
         @if (shown.Count != all.Count)
         {
@@ -95,13 +106,22 @@ else if (sortBy == Sort.Date)
         <div class="tcn-daygroup" @key=@($"day_{day.Key.Ticks}")>
             <div class="tcn-dayhead">
                 <span>@NewUi.DayLabel(day.Key)</span>
+                @{
+                    var dayRows = day.ToList();
+                    var dayCounted = dayRows.Where(CountsAsSpending).Sum(x => x.AmountInCurrentCurrency(Tour));
+                    var dayOther = dayRows.Where(x => !CountsAsSpending(x)).Sum(x => x.AmountInCurrentCurrency(Tour));
+                }
                 <span class="tcn-daysum">
                     <Explain Enabled=@Explainable Title=@($"{NewUi.DayLabel(day.Key)}")
-                             Headline=@($"{NewUi.Money(day.Sum(s => s.AmountInCurrentCurrency(Tour)))} {curName}")
-                             Details=@DayDetails(day.ToList())>
-                        @NewUi.Money(day.Sum(s => s.AmountInCurrentCurrency(Tour)))
+                             Headline=@($"{NewUi.Money(dayCounted)} {curName}")
+                             Details=@DayDetails(dayRows)>
+                        @NewUi.Money(dayCounted)
                     </Explain>
                     @curName
+                    @if (dayOther != 0)
+                    {
+                        <span class="tcn-hint">&nbsp;+@NewUi.Money(dayOther) uncounted</span>
+                    }
                 </span>
             </div>
             @foreach (var s in day)
@@ -121,16 +141,16 @@ else
     </div>
 }
 
-@if (PlannedCount > 0)
+@if (planned.Count > 0)
 {
     <div class="tcn-section" style="margin-top: 14px;">
         <button type="button" class="tcn-btn tcn-btn-ghost tcn-btn-block" @onclick=@(() => showPlanned = !showPlanned)>
-            @(showPlanned ? "▾ Hide the suggested settle-up payments" : $"▸ Show the {PlannedCount} suggested settle-up payments")
+            @(showPlanned ? "▾ Hide the suggested settle-up payments" : $"▸ Show the {planned.Count} suggested settle-up payments")
         </button>
         @if (showPlanned)
         {
             <div style="margin-top: 8px;">
-                @foreach (var s in PlannedSpendings())
+                @foreach (var s in planned)
                 {
                     @SpendingRow(s)
                 }
@@ -157,7 +177,9 @@ else
     private Sort sortBy = Sort.Date;
     private bool desc = true;
 
-    private int PlannedCount => PlannedSpendings().Count();
+    /// <summary>What the tour counts as actual spending - paybacks and uncounted drafts are not.</summary>
+    private static bool CountsAsSpending(Spending s)
+        => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc);
 
     private long MinMeaningful => Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
 
@@ -301,7 +323,7 @@ else
     private RenderFragment ShownTotalDetails(List<Spending> shown) => __builder =>
     {
         var cur = Tour.CurrencyNameEmptyIfSingleCurrency();
-        var byCat = shown.GroupBy(x => string.IsNullOrWhiteSpace(x.Type) ? "(no category)" : x.Type)
+        var byCat = shown.Where(CountsAsSpending).GroupBy(x => x.Type)
             .Select(g => (Cat: g.Key, Sum: g.Sum(x => x.AmountInCurrentCurrency(Tour)), N: g.Count()))
             .OrderByDescending(x => x.Sum).ToList();
         <div class="tcn-facts">
@@ -312,7 +334,8 @@ else
             }
         </div>
         <div class="tcn-explain-note">
-            This is the sum of what is currently on screen, filters included — not necessarily the tour total.
+            Only entries that count as spending are added up here — a payback or an uncounted draft
+            moves money without spending it. Filters apply, so this is not necessarily the tour total.
         </div>
     };
 

@@ -21,8 +21,32 @@
 
 @if (failed)
 {
-    @* the browser refused to copy - show it so it can be copied by hand *@
-    <input class="tcn-input tcn-sharefallback" type="text" readonly value="@Url" />
+    @* the browser refused to copy - offer it in a dialog rather than dropping a
+       white input into the middle of the coloured header *@
+    <Modal Visible=@true
+           Footer="null"
+           Closable=@false
+           DestroyOnClose=@true
+           MaskClosable=@true
+           OnCancel=@(e => failed = false)
+           WrapClassName="tcn-sheet"
+           BodyStyle="padding:0"
+           Width="460">
+        <div class="tcn-sheet-head">
+            <div class="tcn-sheet-title">Copy the link</div>
+            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => failed = false)>✕</button>
+        </div>
+        <div class="tcn-sheet-body">
+            <div class="tcn-hint" style="margin-bottom:8px">
+                Your browser would not let the page write to the clipboard. Here is the link — select and copy it.
+            </div>
+            <input class="tcn-input" type="text" readonly value="@Url" />
+        </div>
+        <div class="tcn-sheet-foot">
+            <span style="flex:1 1 auto"></span>
+            <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => failed = false)>Done</button>
+        </div>
+    </Modal>
 }
 
 @code {

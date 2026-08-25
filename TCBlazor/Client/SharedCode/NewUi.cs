@@ -17,7 +17,9 @@ namespace TCBlazor.Client.SharedCode
             if (n.Length == 0) return "?";
             var parts = n.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length >= 2) return $"{parts[0][0]}{parts[1][0]}";
-            return n.Length >= 2 ? n.Substring(0, 2) : n.Substring(0, 1);
+            // first + last beats first + second: "Родители" and "Рома" both used to read "РО"
+            var w = parts[0];
+            return w.Length >= 2 ? $"{w[0]}{w[w.Length - 1]}" : w.Substring(0, 1);
         }
 
         /// <summary>Stable pastel-ish colour derived from a name, so a person keeps the same avatar everywhere.</summary>
