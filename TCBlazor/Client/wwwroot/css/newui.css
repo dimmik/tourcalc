@@ -1365,12 +1365,24 @@ textarea.tcn-input {
         padding-bottom: 0;
     }
 
-    /* head pinned, body scrolls, footer parked at the bottom of the screen */
+    /* head pinned, body scrolls, footer parked at the bottom of the screen.
+       100vh on a phone is the height WITHOUT the browser address bar, i.e. taller than
+       what you can actually see - that pushed the Save button below the fold. dvh is
+       the height that is really visible; vh stays as the fallback for old browsers. */
     .tcn-sheet .ant-modal-content {
         border-radius: 0;
         height: 100vh;
+        height: 100dvh;
         display: flex;
         flex-direction: column;
+    }
+
+    /* where dvh works the sheet fits exactly, so the outer scroll is only a way to
+       lose the footer again; where it does not, keep scrolling as the escape hatch */
+    @supports (height: 100dvh) {
+        .tcn-sheet .ant-modal-wrap {
+            overflow: hidden;
+        }
     }
 
     .tcn-sheet .ant-modal-body {
