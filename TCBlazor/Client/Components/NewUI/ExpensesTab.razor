@@ -324,7 +324,7 @@ else
                             </button>
                         }
                         <SpendingEditInModal spending=@s tour=@RawTour @key=@($"sp_ed_{s.GUID}") />
-                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" title="Delete" @onclick=@(() => Delete(s))>✕</button>
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" title="Delete" aria-label="Delete" @onclick=@(() => Delete(s))><TcIcon Name="close" /></button>
                     }
                 </div>
             </div>

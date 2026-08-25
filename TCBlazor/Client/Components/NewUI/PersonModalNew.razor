@@ -19,7 +19,7 @@
 
         <div class="tcn-sheet-head">
             <div class="tcn-sheet-title">@(IsAdding ? "Add person" : $"Edit {Person?.Name}")</div>
-            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => OnCancel.InvokeAsync())>✕</button>
+            <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => OnCancel.InvokeAsync())><TcIcon Name="close" /></button>
         </div>
 
         <div class="tcn-sheet-body">

@@ -2725,3 +2725,17 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
     display: block;
     margin-top: 1px;
 }
+
+/* drawn icons - no dependency on which glyphs the phone's font happens to have */
+.tcn-icon {
+    width: 17px;
+    height: 17px;
+    display: block;
+    flex: 0 0 auto;
+}
+
+.tcn-sheet-x .tcn-icon {
+    width: 15px;
+    height: 15px;
+    margin: 0 auto;
+}
