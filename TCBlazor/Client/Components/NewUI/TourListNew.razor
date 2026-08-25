@@ -5,7 +5,7 @@
 <div class="tcn-toolbar">
     <div class="tcn-search">
         <span class="tcn-search-icon">🔎</span>
-        <input type="text" placeholder="Find a tour" value="@search"
+        <input type="text" placeholder="Find a tour or a person" value="@search"
                @oninput=@(e => search = e.Value?.ToString() ?? "") />
         @if (!string.IsNullOrEmpty(search))
         {
@@ -98,6 +98,11 @@ else
                         <span>@tour.DateCreated.ToString("dd.MM.yyyy")</span>
                         <span>·</span>
                         <span>@tour.Duration days</span>
+                        @if (tour.Persons?.Any() ?? false)
+                        {
+                            <span>·</span>
+                            <span title="@string.Join(", ", tour.Persons.Select(p => p.Name))">@tour.Persons.Count people</span>
+                        }
                     </div>
                     <div class="tcn-tour-badges">
                         @if (tour.IsFinalizing)
@@ -124,7 +129,7 @@ else
                     </label>
                     <span style="flex:1 1 auto"></span>
                     <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => editingId = editingId == tour.Id ? null : tour.Id)>
-                        Rename
+                        Edit
                     </button>
                     <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-ghost"
                             @onclick=@(() => moreId = moreId == tour.Id ? null : tour.Id)>
@@ -219,7 +224,10 @@ else
         var q = search.Trim();
         if (q.Length > 0)
         {
-            res = res.Where(t => (t.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase));
+            // searching by who is in the tour is often easier than remembering its name
+            res = res.Where(t =>
+                (t.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (t.Persons ?? new List<Person>()).Any(p => (p.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)));
         }
         return res;
     }

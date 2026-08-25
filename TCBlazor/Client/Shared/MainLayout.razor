@@ -23,53 +23,58 @@
 
         if (uiMode.IsNew && (LoggingIn || engine.Auth.Type == "None"))
         {
-            @* the first screen anyone sees - worth more than a bare input *@
-            <Modal Visible=@true
-                   Footer="null"
-                   Closable=@false
-                   MaskClosable=@false
-                   Keyboard=@false
-                   WrapClassName="tcn-sheet tcn-login"
-                   BodyStyle="padding:0"
-                   Width="420">
-                <div class="tcn-sheet-head">
-                    <span class="tcn-login-logo">🧭</span>
-                    <div class="tcn-sheet-title">Tourcalc</div>
-                </div>
-                <div class="tcn-sheet-body">
-                    <p class="tcn-login-lead">Enter the access code for your tour to continue.</p>
-                    @if (loginError)
-                    {
-                        <div class="tcn-errors">Could not log in. Check the code and your connection, then try again.</div>
-                    }
-                    <div class="tcn-field">
-                        <div class="tcn-label">Access code</div>
-                        <input class="tcn-input tcn-login-input" type="text" autocomplete="off"
-                               placeholder="your code" disabled=@LoggingIn
-                               @bind-value="code" @bind-value:event="oninput"
-                               @onkeyup=@(async (e) => {
-                                   if (e.Code == "Enter" || e.Code == "NumpadEnter") { await LogIn(); }
-                               }) />
+            @* A screen, not a dialog. As a modal it had no close button, no mask click and
+               no Esc - once you were logged out there was literally no way out of it, which on
+               a phone means force-closing the app. *@
+            <div class="tcn-shell">
+                <header class="tcn-topbar">
+                    <span class="tcn-brand" aria-hidden="true">🧭</span>
+                    <div class="tcn-topbar-title">Tourcalc</div>
+                    <div class="tcn-topbar-actions">
+                        <UiModeSwitch/>
                     </div>
-                    <div class="tcn-hint">Opening a tour link logs you in automatically - a code is only needed when you arrive without one.</div>
-                </div>
-                <div class="tcn-sheet-foot">
-                    <span style="flex:1 1 auto"></span>
-                    <button type="button" class="tcn-btn tcn-btn-primary"
-                            disabled=@(LoggingIn || string.IsNullOrWhiteSpace(code))
-                            @onclick="LogIn">
-                        @if (LoggingIn)
-                        {
-                            <span class="tcn-spin">⟳</span>
-                            <span>Logging in…</span>
-                        }
-                        else
-                        {
-                            <span>Log in</span>
-                        }
-                    </button>
-                </div>
-            </Modal>
+                </header>
+                <main class="tcn-main">
+                    <div class="tcn-signin">
+                        <div class="tcn-signin-card">
+                            <div class="tcn-signin-logo">🧭</div>
+                            <h1 class="tcn-signin-title">Tourcalc</h1>
+                            <p class="tcn-login-lead">Enter the access code for your tour to continue.</p>
+                            @if (loginError)
+                            {
+                                <div class="tcn-errors">Could not log in. Check the code and your connection, then try again.</div>
+                            }
+                            <div class="tcn-field">
+                                <div class="tcn-label">Access code</div>
+                                <input class="tcn-input tcn-login-input" type="text" autocomplete="off"
+                                       autocapitalize="off" spellcheck="false"
+                                       placeholder="your code" disabled=@LoggingIn
+                                       @bind-value="code" @bind-value:event="oninput"
+                                       @onkeyup=@(async (e) => {
+                                           if (e.Code == "Enter" || e.Code == "NumpadEnter") { await LogIn(); }
+                                       }) />
+                            </div>
+                            <button type="button" class="tcn-btn tcn-btn-primary tcn-btn-block"
+                                    disabled=@(LoggingIn || string.IsNullOrWhiteSpace(code))
+                                    @onclick="LogIn">
+                                @if (LoggingIn)
+                                {
+                                    <span class="tcn-spin">⟳</span>
+                                    <span>Logging in…</span>
+                                }
+                                else
+                                {
+                                    <span>Log in</span>
+                                }
+                            </button>
+                            <div class="tcn-hint" style="margin-top:12px">
+                                No code at hand? Opening a tour link logs you in by itself —
+                                ask whoever shares the tour to send it again.
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
         }
         else if (!LoggingIn)
         {
@@ -93,16 +98,17 @@
             {
                 <div class="tcn-shell">
                     <header class="tcn-topbar">
-                        <a class="tcn-brand" href="/tourlist" title="Tour list">🧭</a>
+                        <a class="tcn-brand" href="/tourlist" title="Tour list" aria-label="Tour list">🧭</a>
                         <div class="tcn-topbar-title" @onclick="OnTitleClick" title="@Title">@Title</div>
                         <div class="tcn-topbar-actions">
                             <SyncStatusComponent/>
                             <UpdateAvailableDetector/>
                             <UiModeSwitch/>
-                            <a class="tcn-iconbtn" href="/settings" title="Settings">⚙</a>
+                            <a class="tcn-iconbtn" href="/settings" title="Settings" aria-label="Settings">⚙</a>
                             <button type="button"
                                     class="tcn-iconbtn @(engine.Auth.IsMaster ? "tcn-danger" : "")"
                                     title=@(engine.Auth.IsMaster ? "Log out (master)" : "Log out")
+                                    aria-label="Log out"
                                     @onclick=@(async () => await LogOut())>⏻</button>
                         </div>
                     </header>

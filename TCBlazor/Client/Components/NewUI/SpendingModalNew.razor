@@ -67,7 +67,7 @@
                 {
                     <button type="button" class="tcn-pchip @(spending.FromGuid == p.GUID ? "is-on" : "")"
                             @key=@($"from_{p.GUID}") @onclick=@(() => SetFrom(p))>
-                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name)</span>
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name, tour)</span>
                         <span class="tcn-pchip-name">@(IsChild(p) ? "⤷ " : "")@p.Name</span>
                     </button>
                 }
@@ -93,7 +93,7 @@
                     {
                         <button type="button" class="tcn-pchip @(spending.ToGuid.Contains(p.GUID) ? "is-on" : "")"
                                 @key=@($"to_{p.GUID}") @onclick=@(() => ToggleTo(p))>
-                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name)</span>
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name, tour)</span>
                             <span class="tcn-pchip-name">@(IsChild(p) ? "⤷ " : "")@p.Name</span>
                         </button>
                     }

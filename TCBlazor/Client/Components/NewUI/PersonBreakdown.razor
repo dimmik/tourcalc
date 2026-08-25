@@ -11,9 +11,10 @@
     <span class="tcn-stat-label">@Label</span>
     <button type="button" class="tcn-statbtn @ValueClass" @onclick=@(() => open = true)>
         @NewUi.Money(HeadlineAmount)
-        @if (Kind == BreakdownKind.Balance && ShowWillPay)
+        @if (Kind == BreakdownKind.Balance && ShowOwnPart)
         {
-            <span class="tcn-statbtn-note">[@NewUi.Money(willPay)]</span>
+            @* bare brackets said nothing about what the second number was *@
+            <span class="tcn-statbtn-note">own @NewUi.Money(debt)</span>
         }
     </button>
 </div>
@@ -31,7 +32,7 @@
            Width="520">
 
         <div class="tcn-sheet-head">
-            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name)</span>
+            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name, tour)</span>
             <div class="tcn-sheet-title">@Title</div>
             <button type="button" class="tcn-sheet-x" title="Close" @onclick=@(() => open = false)>✕</button>
         </div>
@@ -72,6 +73,14 @@
     [Parameter]
     public int minMeaningfulAmount { get; set; }
 
+    /// <summary>Settlement figure, people this person pays for included. Computed by the parent.</summary>
+    [Parameter]
+    public long WillPay { get; set; }
+
+    /// <summary>Someone else pays for this person, so they hand nothing over themselves.</summary>
+    [Parameter]
+    public bool IsCovered { get; set; }
+
     private bool open = false;
     private bool willPayFlag;
     private long willPay;
@@ -82,7 +91,7 @@
     private string Label => Kind switch
     {
         BreakdownKind.Paid => "Paid",
-        BreakdownKind.Share => "Own share",
+        BreakdownKind.Share => "Charged",
         _ => "Balance",
     };
 
@@ -90,23 +99,24 @@
     {
         BreakdownKind.Paid => person.SpentInCents,
         BreakdownKind.Share => person.ReceivedInCents,
-        _ => debt,
+        // the settlement figure is what actually changes hands, unless somebody else pays
+        _ => IsCovered ? debt : WillPay,
     };
 
-    private bool ShowWillPay =>
-        string.IsNullOrWhiteSpace(person.ParentId) && Math.Abs(willPay - debt) > 5;
+    private bool ShowOwnPart =>
+        !IsCovered && Math.Abs(willPay - debt) > minMeaningfulAmount;
 
     private string ValueClass => Kind switch
     {
         BreakdownKind.Paid => "is-paid",
         BreakdownKind.Share => "",
-        _ => debt > 0 ? "is-owing" : debt < 0 ? "is-owed" : "",
+        _ => HeadlineAmount > 0 ? "is-owing" : HeadlineAmount < 0 ? "is-owed" : "",
     };
 
     private string Title => Kind switch
     {
         BreakdownKind.Paid => $"{person.Name} paid {NewUi.Money(person.SpentInCents)} {CurName}",
-        BreakdownKind.Share => $"{person.Name}'s share is {NewUi.Money(person.ReceivedInCents)} {CurName}",
+        BreakdownKind.Share => $"{person.Name} was charged {NewUi.Money(person.ReceivedInCents)} {CurName}",
         _ => $"{person.Name} will {(willPayFlag ? "pay" : "collect")} {NewUi.Money(SettleTotal)} {CurName}",
     };
 
@@ -116,8 +126,11 @@
 
     protected override void OnParametersSet()
     {
+        // Paid and Charged do not use any of this, and the component sits three times
+        // on every person card - scanning all spendings three times per person was wasteful
+        if (Kind != BreakdownKind.Balance) return;
         (willPayFlag, settleSpendings) = CalcUtilities.GetPayOrReceiveSpendings(tour, person, minMeaningfulAmount);
-        willPay = tour.AmountAPersonWillPay(person);
+        willPay = WillPay;
     }
 
     private IEnumerable<SpendingInfo> Infos =>
@@ -238,7 +251,7 @@
                     <div class="tcn-brk-row @(willPayFlag ? "is-owing" : "is-owed")" @key=@($"bal_{s.GUID}")>
                         <div class="tcn-brk-main">
                             <div class="tcn-brk-title">
-                                <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(other?.Name)">@NewUi.Initials(other?.Name)</span>
+                                <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(other?.Name)">@NewUi.Initials(other?.Name, tour)</span>
                                 @(willPayFlag ? "to " : "from ")<b>@(other?.Name ?? "n/a")</b>
                             </div>
                         </div>

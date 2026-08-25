@@ -36,8 +36,7 @@
             Who pays whom <span class="tcn-count">@transfers.Count</span>
         </div>
         <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
-            Suggested payments — none of them has happened yet.
-            Hit <b>Mark paid</b> once the money really moves, and the row disappears.
+            Nothing here is paid yet — these are the payments that would square everyone up.
         </div>
         <div class="tcn-list">
             @foreach (var s in transfers)
@@ -46,10 +45,10 @@
                 var to = Tour.Persons.FirstOrDefault(p => p.GUID == s.ToGuid.FirstOrDefault());
                 <div class="tcn-settle" @key=@($"tr_{s.GUID}")>
                     <div class="tcn-settle-flow">
-                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name)</span>
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name, Tour)</span>
                         <span class="tcn-settle-who">@(from?.Name ?? "n/a")</span>
                         <span class="tcn-settle-arrow">→</span>
-                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name)</span>
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name, Tour)</span>
                         <span class="tcn-settle-who">@(to?.Name ?? "n/a")</span>
                     </div>
                     <div class="tcn-settle-amount">
@@ -92,10 +91,10 @@
                     var to = Tour.Persons.FirstOrDefault(p => p.GUID == s.ToGuid.FirstOrDefault());
                     <div class="tcn-settle" @key=@($"ftr_{s.GUID}")>
                         <div class="tcn-settle-flow">
-                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name)</span>
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name, Tour)</span>
                             <span class="tcn-settle-who">@(from?.Name ?? "n/a")</span>
                             <span class="tcn-settle-arrow">→</span>
-                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name)</span>
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name, Tour)</span>
                             <span class="tcn-settle-who">@(to?.Name ?? "n/a")</span>
                         </div>
                         <div class="tcn-settle-amount">@NewUi.Money(s.AmountInCurrentCurrency(Tour))</div>
@@ -120,7 +119,7 @@
             {
                 <div style="margin-bottom: 12px;" @key=@($"bal_{b.person.GUID}")>
                     <div class="tcn-bal-row">
-                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(b.person.Name)">@NewUi.Initials(b.person.Name)</span>
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(b.person.Name)">@NewUi.Initials(b.person.Name, Tour)</span>
                         <span class="tcn-bal-name">@b.person.Name</span>
                         <span class="tcn-bal-amount @(b.amount > 0 ? "tcn-neg" : b.amount < 0 ? "tcn-pos" : "")">
                             <Explain Enabled=@Explainable Title=@($"{b.person.Name}: how this balance is made")
@@ -177,24 +176,42 @@
 
     private long MinMeaningful => Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
 
+    // the threshold is hoisted: as a property it was re-evaluated for every element,
+    // and each evaluation reaches into Tour.Currency and scans all currencies
     private IEnumerable<Spending> Transfers()
-        => (Tour?.Spendings ?? new List<Spending>())
+    {
+        var min = MinMeaningful;
+        return (Tour?.Spendings ?? new List<Spending>())
             .Where(s => s.Planned && !s.Description.StartsWith("Family"))
-            .Where(s => Math.Abs(s.AmountInCurrentCurrency(Tour)) > MinMeaningful)
-            .OrderByDescending(s => s.AmountInCurrentCurrency(Tour));
+            .Select(s => (sp: s, amount: s.AmountInCurrentCurrency(Tour)))
+            .Where(x => Math.Abs(x.amount) > min)
+            .OrderByDescending(x => x.amount)
+            .Select(x => x.sp)
+            .ToList();
+    }
 
     private IEnumerable<Spending> FamilyTransfers()
-        => (Tour?.Spendings ?? new List<Spending>())
+    {
+        var min = MinMeaningful;
+        return (Tour?.Spendings ?? new List<Spending>())
             .Where(s => s.Planned && s.Description.StartsWith("Family"))
-            .Where(s => Math.Abs(s.AmountInCurrentCurrency(Tour)) > MinMeaningful)
-            .OrderByDescending(s => s.AmountInCurrentCurrency(Tour));
+            .Select(s => (sp: s, amount: s.AmountInCurrentCurrency(Tour)))
+            .Where(x => Math.Abs(x.amount) > min)
+            .OrderByDescending(x => x.amount)
+            .Select(x => x.sp)
+            .ToList();
+    }
 
     private IEnumerable<(Person person, long amount)> Balances()
-        => (Tour?.Persons ?? new List<Person>())
+    {
+        var min = MinMeaningful;
+        return (Tour?.Persons ?? new List<Person>())
             .Where(p => string.IsNullOrWhiteSpace(p.ParentId))
             .Select(p => (person: p, amount: Tour.AmountAPersonWillPay(p)))
-            .Where(pa => Math.Abs(pa.amount) > MinMeaningful)
-            .OrderByDescending(pa => pa.amount);
+            .Where(pa => Math.Abs(pa.amount) > min)
+            .OrderByDescending(pa => pa.amount)
+            .ToList();
+    }
 
     private static int Pct(long value, long scale) => (int)Math.Round(Math.Min(100.0, value * 100.0 / scale));
 
@@ -214,14 +231,14 @@
             {
                 <div>@from.Name paid in total</div>
                 <div>@NewUi.Money(from.SpentInCents)</div>
-                <div>@from.Name‘s own share</div>
+                <div>@from.Name was charged</div>
                 <div>@NewUi.Money(from.ReceivedInCents)</div>
             }
             @if (to != null)
             {
                 <div>@to.Name paid in total</div>
                 <div>@NewUi.Money(to.SpentInCents)</div>
-                <div>@to.Name‘s own share</div>
+                <div>@to.Name was charged</div>
                 <div>@NewUi.Money(to.ReceivedInCents)</div>
             }
         </div>
@@ -239,7 +256,7 @@
         <div class="tcn-facts">
             <div>Paid for the group</div>
             <div>@NewUi.Money(p.SpentInCents)</div>
-            <div>Own share of everything</div>
+            <div>Charged for their part</div>
             <div>@NewUi.Money(p.ReceivedInCents)</div>
             <div>Difference</div>
             <div>@NewUi.Money(p.Debt())</div>
@@ -252,8 +269,8 @@
             <div>@NewUi.Money(Tour.AmountAPersonWillPay(p))</div>
         </div>
         <div class="tcn-explain-note">
-            Own share minus what they paid. A positive number means they consumed more than they
-            put in, so they owe;
+            What they were charged minus what they paid. A positive number means their part of
+            the spending cost more than they put in, so they owe;
             @if (kids.Any())
             {
                 <span> the people they cover are rolled into their net figure;</span>

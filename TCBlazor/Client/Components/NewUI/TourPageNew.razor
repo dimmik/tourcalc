@@ -25,34 +25,15 @@
 <div class="tcn-hero">
     <div class="tcn-hero-top">
         <div class="tcn-hero-name">@Tour.Name</div>
-        <button type="button" class="tcn-iconbtn" title="Reload from the server"
+        <TourEditModal Tour=@RawTour @key=@($"ed_{Tour.Id}") />
+        <button type="button" class="tcn-iconbtn" title="Reload from the server" aria-label="Reload from the server"
                 disabled=@reloading @onclick=@Reload>
             <span class="@(reloading ? "tcn-spin" : "")">⟳</span>
         </button>
     </div>
     <div class="tcn-hero-sub">
-        <span title="@($"{StoredDt:yyyy-MM-dd HH:mm:ss}")">
-            @if (reloading)
-            {
-                <span class="tcn-refresh-note">asking the server…</span>
-            }
-            else if (outcome == RefreshOutcome.Updated)
-            {
-                <span class="tcn-refresh-note is-ok">✓ new data received</span>
-            }
-            else if (outcome == RefreshOutcome.UpToDate)
-            {
-                <span class="tcn-refresh-note is-ok">✓ server has nothing newer</span>
-            }
-            else if (outcome == RefreshOutcome.Failed)
-            {
-                <span class="tcn-refresh-note is-bad">✕ server did not answer — showing the local copy</span>
-            }
-            else
-            {
-                <span>@(IsFresh ? "from server" : "local copy") · @Ago(StoredDt)</span>
-            }
-        </span>
+        <TourFreshness IsFresh=@IsFresh StoredDt=@StoredDt Reloading=@reloading
+                       Outcome=@((TourFreshness.RefreshOutcome)(int)outcome) />
         <span>·</span>
         <span><CurrenciesModalNew tour=@RawTour @key=@($"cur_{Tour.Id}") /></span>
         <span>·</span>
@@ -65,7 +46,7 @@
     @if (RawTour.IsMultiCurrency())
     {
         <div class="tcn-hero-sub" style="margin-top:8px">
-            <span>show amounts in</span>
+            <span title="Only changes what you see - the tour itself is not touched">show amounts in</span>
             <select class="tcn-input" style="width:auto; padding:4px 8px; font-size:13px;"
                     value="@(SelectedCurrency?.Id ?? "")"
                     @onchange=@OnCurrencyPicked>
@@ -126,21 +107,21 @@
     </div>
 </div>
 
-<nav class="tcn-tabs">
-    <button type="button" class="tcn-tab @(tab == Tab.Balance ? "is-active" : "")" @onclick=@(() => tab = Tab.Balance)>
+<nav class="tcn-tabs" role="tablist" aria-label="Tour sections">
+    <button type="button" role="tab" aria-selected=@(tab == Tab.Balance) class="tcn-tab @(tab == Tab.Balance ? "is-active" : "")" @onclick=@(() => tab = Tab.Balance)>
         Balance
         @if (openTransfers.Any())
         {
             <span class="tcn-tab-badge">@openTransfers.Count</span>
         }
     </button>
-    <button type="button" class="tcn-tab @(tab == Tab.People ? "is-active" : "")" @onclick=@(() => tab = Tab.People)>
+    <button type="button" role="tab" aria-selected=@(tab == Tab.People) class="tcn-tab @(tab == Tab.People ? "is-active" : "")" @onclick=@(() => tab = Tab.People)>
         People <span class="tcn-tab-badge">@Tour.Persons.Count</span>
     </button>
-    <button type="button" class="tcn-tab @(tab == Tab.Expenses ? "is-active" : "")" @onclick=@(() => tab = Tab.Expenses)>
+    <button type="button" role="tab" aria-selected=@(tab == Tab.Expenses) class="tcn-tab @(tab == Tab.Expenses ? "is-active" : "")" @onclick=@(() => tab = Tab.Expenses)>
         Expenses <span class="tcn-tab-badge">@realSpendings.Count</span>
     </button>
-    <button type="button" class="tcn-tab @(tab == Tab.Stats ? "is-active" : "")" @onclick=@(() => tab = Tab.Stats)>
+    <button type="button" role="tab" aria-selected=@(tab == Tab.Stats) class="tcn-tab @(tab == Tab.Stats ? "is-active" : "")" @onclick=@(() => tab = Tab.Stats)>
         Stats
     </button>
 </nav>
@@ -162,7 +143,7 @@ else
     <StatsTab Tour=@Tour />
 }
 
-<button type="button" class="tcn-fab" @onclick=@AddSpending>
+<button type="button" class="tcn-fab" aria-label="Add an expense" @onclick=@AddSpending>
     <span style="font-size:18px; line-height:1">＋</span> Spend
 </button>
 
@@ -198,6 +179,15 @@ else
 
     private bool Explainable => Settings.Explain_Numbers;
 
+    /// <summary>Rounding a small slice to "0%" reads as "nothing", which it is not.</summary>
+    private static string Percent(long part, long whole)
+    {
+        if (whole == 0) return "0%";
+        var p = part * 100.0 / whole;
+        if (p > 0 && p < 1) return "<1%";
+        return $"{Math.Round(p)}%";
+    }
+
     private RenderFragment TotalSpentDetails => __builder =>
     {
         var counted = Tour.Spendings.Where(s => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc)).ToList();
@@ -207,7 +197,7 @@ else
         <div class="tcn-facts">
             @foreach (var c in byCat)
             {
-                <div>@c.Cat <span class="tcn-hint">@(total == 0 ? 0 : c.Sum * 100 / total)%</span></div>
+                <div>@c.Cat <span class="tcn-hint">@Percent(c.Sum, total)</span></div>
                 <div>@NewUi.Money(c.Sum)</div>
             }
         </div>
@@ -233,7 +223,7 @@ else
                         <span class="tcn-hint"> · paid for by @NewUi.PersonName(Tour, p.ParentId)</span>
                     }
                 </div>
-                <div>@p.Weight <span class="tcn-hint">@(totalWeight == 0 ? 0 : p.Weight * 100 / totalWeight)%</span></div>
+                <div>@p.Weight <span class="tcn-hint">@Percent(p.Weight, totalWeight)</span></div>
             }
         </div>
         <div class="tcn-explain-note">
@@ -304,7 +294,6 @@ else
     private enum Tab { Balance, People, Expenses, Stats }
     private Tab tab = Tab.Expenses;
     private bool reloading = false;
-    private CancellationTokenSource? tickCts;
 
     private enum RefreshOutcome { None, Updated, UpToDate, Failed }
     private RefreshOutcome outcome = RefreshOutcome.None;
@@ -388,45 +377,14 @@ else
             t.Duration, t.IsFinalizing, t.IsArchived, t.TourCurrencyId);
     }
 
-    /// <summary>Relative age - an absolute HH:mm looks identical after two refreshes a minute apart.</summary>
-    private static string Ago(DateTimeOffset dt)
-    {
-        var d = DateTimeOffset.Now - dt;
-        if (d.TotalSeconds < 45) return "just now";
-        if (d.TotalMinutes < 60) return $"{(int)d.TotalMinutes} min ago";
-        if (d.TotalHours < 24) return $"{(int)d.TotalHours} h ago";
-        return dt.ToString("dd.MM HH:mm");
-    }
-
     protected override void OnInitialized()
     {
         engine.onTourLoaded += OnAnyTourLoaded;
-        // keeps "just now" from ageing into a lie while the page stays open
-        tickCts = new CancellationTokenSource();
-        _ = TickLoop(tickCts.Token);
-    }
-
-    private async Task TickLoop(CancellationToken ct)
-    {
-        try
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                await Task.Delay(30000, ct);
-                await InvokeAsync(StateHasChanged);
-            }
-        }
-        catch (TaskCanceledException)
-        {
-            // component gone
-        }
     }
 
     public void Dispose()
     {
         engine.onTourLoaded -= OnAnyTourLoaded;
-        tickCts?.Cancel();
-        tickCts?.Dispose();
     }
 
     private async Task AddSpending()

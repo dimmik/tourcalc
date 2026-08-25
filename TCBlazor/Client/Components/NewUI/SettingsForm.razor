@@ -4,6 +4,11 @@
    raw property names, which say nothing about what a setting actually does.
    Each row saves immediately, same as the classic form did. *@
 
+@if (justSaved)
+{
+    <div class="tcn-savednote">✓ saved</div>
+}
+
 <div class="tcn-section">
     <div class="tcn-section-title">Balance &amp; expenses</div>
     <div class="tcn-card">
@@ -162,10 +167,12 @@
     [Parameter]
     public EventCallback<UISettings> OnSave { get; set; }
 
+    private bool justSaved = false;
+
     private async Task SetBool(Action<bool> apply, ChangeEventArgs e)
     {
         apply((bool)(e.Value ?? false));
-        await OnSave.InvokeAsync(Settings);
+        await Save();
     }
 
     private async Task SetInt(Action<int> apply, ChangeEventArgs e)
@@ -173,7 +180,18 @@
         if (int.TryParse(e.Value?.ToString(), out var v))
         {
             apply(v);
-            await OnSave.InvokeAsync(Settings);
+            await Save();
         }
+    }
+
+    // every row saves on change, and until now it did so completely silently
+    private async Task Save()
+    {
+        await OnSave.InvokeAsync(Settings);
+        justSaved = true;
+        StateHasChanged();
+        await Task.Delay(1400);
+        justSaved = false;
+        StateHasChanged();
     }
 }

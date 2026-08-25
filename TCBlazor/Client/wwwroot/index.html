@@ -84,6 +84,19 @@
             }
         };
         // /copy
+        // new UI: the floating action button steps aside while scrolling so it stops
+        // covering the buttons of whatever row happens to be under it
+        (function () {
+            var t = null;
+            window.addEventListener("scroll", function () {
+                var fab = document.querySelector(".tcn-fab");
+                if (!fab) return;
+                fab.classList.add("is-tucked");
+                clearTimeout(t);
+                t = setTimeout(function () { fab.classList.remove("is-tucked"); }, 320);
+            }, { passive: true });
+        })();
+        // /fab
         // new UI: toggles a body class so the page background matches the active interface
         window.tcSetUiMode = function (isNew) {
             if (isNew) {

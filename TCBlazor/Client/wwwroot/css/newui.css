@@ -595,26 +595,6 @@ body.tcn-on {
     margin-bottom: 1px;
 }
 
-/* Ant buttons that the reused legacy detail components render inside a stat */
-.tcn-stat .ant-btn {
-    width: 100%;
-    padding: 0 4px;
-    border-radius: var(--tcn-radius-sm) !important;
-    border-color: var(--tcn-border) !important;
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.tcn-stat > div {
-    height: auto !important;
-}
-
-/* the legacy "received" component paints itself red - here it is just a number */
-.tcn-stat--share .ant-btn {
-    color: var(--tcn-text) !important;
-}
-
 .tcn-person-actions {
     display: flex;
     gap: 6px;
@@ -1149,6 +1129,8 @@ body.tcn-on {
 .tcn-summary {
     display: flex;
     flex-wrap: wrap;
+    /* baseline, so the smaller "uncounted" note sits on the same line as the rest */
+    align-items: baseline;
     gap: 6px 14px;
     padding: 10px 12px;
     margin-bottom: 10px;
@@ -1448,6 +1430,12 @@ textarea.tcn-input {
     margin-top: 6px;
     font-size: 12px;
     color: var(--tcn-muted);
+}
+
+/* ...but as a direct flex item that margin would drop it below its neighbours */
+.tcn-summary > .tcn-hint,
+.tcn-row > .tcn-hint {
+    margin-top: 0;
 }
 
 .tcn-linkbtn {
@@ -2454,13 +2442,6 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
     }
 }
 
-/* the copy fallback field, only shown when the browser blocks the clipboard */
-.tcn-sharefallback {
-    display: block;
-    margin-top: 6px;
-    font-size: 12px;
-}
-
 /* what the refresh button actually achieved - stated plainly, then it fades away */
 .tcn-refresh-note {
     display: inline-block;
@@ -2558,3 +2539,177 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
         border-color: var(--tcn-green);
         color: #fff;
     }
+
+/* the currencies editor trigger in the hero - a control, not a value */
+.tcn-hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 9px;
+    border: 1px solid rgba(255, 255, 255, .45);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    line-height: 18px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+    .tcn-hero-chip:hover {
+        background: rgba(255, 255, 255, .28);
+    }
+
+/* ---- review fixes: layout ------------------------------------------------ */
+
+/* 2.1 names in a settle row were squeezed to "Родите… → Ро…" on a phone;
+   below 520px the amount and the button move to their own line instead */
+@media (max-width: 520px) {
+    .tcn-settle {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+
+    .tcn-settle-flow {
+        flex: 1 1 100%;
+    }
+
+    .tcn-settle-amount {
+        margin-left: 34px;
+    }
+
+    .tcn-settle .tcn-btn {
+        margin-left: auto;
+    }
+}
+
+/* 2.4 the counters used to vanish below 460px along with the tab labels;
+   keep the one that is selected, which is the one you are reading */
+@media (max-width: 459px) {
+    .tcn-tab:not(.is-active) .tcn-tab-badge {
+        display: none;
+    }
+
+    .tcn-tab {
+        padding-left: 2px;
+        padding-right: 2px;
+    }
+}
+
+/* 2.2 the floating button used to sit on top of row actions; it steps aside
+   while the page is being scrolled and comes back when it stops */
+.tcn-fab {
+    transition: transform .18s ease, opacity .18s ease, box-shadow .12s ease;
+}
+
+    .tcn-fab.is-tucked {
+        transform: translateY(90px);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+/* 5.2 the balance bars were red/green only - now they also point somewhere */
+.tcn-balancebar-neg > i::before,
+.tcn-balancebar-pos > i::before {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    line-height: 1;
+    color: #fff;
+    font-weight: 700;
+}
+
+.tcn-balancebar-neg > i::before {
+    content: "←";
+    left: 3px;
+}
+
+.tcn-balancebar-pos > i::before {
+    content: "→";
+    right: 3px;
+}
+
+/* settings save confirmation - a toast, so it does not depend on where you scrolled */
+.tcn-savednote {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 60;
+    padding: 8px 18px;
+    border-radius: 999px;
+    background: var(--tcn-green-soft);
+    border: 1px solid #c4ece0;
+    color: var(--tcn-green);
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: var(--tcn-shadow-lg);
+}
+
+/* keeps the trailing blank currency row aligned with the ones that have a remove button */
+.tcn-currow-spacer {
+    flex: 0 0 auto;
+    width: 30px;
+}
+
+/* ---- sign-in screen ------------------------------------------------------
+   Deliberately a screen and not a modal: a dialog with nothing behind it and
+   no way to dismiss is a trap, especially in a standalone PWA. */
+
+.tcn-signin {
+    display: flex;
+    justify-content: center;
+    padding-top: 8vh;
+}
+
+.tcn-signin-card {
+    width: 100%;
+    max-width: 380px;
+    padding: 24px 22px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+    text-align: left;
+}
+
+.tcn-signin-logo {
+    font-size: 34px;
+    line-height: 1;
+    text-align: center;
+}
+
+.tcn-signin-title {
+    margin: 6px 0 10px 0;
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+    color: var(--tcn-text);
+}
+
+/* own debt shown next to the family total when the two differ */
+.tcn-person-owe {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.tcn-person-own {
+    font-size: 11px;
+    color: var(--tcn-muted);
+    white-space: nowrap;
+}
+
+/* the balance cell can carry a second line now, so it must not clip it */
+.tcn-statbtn {
+    white-space: normal;
+}
+
+.tcn-statbtn-note {
+    display: block;
+    margin-top: 1px;
+}

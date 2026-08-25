@@ -24,6 +24,14 @@
     }
 </div>
 
+@if (Tour.Persons.Any())
+{
+    <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
+        <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost ·
+        <b>Balance</b> — the difference. Tap any of the three for the itemised list.
+    </div>
+}
+
 @if (!Tour.Persons.Any())
 {
     <div class="tcn-empty">
@@ -39,9 +47,16 @@ else
         {
             var isChild = !string.IsNullOrWhiteSpace(person.ParentId);
             var debt = Debt(person);
+            // what actually changes hands: for someone who pays for others it also
+            // carries their people, and that is a different number from their own debt
+            var family = Settle(person);
+            // someone who is paid for never hands anything over themselves - showing them as
+            // "settled" while they clearly owe something was confusing, so they show their own debt
+            var shown = isChild ? debt : family;
+            var splitFamily = !isChild && Math.Abs(family - debt) > _minMeaningful;
             <div class="tcn-person @(isChild ? "is-child" : "")" @key=@($"pers_{person.GUID}")>
                 <div class="tcn-person-head">
-                    <span class="tcn-avatar" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name)</span>
+                    <span class="tcn-avatar" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name, Tour)</span>
                     <div class="tcn-person-id">
                         <div class="tcn-person-name">@person.Name</div>
                         <div class="tcn-person-meta">
@@ -58,22 +73,36 @@ else
                             }
                         </div>
                     </div>
-                    <Explain Enabled=@Explainable Title=@($"{person.Name}: where this comes from")
-                             Headline=@(debt > 0 ? $"owes {NewUi.Money(debt)}" : debt < 0 ? $"gets {NewUi.Money(-debt)}" : "settled")
-                             Details=@PersonDebtDetails(person, debt)>
-                        @if (debt > 0)
+                    <div class="tcn-person-owe">
+                        <Explain Enabled=@Explainable Title=@($"{person.Name}: where this comes from")
+                                 Headline=@(shown > 0 ? $"owes {NewUi.Money(shown)}" : shown < 0 ? $"gets {NewUi.Money(-shown)}" : "settled")
+                                 Details=@PersonDebtDetails(person, debt, family)>
+                            @if (shown > 0)
+                            {
+                                <span class="tcn-chip @(isChild ? "" : "tcn-chip-red")"
+                                      title=@(isChild ? $"Settled through {NewUi.PersonName(Tour, person.ParentId)}" : "")>
+                                    owes @NewUi.Money(shown)
+                                </span>
+                            }
+                            else if (shown < 0)
+                            {
+                                <span class="tcn-chip @(isChild ? "" : "tcn-chip-green")"
+                                      title=@(isChild ? $"Settled through {NewUi.PersonName(Tour, person.ParentId)}" : "")>
+                                    gets @NewUi.Money(-shown)
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="tcn-chip">settled</span>
+                            }
+                        </Explain>
+                        @if (splitFamily)
                         {
-                            <span class="tcn-chip tcn-chip-red">owes @NewUi.Money(debt)</span>
+                            <span class="tcn-person-own" title="Their own debt, before the people they pay for">
+                                @(debt > 0 ? $"own {NewUi.Money(debt)}" : debt < 0 ? $"own −{NewUi.Money(-debt)}" : "own 0")
+                            </span>
                         }
-                        else if (debt < 0)
-                        {
-                            <span class="tcn-chip tcn-chip-green">gets @NewUi.Money(-debt)</span>
-                        }
-                        else
-                        {
-                            <span class="tcn-chip">settled</span>
-                        }
-                    </Explain>
+                    </div>
                 </div>
 
                 <div class="tcn-person-stats">
@@ -84,7 +113,7 @@ else
                                      tour=@Tour person=@person debt="debt" minMeaningfulAmount=@MinMeaningful
                                      @key=@($"share_{person.GUID}") />
                     <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Balance"
-                                     tour=@Tour person=@person debt="debt" minMeaningfulAmount=@MinMeaningful
+                                     tour=@Tour person=@person debt="debt" WillPay="family" IsCovered="isChild" minMeaningfulAmount=@MinMeaningful
                                      @key=@($"bal_{person.GUID}") />
                 </div>
 
@@ -117,12 +146,27 @@ else
     private bool _isModalVisible = false;
     private Person _personToEdit = new();
 
-    private int MinMeaningful => Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+    private int _minMeaningful = 0;
+    private int MinMeaningful => _minMeaningful;
+
+    protected override void OnParametersSet()
+    {
+        // computed once per render instead of twice per person
+        _minMeaningful = Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+    }
+
+    /// <summary>What this person hands over at settle-up, people they pay for included.</summary>
+    private long Settle(Person p)
+    {
+        var v = Tour.AmountAPersonWillPay(p);
+        return Math.Abs(v) > _minMeaningful ? v : 0;
+    }
 
     private long Debt(Person p)
     {
         // hide amounts that are only rounding noise
-        return Math.Abs(p.Debt()) > MinMeaningful ? p.Debt() : 0;
+        var d = p.Debt();
+        return Math.Abs(d) > _minMeaningful ? d : 0;
     }
 
     private bool Explainable => Settings.Explain_Numbers;
@@ -160,24 +204,24 @@ else
         </div>
     };
 
-    private RenderFragment PersonDebtDetails(Person p, long d) => __builder =>
+    private RenderFragment PersonDebtDetails(Person p, long d, long family) => __builder =>
     {
         var cur = Tour.CurrencyNameEmptyIfSingleCurrency();
         var kids = Tour.Persons.Where(x => x.ParentId == p.GUID).ToList();
         <div class="tcn-facts">
             <div>Paid for the group</div>
             <div>@NewUi.Money(p.SpentInCents)</div>
-            <div>Own share of everything</div>
+            <div>Charged for their part</div>
             <div>@NewUi.Money(p.ReceivedInCents)</div>
-            <div>Own share − paid</div>
+            <div>Charged − paid</div>
             <div>@NewUi.Money(p.Debt())</div>
             @foreach (var k in kids)
             {
                 <div>@k.Name (paid for by @p.Name)</div>
                 <div>@NewUi.Money(k.Debt())</div>
             }
-            <div>Net to settle</div>
-            <div>@NewUi.Money(Tour.AmountAPersonWillPay(p))</div>
+            <div><b>Hands over at settle-up</b></div>
+            <div><b>@NewUi.Money(family)</b></div>
         </div>
         <div class="tcn-explain-note">
             @if (d == 0)
@@ -192,7 +236,14 @@ else
             {
                 <span>@p.Name paid more than they used, so the group owes them the difference.</span>
             }
-            The three cells below — Paid, Own share and Balance — open the full itemised lists.
+            @if (Math.Abs(family - d) > _minMeaningful)
+            {
+                <span>
+                    <b>@NewUi.Money(d)</b> of that is @p.Name‘s own;
+                    the rest belongs to the people they pay for, and it is settled through them.
+                </span>
+            }
+            The three cells below — Paid, Charged and Balance — open the full itemised lists.
         </div>
     };
 

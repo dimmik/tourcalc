@@ -36,7 +36,7 @@
             <div class="tcn-field">
                 <div class="tcn-label">Name</div>
                 <div class="tcn-namerow">
-                    <span class="tcn-avatar" style="background:@NewUi.AvatarColor(_person.Name)">@NewUi.Initials(_person.Name)</span>
+                    <span class="tcn-avatar" style="background:@NewUi.AvatarColor(_person.Name)">@NewUi.Initials(_person.Name, Tour)</span>
                     <input class="tcn-input" type="text" placeholder="Who is joining?"
                            @bind-value=@_person.Name @bind-value:event="oninput" />
                 </div>
@@ -55,7 +55,10 @@
                     <span class="tcn-hint" style="margin:0">custom</span>
                     <input class="tcn-input" style="width:100px" type="number" min="0" @bind-value=@_person.Weight />
                 </div>
-                <div class="tcn-hint">A full share is 100. Someone on 50 pays for half as much of everything shared.</div>
+                <div class="tcn-hint">
+                    A full share is 100. Someone on 50 pays for half as much of everything shared.
+                    A custom 0 means they pay for nothing at all.
+                </div>
             </div>
 
             <div class="tcn-field">
@@ -69,7 +72,7 @@
                     {
                         <button type="button" class="tcn-pchip @(_person.ParentId == p.GUID ? "is-on" : "")"
                                 @key=@($"par_{p.GUID}") @onclick=@(() => _person.ParentId = p.GUID)>
-                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name)</span>
+                            <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(p.Name)">@NewUi.Initials(p.Name, Tour)</span>
                             <span class="tcn-pchip-name">@p.Name</span>
                         </button>
                     }
@@ -113,7 +116,6 @@
         (75, "75"),
         (50, "Half · 50"),
         (25, "25"),
-        (0, "Free · 0"),
     };
 
     private IEnumerable<Person> Parents()
