@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    Tourcalc "new UI" design system.
    Everything here is namespaced with .tcn- so it never collides with
    the legacy markup or with Ant Design's own classes.
@@ -1020,7 +1020,7 @@ body.tcn-on {
     border: 1px solid var(--tcn-border);
     border-radius: var(--tcn-radius);
     box-shadow: var(--tcn-shadow);
-    border-left: 4px solid var(--tcn-border);
+    border-left: 4px solid var(--tcn-status-line, var(--tcn-border));
 }
 
     .tcn-sp + .tcn-sp {
@@ -1028,25 +1028,39 @@ body.tcn-on {
     }
 
     .tcn-sp.tcn-sp-planned {
-        border-left-color: #f59e0b;
+        --tcn-status-line: #f59e0b;
         background: var(--tcn-amber-soft);
     }
 
     .tcn-sp.tcn-sp-family {
-        border-left-color: #06b6d4;
+        --tcn-status-line: #06b6d4;
         background: var(--tcn-cyan-soft);
     }
 
     .tcn-sp.tcn-sp-dry {
-        border-left-color: #f97316;
+        --tcn-status-line: #f97316;
         background: #fff7ed;
         border-style: dashed;
     }
 
     .tcn-sp.tcn-sp-payback {
-        border-left-color: #10b981;
+        --tcn-status-line: #10b981;
         background: var(--tcn-green-soft);
     }
+
+/* A colour picked by hand marks a rare, out-of-the-ordinary expense, so it is loud on
+   purpose - it exists to make you stop and read the line. The status stripe on the left
+   keeps its own colour, so "draft" or "family" is not lost under the mark. */
+.tcn-sp.tcn-sp-marked {
+    background: var(--tcn-mark-bg);
+    border-color: var(--tcn-mark-line);
+    border-width: 2px;
+    border-left-width: 4px;
+    border-left-color: var(--tcn-status-line, var(--tcn-mark-line));
+    /* the extra border would make the row 2px taller than its neighbours */
+    padding: 9px 11px;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, .10);
+}
 
 .tcn-sp-body {
     flex: 1 1 auto;
