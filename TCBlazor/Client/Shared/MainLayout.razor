@@ -1,4 +1,4 @@
-@using AntDesign
+﻿@using AntDesign
 
 @inherits LayoutComponentBase
 @implements IDisposable
@@ -99,7 +99,7 @@
                 <div class="tcn-shell">
                     <header class="tcn-topbar">
                         <a class="tcn-brand" href="/tourlist" title="Tour list" aria-label="Tour list">🧭</a>
-                        <div class="tcn-topbar-title" @onclick="OnTitleClick" title="@Title">@Title</div>
+                        <a class="tcn-topbar-title" href="@TitleHref" title="@TopbarTitle">@TopbarTitle</a>
                         <div class="tcn-topbar-actions">
                             <SyncStatusComponent/>
                             <UpdateAvailableDetector/>
@@ -171,6 +171,7 @@
     private bool LoggingIn = false;
     private bool loginError = false;
     private string Title = "Wait...";
+    private bool titleReceived = false;
     private Tour? tour = null;
 
     protected override async Task OnInitializedAsync()
@@ -216,6 +217,7 @@
         if (type == "Title")
         {
             Title = payload as string ?? "";
+            titleReceived = true;
             StateHasChanged();
         }
         if (type == "Tour")
@@ -225,6 +227,11 @@
         }
         return Task.CompletedTask;
     }
+    /// <summary>"Wait..." is a placeholder for the classic header; the new one is never blank.</summary>
+    private string TopbarTitle => titleReceived && !string.IsNullOrWhiteSpace(Title) ? Title : "Tourcalc";
+
+    private string TitleHref => tour != null ? $"/tour/{tour.Id}" : "/tourlist";
+
     private void OnTitleChange()
     {
         StateHasChanged();

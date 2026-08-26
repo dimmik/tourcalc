@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @using TCalc.Logic
 @using TCalcCore.Engine
@@ -28,7 +28,10 @@
 {
     <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
         <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost ·
-        <b>Balance</b> — the difference. Tap any of the three for the itemised list.
+        <b>Balance</b> — the difference.@if (Explainable)
+        {
+            <span> Tap any of the three for the itemised list.</span>
+        }
     </div>
 }
 
@@ -99,7 +102,7 @@ else
                         @if (splitFamily)
                         {
                             <span class="tcn-person-own" title="Their own debt, before the people they pay for">
-                                @(debt > 0 ? $"own {NewUi.Money(debt)}" : debt < 0 ? $"own −{NewUi.Money(-debt)}" : "own 0")
+                                @(debt > 0 ? $"own: owes {NewUi.Money(debt)}" : debt < 0 ? $"own: gets {NewUi.Money(-debt)}" : "own: settled")
                             </span>
                         }
                     </div>

@@ -1,3 +1,6 @@
+﻿@using TCalcCore.Engine
+@inject TourcalcEngine engine
+
 <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
         @{
@@ -14,6 +17,8 @@
             }
     </Found>
     <NotFound>
+        @* without this the header keeps whatever the previous page put there *@
+        @{ engine.SendMessage("Title", "Tourcalc"); engine.SendMessage("Tour", null); }
         <PageTitle>Not found</PageTitle>
         <LayoutView Layout="@typeof(MainLayout)">
             <div class="tcn-empty" role="alert">

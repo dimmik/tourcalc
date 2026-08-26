@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @using TCalc.Logic
 @using TCalcCore.Engine
@@ -47,7 +47,7 @@
                     <div class="tcn-settle-flow">
                         <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name, Tour)</span>
                         <span class="tcn-settle-who">@(from?.Name ?? "n/a")</span>
-                        <span class="tcn-settle-arrow">→</span>
+                        <span class="tcn-settle-arrow"><TcIcon Name="arrow-right" /></span>
                         <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name, Tour)</span>
                         <span class="tcn-settle-who">@(to?.Name ?? "n/a")</span>
                     </div>
@@ -78,7 +78,7 @@
     <div class="tcn-section">
         <div class="tcn-section-title">
             <span class="tcn-btn tcn-btn-ghost tcn-btn-sm" @onclick=@(() => showFamily = !showFamily)>
-                @(showFamily ? "▾" : "▸") Inside families
+                <TcIcon Name=@(showFamily ? "chevron-down" : "chevron-right") /> Inside families
             </span>
             <span class="tcn-count">@familyTransfers.Count</span>
         </div>
@@ -93,7 +93,7 @@
                         <div class="tcn-settle-flow">
                             <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)">@NewUi.Initials(from?.Name, Tour)</span>
                             <span class="tcn-settle-who">@(from?.Name ?? "n/a")</span>
-                            <span class="tcn-settle-arrow">→</span>
+                            <span class="tcn-settle-arrow"><TcIcon Name="arrow-right" /></span>
                             <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(to?.Name)">@NewUi.Initials(to?.Name, Tour)</span>
                             <span class="tcn-settle-who">@(to?.Name ?? "n/a")</span>
                         </div>

@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @using SimpleBlazorPieChart
 @using TCalc.Logic
@@ -10,11 +10,24 @@
 <div class="tcn-stat">
     <span class="tcn-stat-label">@Label</span>
     <button type="button" class="tcn-statbtn @ValueClass" @onclick=@(() => open = true)>
-        @NewUi.Money(HeadlineAmount)
+        @if (Kind == BreakdownKind.Balance)
+        {
+            @* the chip on the same card says "gets 5 055" while this cell used to say
+               "-5 055": one number, two languages, five centimetres apart *@
+            <span class="tcn-statbtn-dir">@Direction(HeadlineAmount)</span>
+        }
+        @if (Kind != BreakdownKind.Balance)
+        {
+            @NewUi.Money(HeadlineAmount)
+        }
+        else if (HeadlineAmount != 0)
+        {
+            @NewUi.Money(Math.Abs(HeadlineAmount))
+        }
         @if (Kind == BreakdownKind.Balance && ShowOwnPart)
         {
             @* bare brackets said nothing about what the second number was *@
-            <span class="tcn-statbtn-note">own @NewUi.Money(debt)</span>
+            <span class="tcn-statbtn-note">own: @Direction(debt) @(debt == 0 ? "" : NewUi.Money(Math.Abs(debt)))</span>
         }
     </button>
 </div>
@@ -102,6 +115,9 @@
         // the settlement figure is what actually changes hands, unless somebody else pays
         _ => IsCovered ? debt : WillPay,
     };
+
+    /// <summary>Direction in words, so the sign never has to be interpreted.</summary>
+    private static string Direction(long amount) => amount > 0 ? "owes" : amount < 0 ? "gets" : "settled";
 
     private bool ShowOwnPart =>
         !IsCovered && Math.Abs(willPay - debt) > minMeaningfulAmount;

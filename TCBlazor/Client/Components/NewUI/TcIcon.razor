@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @* Icon-only controls must not depend on the system font: ⏻ (U+23FB) has no coverage on
    Android and rendered as an empty tofu box, so the logout button looked blank. These are
@@ -23,6 +23,25 @@
             break;
         case "edit":
             <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+            break;
+        case "plus":
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+            break;
+        case "chevron-right":
+            <polyline points="9 18 15 12 9 6" />
+            break;
+        case "chevron-down":
+            <polyline points="6 9 12 15 18 9" />
+            break;
+        case "more":
+            <circle cx="5" cy="12" r="1" />
+            <circle cx="12" cy="12" r="1" />
+            <circle cx="19" cy="12" r="1" />
+            break;
+        case "arrow-right":
+            <line x1="4" y1="12" x2="19" y2="12" />
+            <polyline points="13 6 19 12 13 18" />
             break;
         case "close":
             <line x1="18" y1="6" x2="6" y2="18" />

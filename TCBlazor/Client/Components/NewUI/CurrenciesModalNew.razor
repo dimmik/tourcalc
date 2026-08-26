@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @using TCalcCore.Engine
 
@@ -13,7 +13,7 @@
 @* deliberately not just the currency name: next to "show amounts in" it read as the same
    control, while this one changes the tour for everybody *@
 <button type="button" class="tcn-hero-chip" title="Edit the currencies of this tour" @onclick=@Open>
-    ⚙ currencies
+    <TcIcon Name="settings" /> currencies
 </button>
 
 @if (open)
