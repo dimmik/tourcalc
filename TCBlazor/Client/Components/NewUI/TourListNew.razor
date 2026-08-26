@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @using TCalcCore.Engine
 
@@ -9,7 +9,7 @@
                @oninput=@(e => search = e.Value?.ToString() ?? "") />
         @if (!string.IsNullOrEmpty(search))
         {
-            <button type="button" class="tcn-search-clear" title="Clear" @onclick=@(() => search = "")>×</button>
+            <button type="button" class="tcn-search-clear" title="Clear" aria-label="Clear the search" @onclick=@(() => search = "")><TcIcon Name="close" /></button>
         }
     </div>
     <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => adding = !adding)>
@@ -95,7 +95,7 @@ else
                 {
                     <a class="tcn-tour-name" href=@($"tour/{tour.Id}")>@tour.Name</a>
                     <div class="tcn-tour-meta">
-                        <span>@tour.DateCreated.ToString("dd.MM.yyyy")</span>
+                        <span title="When the tour was created">created @tour.DateCreated.ToString("dd.MM.yyyy")</span>
                         <span>·</span>
                         <span>@tour.Duration days</span>
                         @if (tour.Persons?.Any() ?? false)
@@ -117,29 +117,36 @@ else
                 }
 
                 <div class="tcn-tour-actions">
-                    <label class="tcn-switchline" title="Mark the tour as being settled up">
-                        <input type="checkbox" checked=@tour.IsFinalizing disabled=@InProgress
-                               @onchange=@(() => OnToggleFinalizing.InvokeAsync(tour)) />
-                        settling
-                    </label>
-                    <label class="tcn-switchline" title="Hide the tour from the default list">
-                        <input type="checkbox" checked=@tour.IsArchived disabled=@InProgress
-                               @onchange=@(() => OnToggleArchived.InvokeAsync(tour)) />
-                        archived
-                    </label>
                     <span style="flex:1 1 auto"></span>
                     <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => editingId = editingId == tour.Id ? null : tour.Id)>
                         Edit
                     </button>
                     <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-ghost"
                             @onclick=@(() => moreId = moreId == tour.Id ? null : tour.Id)>
-                        @(moreId == tour.Id ? "▾ less" : "⋯ more")
+                        <TcIcon Name=@(moreId == tour.Id ? "chevron-down" : "more") />
+                        @(moreId == tour.Id ? "less" : "more")
                     </button>
                 </div>
 
                 @if (moreId == tour.Id)
                 {
                     <div class="tcn-details">
+                        <div class="tcn-togglerow">
+                            <span>Settling up <span class="tcn-hint">everyone sees the payments to make</span></span>
+                            <label class="tcn-toggle" title="Mark the tour as being settled up">
+                                <input type="checkbox" checked=@tour.IsFinalizing disabled=@InProgress
+                                       @onchange=@(() => OnToggleFinalizing.InvokeAsync(tour)) />
+                                <span></span>
+                            </label>
+                        </div>
+                        <div class="tcn-togglerow">
+                            <span>Archived <span class="tcn-hint">hidden from the default list</span></span>
+                            <label class="tcn-toggle" title="Hide the tour from the default list">
+                                <input type="checkbox" checked=@tour.IsArchived disabled=@InProgress
+                                       @onchange=@(() => OnToggleArchived.InvokeAsync(tour)) />
+                                <span></span>
+                            </label>
+                        </div>
                         <div class="tcn-row">
                             <ShareLinkButton Tour=@tour Text="🔗 Share link" CssClass="tcn-btn tcn-btn-sm" @key=@($"share_{tour.Id}") />
                             <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => OnCloneTour.InvokeAsync((tour, false)))>Clone</button>

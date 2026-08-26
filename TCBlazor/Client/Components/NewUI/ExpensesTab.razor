@@ -24,7 +24,7 @@
                @oninput=@(e => search = e.Value?.ToString() ?? "") />
         @if (!string.IsNullOrEmpty(search))
         {
-            <button type="button" class="tcn-search-clear" title="Clear" @onclick=@(() => search = "")>×</button>
+            <button type="button" class="tcn-search-clear" title="Clear" aria-label="Clear the search" @onclick=@(() => search = "")><TcIcon Name="close" /></button>
         }
     </div>
     <button type="button" class="tcn-btn tcn-btn-sm @(sortBy == Sort.Date ? "tcn-btn-primary" : "")" @onclick=@(() => ToggleSort(Sort.Date))>
@@ -158,7 +158,8 @@ else
 {
     <div class="tcn-section" style="margin-top: 14px;">
         <button type="button" class="tcn-btn tcn-btn-ghost tcn-btn-block" @onclick=@(() => showPlanned = !showPlanned)>
-            @(showPlanned ? "▾ Hide the suggested settle-up payments" : $"▸ Show the {planned.Count} suggested settle-up payments")
+            <TcIcon Name=@(showPlanned ? "chevron-down" : "chevron-right") />
+            @(showPlanned ? "Hide the suggested settle-up payments" : $"Show the {planned.Count} suggested settle-up payments")
         </button>
         @if (showPlanned)
         {
@@ -251,17 +252,34 @@ else
         var from = Tour.Persons.FirstOrDefault(p => p.GUID == s.FromGuid);
         var curName = Tour.CurrencyNameEmptyIfSingleCurrency();
         var amount = s.AmountInCurrentCurrency(Tour);
+        // rows the calculator generated for itself are not named by anyone - show the transfer
+        var svc = NewUi.AsServiceTransfer(s.Description);
 
         <div class="tcn-sp @RowClass(s) @(NewUi.IsMarked(s.Color) ? "tcn-sp-marked" : "")" style="@NewUi.MarkStyle(s.Color)" @key=@($"sp_{s.GUID}")>
             <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)" title="@(from?.Name)">
                 @NewUi.Initials(from?.Name, Tour)
             </span>
             <div class="tcn-sp-body">
-                <div class="tcn-sp-title">@s.Description</div>
+                <div class="tcn-sp-title">
+                    @if (svc is {} t)
+                    {
+                        <span class="tcn-sp-transfer">
+                            @t.From <span class="tcn-settle-arrow"><TcIcon Name="arrow-right" /></span> @t.To
+                        </span>
+                    }
+                    else
+                    {
+                        @s.Description
+                    }
+                </div>
                 <div class="tcn-sp-meta">
                     <span>@(from?.Name ?? "n/a")</span>
                     <span>·</span>
                     <span>@s.SpendingDate.ToString("dd.MM.yyyy HH:mm")</span>
+                    @if (svc is {} k)
+                    {
+                        <span class="tcn-chip">@(k.Kind == "Family" ? "inside family" : "payback")</span>
+                    }
                     @if (!string.IsNullOrWhiteSpace(s.Type))
                     {
                         <span class="tcn-chip tcn-chip-primary">@s.Type</span>

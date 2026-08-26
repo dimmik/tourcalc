@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Linq;
 using TCalc.Domain;
 using TCalcCore.UI;
@@ -150,6 +151,23 @@ namespace TCBlazor.Client.SharedCode
             int hue = Math.Abs(hash) % 360;
             int hue2 = (hue + 28) % 360;
             return $"linear-gradient(135deg, hsl({hue} 62% 52%), hsl({hue2} 66% 42%))";
+        }
+
+        // "X 'Женя К.' -> 'Паша'" / "Family 'Олежка' -> 'Саша О.'" - the descriptions the
+        // calculator writes for the rows it generates itself
+        private static readonly Regex ServiceRow =
+            new Regex(@"^(?<kind>X|Family) '(?<from>.+)' -> '(?<to>.+)'$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Generated rows are shown to people alongside their own expenses, so the quotes and
+        /// the ASCII arrow of the internal wording have no business on screen. Returns null for
+        /// anything a human typed.
+        /// </summary>
+        public static (string Kind, string From, string To)? AsServiceTransfer(string? description)
+        {
+            var m = ServiceRow.Match(description ?? "");
+            if (!m.Success) return null;
+            return (m.Groups["kind"].Value, m.Groups["from"].Value, m.Groups["to"].Value);
         }
 
         public static string PersonName(Tour? tour, string? guid)

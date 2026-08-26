@@ -3,6 +3,7 @@
 @using TCalc.Logic
 @using TCalcCore.UI
 
+
 @* Re-thought "add / edit spending" dialog for the new UI. It edits exactly the
    same fields as the classic TSpModifyComponent - nothing more, nothing less -
    so both forms stay interchangeable; only the layout is different. *@
@@ -23,16 +24,6 @@
     </div>
 
     <div class="tcn-sheet-body">
-        @if (errors.Any())
-        {
-            <div class="tcn-errors">
-                @foreach (var e in errors)
-                {
-                    <div>@e</div>
-                }
-            </div>
-        }
-
         <div class="tcn-amount">
             <div class="tcn-label">Amount</div>
             <div class="tcn-amount-row">
@@ -47,9 +38,9 @@
                         }
                     </select>
                 }
-                else if (!string.IsNullOrWhiteSpace(tour.Currency?.Name))
+                else if (!string.IsNullOrWhiteSpace(CurrencyLabel))
                 {
-                    <span class="tcn-amount-curr is-static">@tour.Currency.Name</span>
+                    <span class="tcn-amount-curr is-static">@CurrencyLabel</span>
                 }
             </div>
         </div>
@@ -117,11 +108,15 @@
             <div class="tcn-chips">
                 @foreach (var c in categories)
                 {
-                    <span class="tcn-chip tcn-filter-chip @(spending.Type == c ? "is-on" : "")"
-                          @key=@($"cat_{c}") @onclick=@(() => spending.Type = spending.Type == c ? "" : c)>@c</span>
+                    <span class="tcn-chip tcn-filter-chip @(spending.Type == c ? (typeIsGuess ? "is-guess" : "is-on") : "")"
+                          @key=@($"cat_{c}") @onclick=@(() => PickCategory(c))>@c</span>
                 }
                 <span class="tcn-chip tcn-filter-chip" @onclick=@(() => addingCategory = !addingCategory)>+ new</span>
             </div>
+            @if (typeIsGuess)
+            {
+                <div class="tcn-hint" style="margin-top:4px">Last used — tap another one if it is wrong.</div>
+            }
             @if (addingCategory)
             {
                 <div class="tcn-row" style="margin-top:8px">
@@ -137,7 +132,7 @@
         </div>
 
         <button type="button" class="tcn-btn tcn-btn-ghost tcn-btn-block" @onclick=@(() => showMore = !showMore)>
-            @(showMore ? "▾" : "▸") More options
+            <TcIcon Name=@(showMore ? "chevron-down" : "chevron-right") /> More options
         </button>
 
         @if (showMore)
@@ -181,18 +176,31 @@
         }
     </div>
 
-    <div class="tcn-sheet-foot">
-        @if (ShowAddAnother)
+    <div class="tcn-sheet-foot tcn-sheet-foot-stack">
+        @if (errors.Any())
         {
-            <label class="tcn-switchline">
-                <input type="checkbox" checked=@AddAnother
-                       @onchange=@(e => AddAnotherChanged.InvokeAsync((bool)(e.Value ?? false))) />
-                Add another
-            </label>
+            @* next to the button that produced them, not at the top of a body that may be
+               scrolled somewhere else entirely *@
+            <div class="tcn-errors" role="alert">
+                @foreach (var e in errors)
+                {
+                    <div>@e</div>
+                }
+            </div>
         }
-        <span style="flex:1 1 auto"></span>
-        <button type="button" class="tcn-btn" @onclick=@Close>Cancel</button>
-        <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Save>@SaveText</button>
+        <div class="tcn-sheet-footrow">
+            @if (ShowAddAnother)
+            {
+                <label class="tcn-switchline">
+                    <input type="checkbox" checked=@AddAnother
+                           @onchange=@(e => AddAnotherChanged.InvokeAsync((bool)(e.Value ?? false))) />
+                    Add another
+                </label>
+            }
+            <span style="flex:1 1 auto"></span>
+            <button type="button" class="tcn-btn" @onclick=@Close>Cancel</button>
+            <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Save>@SaveText</button>
+        </div>
     </div>
 </Modal>
 
@@ -227,6 +235,7 @@
     private bool addingCategory = false;
     private string newCategory = "";
     private bool showMore = false;
+    private bool typeIsGuess = false;
 
     /// <summary>Empty instead of a leading 0, so the field does not have to be cleared first.</summary>
     private string AmountText
@@ -236,6 +245,20 @@
     }
 
     private string SaveText => IsNewSpending() ? "Add expense" : "Save";
+
+    /// <summary>
+    /// A tour with no currencies of its own gets <see cref="Currency.Default"/> materialised
+    /// for it, and that one is literally named "coin". Printing it next to the amount tells
+    /// nobody anything, so the placeholder shows as no label at all.
+    /// </summary>
+    private string CurrencyLabel
+    {
+        get
+        {
+            var c = tour?.Currency;
+            return c == null || c.Id == Currency.Default.Id ? "" : c.Name;
+        }
+    }
 
     private bool IsNewSpending() => !tour.Spendings.Any(s => !s.Planned && s.GUID == spending.GUID);
 
@@ -256,17 +279,22 @@
         {
             spending = TheSpending.SafeClone<Spending>();
             errors.Clear();
+            typeIsGuess = false;
             if (IsNewSpending())
             {
                 spending.Currency = tour.Currency;
                 spending.SpendingDate = DateTime.Now;
-            }
-        }
 
-        // a new expense starts in the most recently used category, same as the classic form
-        if (tourTypes is not null && tourTypes.Length > 0 && IsNewSpending())
-        {
-            spending.Type = tourTypes[0];
+                // a new expense starts in the most recently used category, same as the
+                // classic form. This belongs here and nowhere else: OnParametersSet runs on
+                // every re-render of the parent, and outside the guard it kept overwriting
+                // the category the user had just chosen.
+                if (tourTypes is not null && tourTypes.Length > 0)
+                {
+                    spending.Type = tourTypes[0];
+                    typeIsGuess = true;
+                }
+            }
         }
 
         categories = (tourTypes?.OrderBy(s => s) ?? Enumerable.Empty<string>())
@@ -306,12 +334,20 @@
         if (c != null) spending.Currency = c;
     }
 
+    /// <summary>Tapping a chip is a decision - the guess stops being one.</summary>
+    private void PickCategory(string c)
+    {
+        spending.Type = spending.Type == c ? "" : c;
+        typeIsGuess = false;
+    }
+
     private void AddCategory()
     {
         var c = (newCategory ?? "").Trim();
         if (c.Length == 0) return;
         if (!categories.Contains(c)) categories.Add(c);
         spending.Type = c;
+        typeIsGuess = false;
         newCategory = "";
         addingCategory = false;
     }

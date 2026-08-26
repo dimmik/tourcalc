@@ -196,10 +196,14 @@ else
             return whoAmI;
         }
 
+        // Both kinds of generated row are recognised by their description and both carry an
+        // empty Type (TourCalculator writes Type = "" for them, and so does "Mark paid"), so
+        // the old `Type != "Family"` test never matched and a family settlement could become
+        // the "last expense" - putting its participant into the form as the default payer.
         var lastSpending = tour?.Spendings
             .Where(s => !s.Planned)
             .Where(s => !(s.Description ?? "").StartsWith("X"))
-            .Where(s => s.Type != "Family")
+            .Where(s => !(s.Description ?? "").StartsWith("Family"))
             .OrderByDescending(s => s.SpendingDate)
             .FirstOrDefault();
 

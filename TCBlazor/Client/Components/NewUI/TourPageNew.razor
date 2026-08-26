@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @using TCalc.Logic
 @using TCalcCore.Engine
@@ -31,6 +31,19 @@
             <span class="@(reloading ? "tcn-spin" : "")"><TcIcon Name="refresh" /></span>
         </button>
     </div>
+    @if (RawTour.IsFinalizing || RawTour.IsArchived)
+    {
+        <div class="tcn-hero-badges">
+            @if (RawTour.IsFinalizing)
+            {
+                <span class="tcn-chip tcn-chip-amber" title="The tour is being settled up">settling up</span>
+            }
+            @if (RawTour.IsArchived)
+            {
+                <span class="tcn-chip" title="The tour is archived and hidden from the default list">archived</span>
+            }
+        </div>
+    }
     <div class="tcn-hero-sub">
         <TourFreshness IsFresh=@IsFresh StoredDt=@StoredDt Reloading=@reloading
                        Outcome=@((TourFreshness.RefreshOutcome)(int)outcome) />
@@ -108,43 +121,45 @@
 </div>
 
 <nav class="tcn-tabs" role="tablist" aria-label="Tour sections">
-    <button type="button" role="tab" aria-selected=@(tab == Tab.Balance) class="tcn-tab @(tab == Tab.Balance ? "is-active" : "")" @onclick=@(() => tab = Tab.Balance)>
+    <button type="button" role="tab" id="tcn-tab-balance" aria-selected=@(tab == Tab.Balance) class="tcn-tab @(tab == Tab.Balance ? "is-active" : "")" @onclick=@(() => tab = Tab.Balance)>
         Balance
         @if (openTransfers.Any())
         {
             <span class="tcn-tab-badge">@openTransfers.Count</span>
         }
     </button>
-    <button type="button" role="tab" aria-selected=@(tab == Tab.People) class="tcn-tab @(tab == Tab.People ? "is-active" : "")" @onclick=@(() => tab = Tab.People)>
+    <button type="button" role="tab" id="tcn-tab-people" aria-selected=@(tab == Tab.People) class="tcn-tab @(tab == Tab.People ? "is-active" : "")" @onclick=@(() => tab = Tab.People)>
         People <span class="tcn-tab-badge">@Tour.Persons.Count</span>
     </button>
-    <button type="button" role="tab" aria-selected=@(tab == Tab.Expenses) class="tcn-tab @(tab == Tab.Expenses ? "is-active" : "")" @onclick=@(() => tab = Tab.Expenses)>
+    <button type="button" role="tab" id="tcn-tab-expenses" aria-selected=@(tab == Tab.Expenses) class="tcn-tab @(tab == Tab.Expenses ? "is-active" : "")" @onclick=@(() => tab = Tab.Expenses)>
         Expenses <span class="tcn-tab-badge">@realSpendings.Count</span>
     </button>
-    <button type="button" role="tab" aria-selected=@(tab == Tab.Stats) class="tcn-tab @(tab == Tab.Stats ? "is-active" : "")" @onclick=@(() => tab = Tab.Stats)>
+    <button type="button" role="tab" id="tcn-tab-stats" aria-selected=@(tab == Tab.Stats) class="tcn-tab @(tab == Tab.Stats ? "is-active" : "")" @onclick=@(() => tab = Tab.Stats)>
         Stats
     </button>
 </nav>
 
-@if (tab == Tab.Balance)
-{
-    <BalanceTab Tour=@Tour Settings=@Settings />
-}
-else if (tab == Tab.People)
-{
-    <PeopleTab Tour=@Tour Settings=@Settings AddModal=@AddModal />
-}
-else if (tab == Tab.Expenses)
-{
-    <ExpensesTab Tour=@Tour RawTour=@RawTour Settings=@Settings />
-}
-else
-{
-    <StatsTab Tour=@Tour />
-}
+<div role="tabpanel" aria-labelledby=@($"tcn-tab-{tab.ToString().ToLowerInvariant()}")>
+    @if (tab == Tab.Balance)
+    {
+        <BalanceTab Tour=@Tour Settings=@Settings />
+    }
+    else if (tab == Tab.People)
+    {
+        <PeopleTab Tour=@Tour Settings=@Settings AddModal=@AddModal />
+    }
+    else if (tab == Tab.Expenses)
+    {
+        <ExpensesTab Tour=@Tour RawTour=@RawTour Settings=@Settings />
+    }
+    else
+    {
+        <StatsTab Tour=@Tour />
+    }
+</div>
 
 <button type="button" class="tcn-fab" aria-label="Add an expense" @onclick=@AddSpending>
-    <span style="font-size:18px; line-height:1">＋</span> Spend
+    <TcIcon Name="plus" /> Spend
 </button>
 
 @code {
