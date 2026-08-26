@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @using TCalc.Logic
 @using TCalcCore.UI
@@ -33,7 +33,7 @@
             </div>
         }
 
-        <div class="tcn-amount" style="@AmountBoxStyle">
+        <div class="tcn-amount">
             <div class="tcn-label">Amount</div>
             <div class="tcn-amount-row">
                 <input class="tcn-amount-input" type="number" inputmode="decimal" placeholder="0"
@@ -158,7 +158,24 @@
                 <div class="tcn-row" style="margin-top:10px">
                     <span class="tcn-label" style="margin:0">Colour</span>
                     <input type="color" class="tcn-colour" @bind-value=@spending.Color />
-                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-ghost" @onclick=@(() => spending.Color = "")>reset</button>
+                    @if (NewUi.IsMarked(spending.Color))
+                    {
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-ghost" @onclick=@(() => spending.Color = "")>reset</button>
+                    }
+                </div>
+                <div class="tcn-hint" style="margin-top:2px">
+                    Marks an unusual expense - a group tax, an unexpected fine - so it catches the eye in the list.
+                </div>
+                @* what you pick is worth showing as what you will actually see *@
+                <div class="tcn-sp @(NewUi.IsMarked(spending.Color) ? "tcn-sp-marked" : "")"
+                     style="margin-top:8px;@NewUi.MarkStyle(spending.Color)">
+                    <div class="tcn-sp-body">
+                        <div class="tcn-sp-title">@(string.IsNullOrWhiteSpace(spending.Description) ? "This expense" : spending.Description)</div>
+                        <div class="tcn-sp-meta"><span>how it will look in the list</span></div>
+                    </div>
+                    <div class="tcn-sp-right">
+                        <div class="tcn-sp-amount">@NewUi.Money(spending.AmountInCents)</div>
+                    </div>
                 </div>
             </div>
         }
@@ -219,9 +236,6 @@
     }
 
     private string SaveText => IsNewSpending() ? "Add expense" : "Save";
-
-    private string AmountBoxStyle =>
-        string.IsNullOrWhiteSpace(spending.Color) ? "" : $"background: {spending.Color};";
 
     private bool IsNewSpending() => !tour.Spendings.Any(s => !s.Planned && s.GUID == spending.GUID);
 

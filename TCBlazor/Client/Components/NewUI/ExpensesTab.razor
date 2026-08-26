@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @using TCalc.Logic
 @using TCalcCore.Engine
@@ -252,7 +252,7 @@ else
         var curName = Tour.CurrencyNameEmptyIfSingleCurrency();
         var amount = s.AmountInCurrentCurrency(Tour);
 
-        <div class="tcn-sp @RowClass(s)" @key=@($"sp_{s.GUID}")>
+        <div class="tcn-sp @RowClass(s) @(NewUi.IsMarked(s.Color) ? "tcn-sp-marked" : "")" style="@NewUi.MarkStyle(s.Color)" @key=@($"sp_{s.GUID}")>
             <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(from?.Name)" title="@(from?.Name)">
                 @NewUi.Initials(from?.Name, Tour)
             </span>

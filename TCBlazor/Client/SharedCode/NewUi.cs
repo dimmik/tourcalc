@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using TCalc.Domain;
@@ -61,6 +61,82 @@ namespace TCBlazor.Client.SharedCode
             yield return $"{w[0]}{w[w.Length - 1]}";
             if (w.Length >= 3) yield return w.Substring(0, 3);
         }
+
+        /// <summary>
+        /// A hand-picked colour marks a rare, out-of-the-ordinary expense - a tourist tax for
+        /// the whole group, an unexpected fine - so it stops the eye in the list. Only the hex
+        /// the colour input produces counts as a human choice: "lightgreen"/"lightgray" are
+        /// written by the app itself when a payment is marked paid, and must not light up.
+        /// </summary>
+        public static bool IsMarked(string? color) => ParseHex(color) != null;
+
+        /// <summary>
+        /// Inline custom properties for a marked row. The chosen hue is kept, but its lightness
+        /// is not: a near-white or near-black pick would otherwise make the mark invisible or
+        /// murky, and whether the mark is noticeable must not depend on what the colour dialog
+        /// happened to offer under the finger.
+        /// </summary>
+        public static string MarkStyle(string? color)
+        {
+            var rgb = ParseHex(color);
+            if (rgb == null) return "";
+            var (h, s, _) = ToHsl(rgb.Value);
+            // black, white and grey carry no hue to keep; they become a heavy neutral outline
+            // rather than the dusty pink that clamping a hue-less colour would produce
+            var flat = s < .05;
+            var line = flat ? FromHsl(0, 0, .32) : FromHsl(h, Clamp(s, .30, .85), .40);
+            var bg = flat ? FromHsl(0, 0, .93) : FromHsl(h, Clamp(s, .25, .80), .945);
+            return $"--tcn-mark-line:{line};--tcn-mark-bg:{bg};";
+        }
+
+        private static (int r, int g, int b)? ParseHex(string? color)
+        {
+            var c = (color ?? "").Trim();
+            if (c.Length == 0 || c[0] != '#') return null;
+            c = c.Substring(1);
+            if (c.Length == 3)
+            {
+                c = new string(new[] { c[0], c[0], c[1], c[1], c[2], c[2] });
+            }
+            if (c.Length != 6) return null;
+            if (!int.TryParse(c, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var v)) return null;
+            return ((v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF);
+        }
+
+        private static double Clamp(double v, double min, double max) => v < min ? min : v > max ? max : v;
+
+        private static (double h, double s, double l) ToHsl((int r, int g, int b) c)
+        {
+            double r = c.r / 255.0, g = c.g / 255.0, b = c.b / 255.0;
+            double max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b));
+            double l = (max + min) / 2;
+            if (Math.Abs(max - min) < 1e-9) return (0, 0, l);
+            double d = max - min;
+            double s = l > .5 ? d / (2 - max - min) : d / (max + min);
+            double h;
+            if (max == r) h = (g - b) / d + (g < b ? 6 : 0);
+            else if (max == g) h = (b - r) / d + 2;
+            else h = (r - g) / d + 4;
+            return (h * 60, s, l);
+        }
+
+        private static string FromHsl(double h, double s, double l)
+        {
+            double c = (1 - Math.Abs(2 * l - 1)) * s;
+            double hp = ((h % 360) + 360) % 360 / 60;
+            double x = c * (1 - Math.Abs(hp % 2 - 1));
+            double r = 0, g = 0, b = 0;
+            if (hp < 1) { r = c; g = x; }
+            else if (hp < 2) { r = x; g = c; }
+            else if (hp < 3) { g = c; b = x; }
+            else if (hp < 4) { g = x; b = c; }
+            else if (hp < 5) { r = x; b = c; }
+            else { r = c; b = x; }
+            double m = l - c / 2;
+            return $"#{Byte(r + m):x2}{Byte(g + m):x2}{Byte(b + m):x2}";
+        }
+
+        private static int Byte(double v) => (int)Math.Round(Clamp(v, 0, 1) * 255);
 
         /// <summary>Stable pastel-ish colour derived from a name, so a person keeps the same avatar everywhere.</summary>
         public static string AvatarColor(string? seed)
