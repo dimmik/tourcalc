@@ -21,7 +21,7 @@
     else
     {
 
-        if (uiMode.IsNew && (LoggingIn || engine.Auth.Type == "None"))
+        if (uiMode.IsNew && (LoggingIn || engine.Auth.Type == "None") && !IsHelpRoute)
         {
             @* A screen, not a dialog. As a modal it had no close button, no mask click and
                no Esc - once you were logged out there was literally no way out of it, which on
@@ -32,6 +32,7 @@
                     <div class="tcn-topbar-title">Tourcalc</div>
                     <div class="tcn-topbar-actions">
                         <UiModeSwitch/>
+                        <a class="tcn-iconbtn" href="/help" title="What this is and how it counts" aria-label="Help"><TcIcon Name="help" /></a>
                     </div>
                 </header>
                 <main class="tcn-main">
@@ -78,7 +79,9 @@
         }
         else if (!LoggingIn)
         {
-            @if (engine.Auth.Type == "None")
+            @* IsHelpRoute again: without it an unsigned-in /help fell through to the classic
+               login modal, which is the one screen the help page is meant to explain away *@
+            @if (engine.Auth.Type == "None" && !IsHelpRoute)
             {
                 <AntDesign.Modal
                 Visible=@true
@@ -104,12 +107,18 @@
                             <SyncStatusComponent/>
                             <UpdateAvailableDetector/>
                             <UiModeSwitch/>
+                            <a class="tcn-iconbtn" href="/help" title="What this is and how it counts" aria-label="Help"><TcIcon Name="help" /></a>
                             <a class="tcn-iconbtn" href="/settings" title="Settings" aria-label="Settings"><TcIcon Name="settings" /></a>
-                            <button type="button"
-                                    class="tcn-iconbtn @(engine.Auth.IsMaster ? "tcn-danger" : "")"
-                                    title=@(engine.Auth.IsMaster ? "Log out (master)" : "Log out")
-                                    aria-label="Log out"
-                                    @onclick=@(async () => await LogOut())><TcIcon Name="logout" /></button>
+                            @* /help is readable without signing in, and "log out" makes no
+                               sense there *@
+                            @if (engine.Auth.Type != "None")
+                            {
+                                <button type="button"
+                                        class="tcn-iconbtn @(engine.Auth.IsMaster ? "tcn-danger" : "")"
+                                        title=@(engine.Auth.IsMaster ? "Log out (master)" : "Log out")
+                                        aria-label="Log out"
+                                        @onclick=@(async () => await LogOut())><TcIcon Name="logout" /></button>
+                            }
                         </div>
                     </header>
                     <main class="tcn-main">@Body</main>
@@ -172,12 +181,18 @@
     private bool loginError = false;
     private string Title = "Wait...";
     private bool titleReceived = false;
+
+    /// <summary>The one page that does not need an access code to be worth reading.</summary>
+    private bool IsHelpRoute =>
+        new Uri(NavManager.Uri).AbsolutePath.TrimEnd('/').EndsWith("/help", StringComparison.OrdinalIgnoreCase);
+
     private Tour? tour = null;
 
     protected override async Task OnInitializedAsync()
     {
         engine.onMessageReceived += OnMessageReceived;
         uiMode.OnChanged += OnUiModeChanged;
+        NavManager.LocationChanged += OnLocationChanged;
         await uiMode.Init();
         await engine.PickUpAuthInfo();
     }
@@ -185,7 +200,13 @@
     {
         engine.onMessageReceived -= OnMessageReceived;
         uiMode.OnChanged -= OnUiModeChanged;
+        NavManager.LocationChanged -= OnLocationChanged;
     }
+    // entering or leaving /help changes which shell is drawn, and that is a plain
+    // navigation the layout would otherwise not hear about
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+        => _ = InvokeAsync(StateHasChanged);
+
     private void OnUiModeChanged()
     {
         _ = InvokeAsync(async () =>

@@ -1,0 +1,293 @@
+@page "/help"
+
+@using TCalcCore.Engine
+@inject TourcalcEngine engine
+@inject UiModeService uiMode
+@implements IDisposable
+
+@* Written against what the app actually does, not against what it was meant to do:
+   the counting rules below are the ones in TourPageNew / ExpensesTab, and the wording
+   matches the labels on screen so that a term can be looked up as it is seen. *@
+
+@{
+    engine.SendMessage("Title", "Help");
+    engine.SendMessage("Tour", null);
+}
+
+<article class="tcn-help">
+
+    <header class="tcn-help-hero">
+        <div class="tcn-help-logo">🧭</div>
+        <h1 class="tcn-help-title">Tourcalc</h1>
+        <p class="tcn-help-lead">
+            A shared wallet for a trip. Everyone pays for whatever is convenient at the moment —
+            one buys the tickets, another the groceries, a third the taxi — and nobody counts
+            anything until the end. Tourcalc keeps the record and, when you are done, says who
+            has to pay whom and how much, in as few payments as possible.
+        </p>
+    </header>
+
+    <nav class="tcn-help-toc" aria-label="On this page">
+        <a href="help#start">Getting started</a>
+        <a href="help#people">People and shares</a>
+        <a href="help#expenses">Recording an expense</a>
+        <a href="help#counted">What counts as spending</a>
+        <a href="help#balance">Balances and settling up</a>
+        <a href="help#families">Paying for someone else</a>
+        <a href="help#currencies">Several currencies</a>
+        <a href="help#sharing">Sharing a tour</a>
+        <a href="help#offline">Offline and refreshing</a>
+        <a href="help#glossary">Every word on screen</a>
+        <a href="help#trouble">When the numbers look wrong</a>
+    </nav>
+
+    <section class="tcn-help-sec" id="start">
+        <h2>Getting started</h2>
+        <ol class="tcn-help-steps">
+            <li><b>Create a tour.</b> One tour is one trip, one flat, one project — any group of people with a common pot. <b>+ New tour</b> on the tour list.</li>
+            <li><b>Add the people.</b> <b>People → + Add person</b>. Names only; no accounts, no invitations.</li>
+            <li><b>Record expenses as they happen.</b> The <b>+ Spend</b> button is on every screen. Amount, what it was for, who paid, who it was for.</li>
+            <li><b>At the end, open <b>Balance</b>.</b> It shows the payments that square everyone up. When a payment actually happens, press <b>Mark paid</b>.</li>
+        </ol>
+        <p class="tcn-help-note">
+            Nothing here is money. Tourcalc moves no funds and talks to no bank — it is a
+            notebook that can do arithmetic.
+        </p>
+    </section>
+
+    <section class="tcn-help-sec" id="people">
+        <h2>People and shares</h2>
+        <p>
+            A shared expense is split by <b>weight</b>, not by headcount. A full share is
+            <b>100</b>. Someone on <b>50</b> pays for half as much of everything shared —
+            a child, or a person who joined for half the trip. A custom <b>0</b> means they
+            pay for nothing at all while still appearing in the list.
+        </p>
+        <p>
+            Weights only matter relative to each other: three people on 100 and three on 200
+            split exactly like 50 / 100. The People tab shows the total weight, and tapping it
+            explains how much of a shared expense one full share carries.
+        </p>
+    </section>
+
+    <section class="tcn-help-sec" id="expenses">
+        <h2>Recording an expense</h2>
+        <div class="tcn-help-terms">
+            <div><b>Amount</b></div>
+            <div>What was actually paid. In a multi-currency tour, pick the currency it was paid in.</div>
+            <div><b>What for</b></div>
+            <div>The description you will recognise later in the list.</div>
+            <div><b>Paid by</b></div>
+            <div>The person whose money left the pocket. Pre-filled with whoever you last recorded as paying.</div>
+            <div><b>Split between</b></div>
+            <div><b>everyone</b> shares it by weight. Turn it off to pick particular people — it is then split between just those, still by weight. (Older expenses may carry a <span class="tcn-chip">split equally</span> mark: those ignore weights and divide by headcount.)</div>
+            <div><b>Category</b></div>
+            <div>Groups the statistics. A new expense arrives with the last used category already picked; while it is only a guess it is drawn with a dashed outline and the note <i>“Last used”</i>. Tap any category to make it a decision.</div>
+            <div><b>Date</b></div>
+            <div>Defaults to today. Change it when you are catching up on yesterday.</div>
+        </div>
+        <h3>More options</h3>
+        <div class="tcn-help-terms">
+            <div><b>Draft</b></div>
+            <div>A possible expense, not a real one. It stays in the list marked <span class="tcn-chip tcn-chip-amber">draft&nbsp;·&nbsp;not counted</span> and changes no balance — useful for “what if we rent the boat”. Ticking <b>Still count it in the balance</b> makes it count while keeping the label.</div>
+            <div><b>Colour</b></div>
+            <div>Marks a rare, out-of-the-ordinary expense — a tourist tax for the whole group, an unexpected fine — so it catches the eye when you scroll the list. It has no effect on any calculation.</div>
+        </div>
+    </section>
+
+    <section class="tcn-help-sec" id="counted">
+        <h2>What counts as spending</h2>
+        <p>
+            <b>Total spent</b>, the day totals and the summary above the list all count the same
+            thing: an expense that has a <b>category</b> and is <b>not a draft</b> (or is a draft
+            you told it to count).
+        </p>
+        <p>Everything else is money that moved without being spent, and it is shown separately as <b>uncounted</b>:</p>
+        <div class="tcn-help-terms">
+            <div><b>settling up</b></div>
+            <div>Someone handing money to someone else inside the group. It is a transfer, not a purchase — counting it would count the same dinner twice. An expense with <b>no category</b> is treated as exactly this.</div>
+            <div><b>draft</b></div>
+            <div>Not real yet, so not spent yet.</div>
+        </div>
+        <p>
+            Tapping the <b>uncounted</b> figure lists what is in it and why. This is the single
+            most common source of “the total looks wrong” — it is usually right, and it is
+            usually a payback.
+        </p>
+    </section>
+
+    <section class="tcn-help-sec" id="balance">
+        <h2>Balances and settling up</h2>
+        <div class="tcn-help-terms">
+            <div><b>Paid</b></div>
+            <div>What this person put in — everything they paid for, for anyone.</div>
+            <div><b>Charged</b></div>
+            <div>What their own part of the spending cost — their share of everything that was shared with them.</div>
+            <div><b>Balance</b></div>
+            <div>Charged minus Paid. <b>owes</b> means their share cost more than they put in; <b>gets</b> means the group owes them.</div>
+        </div>
+        <p>
+            All three open an itemised list when tapped, whatever the settings say.
+        </p>
+        <h3>Who pays whom</h3>
+        <p>
+            The Balance tab does not simply list debts — it works out the shortest set of
+            payments that brings everyone to zero, so five people rarely need more than four
+            transfers. <b>Nothing on that list has happened yet.</b> When the money really
+            changes hands, press <b>Mark paid</b>: it records a payback (it appears in the list
+            as <span class="tcn-chip">payback</span>) and both balances move towards zero.
+        </p>
+        <p class="tcn-help-note">
+            Small leftovers are ignored on purpose. <b>Settings → Ignore debts smaller than</b>
+            (49 by default) decides what counts as “already square”, so nobody is asked to
+            transfer three coins.
+        </p>
+    </section>
+
+    <section class="tcn-help-sec" id="families">
+        <h2>Paying for someone else</h2>
+        <p>
+            A child, a partner, a friend who is out of cash — someone whose share you settle
+            yourself. In the person’s card, set <b>Paid for by</b> to whoever covers them.
+            They keep their own weight and their own share of every expense, but they hand
+            nothing over: their debt is folded into their payer’s.
+        </p>
+        <p>
+            That is why a covered person shows a grey <span class="tcn-chip">owes …</span>
+            rather than a red one, and why their payer can show two numbers: the settlement
+            total, and <b>own</b> — their personal part of it, before the people they cover.
+            Transfers inside a family are listed separately, under <b>Inside families</b>.
+        </p>
+    </section>
+
+    <section class="tcn-help-sec" id="currencies">
+        <h2>Several currencies</h2>
+        <p>
+            Two different things are easy to confuse, so they live in two different places:
+        </p>
+        <div class="tcn-help-terms">
+            <div><b><TcIcon Name="settings" /> currencies</b></div>
+            <div>The <b>main currency</b> of the tour and the rates. It is a property of the tour: changing it changes what everyone sees.</div>
+            <div><b>show amounts in</b></div>
+            <div>A local view switch. It converts what is on your screen and saves nothing.</div>
+        </div>
+        <p>
+            Rates are given as <b>worth</b>, on any scale you like — only the ratio matters. If
+            one euro is 118 dinars, put 100 next to the dinar and 11800 next to the euro.
+        </p>
+        <p>
+            Every expense stays attached to the currency it was entered in. <b>Renaming a
+            currency is safe</b> — the amounts keep their meaning. <b>Removing one is not</b>:
+            the expenses entered in it are then read in the main currency, and the numbers
+            change.
+        </p>
+    </section>
+
+    <section class="tcn-help-sec" id="sharing">
+        <h2>Sharing a tour</h2>
+        <p>
+            <b>share link</b> in the tour header copies an invite link to the clipboard.
+            Opening that link logs the other person in by itself — no code to type, no account
+            to create.
+        </p>
+        <div class="tcn-help-note">
+            The link carries the <b>access code</b> of the tour, and that code opens
+            <b>every tour created under it</b> — not only the one you meant to share. Whoever
+            gets the link can also edit everything they can see. Treat it like a key, and use a
+            separate code for anything you do not want in the same bundle.
+        </div>
+        <p style="margin-top:10px">
+            Typing that same code on the sign-in screen is the other way in.
+        </p>
+        <p>
+            Turning on <b>Push notifications</b> in the settings adds a bell to each tour, so
+            the browser can tell you when somebody else changes it.
+        </p>
+    </section>
+
+    <section class="tcn-help-sec" id="offline">
+        <h2>Offline and refreshing</h2>
+        <p>
+            The tour is kept on the device, so it opens and edits without a connection; changes
+            are sent when there is one. The line under the tour name says which copy you are
+            looking at — <b>from server</b> or <b>local copy</b> — and how old it is.
+        </p>
+        <p>The <TcIcon Name="refresh" /> button asks the server and then says what happened, plainly:</p>
+        <div class="tcn-help-terms">
+            <div><b>new data received</b></div>
+            <div>Somebody had changed something; you are looking at it now.</div>
+            <div><b>server has nothing newer</b></div>
+            <div>The request went through and came back with the same tour.</div>
+            <div><b>server did not answer</b></div>
+            <div>No connection. What you see is the local copy, and it is still safe to edit.</div>
+        </div>
+    </section>
+
+    <section class="tcn-help-sec" id="glossary">
+        <h2>Every word on screen</h2>
+        <div class="tcn-help-terms">
+            <div><b>Tour</b></div>
+            <div>One group with one common pot.</div>
+            <div><b>Weight / share</b></div>
+            <div>How large a part of a shared expense a person carries. 100 is a full share.</div>
+            <div><b>Paid / Charged / Balance</b></div>
+            <div>Put in / own part cost / the difference.</div>
+            <div><b>owes … / gets …</b></div>
+            <div>Which way the difference points.</div>
+            <div><b>Left to settle</b></div>
+            <div>The sum of the payments still to be made between people.</div>
+            <div><b>Mark paid</b></div>
+            <div>Records that a suggested payment really happened.</div>
+            <div><span class="tcn-chip">payback</span></div>
+            <div>The record “A gave B this much”. Money moved, nothing was bought.</div>
+            <div><span class="tcn-chip">inside family</span></div>
+            <div>The same, between a person and whoever pays for them.</div>
+            <div><span class="tcn-chip tcn-chip-amber">draft</span></div>
+            <div>A possible expense. Counts towards nothing unless you say so.</div>
+            <div><b>uncounted</b></div>
+            <div>Money that moved without being spent: paybacks and drafts.</div>
+            <div><span class="tcn-chip tcn-chip-amber">settling up</span></div>
+            <div>On a tour: the trip is over and you are squaring up. It opens on the Balance tab.</div>
+            <div><span class="tcn-chip">archived</span></div>
+            <div>Hidden from the tour list until you tick <b>Show archived</b>.</div>
+            <div><b>Main currency</b></div>
+            <div>The one every total is calculated in. Shared by everyone.</div>
+            <div><b>show amounts in</b></div>
+            <div>Converts your own screen. Saved nowhere.</div>
+        </div>
+    </section>
+
+    <section class="tcn-help-sec" id="trouble">
+        <h2>When the numbers look wrong</h2>
+        <div class="tcn-help-terms">
+            <div><b>“Total spent is less than what we actually spent”</b></div>
+            <div>Paybacks and drafts are not spending. Tap the <b>uncounted</b> figure next to the total to see exactly what was left out.</div>
+            <div><b>“This expense is not in the statistics”</b></div>
+            <div>It has no category. An expense without one is treated as settling up.</div>
+            <div><b>“Nobody owes anything, but we clearly do”</b></div>
+            <div>Debts under <b>Ignore debts smaller than</b> are treated as settled. Lower it in the settings if you really do split coins.</div>
+            <div><b>“One person shows two different debts”</b></div>
+            <div>They pay for someone. The large figure is what they hand over in total, <b>own</b> is their personal part.</div>
+            <div><b>“I do not recognise these amounts”</b></div>
+            <div>Check <b>show amounts in</b> in the tour header — you may be looking at another currency.</div>
+            <div><b>“Somebody changed something and I cannot see it”</b></div>
+            <div>Press <TcIcon Name="refresh" /> next to the tour name. If it says the server did not answer, you are offline and looking at the local copy.</div>
+        </div>
+    </section>
+
+    <footer class="tcn-help-foot">
+        <a class="tcn-btn" href="/settings"><TcIcon Name="settings" /> Settings</a>
+        <a class="tcn-btn tcn-btn-primary" href="/tourlist">Back to your tours</a>
+    </footer>
+
+</article>
+
+<AnchorNavigation />
+
+@code {
+    protected override void OnInitialized() => uiMode.OnChanged += OnUiModeChanged;
+
+    public void Dispose() => uiMode.OnChanged -= OnUiModeChanged;
+
+    private void OnUiModeChanged() => _ = InvokeAsync(StateHasChanged);
+}

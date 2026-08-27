@@ -28,10 +28,9 @@
 {
     <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
         <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost ·
-        <b>Balance</b> — the difference.@if (Explainable)
-        {
-            <span> Tap any of the three for the itemised list.</span>
-        }
+        @* the three cells are PersonBreakdown buttons and open their dialog whatever the
+           "tap any number" setting says - the invitation is true in both modes *@
+        <b>Balance</b> — the difference. Tap any of the three for the itemised list.
     </div>
 }
 
