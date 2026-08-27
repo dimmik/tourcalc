@@ -11,12 +11,20 @@
     --tcn-border: #e3e8ef;
     --tcn-border-strong: #cfd6e2;
     --tcn-text: #111827;
-    --tcn-muted: #667085;
-    --tcn-faint: #98a2b3;
+    /* these two carry 10-12px text (stat labels, dates, "for everyone"): #667085 was
+       4.97:1 and #98a2b3 only 2.58:1, i.e. below the WCAG floor of 4.5:1 */
+    --tcn-muted: #5b6472;
+    --tcn-faint: #6b7280;
 
+    /* the accent lives in these five and nowhere else, so picking another one in the
+       settings is a matter of redefining them - see the [data-tcn-accent] blocks below.
+       Gradients lost their third, most saturated stop: a large surface at S 81% was the
+       one thing in the palette that design guidance says not to do. */
     --tcn-primary: #4f46e5;
     --tcn-primary-dark: #4338ca;
     --tcn-primary-soft: #eef2ff;
+    --tcn-accent-2: #6d28d9;
+    --tcn-accent-shadow: rgba(79, 70, 229, .28);
 
     --tcn-green: #047857;
     --tcn-green-soft: #ecfdf5;
@@ -57,8 +65,8 @@ body.tcn-on {
     padding: 0 12px;
     height: 52px;
     color: #fff;
-    background: linear-gradient(120deg, #4f46e5 0%, #6d28d9 55%, #7e22ce 100%);
-    box-shadow: 0 2px 10px rgba(79, 70, 229, .28);
+    background: linear-gradient(120deg, var(--tcn-primary) 0%, var(--tcn-accent-2) 100%);
+    box-shadow: 0 2px 10px var(--tcn-accent-shadow);
 }
 
 .tcn-brand {
@@ -346,7 +354,7 @@ body.tcn-on {
     margin-bottom: 14px;
     border-radius: var(--tcn-radius);
     color: #fff;
-    background: linear-gradient(125deg, #4338ca 0%, #6d28d9 60%, #9333ea 100%);
+    background: linear-gradient(125deg, var(--tcn-primary-dark) 0%, var(--tcn-accent-2) 100%);
     box-shadow: var(--tcn-shadow-lg);
 }
 
@@ -722,7 +730,7 @@ body.tcn-on {
     padding: 14px 20px;
     border: 0;
     border-radius: 999px;
-    background: linear-gradient(120deg, #4f46e5, #7c3aed);
+    background: linear-gradient(120deg, var(--tcn-primary), var(--tcn-accent-2));
     color: #fff;
     font-size: 15px;
     font-weight: 700;
@@ -1388,7 +1396,7 @@ textarea.tcn-input {
     align-items: center;
     gap: 10px;
     padding: 14px 16px;
-    background: linear-gradient(120deg, #4f46e5 0%, #6d28d9 100%);
+    background: linear-gradient(120deg, var(--tcn-primary) 0%, var(--tcn-accent-2) 100%);
     color: #fff;
 }
 
@@ -2857,7 +2865,7 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
 .tcn-help-hero {
     padding: 22px 18px 24px 18px;
     border-radius: var(--tcn-radius);
-    background: linear-gradient(125deg, #4338ca 0%, #6d28d9 60%, #9333ea 100%);
+    background: linear-gradient(125deg, var(--tcn-primary-dark) 0%, var(--tcn-accent-2) 100%);
     box-shadow: var(--tcn-shadow-lg);
     color: #fff;
     text-align: center;
@@ -3037,3 +3045,98 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
         color: var(--tcn-primary);
         margin-top: 2px;
     }
+
+/* ------------------------------------------------------- accent themes -- */
+/* Picked in the settings. Every stop was checked against white: the lowest ratio
+   in the set is 5.0:1, so the accent never becomes the weak link. The default
+   (indigo) is the one in :root above and needs no block of its own. */
+
+body[data-tcn-accent="blue"] {   /* Ocean */
+    --tcn-primary: #2563eb;
+    --tcn-primary-dark: #1d4ed8;
+    --tcn-primary-soft: #eff6ff;
+    --tcn-accent-2: #226c91;
+    --tcn-accent-shadow: rgba(37, 99, 235, .28);
+}
+
+body[data-tcn-accent="teal"] {   /* Teal */
+    --tcn-primary: #0f766e;
+    --tcn-primary-dark: #115e59;
+    --tcn-primary-soft: #eefdfa;
+    --tcn-accent-2: #226881;
+    --tcn-accent-shadow: rgba(15, 118, 110, .28);
+}
+
+body[data-tcn-accent="green"] {   /* Forest */
+    --tcn-primary: #15803d;
+    --tcn-primary-dark: #166534;
+    --tcn-primary-soft: #f0fdf4;
+    --tcn-accent-2: #1b6a5a;
+    --tcn-accent-shadow: rgba(21, 128, 61, .28);
+}
+
+body[data-tcn-accent="plum"] {   /* Plum */
+    --tcn-primary: #7e22ce;
+    --tcn-primary-dark: #6b21a8;
+    --tcn-primary-soft: #faf5ff;
+    --tcn-accent-2: #8d358d;
+    --tcn-accent-shadow: rgba(126, 34, 206, .28);
+}
+
+body[data-tcn-accent="crimson"] {   /* Crimson */
+    --tcn-primary: #b91c1c;
+    --tcn-primary-dark: #991b1b;
+    --tcn-primary-soft: #fef2f2;
+    --tcn-accent-2: #922a51;
+    --tcn-accent-shadow: rgba(185, 28, 28, .28);
+}
+
+body[data-tcn-accent="graphite"] {   /* Graphite */
+    --tcn-primary: #475569;
+    --tcn-primary-dark: #334155;
+    --tcn-primary-soft: #f1f5f9;
+    --tcn-accent-2: #425367;
+    --tcn-accent-shadow: rgba(71, 85, 105, .28);
+}
+
+/* the picker in the settings: a row of round samples of the real gradient */
+.tcn-accents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tcn-accent-dot {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px var(--tcn-border);
+    cursor: pointer;
+    position: relative;
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+    .tcn-accent-dot:hover {
+        transform: scale(1.08);
+    }
+
+    .tcn-accent-dot.is-on {
+        border-color: var(--tcn-surface);
+        box-shadow: 0 0 0 2px var(--tcn-text);
+    }
+
+    /* a tick that reads on every one of the seven backgrounds */
+    .tcn-accent-dot.is-on::after {
+        content: "";
+        position: absolute;
+        left: 10px;
+        top: 6px;
+        width: 7px;
+        height: 12px;
+        border: solid #fff;
+        border-width: 0 2.5px 2.5px 0;
+        transform: rotate(45deg);
+    }
+
