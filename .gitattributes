@@ -1,0 +1,24 @@
+# One line-ending convention for the whole repository, whatever each machine is
+# configured to do.
+#
+# The repository stores text as LF. Git for Windows checks out CRLF by default
+# (core.autocrlf=true), which is fine on its own - but a clone made without that
+# setting, e.g. from WSL or Linux, then sees every CRLF file as modified and a
+# single "git add -A" would rewrite the whole tree. This file makes normalisation
+# a property of the project instead of a property of each clone's config.
+* text=auto
+
+# Docker runs these through a shell inside the image; CR at the end of a RUN line
+# is a real bug there, so pin them regardless of platform.
+*.docker                                text eol=lf
+tourcalc.experiment.docker.from-scratch  text eol=lf
+
+# Never convert anything inside these.
+*.png   binary
+*.ico   binary
+*.svg   text
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
