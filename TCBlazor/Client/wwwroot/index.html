@@ -105,6 +105,10 @@
                 document.body.classList.remove("tcn-on");
             }
         };
+        // new UI: the accent is a data attribute on <body>; the stylesheet does the rest
+        window.tcSetAccent = function (name) {
+            document.body.setAttribute("data-tcn-accent", name || "indigo");
+        };
         // /new UI
         // resize
         window.browserResize = {

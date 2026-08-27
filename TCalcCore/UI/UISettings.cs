@@ -1,4 +1,4 @@
-namespace TCalcCore.UI
+﻿namespace TCalcCore.UI
 {
     public class UISettings
     {
@@ -14,5 +14,11 @@ namespace TCalcCore.UI
         public bool Web_Push_Notifications { get; set; } = false;
         /// <summary>New UI: make every number tappable, opening a dialog that explains where it comes from.</summary>
         public bool Explain_Numbers { get; set; } = false;
+        /// <summary>
+        /// New UI: which accent the interface is painted in. One of the keys the stylesheet
+        /// knows (indigo, blue, teal, green, plum, crimson, graphite); anything else falls
+        /// back to the default, so an unknown value can never leave the app colourless.
+        /// </summary>
+        public string Accent_Colour { get; set; } = "indigo";
     }
 }

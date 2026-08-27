@@ -227,6 +227,8 @@
         try
         {
             await JS.InvokeVoidAsync("tcSetUiMode", uiMode.IsNew);
+            var settings = await engine.GetUISettings();
+            await JS.InvokeVoidAsync("tcSetAccent", settings.Accent_Colour);
         }
         catch
         {

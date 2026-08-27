@@ -1,4 +1,6 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
+
+@inject IJSRuntime JsRuntime
 
 @* Hand-written settings screen: the reflection-driven DynaForm can only show
    raw property names, which say nothing about what a setting actually does.
@@ -8,6 +10,35 @@
 {
     <div class="tcn-savednote">✓ saved</div>
 }
+
+<div class="tcn-section">
+    <div class="tcn-section-title">Colour</div>
+    <div class="tcn-card">
+        <div class="tcn-setrow" style="display:block">
+            <div class="tcn-settext">
+                <div class="tcn-setname">Accent colour</div>
+                <div class="tcn-setdesc">
+                    The header, the buttons and the highlights. Everything else stays the
+                    neutral grey it is now, so this only changes the accent, never the text.
+                </div>
+            </div>
+            <div class="tcn-accents" style="margin-top:10px" role="radiogroup" aria-label="Accent colour">
+                @foreach (var a in Accents)
+                {
+                    <button type="button"
+                            class="tcn-accent-dot @(Current == a.Key ? "is-on" : "")"
+                            style="background: linear-gradient(120deg, @a.From, @a.To)"
+                            role="radio"
+                            aria-checked=@(Current == a.Key)
+                            title="@a.Label"
+                            aria-label="@a.Label"
+                            @key=@a.Key
+                            @onclick=@(() => PickAccent(a.Key))></button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="tcn-section">
     <div class="tcn-section-title">Balance &amp; expenses</div>
@@ -168,6 +199,34 @@
     public EventCallback<UISettings> OnSave { get; set; }
 
     private bool justSaved = false;
+
+    /// <summary>
+    /// The seven the stylesheet knows about. From / To are the real gradient stops, so the
+    /// sample is the colour you actually get rather than an approximation of it.
+    /// </summary>
+    private record Accent(string Key, string Label, string From, string To);
+
+    private static readonly Accent[] Accents = new[]
+    {
+        new Accent("indigo",   "Indigo (default)", "#4f46e5", "#6d28d9"),
+        new Accent("blue",     "Ocean",            "#2563eb", "#226c91"),
+        new Accent("teal",     "Teal",             "#0f766e", "#226881"),
+        new Accent("green",    "Forest",           "#15803d", "#1b6a5a"),
+        new Accent("plum",     "Plum",             "#7e22ce", "#8d358d"),
+        new Accent("crimson",  "Crimson",          "#b91c1c", "#922a51"),
+        new Accent("graphite", "Graphite",         "#475569", "#425367"),
+    };
+
+    private string Current =>
+        Accents.Any(a => a.Key == Settings.Accent_Colour) ? Settings.Accent_Colour : "indigo";
+
+    private async Task PickAccent(string key)
+    {
+        Settings.Accent_Colour = key;
+        // repaint before saving: the point of a colour picker is that you see it at once
+        try { await JsRuntime.InvokeVoidAsync("tcSetAccent", key); } catch { }
+        await Save();
+    }
 
     private async Task SetBool(Action<bool> apply, ChangeEventArgs e)
     {
