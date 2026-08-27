@@ -347,6 +347,24 @@
 </head>
 
 <body>
+    <script>
+        // Paint the right background before Blazor boots. The app sets these itself on
+        // startup, but that is a second or two later, and until then the page would flash
+        // the browser's default white. Same rule as UiModeService: no stored value means
+        // the new interface.
+        (function () {
+            try {
+                if ((localStorage.getItem("__tc_ui_mode") || "new") === "new") {
+                    document.body.classList.add("tcn-on");
+                }
+                var s = localStorage.getItem("__tc_ui_settings") || "";
+                var m = s.match(/"Accent_Colour"\s*:\s*"([a-z]+)"/);
+                document.body.setAttribute("data-tcn-accent", m ? m[1] : "indigo");
+            } catch (e) {
+                document.body.classList.add("tcn-on");
+            }
+        })();
+    </script>
     <div id="app">Loading...</div>
 
     <div id="blazor-error-ui">

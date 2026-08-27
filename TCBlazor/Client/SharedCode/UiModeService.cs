@@ -1,4 +1,4 @@
-using TCalcCore.Storage;
+﻿using TCalcCore.Storage;
 
 namespace TCBlazor.Client.SharedCode
 {
@@ -13,8 +13,11 @@ namespace TCBlazor.Client.SharedCode
         private const string OldValue = "old";
 
         private readonly ITourcalcLocalStorage storage;
-        // the classic UI stays the default until the new one has had some mileage
-        private bool _isNew = false;
+        // The new UI is the default now. Only the absence of a stored value counts as
+        // "no choice made": anyone who has ever picked Classic has "old" written down and
+        // keeps it, because Get() is called without storeDefaultValue and therefore never
+        // wrote the old default to anybody's browser.
+        private bool _isNew = true;
         private bool _initialized = false;
 
         public UiModeService(ITourcalcLocalStorage storage)
@@ -33,12 +36,12 @@ namespace TCBlazor.Client.SharedCode
             _initialized = true;
             try
             {
-                var (val, _) = await storage.Get(StorageKey, defVal: OldValue);
+                var (val, _) = await storage.Get(StorageKey, defVal: NewValue);
                 _isNew = val == NewValue;
             }
             catch
             {
-                _isNew = false;
+                _isNew = true;
             }
             OnChanged?.Invoke();
         }
