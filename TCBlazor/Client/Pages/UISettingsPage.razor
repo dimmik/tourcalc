@@ -1,4 +1,4 @@
-@page "/settings"
+﻿@page "/settings"
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
@@ -43,6 +43,20 @@
                 </button>
             </div>
         </div>
+    </div>
+
+    <div class="tcn-section">
+        <div class="tcn-section-title">Help</div>
+        <a class="tcn-card tcn-helplink" href="/help">
+            <TcIcon Name="help" />
+            <div class="tcn-settext">
+                <div class="tcn-setname">How Tourcalc counts</div>
+                <div class="tcn-setdesc">
+                    What a weight is, why a total can be smaller than the sum of the expenses,
+                    what “uncounted” means, and every other word on screen.
+                </div>
+            </div>
+        </a>
     </div>
 
     <SettingsForm Settings=@settings
