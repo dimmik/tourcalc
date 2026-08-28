@@ -229,6 +229,10 @@
     [Parameter]
     public EventCallback OnClose { get; set; }
 
+    /// <summary>The currency the tour is currently shown in - see SpendingAddInModal.</summary>
+    [Parameter]
+    public Currency? DefaultCurrency { get; set; }
+
     private Spending spending = new();
     private List<string> categories = new();
     private List<string> errors = new();
@@ -282,7 +286,9 @@
             typeIsGuess = false;
             if (IsNewSpending())
             {
-                spending.Currency = tour.Currency;
+                // the one on screen, not the tour's own: if the amounts are being read in
+                // euro, the expense being typed in is almost certainly in euro too
+                spending.Currency = DefaultCurrency ?? tour.Currency;
                 spending.SpendingDate = DateTime.Now;
 
                 // a new expense starts in the most recently used category, same as the

@@ -7,6 +7,7 @@
 @if (open && uiMode.IsNew)
 {
     <SpendingModalNew tour=@tour
+                      DefaultCurrency=@DefaultCurrency
                       TheSpending=@TheSpending
                       Title="New expense"
                       ShowAddAnother=@true
@@ -41,6 +42,13 @@ else if (open)
 @code {
     [Parameter]
     public Tour tour { get; set; } = new();
+    /// <summary>
+    /// The currency the tour is being watched in, which is the one to record a new expense
+    /// in by default. Null means the tour's own. Only the new UI honours it; the classic
+    /// form keeps picking the tour currency exactly as it always did.
+    /// </summary>
+    [Parameter]
+    public Currency? DefaultCurrency { get; set; }
     [Parameter]
     public EventCallback OnSpendingAdded { get; set; }
 
