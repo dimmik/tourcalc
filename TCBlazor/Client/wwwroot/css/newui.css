@@ -3140,3 +3140,71 @@ body[data-tcn-accent="graphite"] {   /* Graphite */
         transform: rotate(45deg);
     }
 
+/* the eighth sample is the browser's own colour picker. The native <input type=color>
+   is a square with a chrome border of its own, so it is stripped bare and the ring,
+   the tick and the size come from the wrapper - i.e. from the same rules as the
+   seven fixed dots above. */
+.tcn-accent-wrap {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px var(--tcn-border);
+    overflow: hidden;
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+    .tcn-accent-wrap:hover {
+        transform: scale(1.08);
+    }
+
+    .tcn-accent-wrap.is-on {
+        border-color: var(--tcn-surface);
+        box-shadow: 0 0 0 2px var(--tcn-text);
+    }
+
+    /* unlike the seven fixed dots, this swatch can be any colour at all, pale ones
+       included, so the white tick carries a shadow to stay visible on them */
+    .tcn-accent-wrap.is-on::after {
+        content: "";
+        position: absolute;
+        left: 10px;
+        top: 6px;
+        width: 7px;
+        height: 12px;
+        border: solid #fff;
+        border-width: 0 2.5px 2.5px 0;
+        transform: rotate(45deg);
+        filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, .75));
+        pointer-events: none;
+    }
+
+.tcn-accent-custom {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+    .tcn-accent-custom::-webkit-color-swatch-wrapper {
+        padding: 0;
+    }
+
+    .tcn-accent-custom::-webkit-color-swatch {
+        border: none;
+        border-radius: 999px;
+    }
+
+    .tcn-accent-custom::-moz-color-swatch {
+        border: none;
+        border-radius: 999px;
+    }
+

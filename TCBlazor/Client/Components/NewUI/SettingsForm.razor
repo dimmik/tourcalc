@@ -20,6 +20,9 @@
                 <div class="tcn-setdesc">
                     The header, the buttons and the highlights. Everything else stays the
                     neutral grey it is now, so this only changes the accent, never the text.
+                    The last sample opens the colour picker if none of the seven is the one
+                    you want; a very light pick is darkened a little so the white text on
+                    top of it stays readable.
                 </div>
             </div>
             <div class="tcn-accents" style="margin-top:10px" role="radiogroup" aria-label="Accent colour">
@@ -35,6 +38,16 @@
                             @key=@a.Key
                             @onclick=@(() => PickAccent(a.Key))></button>
                 }
+                <span class="tcn-accent-wrap @(IsCustom ? "is-on" : "")" title="Any other colour">
+                    <input type="color"
+                           class="tcn-accent-custom"
+                           value="@CustomSwatch"
+                           role="radio"
+                           aria-checked=@IsCustom
+                           aria-label="Any other colour"
+                           @oninput=@PreviewCustom
+                           @onchange=@PickCustom />
+                </span>
             </div>
         </div>
     </div>
@@ -220,11 +233,40 @@
     private string Current =>
         Accents.Any(a => a.Key == Settings.Accent_Colour) ? Settings.Accent_Colour : "indigo";
 
+    /// <summary>
+    /// Anything that is not one of the seven keys is a hex colour chosen by hand; the
+    /// stylesheet has no block for those, so tcSetAccent derives the variables instead.
+    /// </summary>
+    private bool IsCustom => (Settings.Accent_Colour ?? "").StartsWith("#");
+
+    /// <summary>What the native picker opens on: the hand-picked colour, or, if there is
+    /// none yet, the first stop of the theme currently in use.</summary>
+    private string CustomSwatch =>
+        IsCustom ? Settings.Accent_Colour : Accents.First(a => a.Key == Current).From;
+
     private async Task PickAccent(string key)
     {
         Settings.Accent_Colour = key;
         // repaint before saving: the point of a colour picker is that you see it at once
         try { await JsRuntime.InvokeVoidAsync("tcSetAccent", key); } catch { }
+        await Save();
+    }
+
+    /// <summary>Dragging inside the picker repaints the page live. Nothing is written
+    /// until it closes, so backing out of the dialog leaves the setting alone.</summary>
+    private async Task PreviewCustom(ChangeEventArgs e)
+    {
+        var hex = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        try { await JsRuntime.InvokeVoidAsync("tcSetAccent", hex); } catch { }
+    }
+
+    private async Task PickCustom(ChangeEventArgs e)
+    {
+        var hex = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        Settings.Accent_Colour = hex;
+        try { await JsRuntime.InvokeVoidAsync("tcSetAccent", hex); } catch { }
         await Save();
     }
 
