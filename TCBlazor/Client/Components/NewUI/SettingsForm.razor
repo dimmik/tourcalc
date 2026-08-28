@@ -230,8 +230,12 @@
         new Accent("graphite", "Graphite",         "#475569", "#425367"),
     };
 
+    /// <summary>The preset that is showing, or "" when the colour was picked by hand -
+    /// otherwise a hex value would fall back to indigo and light up that dot as well.</summary>
     private string Current =>
-        Accents.Any(a => a.Key == Settings.Accent_Colour) ? Settings.Accent_Colour : "indigo";
+        IsCustom ? ""
+        : Accents.Any(a => a.Key == Settings.Accent_Colour) ? Settings.Accent_Colour
+        : "indigo";
 
     /// <summary>
     /// Anything that is not one of the seven keys is a hex colour chosen by hand; the
