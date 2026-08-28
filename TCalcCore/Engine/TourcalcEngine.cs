@@ -87,6 +87,22 @@ namespace TCalcCore.Engine
         {
             return (await ts.Get(whoamiKey)).val;
         }
+
+        /// <summary>
+        /// Which currency a tour is displayed in. This is a preference of the device, not a
+        /// property of the tour - the tour keeps its own currency on the server and every
+        /// member may well watch it in a different one - so it lives here next to WhoAmI,
+        /// one entry per tour.
+        /// </summary>
+        private static string DisplayCurrencyKey(string tourId) => $"__tc_display_currency_{tourId}";
+        public async Task SetDisplayCurrencyId(string tourId, string currencyId)
+        {
+            await ts.Set(DisplayCurrencyKey(tourId), currencyId ?? "");
+        }
+        public async Task<string> GetDisplayCurrencyId(string tourId)
+        {
+            return (await ts.Get(DisplayCurrencyKey(tourId))).val;
+        }
         #endregion
 
         #region auth

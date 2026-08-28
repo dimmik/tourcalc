@@ -143,7 +143,7 @@ else
     }
 }
 <AnchorNavigation />
-<SpendingAddInModal @ref="_spendingAddInModal" tour="tour" />
+<SpendingAddInModal @ref="_spendingAddInModal" tour="tour" DefaultCurrency=@curr />
 @code {
     [Parameter]
     public string? TourId { get; set; }
@@ -180,12 +180,14 @@ else
 
     private void OnUiModeChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private Task OnDisplayCurrencyChanged(Currency? c)
+    private async Task OnDisplayCurrencyChanged(Currency? c)
     {
         curr = c ?? tour?.Currency;
         tourLocal = GetTourInCurrency(tour?.SafeClone<Tour>() ?? new());
         StateHasChanged();
-        return Task.CompletedTask;
+        // remembered per tour and per device, so coming back to the tour does not put the
+        // amounts back into a currency nobody here is counting in
+        if (tour != null) await engine.SetDisplayCurrencyId(tour.Id, curr?.Id ?? "");
     }
 
     private async Task<string?> GetDefaultFromGuid()
@@ -227,7 +229,10 @@ else
         storedDt = updated;
         if (curr == null) // only if we have not used the curr yet
         {
-            curr = t.Currency;
+            // whatever was picked last time on this device wins; an id that no longer
+            // exists (the currency was deleted since) simply falls back to the tour's own
+            var storedId = await engine.GetDisplayCurrencyId(t.Id);
+            curr = t.Currencies?.FirstOrDefault(c => c.Id == storedId) ?? t.Currency;
         }
         tour = t;
         tourLocal = tour.SafeClone<Tour>();
