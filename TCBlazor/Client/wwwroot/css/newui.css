@@ -785,7 +785,7 @@ body.tcn-on {
 
     .tcn-chip.tcn-chip-primary {
         background: var(--tcn-primary-soft);
-        border-color: #dcdffa;
+        border-color: var(--tcn-accent-shadow);
         color: var(--tcn-primary-dark);
     }
 
@@ -1578,13 +1578,15 @@ textarea.tcn-input {
         margin-top: 4px;
     }
 
-/* the amount is the one number that matters, so it gets the room */
+/* the amount is the one number that matters, so it gets the room. It still has to look
+   like something you type into: sitting borderless on a tinted card, the big number read
+   as a printed total rather than as a field. */
 .tcn-amount {
     margin-bottom: 16px;
     padding: 12px 14px;
     border-radius: var(--tcn-radius);
     background: var(--tcn-primary-soft);
-    border: 1px solid #dcdffa;
+    border: 1px solid var(--tcn-accent-shadow);
 }
 
 .tcn-amount-row {
@@ -1597,17 +1599,29 @@ textarea.tcn-input {
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
-    border: 0;
-    background: transparent;
+    border: 1.5px solid var(--tcn-border-strong);
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface);
     outline: none;
     font-size: 30px;
     font-weight: 750;
     color: var(--tcn-text);
     font-variant-numeric: tabular-nums;
-    padding: 0;
+    padding: 2px 12px;
+    caret-color: var(--tcn-primary);
+    transition: border-color .12s ease, box-shadow .12s ease;
     /* the spinners fight with the big type */
     -moz-appearance: textfield;
 }
+
+    .tcn-amount-input:hover {
+        border-color: var(--tcn-primary);
+    }
+
+    .tcn-amount-input:focus {
+        border-color: var(--tcn-primary);
+        box-shadow: 0 0 0 3px var(--tcn-accent-shadow);
+    }
 
     .tcn-amount-input::-webkit-outer-spin-button,
     .tcn-amount-input::-webkit-inner-spin-button {
@@ -1615,13 +1629,17 @@ textarea.tcn-input {
         margin: 0;
     }
 
+    /* lighter than the text it stands in for, so an empty field does not read as a
+       spending of zero */
     .tcn-amount-input::placeholder {
-        color: var(--tcn-faint);
+        color: var(--tcn-border-strong);
+        font-weight: 600;
     }
 
 .tcn-amount-curr {
     flex: 0 0 auto;
-    border: 1px solid #dcdffa;
+    /* the same outline as the amount box next to it, so the pair reads as one control */
+    border: 1.5px solid var(--tcn-border-strong);
     background: var(--tcn-surface);
     border-radius: var(--tcn-radius-sm);
     padding: 6px 8px;
