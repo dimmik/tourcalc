@@ -621,6 +621,83 @@ body.tcn-on {
     margin-top: 10px;
 }
 
+/* --- the dense list ------------------------------------------------------- */
+/* A roomy card is ~163px tall, so four people fill a phone screen. One line per
+   person is ~52px, which puts a dozen of them in the same space; the three numbers
+   and the buttons are still there, one tap away. */
+.tcn-person.is-compact {
+    padding: 2px 10px;
+}
+
+.tcn-person-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+    .tcn-person-row .tcn-person-id {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .tcn-person-row .tcn-person-name {
+        font-size: 14.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tcn-person-row .tcn-person-meta {
+        margin: 0;
+        flex: 0 1 auto;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tcn-person-row .tcn-chip {
+        flex: 0 0 auto;
+    }
+
+.tcn-person-caret {
+    flex: 0 0 auto;
+    display: inline-flex;
+    color: var(--tcn-faint);
+}
+
+.tcn-person.is-compact .tcn-person-stats {
+    margin-top: 4px;
+}
+
+.tcn-person.is-compact .tcn-person-actions {
+    margin-bottom: 8px;
+}
+
+.tcn-people-list.is-compact {
+    gap: 6px;
+}
+
+/* --- room to spare -------------------------------------------------------- */
+/* Only the roomy cards go multi-column: a dense list already fits, and splitting it
+   would put a child in a different column from whoever pays for them. */
+@media (min-width: 780px) {
+    .tcn-people-list:not(.is-compact) {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        align-items: start;
+    }
+}
+
 .tcn-empty {
     padding: 28px 16px;
     text-align: center;

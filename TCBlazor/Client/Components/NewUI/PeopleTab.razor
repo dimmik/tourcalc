@@ -10,9 +10,28 @@
     <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => ShowEdit(new Person { GUID = "New" }))>
         + Add person
     </button>
+    @if (Tour.Persons.Count > SearchFrom)
+    {
+        <div class="tcn-search">
+            <span class="tcn-search-icon">🔎</span>
+            <input type="text" placeholder="Find a person" value="@search"
+                   @oninput=@(e => search = e.Value?.ToString() ?? "") />
+            @if (!string.IsNullOrEmpty(search))
+            {
+                <button type="button" class="tcn-search-clear" title="Clear" aria-label="Clear the search"
+                        @onclick=@(() => search = "")><TcIcon Name="close" /></button>
+            }
+        </div>
+    }
+    @if (Tour.Persons.Count > 1)
+    {
+        <button type="button" class="tcn-btn tcn-btn-sm @(Compact ? "tcn-btn-primary" : "")"
+                title="One line per person - tap a line to open their numbers"
+                @onclick=@ToggleCompact>Compact</button>
+    }
     @if (Tour.Persons.Any())
     {
-        <span class="tcn-chip">@Tour.Persons.Count people</span>
+        <span class="tcn-chip">@CountLabel</span>
         <span class="tcn-chip">
             total weight
             <Explain Enabled=@Explainable Title="Total weight"
@@ -27,10 +46,19 @@
 @if (Tour.Persons.Any())
 {
     <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
-        <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost ·
-        @* the three cells are PersonBreakdown buttons and open their dialog whatever the
-           "tap any number" setting says - the invitation is true in both modes *@
-        <b>Balance</b> — the difference. Tap any of the three for the itemised list.
+        @if (Compact)
+        {
+            <span><b>Tap a name</b> to open what they paid, what their share cost, and the difference between the two.</span>
+        }
+        else
+        {
+            <span>
+                <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost ·
+                @* the three cells are PersonBreakdown buttons and open their dialog whatever the
+                   "tap any number" setting says - the invitation is true in both modes *@
+                <b>Balance</b> — the difference. Tap any of the three for the itemised list.
+            </span>
+        }
     </div>
 }
 
@@ -42,10 +70,17 @@
         <div>Add everyone who takes part in the tour — then you can start recording expenses.</div>
     </div>
 }
+else if (!Shown().Any())
+{
+    <div class="tcn-empty">
+        <div class="tcn-empty-title">Nobody here is called “@search”</div>
+        <div>Try a shorter piece of the name.</div>
+    </div>
+}
 else
 {
-    <div class="tcn-list">
-        @foreach (var person in Tour.Persons.SortedByNameAndDependency())
+    <div class="tcn-list tcn-people-list @(Compact ? "is-compact" : "")">
+        @foreach (var person in Shown())
         {
             var isChild = !string.IsNullOrWhiteSpace(person.ParentId);
             var debt = Debt(person);
@@ -56,74 +91,103 @@ else
             // "settled" while they clearly owe something was confusing, so they show their own debt
             var shown = isChild ? debt : family;
             var splitFamily = !isChild && Math.Abs(family - debt) > _minMeaningful;
-            <div class="tcn-person @(isChild ? "is-child" : "")" @key=@($"pers_{person.GUID}")>
-                <div class="tcn-person-head">
-                    <span class="tcn-avatar" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name, Tour)</span>
-                    <div class="tcn-person-id">
-                        <div class="tcn-person-name">@person.Name</div>
-                        <div class="tcn-person-meta">
-                            <span>
-                                weight
-                                <Explain Enabled=@Explainable Title=@($"{person.Name}: weight {person.Weight}")
-                                         Details=@PersonWeightDetails(person)>
-                                    @person.Weight
-                                </Explain>
-                            </span>
+            // in the dense list a person opens on demand; in the roomy one everything is open
+            var isOpen = !Compact || expanded.Contains(person.GUID);
+            <div class="tcn-person @(isChild ? "is-child" : "") @(Compact ? "is-compact" : "")" @key=@($"pers_{person.GUID}")>
+                @if (Compact)
+                {
+                    <button type="button" class="tcn-person-row" aria-expanded=@(isOpen ? "true" : "false")
+                            @onclick=@(() => Toggle(person.GUID))>
+                        <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name, Tour)</span>
+                        <span class="tcn-person-id">
+                            <span class="tcn-person-name">@person.Name</span>
                             @if (isChild)
                             {
-                                <span>paid by <b>@NewUi.PersonName(Tour, person.ParentId)</b></span>
+                                <span class="tcn-person-meta">paid by @NewUi.PersonName(Tour, person.ParentId)</span>
+                            }
+                        </span>
+                        @* plain text rather than an Explain: a button inside a button is not
+                           markup a browser accepts, and the itemised list is one tap away *@
+                        <span class="tcn-chip @(isChild || shown == 0 ? "" : shown > 0 ? "tcn-chip-red" : "tcn-chip-green")"
+                              title=@(isChild ? $"Settled through {NewUi.PersonName(Tour, person.ParentId)}" : "")>
+                            @(shown > 0 ? $"owes {NewUi.Money(shown)}" : shown < 0 ? $"gets {NewUi.Money(-shown)}" : "settled")
+                        </span>
+                        <span class="tcn-person-caret"><TcIcon Name=@(isOpen ? "chevron-down" : "chevron-right") /></span>
+                    </button>
+                }
+                else
+                {
+                    <div class="tcn-person-head">
+                        <span class="tcn-avatar" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name, Tour)</span>
+                        <div class="tcn-person-id">
+                            <div class="tcn-person-name">@person.Name</div>
+                            <div class="tcn-person-meta">
+                                <span>
+                                    weight
+                                    <Explain Enabled=@Explainable Title=@($"{person.Name}: weight {person.Weight}")
+                                             Details=@PersonWeightDetails(person)>
+                                        @person.Weight
+                                    </Explain>
+                                </span>
+                                @if (isChild)
+                                {
+                                    <span>paid by <b>@NewUi.PersonName(Tour, person.ParentId)</b></span>
+                                }
+                            </div>
+                        </div>
+                        <div class="tcn-person-owe">
+                            <Explain Enabled=@Explainable Title=@($"{person.Name}: where this comes from")
+                                     Headline=@(shown > 0 ? $"owes {NewUi.Money(shown)}" : shown < 0 ? $"gets {NewUi.Money(-shown)}" : "settled")
+                                     Details=@PersonDebtDetails(person, debt, family)>
+                                @if (shown > 0)
+                                {
+                                    <span class="tcn-chip @(isChild ? "" : "tcn-chip-red")"
+                                          title=@(isChild ? $"Settled through {NewUi.PersonName(Tour, person.ParentId)}" : "")>
+                                        owes @NewUi.Money(shown)
+                                    </span>
+                                }
+                                else if (shown < 0)
+                                {
+                                    <span class="tcn-chip @(isChild ? "" : "tcn-chip-green")"
+                                          title=@(isChild ? $"Settled through {NewUi.PersonName(Tour, person.ParentId)}" : "")>
+                                        gets @NewUi.Money(-shown)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="tcn-chip">settled</span>
+                                }
+                            </Explain>
+                            @if (splitFamily)
+                            {
+                                <span class="tcn-person-own" title="Their own debt, before the people they pay for">
+                                    @(debt > 0 ? $"own: owes {NewUi.Money(debt)}" : debt < 0 ? $"own: gets {NewUi.Money(-debt)}" : "own: settled")
+                                </span>
                             }
                         </div>
                     </div>
-                    <div class="tcn-person-owe">
-                        <Explain Enabled=@Explainable Title=@($"{person.Name}: where this comes from")
-                                 Headline=@(shown > 0 ? $"owes {NewUi.Money(shown)}" : shown < 0 ? $"gets {NewUi.Money(-shown)}" : "settled")
-                                 Details=@PersonDebtDetails(person, debt, family)>
-                            @if (shown > 0)
-                            {
-                                <span class="tcn-chip @(isChild ? "" : "tcn-chip-red")"
-                                      title=@(isChild ? $"Settled through {NewUi.PersonName(Tour, person.ParentId)}" : "")>
-                                    owes @NewUi.Money(shown)
-                                </span>
-                            }
-                            else if (shown < 0)
-                            {
-                                <span class="tcn-chip @(isChild ? "" : "tcn-chip-green")"
-                                      title=@(isChild ? $"Settled through {NewUi.PersonName(Tour, person.ParentId)}" : "")>
-                                    gets @NewUi.Money(-shown)
-                                </span>
-                            }
-                            else
-                            {
-                                <span class="tcn-chip">settled</span>
-                            }
-                        </Explain>
-                        @if (splitFamily)
-                        {
-                            <span class="tcn-person-own" title="Their own debt, before the people they pay for">
-                                @(debt > 0 ? $"own: owes {NewUi.Money(debt)}" : debt < 0 ? $"own: gets {NewUi.Money(-debt)}" : "own: settled")
-                            </span>
-                        }
+                }
+
+                @if (isOpen)
+                {
+                    <div class="tcn-person-stats">
+                        <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Paid"
+                                         tour=@Tour person=@person debt="debt" minMeaningfulAmount=@MinMeaningful
+                                         @key=@($"paid_{person.GUID}") />
+                        <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Share"
+                                         tour=@Tour person=@person debt="debt" minMeaningfulAmount=@MinMeaningful
+                                         @key=@($"share_{person.GUID}") />
+                        <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Balance"
+                                         tour=@Tour person=@person debt="debt" WillPay="family" IsCovered="isChild" minMeaningfulAmount=@MinMeaningful
+                                         @key=@($"bal_{person.GUID}") />
                     </div>
-                </div>
 
-                <div class="tcn-person-stats">
-                    <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Paid"
-                                     tour=@Tour person=@person debt="debt" minMeaningfulAmount=@MinMeaningful
-                                     @key=@($"paid_{person.GUID}") />
-                    <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Share"
-                                     tour=@Tour person=@person debt="debt" minMeaningfulAmount=@MinMeaningful
-                                     @key=@($"share_{person.GUID}") />
-                    <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Balance"
-                                     tour=@Tour person=@person debt="debt" WillPay="family" IsCovered="isChild" minMeaningfulAmount=@MinMeaningful
-                                     @key=@($"bal_{person.GUID}") />
-                </div>
-
-                <div class="tcn-person-actions">
-                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary" @onclick=@(() => SpendFor(person))>💸 Spend</button>
-                    <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => ShowEdit(person))>Edit</button>
-                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" @onclick=@(() => DeletePerson(person))>Delete</button>
-                </div>
+                    <div class="tcn-person-actions">
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary" @onclick=@(() => SpendFor(person))>💸 Spend</button>
+                        <button type="button" class="tcn-btn tcn-btn-sm" @onclick=@(() => ShowEdit(person))>Edit</button>
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" @onclick=@(() => DeletePerson(person))>Delete</button>
+                    </div>
+                }
             </div>
         }
     </div>
@@ -147,6 +211,63 @@ else
 
     private bool _isModalVisible = false;
     private Person _personToEdit = new();
+
+    /// <summary>Under this many people the list fits on a screen anyway and a search box is clutter.</summary>
+    private const int SearchFrom = 8;
+
+    /// <summary>
+    /// From here on the roomy cards stop fitting on a phone (they are ~163px each), so a
+    /// tour this size opens dense unless the reader has said otherwise.
+    /// </summary>
+    private const int CompactFrom = 7;
+
+    private string search = "";
+    private bool? compactChosen = null;
+    private readonly HashSet<string> expanded = new();
+
+    private bool Compact => compactChosen ?? Tour.Persons.Count >= CompactFrom;
+
+    protected override async Task OnInitializedAsync()
+    {
+        compactChosen = await engine.GetPeopleCompact();
+    }
+
+    private async Task ToggleCompact()
+    {
+        var next = !Compact;
+        compactChosen = next;
+        expanded.Clear();
+        await engine.SetPeopleCompact(next);
+    }
+
+    private void Toggle(string guid)
+    {
+        if (!expanded.Remove(guid)) expanded.Add(guid);
+    }
+
+    /// <summary>The people to draw: everyone, or whoever the search box leaves.</summary>
+    private IEnumerable<Person> Shown()
+    {
+        var all = Tour.Persons.SortedByNameAndDependency();
+        var q = search.Trim();
+        if (q.Length == 0) return all;
+        return all.Where(p =>
+            (p.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+            // and by the name of whoever pays for them: you look for the family, not for
+            // the child you had forgotten was part of it
+            || (!string.IsNullOrWhiteSpace(p.ParentId)
+                && NewUi.PersonName(Tour, p.ParentId).Contains(q, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private string CountLabel
+    {
+        get
+        {
+            var total = Tour.Persons.Count;
+            if (string.IsNullOrWhiteSpace(search)) return $"{total} people";
+            return $"{Shown().Count()} of {total} people";
+        }
+    }
 
     private int _minMeaningful = 0;
     private int MinMeaningful => _minMeaningful;
