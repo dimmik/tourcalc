@@ -1,11 +1,13 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @implements IDisposable
 
 @* Just the "from server · 3 min ago" line. It lives in its own component so the 30-second
    tick that keeps the wording honest repaints this label instead of the whole tour page. *@
 
-<span title="@($"{StoredDt:yyyy-MM-dd HH:mm:ss}")">
+<span title="@(Stale
+                   ? $"The server could not be reached. This is the copy stored on this device at {StoredDt:yyyy-MM-dd HH:mm:ss}."
+                   : $"{StoredDt:yyyy-MM-dd HH:mm:ss}")">
     @if (Reloading)
     {
         <span class="tcn-refresh-note">asking the server…</span>
@@ -21,6 +23,13 @@
     else if (Outcome == RefreshOutcome.Failed)
     {
         <span class="tcn-refresh-note is-bad">✕ server did not answer — showing the local copy</span>
+    }
+    else if (Stale)
+    {
+        @* the note above says it once and fades; this says it for as long as it is true.
+           Without it the label went back to "from server" after five seconds, which is how
+           the copy got here but not what a refresh that just failed should claim. *@
+        <span class="tcn-refresh-note is-stale">⚠ local copy · @Ago(StoredDt)</span>
     }
     else
     {
@@ -42,6 +51,10 @@
 
     [Parameter]
     public RefreshOutcome Outcome { get; set; } = RefreshOutcome.None;
+
+    /// <summary>The last attempt to reach the server failed and none has succeeded since.</summary>
+    [Parameter]
+    public bool Stale { get; set; }
 
     private CancellationTokenSource? tickCts;
 
