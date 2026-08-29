@@ -731,7 +731,10 @@ body.tcn-on {
     gap: 6px;
 }
 
-    .tcn-family.has-kids {
+    /* the tinted well is what says "these people are settled together", and it is only
+       worth its visual weight while the family is actually open. Folded, the family is a
+       card with a bar under it and lines up with everybody else */
+    .tcn-family.has-kids.is-open {
         padding: 6px;
         border-radius: calc(var(--tcn-radius) + 4px);
         background: var(--tcn-primary-soft);
@@ -794,11 +797,21 @@ body.tcn-on {
 /* --- room to spare -------------------------------------------------------- */
 /* Only the roomy list goes multi-column: a dense one already fits on a screen. */
 @media (min-width: 780px) {
+    /* no align-items:start here on purpose: every cell in a row is as tall as the tallest
+       one in it, and the cards stretch to fill it. A family carries a bar the others do
+       not, and without this it hung below its neighbours */
     .tcn-people-list:not(.is-compact) {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-        align-items: start;
     }
+
+        .tcn-people-list:not(.is-compact) > .tcn-family {
+            height: 100%;
+        }
+
+            .tcn-people-list:not(.is-compact) > .tcn-family > .tcn-person {
+                flex: 1 1 auto;
+            }
 
         /* an opened family would otherwise stand as one tall column beside short cards.
            It takes the whole row instead, and lays its people out along it */
@@ -809,7 +822,6 @@ body.tcn-on {
             .tcn-people-list:not(.is-compact) .tcn-family.is-open .tcn-family-kids {
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-                align-items: start;
             }
 }
 
