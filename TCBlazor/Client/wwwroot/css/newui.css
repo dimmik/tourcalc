@@ -629,12 +629,25 @@ body.tcn-on {
     padding: 2px 10px;
 }
 
+/* the row is a container, not a control: the name opens the person, the button next to
+   it records a spending, and one cannot be nested inside the other */
 .tcn-person-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 7px 0;
+    gap: 6px;
+    padding: 4px 0;
+}
+
+.tcn-person-open {
+    flex: 1 1 auto;
+    /* a flex item defaults to min-width:auto, and a button that cannot shrink below its
+       content pushes the caret and the spend button off the card */
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    /* tight on purpose: every pixel here is a pixel the name does not have */
+    gap: 8px;
+    padding: 3px 0;
     border: 0;
     background: none;
     font: inherit;
@@ -643,31 +656,44 @@ body.tcn-on {
     cursor: pointer;
 }
 
-    .tcn-person-row .tcn-person-id {
+    .tcn-person-open .tcn-person-id {
         display: flex;
         align-items: baseline;
-        gap: 8px;
+        gap: 6px;
         min-width: 0;
     }
 
-    .tcn-person-row .tcn-person-name {
+    /* the name is what gives way when the row runs out of room - everything else in it
+       is a handful of characters that cannot be shortened any further */
+    .tcn-person-open .tcn-person-name {
+        flex: 1 1 auto;
+        min-width: 0;
         font-size: 14.5px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    .tcn-person-row .tcn-person-meta {
+    .tcn-person-open .tcn-person-meta {
         margin: 0;
-        flex: 0 1 auto;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        flex: 0 0 auto;
         white-space: nowrap;
     }
 
-    .tcn-person-row .tcn-chip {
+    .tcn-person-open .tcn-chip {
         flex: 0 0 auto;
     }
+
+.tcn-person-spend {
+    flex: 0 0 auto;
+    padding: 3px 9px;
+}
+
+.tcn-chip-kids {
+    padding: 0 6px;
+    white-space: nowrap;
+}
+
 
 .tcn-person-caret {
     flex: 0 0 auto;
@@ -687,9 +713,40 @@ body.tcn-on {
     gap: 6px;
 }
 
+/* --- a family stays together ---------------------------------------------- */
+/* One block per payer: them, and everybody they pay for. The well is what answers
+   "who is paying for whom" at a glance, and being one element is what stops a wide
+   screen from dealing a child into a different column. */
+.tcn-family {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+    .tcn-family.has-kids {
+        padding: 6px;
+        border-radius: calc(var(--tcn-radius) + 4px);
+        background: var(--tcn-primary-soft);
+        border: 1px solid var(--tcn-accent-shadow);
+    }
+
+.tcn-family-kids {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-left: 13px;
+    padding-left: 11px;
+    border-left: 2px solid var(--tcn-accent-shadow);
+}
+
+    /* inside the well the indent comes from the container, so the card drops its own */
+    .tcn-family-kids .tcn-person.is-child {
+        margin-left: 0;
+        border-left: 1px solid var(--tcn-border);
+    }
+
 /* --- room to spare -------------------------------------------------------- */
-/* Only the roomy cards go multi-column: a dense list already fits, and splitting it
-   would put a child in a different column from whoever pays for them. */
+/* Only the roomy list goes multi-column: a dense one already fits on a screen. */
 @media (min-width: 780px) {
     .tcn-people-list:not(.is-compact) {
         display: grid;
