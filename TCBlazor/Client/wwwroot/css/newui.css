@@ -2594,6 +2594,14 @@ body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
         color: #b91c1c;
     }
 
+    /* not a passing note like the two above: this one stays until a refresh succeeds,
+       so it is amber rather than red - a standing condition, not an error that just
+       happened */
+    .tcn-refresh-note.is-stale {
+        background: var(--tcn-amber-soft);
+        color: var(--tcn-amber);
+    }
+
 /* ---- tap-a-number-for-details ------------------------------------------- */
 
 .tcn-explain {

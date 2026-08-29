@@ -46,6 +46,7 @@
     }
     <div class="tcn-hero-sub">
         <TourFreshness IsFresh=@IsFresh StoredDt=@StoredDt Reloading=@reloading
+                       Stale=@refreshFailed
                        Outcome=@((TourFreshness.RefreshOutcome)(int)outcome) />
         <span>·</span>
         <span><CurrenciesModalNew tour=@RawTour @key=@($"cur_{Tour.Id}") /></span>
@@ -315,6 +316,13 @@
 
     // set from the engine callback: it fires only when the server actually returned a tour
     private bool serverAnswered = false;
+
+    /// <summary>
+    /// A refresh asked the server and got nothing, and nothing has arrived from it since.
+    /// The outcome note above fades after a few seconds; this does not, because what it
+    /// says is still true: the tour on screen is the stored copy.
+    /// </summary>
+    private bool refreshFailed = false;
     private Tour? serverTour = null;
     private bool tabInitialized = false;
 
@@ -350,6 +358,7 @@
         outcome = !serverAnswered
             ? RefreshOutcome.Failed
             : Fingerprint(serverTour) == before ? RefreshOutcome.UpToDate : RefreshOutcome.Updated;
+        refreshFailed = !serverAnswered;
 
         // a local server answers in milliseconds - hold the spinner long enough to be seen
         var minVisible = TimeSpan.FromMilliseconds(450);
@@ -375,6 +384,13 @@
         {
             serverAnswered = true;
             serverTour = t;
+            // anything arriving from the server clears the warning, whoever asked for it -
+            // the refresh button, a background sync, or an edit being pushed
+            if (refreshFailed)
+            {
+                refreshFailed = false;
+                _ = InvokeAsync(StateHasChanged);
+            }
         }
         return Task.CompletedTask;
     }
