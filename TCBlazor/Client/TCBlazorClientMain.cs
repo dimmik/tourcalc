@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components.Web;
+﻿using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using TCBlazor.Client;
 using TCalcCore.Storage;
@@ -27,6 +27,7 @@ namespace Company.WebApplication1
                 .AddScoped<ITokenStorage, CookieTokenStorage>()
                 .AddSingleton<ITourcalcLocalStorage, TourcalcLocalStorage>()
                 .AddSingleton<UiModeService>()
+                .AddSingleton<PeopleViewState>()
                 .AddScoped<EnrichedHttpClient>()
                 .AddScoped<ITourRetriever, HttpBasedTourRetriever>()
                 .AddScoped<ITCDataService, TCDataService>()
