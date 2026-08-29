@@ -731,14 +731,29 @@ body.tcn-on {
     gap: 6px;
 }
 
-    /* in the dense list the well is what says "these people settle together", and it is
-       only worth its visual weight while the family is actually open */
+    /* the dense list has no room for a card around a family, so the accent runs down its
+       side instead - the same mark the roomy card wears along its top */
+    .tcn-people-list.is-compact .tcn-family.has-kids {
+        padding-left: 7px;
+        border-left: 3px solid var(--tcn-primary);
+        border-radius: var(--tcn-radius-sm);
+    }
+
+    /* opened, it also gets the well that says these people settle together */
     .tcn-people-list.is-compact .tcn-family.has-kids.is-open {
-        padding: 6px;
+        padding: 6px 6px 6px 7px;
         border-radius: calc(var(--tcn-radius) + 4px);
         background: var(--tcn-primary-soft);
         border: 1px solid var(--tcn-accent-shadow);
+        border-left: 3px solid var(--tcn-primary);
     }
+
+        /* one line down the side is enough: the indent alone shows the nesting */
+        .tcn-people-list.is-compact .tcn-family.has-kids .tcn-family-kids {
+            margin-left: 13px;
+            padding-left: 0;
+            border-left: 0;
+        }
 
 /* In the roomy list a family is one card rather than a card with things hanging off it:
    the payer is its body, the people they pay for are tucked into its foot, and the accent
