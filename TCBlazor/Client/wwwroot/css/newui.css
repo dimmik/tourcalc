@@ -701,6 +701,14 @@ body.tcn-on {
     color: var(--tcn-faint);
 }
 
+/* the detail an opened dense row adds above its numbers: the payer's own weight, which
+   the folded row gives up to the family total */
+.tcn-person-weights {
+    margin: 2px 0 6px 0;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+}
+
 .tcn-person.is-compact .tcn-person-stats {
     margin-top: 4px;
 }
@@ -730,6 +738,44 @@ body.tcn-on {
         border: 1px solid var(--tcn-accent-shadow);
     }
 
+/* the handle a roomy family opens by: the names are the point, so they lead */
+.tcn-familybar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 10px;
+    border: 0;
+    border-radius: var(--tcn-radius-sm);
+    background: none;
+    color: var(--tcn-primary-dark);
+    font: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+}
+
+    .tcn-familybar:hover {
+        background: var(--tcn-surface);
+    }
+
+    .tcn-familybar .tcn-icon {
+        flex: 0 0 auto;
+        opacity: .8;
+    }
+
+.tcn-familybar-names {
+    font-weight: 650;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tcn-familybar-note {
+    flex: 0 0 auto;
+    color: var(--tcn-muted);
+}
+
 .tcn-family-kids {
     display: flex;
     flex-direction: column;
@@ -753,6 +799,18 @@ body.tcn-on {
         grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
         align-items: start;
     }
+
+        /* an opened family would otherwise stand as one tall column beside short cards.
+           It takes the whole row instead, and lays its people out along it */
+        .tcn-people-list:not(.is-compact) .tcn-family.is-open {
+            grid-column: 1 / -1;
+        }
+
+            .tcn-people-list:not(.is-compact) .tcn-family.is-open .tcn-family-kids {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                align-items: start;
+            }
 }
 
 .tcn-empty {

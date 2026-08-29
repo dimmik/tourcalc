@@ -82,14 +82,25 @@ else
     <div class="tcn-list tcn-people-list @(Compact ? "is-compact" : "")">
         @foreach (var fam in Families())
         {
-            <div class="tcn-family @(fam.Kids.Count > 0 ? "has-kids" : "")" @key=@($"fam_{fam.Head.GUID}")>
-                @PersonBlock(fam.Head, fam.Kids.Count)
+            <div class="tcn-family @(fam.Covered > 0 ? "has-kids" : "") @(fam.Kids.Count > 0 && KidsOpen(fam.Head) ? "is-open" : "")" @key=@($"fam_{fam.Head.GUID}")>
+                @PersonBlock(fam.Head, fam.Covered, fam.TotalWeight)
+                @if (fam.Kids.Count > 0 && !Compact)
+                {
+                    @* the dense row opens the family with its own caret; the roomy card has
+                       no such handle, so the family gets a bar of its own *@
+                    <button type="button" class="tcn-familybar" aria-expanded=@(KidsOpen(fam.Head) ? "true" : "false")
+                            @onclick=@(() => Toggle(fam.Head.GUID))>
+                        <TcIcon Name=@(KidsOpen(fam.Head) ? "chevron-down" : "chevron-right") />
+                        <span class="tcn-familybar-names">@string.Join(", ", fam.Kids.Select(k => k.Name))</span>
+                        <span class="tcn-familybar-note">paid for by @fam.Head.Name</span>
+                    </button>
+                }
                 @if (fam.Kids.Count > 0 && KidsOpen(fam.Head))
                 {
                     <div class="tcn-family-kids">
                         @foreach (var kid in fam.Kids)
                         {
-                            @PersonBlock(kid, 0)
+                            @PersonBlock(kid, 0, 0)
                         }
                     </div>
                 }
@@ -153,15 +164,18 @@ else
     private bool IsChild(Person p) => !string.IsNullOrWhiteSpace(p.ParentId);
 
     /// <summary>
-    /// The people someone pays for hang under them. In the dense list they stay folded
-    /// away until that person is opened - a search unfolds them, or a match inside a
-    /// folded family would be invisible.
+    /// The people someone pays for hang under them, folded away until that person is
+    /// opened. A search unfolds them, or a match inside a folded family would be invisible.
     /// </summary>
     private bool KidsOpen(Person head) =>
-        !Compact || expanded.Contains(head.GUID) || !string.IsNullOrWhiteSpace(search);
+        expanded.Contains(head.GUID) || !string.IsNullOrWhiteSpace(search);
 
-    /// <summary>One person, dense or roomy. <paramref name="covers"/> is how many people they pay for.</summary>
-    private RenderFragment PersonBlock(Person person, int covers)
+    /// <summary>
+    /// One person, dense or roomy. <paramref name="covers"/> is how many people they pay
+    /// for and <paramref name="familyWeight"/> what the whole family weighs - the number
+    /// that matters while the family is folded, since it is the one the split uses.
+    /// </summary>
+    private RenderFragment PersonBlock(Person person, int covers, int familyWeight)
     {
         var isChild = IsChild(person);
         var debt = Debt(person);
@@ -186,11 +200,17 @@ else
                         <span class="tcn-person-id">
                             <span class="tcn-person-name">@person.Name</span>
                             @* the word "weight" costs about forty pixels the name needs more: a weight is a
-                               multiplier, and that is what the × says. The roomy card spells it out *@
-                            <span class="tcn-person-meta" title="@($"Weight {person.Weight}")">×@person.Weight</span>
+                               multiplier, and that is what the × says. The roomy card spells it out.
+                               A folded family shows what the family weighs and nothing else - the payer's
+                               own weight says little while the people it covers are out of sight *@
+                            @if (covers == 0)
+                            {
+                                <span class="tcn-person-meta" title="@($"Weight {person.Weight}")">×@person.Weight</span>
+                            }
                             @if (covers > 0)
                             {
-                                <span class="tcn-chip tcn-chip-kids" title="@($"Pays for {covers} of the others")">👥@covers</span>
+                                <span class="tcn-chip tcn-chip-kids"
+                                      title="@($"Pays for {covers}, {familyWeight} of weight between them")">👥@covers ×@familyWeight</span>
                             }
                         </span>
                         @* plain text rather than an Explain: a button inside a button is not
@@ -226,6 +246,7 @@ else
                             @if (covers > 0)
                             {
                                 <span>pays for <b>@covers</b></span>
+                                <span title="The weight the family carries between them">family weight <b>@familyWeight</b></span>
                             }
                         </div>
                     </div>
@@ -248,6 +269,15 @@ else
 
             @if (isOpen)
             {
+                @if (Compact && covers > 0)
+                {
+                    @* the row itself carries the family total, which is the number that
+                       matters while the family is folded; opened, the payer's own weight
+                       has room to be spelled out *@
+                    <div class="tcn-person-weights">
+                        weight <b>@person.Weight</b> · family weight <b>@familyWeight</b>
+                    </div>
+                }
                 <div class="tcn-person-stats">
                     <PersonBreakdown Kind="PersonBreakdown.BreakdownKind.Paid"
                                      tour=@Tour person=@person debt="debt" minMeaningfulAmount=@MinMeaningful
@@ -269,7 +299,12 @@ else
         </div>;
     }
 
-    private record Family(Person Head, List<Person> Kids);
+    /// <summary>
+    /// <paramref name="Kids"/> is who to draw (a search can narrow it); Covered and
+    /// TotalWeight always describe the whole family, because that is what the payer
+    /// actually settles for.
+    /// </summary>
+    private record Family(Person Head, List<Person> Kids, int Covered, int TotalWeight);
 
     /// <summary>
     /// The list, grouped: whoever is not paid for by anybody heads a family, and everyone
@@ -304,7 +339,7 @@ else
             var shownKids = matched.Contains(head.GUID) ? mine : mine.Where(x => matched.Contains(x.GUID)).ToList();
             if (matched.Contains(head.GUID) || shownKids.Count > 0)
             {
-                yield return new Family(head, shownKids);
+                yield return new Family(head, shownKids, mine.Count, head.Weight + mine.Sum(x => x.Weight));
             }
         }
     }
