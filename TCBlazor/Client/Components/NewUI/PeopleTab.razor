@@ -82,7 +82,7 @@ else
     <div class="tcn-list tcn-people-list @(Compact ? "is-compact" : "")">
         @foreach (var fam in Families())
         {
-            <div class="tcn-family @(fam.Covered > 0 ? "has-kids" : "") @(fam.Kids.Count > 0 && KidsOpen(fam.Head) ? "is-open" : "")" @key=@($"fam_{fam.Head.GUID}")>
+            <div class="tcn-family @(fam.Covered > 0 ? "has-kids" : "") @(fam.Kids.Count > 0 && KidsOpen(fam.Head) ? "is-open" : "") @(IsOpen(fam.Head) ? "" : "is-folded")" @key=@($"fam_{fam.Head.GUID}")>
                 @PersonBlock(fam.Head, fam.Covered, fam.TotalWeight)
                 @if (fam.Kids.Count > 0 && !Compact)
                 {
@@ -139,7 +139,16 @@ else
 
     private string search = "";
     private bool? compactChosen = null;
+
+    /// <summary>Who is open in the dense list, where a person starts folded.</summary>
     private readonly HashSet<string> expanded = new();
+
+    /// <summary>
+    /// Who is folded in the roomy list, where a person starts open. The two sets are
+    /// separate because in the roomy list <see cref="expanded"/> keeps a different fact:
+    /// whether a family has its people showing.
+    /// </summary>
+    private readonly HashSet<string> collapsed = new();
 
     private bool Compact => compactChosen ?? Tour.Persons.Count >= CompactFrom;
 
@@ -153,12 +162,28 @@ else
         var next = !Compact;
         compactChosen = next;
         expanded.Clear();
+        collapsed.Clear();
         await engine.SetPeopleCompact(next);
     }
 
     private void Toggle(string guid)
     {
         if (!expanded.Remove(guid)) expanded.Add(guid);
+    }
+
+    /// <summary>Does this person show their numbers? Dense opts in, roomy opts out.</summary>
+    private bool IsOpen(Person p) => Compact ? expanded.Contains(p.GUID) : !collapsed.Contains(p.GUID);
+
+    private void TogglePerson(string guid)
+    {
+        if (Compact)
+        {
+            Toggle(guid);
+        }
+        else if (!collapsed.Remove(guid))
+        {
+            collapsed.Add(guid);
+        }
     }
 
     private bool IsChild(Person p) => !string.IsNullOrWhiteSpace(p.ParentId);
@@ -186,16 +211,19 @@ else
         // "settled" while they clearly owe something was confusing, so they show their own debt
         var shown = isChild ? debt : family;
         var splitFamily = !isChild && Math.Abs(family - debt) > _minMeaningful;
-        var isOpen = !Compact || expanded.Contains(person.GUID);
+        var isOpen = IsOpen(person);
+        // a folded person wears the dense row whichever list they are in - that is what
+        // "collapsed" looks like, and it keeps one appearance for one state
+        var dense = !isOpen || Compact;
         var balance = shown > 0 ? $"owes {NewUi.Money(shown)}" : shown < 0 ? $"gets {NewUi.Money(-shown)}" : "settled";
         var balanceClass = isChild || shown == 0 ? "" : shown > 0 ? "tcn-chip-red" : "tcn-chip-green";
 
-        return @<div class="tcn-person @(isChild ? "is-child" : "") @(Compact ? "is-compact" : "")" @key=@($"pers_{person.GUID}")>
-            @if (Compact)
+        return @<div class="tcn-person @(isChild ? "is-child" : "") @(dense ? "is-compact" : "")" @key=@($"pers_{person.GUID}")>
+            @if (dense)
             {
                 <div class="tcn-person-row">
                     <button type="button" class="tcn-person-open" aria-expanded=@(isOpen ? "true" : "false")
-                            @onclick=@(() => Toggle(person.GUID))>
+                            @onclick=@(() => TogglePerson(person.GUID))>
                         <span class="tcn-avatar tcn-avatar-sm" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name, Tour)</span>
                         <span class="tcn-person-id">
                             <span class="tcn-person-name">@person.Name</span>
@@ -227,11 +255,14 @@ else
             }
             else
             {
-                <div class="tcn-person-head">
+                @* the head is the handle: clicking it folds the card down to a single row.
+                   It cannot be a <button> - the numbers inside it are buttons themselves -
+                   so the caret next to it is what a keyboard reaches for *@
+                <div class="tcn-person-head is-handle" @onclick=@(() => TogglePerson(person.GUID))>
                     <span class="tcn-avatar" style="background:@NewUi.AvatarColor(person.Name)">@NewUi.Initials(person.Name, Tour)</span>
                     <div class="tcn-person-id">
                         <div class="tcn-person-name">@person.Name</div>
-                        <div class="tcn-person-meta">
+                        <div class="tcn-person-meta" @onclick=@(() => {}) @onclick:stopPropagation="true">
                             <span>
                                 weight
                                 <Explain Enabled=@Explainable Title=@($"{person.Name}: weight {person.Weight}")
@@ -250,7 +281,7 @@ else
                             }
                         </div>
                     </div>
-                    <div class="tcn-person-owe">
+                    <div class="tcn-person-owe" @onclick=@(() => {}) @onclick:stopPropagation="true">
                         <Explain Enabled=@Explainable Title=@($"{person.Name}: where this comes from")
                                  Headline=@balance
                                  Details=@PersonDebtDetails(person, debt, family)>
@@ -264,6 +295,11 @@ else
                             </span>
                         }
                     </div>
+                    <button type="button" class="tcn-person-fold" title="Collapse"
+                            aria-label="@($"Collapse {person.Name}")"
+                            @onclick=@(() => TogglePerson(person.GUID)) @onclick:stopPropagation="true">
+                        <TcIcon Name="chevron-down" />
+                    </button>
                 </div>
             }
 
