@@ -621,6 +621,263 @@ body.tcn-on {
     margin-top: 10px;
 }
 
+/* --- the dense list ------------------------------------------------------- */
+/* A roomy card is ~163px tall, so four people fill a phone screen. One line per
+   person is ~52px, which puts a dozen of them in the same space; the three numbers
+   and the buttons are still there, one tap away. */
+.tcn-person.is-compact {
+    padding: 2px 10px;
+}
+
+/* the row is a container, not a control: the name opens the person, the button next to
+   it records a spending, and one cannot be nested inside the other */
+.tcn-person-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+}
+
+.tcn-person-open {
+    flex: 1 1 auto;
+    /* a flex item defaults to min-width:auto, and a button that cannot shrink below its
+       content pushes the caret and the spend button off the card */
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    /* tight on purpose: every pixel here is a pixel the name does not have */
+    gap: 8px;
+    padding: 3px 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+    .tcn-person-open .tcn-person-id {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    /* the name is what gives way when the row runs out of room - everything else in it
+       is a handful of characters that cannot be shortened any further */
+    .tcn-person-open .tcn-person-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 14.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tcn-person-open .tcn-person-meta {
+        margin: 0;
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .tcn-person-open .tcn-chip {
+        flex: 0 0 auto;
+    }
+
+.tcn-person-spend {
+    flex: 0 0 auto;
+    padding: 3px 9px;
+}
+
+.tcn-chip-kids {
+    padding: 0 6px;
+    white-space: nowrap;
+}
+
+
+.tcn-person-caret {
+    flex: 0 0 auto;
+    display: inline-flex;
+    color: var(--tcn-faint);
+}
+
+/* the detail an opened dense row adds above its numbers: the payer's own weight, which
+   the folded row gives up to the family total */
+.tcn-person-weights {
+    margin: 2px 0 6px 0;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+}
+
+.tcn-person.is-compact .tcn-person-stats {
+    margin-top: 4px;
+}
+
+.tcn-person.is-compact .tcn-person-actions {
+    margin-bottom: 8px;
+}
+
+.tcn-people-list.is-compact {
+    gap: 6px;
+}
+
+/* --- a family stays together ---------------------------------------------- */
+/* One block per payer: them, and everybody they pay for. The well is what answers
+   "who is paying for whom" at a glance, and being one element is what stops a wide
+   screen from dealing a child into a different column. */
+.tcn-family {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+    /* the dense list has no room for a card around a family, so the accent runs down its
+       side instead - the same mark the roomy card wears along its top */
+    .tcn-people-list.is-compact .tcn-family.has-kids {
+        padding-left: 7px;
+        border-left: 3px solid var(--tcn-primary);
+        border-radius: var(--tcn-radius-sm);
+    }
+
+    /* opened, it also gets the well that says these people settle together */
+    .tcn-people-list.is-compact .tcn-family.has-kids.is-open {
+        padding: 6px 6px 6px 7px;
+        border-radius: calc(var(--tcn-radius) + 4px);
+        background: var(--tcn-primary-soft);
+        border: 1px solid var(--tcn-accent-shadow);
+        border-left: 3px solid var(--tcn-primary);
+    }
+
+        /* one line down the side is enough: the indent alone shows the nesting */
+        .tcn-people-list.is-compact .tcn-family.has-kids .tcn-family-kids {
+            margin-left: 13px;
+            padding-left: 0;
+            border-left: 0;
+        }
+
+/* In the roomy list a family is one card rather than a card with things hanging off it:
+   the payer is its body, the people they pay for are tucked into its foot, and the accent
+   line along the top marks the whole block as one. */
+.tcn-people-list:not(.is-compact) .tcn-family.has-kids {
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--tcn-border);
+    border-top: 3px solid var(--tcn-primary);
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    box-shadow: var(--tcn-shadow);
+}
+
+    /* the payer's card is that card's body now, so it drops its own frame */
+    .tcn-people-list:not(.is-compact) .tcn-family.has-kids > .tcn-person {
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        background: none;
+    }
+
+    .tcn-people-list:not(.is-compact) .tcn-family.has-kids .tcn-familybar {
+        border-radius: 0;
+        border-top: 1px solid var(--tcn-border);
+        background: var(--tcn-primary-soft);
+        padding: 7px 12px;
+    }
+
+        .tcn-people-list:not(.is-compact) .tcn-family.has-kids .tcn-familybar:hover {
+            background: var(--tcn-surface-2);
+        }
+
+    .tcn-people-list:not(.is-compact) .tcn-family.has-kids .tcn-family-kids {
+        margin: 0;
+        padding: 8px 10px 10px 10px;
+        border-left: 0;
+        background: var(--tcn-primary-soft);
+    }
+
+/* the handle a roomy family opens by: the names are the point, so they lead */
+.tcn-familybar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 10px;
+    border: 0;
+    border-radius: var(--tcn-radius-sm);
+    background: none;
+    color: var(--tcn-primary-dark);
+    font: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+}
+
+    .tcn-familybar:hover {
+        background: var(--tcn-surface);
+    }
+
+    .tcn-familybar .tcn-icon {
+        flex: 0 0 auto;
+        opacity: .8;
+    }
+
+.tcn-familybar-names {
+    font-weight: 650;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tcn-familybar-note {
+    flex: 0 0 auto;
+    color: var(--tcn-muted);
+}
+
+.tcn-family-kids {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-left: 13px;
+    padding-left: 11px;
+    border-left: 2px solid var(--tcn-accent-shadow);
+}
+
+    /* inside the well the indent comes from the container, so the card drops its own */
+    .tcn-family-kids .tcn-person.is-child {
+        margin-left: 0;
+        border-left: 1px solid var(--tcn-border);
+    }
+
+/* --- room to spare -------------------------------------------------------- */
+/* Only the roomy list goes multi-column: a dense one already fits on a screen. */
+@media (min-width: 780px) {
+    /* no align-items:start here on purpose: every cell in a row is as tall as the tallest
+       one in it, and the cards stretch to fill it. A family carries a bar the others do
+       not, and without this it hung below its neighbours */
+    .tcn-people-list:not(.is-compact) {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    }
+
+        .tcn-people-list:not(.is-compact) > .tcn-family {
+            height: 100%;
+        }
+
+            .tcn-people-list:not(.is-compact) > .tcn-family > .tcn-person {
+                flex: 1 1 auto;
+            }
+
+        /* an opened family would otherwise stand as one tall column beside short cards.
+           It takes the whole row instead, and lays its people out along it */
+        .tcn-people-list:not(.is-compact) .tcn-family.is-open {
+            grid-column: 1 / -1;
+        }
+
+            .tcn-people-list:not(.is-compact) .tcn-family.is-open .tcn-family-kids {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            }
+}
+
 .tcn-empty {
     padding: 28px 16px;
     text-align: center;

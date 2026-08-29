@@ -103,6 +103,23 @@ namespace TCalcCore.Engine
         {
             return (await ts.Get(DisplayCurrencyKey(tourId))).val;
         }
+
+        /// <summary>
+        /// Whether the list of people is shown one line per person. Unlike the display
+        /// currency this is not per tour - how dense you like a list is a habit, not a
+        /// property of the trip - and null means the choice has never been made, which
+        /// lets the caller decide from the number of people.
+        /// </summary>
+        private readonly static string peopleCompactKey = "__tc_people_compact";
+        public async Task SetPeopleCompact(bool compact)
+        {
+            await ts.Set(peopleCompactKey, compact ? "1" : "0");
+        }
+        public async Task<bool?> GetPeopleCompact()
+        {
+            var v = (await ts.Get(peopleCompactKey)).val;
+            return v == "1" ? true : v == "0" ? false : (bool?)null;
+        }
         #endregion
 
         #region auth
