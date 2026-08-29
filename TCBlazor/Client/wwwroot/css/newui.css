@@ -549,6 +549,31 @@ body.tcn-on {
     gap: 10px;
 }
 
+    /* the roomy card folds by its head, so the head advertises that it is a handle */
+    .tcn-person-head.is-handle {
+        cursor: pointer;
+        border-radius: var(--tcn-radius-sm);
+    }
+
+        .tcn-person-head.is-handle:hover .tcn-person-name {
+            color: var(--tcn-primary-dark);
+        }
+
+.tcn-person-fold {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin: -2px -4px 0 2px;
+    padding: 2px;
+    border: 0;
+    background: none;
+    color: var(--tcn-faint);
+    cursor: pointer;
+}
+
+    .tcn-person-fold:hover {
+        color: var(--tcn-primary);
+    }
+
 .tcn-avatar {
     flex: 0 0 auto;
     width: 36px;
@@ -861,6 +886,17 @@ body.tcn-on {
         .tcn-people-list:not(.is-compact) > .tcn-family {
             height: 100%;
         }
+
+            /* a folded person is meant to be a small plate, so it keeps its own height
+               instead of being stretched to the tallest card in the row */
+            .tcn-people-list:not(.is-compact) > .tcn-family.is-folded {
+                height: auto;
+                align-self: start;
+            }
+
+            .tcn-people-list:not(.is-compact) .tcn-family-kids .tcn-person.is-compact {
+                align-self: start;
+            }
 
             .tcn-people-list:not(.is-compact) > .tcn-family > .tcn-person {
                 flex: 1 1 auto;
