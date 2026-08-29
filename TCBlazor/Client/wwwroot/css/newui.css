@@ -731,14 +731,52 @@ body.tcn-on {
     gap: 6px;
 }
 
-    /* the tinted well is what says "these people are settled together", and it is only
-       worth its visual weight while the family is actually open. Folded, the family is a
-       card with a bar under it and lines up with everybody else */
-    .tcn-family.has-kids.is-open {
+    /* in the dense list the well is what says "these people settle together", and it is
+       only worth its visual weight while the family is actually open */
+    .tcn-people-list.is-compact .tcn-family.has-kids.is-open {
         padding: 6px;
         border-radius: calc(var(--tcn-radius) + 4px);
         background: var(--tcn-primary-soft);
         border: 1px solid var(--tcn-accent-shadow);
+    }
+
+/* In the roomy list a family is one card rather than a card with things hanging off it:
+   the payer is its body, the people they pay for are tucked into its foot, and the accent
+   line along the top marks the whole block as one. */
+.tcn-people-list:not(.is-compact) .tcn-family.has-kids {
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--tcn-border);
+    border-top: 3px solid var(--tcn-primary);
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    box-shadow: var(--tcn-shadow);
+}
+
+    /* the payer's card is that card's body now, so it drops its own frame */
+    .tcn-people-list:not(.is-compact) .tcn-family.has-kids > .tcn-person {
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        background: none;
+    }
+
+    .tcn-people-list:not(.is-compact) .tcn-family.has-kids .tcn-familybar {
+        border-radius: 0;
+        border-top: 1px solid var(--tcn-border);
+        background: var(--tcn-primary-soft);
+        padding: 7px 12px;
+    }
+
+        .tcn-people-list:not(.is-compact) .tcn-family.has-kids .tcn-familybar:hover {
+            background: var(--tcn-surface-2);
+        }
+
+    .tcn-people-list:not(.is-compact) .tcn-family.has-kids .tcn-family-kids {
+        margin: 0;
+        padding: 8px 10px 10px 10px;
+        border-left: 0;
+        background: var(--tcn-primary-soft);
     }
 
 /* the handle a roomy family opens by: the names are the point, so they lead */
