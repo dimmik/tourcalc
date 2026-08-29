@@ -5,12 +5,13 @@
 
 @inject TourcalcEngine engine
 @inject IJSRuntime JsRuntime
+@inject PeopleViewState viewState
 
 <div class="tcn-toolbar">
     <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => ShowEdit(new Person { GUID = "New" }))>
         + Add person
     </button>
-    @if (Tour.Persons.Count > SearchFrom)
+    @if (SearchVisible)
     {
         <div class="tcn-search">
             <span class="tcn-search-icon">🔎</span>
@@ -28,6 +29,9 @@
         <button type="button" class="tcn-btn tcn-btn-sm @(Compact ? "tcn-btn-primary" : "")"
                 title="One line per person - tap a line to open their numbers"
                 @onclick=@ToggleCompact>Compact</button>
+        <button type="button" class="tcn-btn tcn-btn-sm"
+                title="@(AnyOpen ? "Fold everybody down to a single line each" : "Open everybody's numbers")"
+                @onclick=@FoldAll>@(AnyOpen ? "Collapse all" : "Expand all")</button>
     }
     @if (Tour.Persons.Any())
     {
@@ -73,7 +77,7 @@
 else if (!Shown().Any())
 {
     <div class="tcn-empty">
-        <div class="tcn-empty-title">Nobody here is called “@search”</div>
+        <div class="tcn-empty-title">Nobody here is called “@ActiveSearch”</div>
         <div>Try a shorter piece of the name.</div>
     </div>
 }
@@ -132,23 +136,38 @@ else
     private const int SearchFrom = 8;
 
     /// <summary>
+    /// The text only filters while the box that holds it is on screen. The state outlives
+    /// the component now, and a tour that has dropped below the threshold would otherwise
+    /// keep filtering by a word with nothing left to clear it.
+    /// </summary>
+    private bool SearchVisible => Tour.Persons.Count > SearchFrom;
+
+    private string ActiveSearch => SearchVisible ? search.Trim() : "";
+
+    /// <summary>
     /// From here on the roomy cards stop fitting on a phone (they are ~163px each), so a
     /// tour this size opens dense unless the reader has said otherwise.
     /// </summary>
     private const int CompactFrom = 7;
 
-    private string search = "";
     private bool? compactChosen = null;
 
-    /// <summary>Who is open in the dense list, where a person starts folded.</summary>
-    private readonly HashSet<string> expanded = new();
-
     /// <summary>
-    /// Who is folded in the roomy list, where a person starts open. The two sets are
-    /// separate because in the roomy list <see cref="expanded"/> keeps a different fact:
-    /// whether a family has its people showing.
+    /// Folded people, opened families and the search text - kept by the service so that
+    /// a look at another tab does not undo them. The two sets are separate because they
+    /// answer different questions: Expanded is opt-in (dense list, and families anywhere),
+    /// Collapsed is opt-out (roomy list).
     /// </summary>
-    private readonly HashSet<string> collapsed = new();
+    private PeopleViewState.TourView view = new();
+
+    private HashSet<string> expanded => view.Expanded;
+    private HashSet<string> collapsed => view.Collapsed;
+
+    private string search
+    {
+        get => view.Search;
+        set => view.Search = value;
+    }
 
     private bool Compact => compactChosen ?? Tour.Persons.Count >= CompactFrom;
 
@@ -174,6 +193,27 @@ else
     /// <summary>Does this person show their numbers? Dense opts in, roomy opts out.</summary>
     private bool IsOpen(Person p) => Compact ? expanded.Contains(p.GUID) : !collapsed.Contains(p.GUID);
 
+    /// <summary>Anyone at all showing their numbers - what the fold-all button switches on.</summary>
+    private bool AnyOpen => Tour.Persons.Any(IsOpen);
+
+    private void FoldAll()
+    {
+        if (AnyOpen)
+        {
+            expanded.Clear();   // families close with everybody else
+            collapsed.Clear();
+            if (!Compact)
+            {
+                foreach (var p in Tour.Persons) collapsed.Add(p.GUID);
+            }
+        }
+        else
+        {
+            collapsed.Clear();
+            foreach (var p in Tour.Persons) expanded.Add(p.GUID);
+        }
+    }
+
     private void TogglePerson(string guid)
     {
         if (Compact)
@@ -193,7 +233,7 @@ else
     /// opened. A search unfolds them, or a match inside a folded family would be invisible.
     /// </summary>
     private bool KidsOpen(Person head) =>
-        expanded.Contains(head.GUID) || !string.IsNullOrWhiteSpace(search);
+        expanded.Contains(head.GUID) || ActiveSearch.Length > 0;
 
     /// <summary>
     /// One person, dense or roomy. <paramref name="covers"/> is how many people they pay
@@ -384,7 +424,7 @@ else
     private IEnumerable<Person> Shown()
     {
         var all = Tour.Persons.SortedByNameAndDependency();
-        var q = search.Trim();
+        var q = ActiveSearch;
         if (q.Length == 0) return all;
         return all.Where(p =>
             (p.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
@@ -399,7 +439,7 @@ else
         get
         {
             var total = Tour.Persons.Count;
-            if (string.IsNullOrWhiteSpace(search)) return $"{total} people";
+            if (ActiveSearch.Length == 0) return $"{total} people";
             return $"{Shown().Count()} of {total} people";
         }
     }
@@ -411,6 +451,7 @@ else
     {
         // computed once per render instead of twice per person
         _minMeaningful = Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+        view = viewState.For(Tour?.Id);
     }
 
     /// <summary>What this person hands over at settle-up, people they pay for included.</summary>
