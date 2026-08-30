@@ -1,4 +1,4 @@
-// PUBL Caution! Be sure you understand the caveats before publishing an application with
+﻿// PUBL Caution! Be sure you understand the caveats before publishing an application with
 // offline support. See https://aka.ms/blazor-offline-considerations
 
 self.importScripts('./service-worker-assets.js');
@@ -49,7 +49,10 @@ const tcVersion = '#{Build.BuildNumber}#';
 const cacheNamePrefix = 'tc2-offline-cache-';
 const cacheName = `${cacheNamePrefix}#{Build.BuildNumber}#${self.assetsManifest.version}`;
 const offlineAssetsInclude = [ /\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff$/, /\.png$/, /\.jpe?g$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/ ];
-const offlineAssetsExclude = [ /^service-worker\.js$/ ];
+// AntDesign ships ten stylesheets - aliyun, compact, dark, variable, each also minified -
+// and index.html links exactly one of them. They are all in the assets manifest, so without
+// this the service worker downloads and caches six megabytes of themes nobody ever loads.
+const offlineAssetsExclude = [ /^service-worker\.js$/, /ant-design-blazor\.(aliyun|compact|dark|variable|min)/ ];
 
 async function onInstall(event) {
     console.info('Service worker: Install');
