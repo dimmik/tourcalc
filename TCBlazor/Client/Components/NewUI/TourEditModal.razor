@@ -1,13 +1,15 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
 
-@* Name and length used to be editable only from the tour list, which is awkward when the
-   Stats tab is doing per-day maths in front of you. *@
+@* The tour's own properties used to be editable only from the tour list, which is awkward
+   when the Stats tab is doing per-day maths in front of you - and stranger still for the two
+   switches that change what the tour page itself shows. Same wording as the list, so the two
+   places cannot come to disagree about what they mean. *@
 
-<button type="button" class="tcn-iconbtn" title="Edit the tour name and length"
-        aria-label="Edit the tour name and length" @onclick=@Open><TcIcon Name="edit" /></button>
+<button type="button" class="tcn-iconbtn" title="Edit the tour"
+        aria-label="Edit the tour" @onclick=@Open><TcIcon Name="edit" /></button>
 
 @if (open)
 {
@@ -40,6 +42,21 @@
                 <input class="tcn-input" style="width:110px" type="number" min="1" @bind-value=@duration />
                 <div class="tcn-hint">Used by the Stats tab to work out the per-day figures.</div>
             </div>
+
+            <div class="tcn-togglerow">
+                <span>Settling up <span class="tcn-hint">everyone sees the payments to make</span></span>
+                <label class="tcn-toggle" title="Mark the tour as being settled up">
+                    <input type="checkbox" checked=@finalizing @onchange=@(e => finalizing = (bool)(e.Value ?? false)) />
+                    <span></span>
+                </label>
+            </div>
+            <div class="tcn-togglerow">
+                <span>Archived <span class="tcn-hint">hidden from the default list</span></span>
+                <label class="tcn-toggle" title="Hide the tour from the default list">
+                    <input type="checkbox" checked=@archived @onchange=@(e => archived = (bool)(e.Value ?? false)) />
+                    <span></span>
+                </label>
+            </div>
         </div>
 
         <div class="tcn-sheet-foot">
@@ -58,11 +75,15 @@
     private bool error = false;
     private string name = "";
     private int duration = 1;
+    private bool finalizing = false;
+    private bool archived = false;
 
     private void Open()
     {
         name = Tour.Name;
         duration = Tour.Duration;
+        finalizing = Tour.IsFinalizing;
+        archived = Tour.IsArchived;
         error = false;
         open = true;
     }
@@ -74,8 +95,20 @@
             error = true;
             return;
         }
-        var t = new Tour { Id = Tour.Id, Name = name.Trim(), Duration = duration };
-        _ = engine.RequestEditTourProps(t, ("changename", t), ("duration", t));
+        var t = new Tour
+        {
+            Id = Tour.Id,
+            Name = name.Trim(),
+            Duration = duration,
+            IsFinalizing = finalizing,
+            IsArchived = archived,
+        };
+        var ops = new List<(string, object)> { ("changename", t), ("duration", t) };
+        // a switch left alone sends nothing: each operation is a line in the tour's history,
+        // and "archived: false -> false" is not something worth writing down
+        if (finalizing != Tour.IsFinalizing) ops.Add(("finalizing", t));
+        if (archived != Tour.IsArchived) ops.Add(("archive", t));
+        _ = engine.RequestEditTourProps(t, ops.ToArray());
         open = false;
     }
 }
