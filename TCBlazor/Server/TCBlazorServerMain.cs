@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.HttpOverrides;
+﻿using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using TCalc.Storage;
@@ -9,7 +9,6 @@ using TCalcStorage.Storage.MongoDB;
 using TCBlazor.Server;
 using Company.TCBlazor.Auth;
 using Company.TCBlazor.Storage;
-using Microsoft.OpenApi.Models;
 using Company.TCBlazor.Controllers;
 
 namespace Company.TCBlazor
@@ -39,8 +38,6 @@ namespace Company.TCBlazor
                     options.JsonSerializerOptions.WriteIndented = true;
                 });
             builder.Services.AddRazorPages();
-
-            SetupSwaggerDocs(builder.Services);
 
             // services for tourcalc
             builder.Services.AddSingleton<ITcConfiguration>(Configuration);
@@ -134,12 +131,6 @@ namespace Company.TCBlazor
                 app.UseHsts();
             }
 
-            app.UseSwagger();
-            app.UseSwaggerUI(c =>
-            {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tourcalc API");
-            });
-
             app.UseHttpsRedirection();
 
             app.UseHttpException();
@@ -211,38 +202,6 @@ namespace Company.TCBlazor
                         ClockSkew = TimeSpan.FromSeconds(5)
                     };
                 });
-        }
-
-        private static void SetupSwaggerDocs(IServiceCollection services)
-        {
-            // Register the Swagger generator, defining 1 or more Swagger documents
-            services.AddSwaggerGen(c =>
-            {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Tourcalc API", Version = "v1" });
-                // https://stackoverflow.com/questions/43447688/setting-up-swagger-asp-net-core-using-the-authorization-headers-bearer
-                c.AddSecurityDefinition("Bearer",
-                        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-                        {
-                            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-                            Description = "Please enter into field the word 'Bearer' following by space and JWT",
-                            Name = "Authorization",
-                            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey
-                        });
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement() {
-                    { new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-                        {
-                            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-                            Description = "Please enter into field the word 'Bearer' following by space and JWT",
-                            Name = "Authorization",
-                            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey
-                        }, new List<string>() } }
-
-                    );
-                // Set the comments path for the Swagger JSON and UI.
-                var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-                c.IncludeXmlComments(xmlPath);
-            });
         }
 
         private static void WakeupThread(ITcConfiguration Configuration)

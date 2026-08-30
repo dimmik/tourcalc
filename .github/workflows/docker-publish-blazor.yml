@@ -1,4 +1,4 @@
-name: Blazor -- Create and publish a Docker image
+﻿name: Blazor -- Create and publish a Docker image
 concurrency: 
   group: tourcalc-blazor
   cancel-in-progress: true
@@ -64,5 +64,5 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:blazor-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:blazor-${{ steps.current-time.outputs.formattedTime }}
           build-args: |
              BUILD_TYPE=prodB (${{ steps.extract_branch.outputs.branch }})
-             BUILD_PROPS=-p:RunAOTCompilation=true
+             BUILD_PROPS=-p:RunAOTCompilation=false
           labels: io.containers.autoupdate=registry
