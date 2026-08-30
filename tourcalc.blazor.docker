@@ -1,9 +1,17 @@
-# alpine rather than the Debian image: about a hundred megabytes less, and the app still
-# runs as root on port 80, so nothing about the deployment changes. ICU is not in the
-# alpine base and .NET needs it for anything culture-aware (money, dates), so it is added
-# back explicitly - without it the runtime refuses to start unless told to go invariant.
+# alpine rather than the Debian image: the base is about a hundred megabytes lighter, and
+# the app still runs as root on port 80, so nothing about the deployment changes.
+#
+# The Debian image ships ICU; the alpine one does not, and .NET on it starts in
+# globalization-invariant mode - which would quietly change how anything culture-aware is
+# compared, parsed and formatted. Putting ICU back takes all three of these: the packages,
+# and the switch that tells the runtime to stop being invariant. icu-data-full is the bulk
+# of it (~30 MB) and carries the cultures beyond en-US/en-GB that icu-libs alone has.
+# Recipe from dotnet/dotnet-docker, samples/aspnetapp/Dockerfile.alpine-icu.
 FROM  mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS base
-RUN apk add --no-cache icu-libs tzdata
+RUN apk add --no-cache icu-data-full icu-libs tzdata
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    LC_ALL=en_US.UTF-8 \
+    LANG=en_US.UTF-8
 WORKDIR /app
 #RUN dotnet --version
 #ENV ASPNETCORE_HTTP_PORTS=80
