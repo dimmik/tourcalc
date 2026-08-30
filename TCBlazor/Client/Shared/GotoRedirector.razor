@@ -1,7 +1,8 @@
-@page "/goto/{transientAccessCode}/{tid}"
+﻿@page "/goto/{transientAccessCode}/{tid}"
 
 @using TCalcCore.Engine
 @inject TourcalcEngine engine
+@inject UiModeService uiMode
 
 @inject NavigationManager NavManager
 
@@ -75,13 +76,19 @@ else
             finalizing = tt.IsFinalizing;
             await engine.PickUpAuthInfo();
             var settings = await engine.GetUISettings();
+            // this page carries no layout, so nothing has initialised the mode for it yet
+            await uiMode.Init();
 
             var spAddPage = $"/tour/{tid}?action=addspending&addanother=true";
             var mainTourPage = $"/tour/{tid}";
 
             await engine.RequestClearLocalTourList(reloadFromServer: false);
             watchdog?.Cancel();
-            if (finalizing)
+            // The jump straight into the expense form was worth it in the classic interface,
+            // where finding how to spend took looking. The new one carries the round + on
+            // every screen and a Spend button on every person, so a link opens the tour -
+            // which is also what somebody following it to check a balance came for.
+            if (finalizing || uiMode.IsNew)
             {
                 NavManager.NavigateTo(mainTourPage);
             }
