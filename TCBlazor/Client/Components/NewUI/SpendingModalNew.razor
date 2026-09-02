@@ -8,11 +8,20 @@
    same fields as the classic TSpModifyComponent - nothing more, nothing less -
    so both forms stay interchangeable; only the layout is different. *@
 
+@* MaskClosable is off here. AntDesign's dialog stops mousedown at the dialog element but
+   lets mouseup bubble on to the wrap, and closes on any mouseup that arrives without a
+   matching mousedown - so a control that hands the page a second, orphaned mouseup
+   dismisses the sheet. A native <select> is exactly such a control: Chrome opens its
+   popup on mousedown, completes that click normally, and then fires one more mouseup
+   when an option is picked. Choosing a currency threw away the half-typed expense.
+   (The date and colour fields open on click, after a whole down+up pair, and their
+   widgets return nothing on close - they were never affected.)
+   Cancel, the X and Esc still close this sheet. *@
 <Modal Visible=@true
        Footer="null"
        Closable=@false
        DestroyOnClose=@true
-       MaskClosable=@true
+       MaskClosable=@false
        OnCancel=@(e => Close())
        WrapClassName="tcn-sheet"
        BodyStyle="padding:0"
