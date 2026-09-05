@@ -1,0 +1,825 @@
+@namespace TCBlazor.Client.Components.MiniUI
+
+@using TCalc.Logic
+@using TCalcCore.Engine
+
+@inject TourcalcEngine engine
+@inject IJSRuntime JsRuntime
+
+@implements IDisposable
+
+@* The tour, one line per thing. Same parameters as TourPageNew and the same dialogs -
+   only the reading surface is redrawn, so nothing here can disagree with the roomy UI
+   about what a number means. Two lines of header, one line of tabs, and everything
+   after that is rows: on a 24-line terminal that leaves twenty of them for the data. *@
+
+@{
+    var curName = Tour.CurrencyNameEmptyIfSingleCurrency();
+    var realSpendings = Tour.Spendings.Where(s => !s.Planned).ToList();
+    var totalSpent = realSpendings.Where(CountsAsSpending).Sum(s => s.AmountInCurrentCurrency(Tour));
+    var minMeaningful = Tour.GetAmountInCurrentCurrencyFromMinValued(Settings.MinimumMeaningfulDebt);
+    var transfers = Tour.Spendings
+        .Where(s => s.Planned && !s.Description.StartsWith("Family"))
+        .Where(s => Math.Abs(s.AmountInCurrentCurrency(Tour)) > minMeaningful)
+        .OrderByDescending(s => s.AmountInCurrentCurrency(Tour))
+        .ToList();
+    var leftToSettle = transfers.Sum(s => s.AmountInCurrentCurrency(Tour));
+}
+
+<div class="tcm-head">
+    <div class="tcm-row tcm-head-top">
+        <span class="tcm-title" title="@Tour.Name">@Tour.Name</span>
+        @if (RawTour.IsFinalizing)
+        {
+            <span class="tcm-tag is-amber" title="The tour is being settled up">settling</span>
+        }
+        @if (RawTour.IsArchived)
+        {
+            <span class="tcm-tag" title="Archived, hidden from the default list">arch</span>
+        }
+        <span class="tcm-spacer"></span>
+        <button type="button" class="tcm-btn is-primary" title="Record an expense" @onclick=@AddSpending>+ spend</button>
+        <button type="button" class="tcm-btn" title="Reload from the server" aria-label="Reload from the server"
+                disabled=@reloading @onclick=@Reload>@(reloading ? "…" : "↻")</button>
+    </div>
+
+    <div class="tcm-row tcm-head-facts">
+        <span title="Everything that counts as spending">
+            <b class="tcm-money">@NewUi.Money(totalSpent)</b>@(string.IsNullOrEmpty(curName) ? "" : " " + curName)
+        </span>
+        <span class="tcm-dot">·</span>
+        <span title="@PeopleTitle">@Tour.Persons.Count p</span>
+        <span class="tcm-dot">·</span>
+        <span title="Recorded expenses">@realSpendings.Count e</span>
+        <span class="tcm-dot">·</span>
+        @if (transfers.Any())
+        {
+            <span title="@transfers.Count payment(s) would even everyone out">
+                left <b class="tcm-money is-neg">@NewUi.Money(leftToSettle)</b>
+            </span>
+        }
+        else
+        {
+            <span class="tcm-ok" title="No payments are left between the participants">settled ✓</span>
+        }
+        <span class="tcm-spacer"></span>
+        @if (RawTour.IsMultiCurrency())
+        {
+            <select class="tcm-input tcm-input-xs" title="Only changes what you see"
+                    value="@(SelectedCurrency?.Id ?? "")" @onchange=@OnCurrencyPicked>
+                @foreach (var c in RawTour.Currencies)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        }
+    </div>
+
+    <div class="tcm-row tcm-head-meta">
+        <TourFreshness IsFresh=@IsFresh StoredDt=@StoredDt Reloading=@reloading
+                       Stale=@refreshFailed
+                       Outcome=@((TourFreshness.RefreshOutcome)(int)outcome) />
+        <span class="tcm-spacer"></span>
+        <ShareLinkButton Tour=@RawTour Text="link" CssClass="tcm-btn" @key=@($"share_{Tour.Id}") />
+    </div>
+</div>
+
+<nav class="tcm-tabs" role="tablist" aria-label="Tour sections">
+    <button type="button" role="tab" aria-selected=@(tab == Tab.Balance) class="tcm-tab @(tab == Tab.Balance ? "is-active" : "")"
+            @onclick=@(() => tab = Tab.Balance)>bal@(transfers.Any() ? $" {transfers.Count}" : "")</button>
+    <button type="button" role="tab" aria-selected=@(tab == Tab.People) class="tcm-tab @(tab == Tab.People ? "is-active" : "")"
+            @onclick=@(() => tab = Tab.People)>people @Tour.Persons.Count</button>
+    <button type="button" role="tab" aria-selected=@(tab == Tab.Expenses) class="tcm-tab @(tab == Tab.Expenses ? "is-active" : "")"
+            @onclick=@(() => tab = Tab.Expenses)>spend @realSpendings.Count</button>
+    <button type="button" role="tab" aria-selected=@(tab == Tab.Stats) class="tcm-tab @(tab == Tab.Stats ? "is-active" : "")"
+            @onclick=@(() => tab = Tab.Stats)>stats</button>
+</nav>
+
+<div class="tcm-panel" role="tabpanel">
+    @if (tab == Tab.Balance)
+    {
+        @BalancePanel(transfers, minMeaningful, curName)
+    }
+    else if (tab == Tab.People)
+    {
+        @PeoplePanel(minMeaningful)
+    }
+    else if (tab == Tab.Expenses)
+    {
+        @ExpensesPanel(realSpendings, curName)
+    }
+    else
+    {
+        @StatsPanel(curName)
+    }
+</div>
+
+<PersonModalNew Person="@personToEdit"
+                Tour="@RawTour"
+                Visible="@personModalVisible"
+                OnOk="SavePerson"
+                OnCancel="ClosePersonModal" />
+
+@* ------------------------------------------------------------------ balance -- *@
+@code {
+    private RenderFragment BalancePanel(List<Spending> transfers, long minMeaningful, string curName) => __builder =>
+    {
+        var familyTransfers = Tour.Spendings
+            .Where(s => s.Planned && s.Description.StartsWith("Family"))
+            .Where(s => Math.Abs(s.AmountInCurrentCurrency(Tour)) > minMeaningful)
+            .OrderByDescending(s => s.AmountInCurrentCurrency(Tour))
+            .ToList();
+
+        var balances = Tour.Persons
+            .Where(p => string.IsNullOrWhiteSpace(p.ParentId))
+            .Select(p => (person: p, amount: Tour.AmountAPersonWillPay(p)))
+            .Where(pa => Math.Abs(pa.amount) > minMeaningful)
+            .OrderByDescending(pa => pa.amount)
+            .ToList();
+
+        if (!transfers.Any())
+        {
+            <div class="tcm-empty">
+                Everyone is square.
+                @if (!Tour.Spendings.Any(s => !s.Planned))
+                {
+                    <span> Add the first expense and the split shows up here.</span>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="tcm-caption">who pays whom <span class="tcm-count">@transfers.Count</span>
+                <span class="tcm-hint">— suggested, nothing is paid yet</span>
+            </div>
+            <div class="tcm-list">
+                @foreach (var s in transfers)
+                {
+                    <div class="tcm-row" @key=@($"tr_{s.GUID}")>
+                        <span class="tcm-main">
+                            <span class="tcm-name">@NewUi.PersonName(Tour, s.FromGuid)</span>
+                            <span class="tcm-arrow">→</span>
+                            <span class="tcm-name">@NewUi.PersonName(Tour, s.ToGuid.FirstOrDefault())</span>
+                        </span>
+                        <span class="tcm-money">@NewUi.Money(s.AmountInCurrentCurrency(Tour))</span>
+                        <button type="button" class="tcm-more" title="Record that this money has changed hands"
+                                aria-label="Mark paid" @onclick=@(() => MarkPaid(s))>✓</button>
+                    </div>
+                }
+            </div>
+        }
+
+        if (balances.Any())
+        {
+            <div class="tcm-caption">balances</div>
+            <div class="tcm-list">
+                @foreach (var b in balances)
+                {
+                    <div class="tcm-row" @key=@($"bal_{b.person.GUID}")>
+                        <span class="tcm-main"><span class="tcm-name">@b.person.Name</span></span>
+                        <span class="tcm-verb">@(b.amount > 0 ? "owes" : "gets")</span>
+                        <span class="tcm-money @(b.amount > 0 ? "is-neg" : "is-pos")">@NewUi.Money(Math.Abs(b.amount))</span>
+                    </div>
+                }
+            </div>
+        }
+
+        if (familyTransfers.Any())
+        {
+            <button type="button" class="tcm-fold" @onclick=@(() => showFamily = !showFamily)>
+                @(showFamily ? "▾" : "▸") inside families <span class="tcm-count">@familyTransfers.Count</span>
+            </button>
+            if (showFamily)
+            {
+                <div class="tcm-list">
+                    @foreach (var s in familyTransfers)
+                    {
+                        <div class="tcm-row" @key=@($"ftr_{s.GUID}")>
+                            <span class="tcm-main">
+                                <span class="tcm-name">@NewUi.PersonName(Tour, s.FromGuid)</span>
+                                <span class="tcm-arrow">→</span>
+                                <span class="tcm-name">@NewUi.PersonName(Tour, s.ToGuid.FirstOrDefault())</span>
+                            </span>
+                            <span class="tcm-money">@NewUi.Money(s.AmountInCurrentCurrency(Tour))</span>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    };
+}
+
+@* ------------------------------------------------------------------- people -- *@
+@code {
+    private RenderFragment PeoplePanel(long minMeaningful) => __builder =>
+    {
+        var all = Tour.Persons ?? new List<Person>();
+        var byGuid = all.GroupBy(p => p.GUID).ToDictionary(g => g.Key, g => g.First());
+        bool HasParent(Person p) => !string.IsNullOrWhiteSpace(p.ParentId) && byGuid.ContainsKey(p.ParentId);
+
+        <div class="tcm-bar">
+            <button type="button" class="tcm-btn" @onclick=@(() => EditPerson(new Person { GUID = "New" }))>+ person</button>
+            @if (all.Count > 8)
+            {
+                <input class="tcm-find" type="text" placeholder="find" value="@peopleSearch"
+                       @oninput=@(e => peopleSearch = e.Value?.ToString() ?? "") />
+            }
+            <span class="tcm-spacer"></span>
+            <span class="tcm-hint" title="Every shared expense is split in these proportions">Σw @all.Sum(p => p.Weight)</span>
+        </div>
+
+        if (!all.Any())
+        {
+            <div class="tcm-empty">Nobody here yet — “+ person” adds the first one.</div>
+        }
+        else
+        {
+            var q = all.Count > 8 ? peopleSearch.Trim() : "";
+            var heads = all.Where(p => !HasParent(p)).SortedByNameAndDependency().ToList();
+
+            <div class="tcm-list">
+                @foreach (var head in heads)
+                {
+                    var kids = all.Where(p => HasParent(p) && p.ParentId == head.GUID).SortedByNameAndDependency().ToList();
+                    var familyWeight = head.Weight + kids.Sum(k => k.Weight);
+                    var hit = Matches(head, q) || kids.Any(k => Matches(k, q));
+                    if (!hit) { continue; }
+
+                    @PersonRow(head, kids.Count, familyWeight, minMeaningful)
+                    @foreach (var kid in kids)
+                    {
+                        @PersonRow(kid, 0, 0, minMeaningful)
+                    }
+                }
+            </div>
+        }
+    };
+
+    private bool Matches(Person p, string q)
+        => q.Length == 0 || (p.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase);
+
+    private RenderFragment PersonRow(Person person, int covers, int familyWeight, long minMeaningful) => __builder =>
+    {
+        var isChild = !string.IsNullOrWhiteSpace(person.ParentId);
+        var own = Math.Abs(person.Debt()) > minMeaningful ? person.Debt() : 0;
+        var settle = Tour.AmountAPersonWillPay(person);
+        if (Math.Abs(settle) <= minMeaningful) settle = 0;
+        // someone who is paid for hands nothing over themselves, so their own figure is
+        // the honest one to show; everybody else settles for their whole family
+        var shown = isChild ? own : settle;
+        var open = openPerson == person.GUID;
+
+        <div class="tcm-item @(isChild ? "is-child" : "")" @key=@($"pers_{person.GUID}")>
+            <div class="tcm-row">
+                <button type="button" class="tcm-main tcm-open" aria-expanded=@(open ? "true" : "false")
+                        @onclick=@(() => openPerson = open ? null : person.GUID)>
+                    @if (isChild)
+                    {
+                        <span class="tcm-tree" aria-hidden="true">└</span>
+                    }
+                    <span class="tcm-name">@person.Name</span>
+                    @if (covers > 0)
+                    {
+                        <span class="tcm-tag" title="@($"Pays for {covers}, {familyWeight} of weight between them")">+@covers ×@familyWeight</span>
+                    }
+                    else
+                    {
+                        <span class="tcm-weight" title="@($"Weight {person.Weight}")">×@person.Weight</span>
+                    }
+                </button>
+                @if (shown == 0)
+                {
+                    <span class="tcm-verb tcm-ok" title="@(isChild ? $"Settled through {NewUi.PersonName(Tour, person.ParentId)}" : "")">settled</span>
+                }
+                else
+                {
+                    <span class="tcm-verb">@(shown > 0 ? "owes" : "gets")</span>
+                    <span class="tcm-money @(shown > 0 ? "is-neg" : "is-pos")">@NewUi.Money(Math.Abs(shown))</span>
+                }
+                <button type="button" class="tcm-more" title="@($"Record an expense paid by {person.Name}")"
+                        aria-label="@($"Record an expense paid by {person.Name}")"
+                        @onclick=@(() => AddModal.OpenModal(person.GUID))>💸</button>
+            </div>
+
+            @if (open)
+            {
+                <div class="tcm-sub">
+                    <div class="tcm-facts-line">
+                        <span>paid <b class="tcm-money">@NewUi.Money(person.SpentInCents)</b></span>
+                        <span class="tcm-dot">·</span>
+                        <span>charged <b class="tcm-money">@NewUi.Money(person.ReceivedInCents)</b></span>
+                        <span class="tcm-dot">·</span>
+                        <span>own <b class="tcm-money">@NewUi.Money(own)</b></span>
+                        @if (covers > 0 && Math.Abs(settle - own) > minMeaningful)
+                        {
+                            <span class="tcm-dot">·</span>
+                            <span title="Their own debt plus everyone they pay for">family <b class="tcm-money">@NewUi.Money(settle)</b></span>
+                        }
+                        <span class="tcm-dot">·</span>
+                        <span>weight <b>@person.Weight</b></span>
+                        @if (isChild)
+                        {
+                            <span class="tcm-dot">·</span>
+                            <span>paid by <b>@NewUi.PersonName(Tour, person.ParentId)</b></span>
+                        }
+                    </div>
+                    <div class="tcm-fields">
+                        <button type="button" class="tcm-btn is-primary" @onclick=@(() => AddModal.OpenModal(person.GUID))>spend</button>
+                        <button type="button" class="tcm-btn" @onclick=@(() => EditPerson(person))>edit</button>
+                        <button type="button" class="tcm-btn is-danger" @onclick=@(() => DeletePerson(person))>delete</button>
+                    </div>
+                </div>
+            }
+        </div>
+    };
+}
+
+@* ----------------------------------------------------------------- expenses -- *@
+@code {
+    private RenderFragment ExpensesPanel(List<Spending> real, string curName) => __builder =>
+    {
+        var shown = FilterSpendings(real).ToList();
+        var categories = real.Select(s => s.Type).Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().OrderBy(t => t).ToList();
+
+        <div class="tcm-bar">
+            <input class="tcm-find" type="text" placeholder="find" value="@spSearch"
+                   @oninput=@(e => spSearch = e.Value?.ToString() ?? "") />
+            <button type="button" class="tcm-btn @(sortBy == Sort.Date ? "is-on" : "")" @onclick=@(() => ToggleSort(Sort.Date))>
+                date@(sortBy == Sort.Date ? (desc ? "↓" : "↑") : "")
+            </button>
+            <button type="button" class="tcm-btn @(sortBy == Sort.Amount ? "is-on" : "")" @onclick=@(() => ToggleSort(Sort.Amount))>
+                amt@(sortBy == Sort.Amount ? (desc ? "↓" : "↑") : "")
+            </button>
+            @if (categories.Count > 1)
+            {
+                <select class="tcm-input tcm-input-xs" title="Category"
+                        value="@spCategory" @onchange=@(e => spCategory = e.Value?.ToString() ?? "")>
+                    <option value="">all</option>
+                    @foreach (var c in categories)
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+            }
+        </div>
+
+        if (!real.Any())
+        {
+            <div class="tcm-empty">No expenses yet — “+ spend” records the first one.</div>
+        }
+        else if (!shown.Any())
+        {
+            <div class="tcm-empty">Nothing matches the filter.</div>
+        }
+        else
+        {
+            var counted = shown.Where(CountsAsSpending).Sum(s => s.AmountInCurrentCurrency(Tour));
+            <div class="tcm-caption">
+                @shown.Count of @real.Count · <b class="tcm-money">@NewUi.Money(counted)</b>@(string.IsNullOrEmpty(curName) ? "" : " " + curName)
+            </div>
+
+            if (sortBy == Sort.Date)
+            {
+                var byDay = shown.GroupBy(s => s.SpendingDate.Date);
+                var days = desc ? byDay.OrderByDescending(g => g.Key) : byDay.OrderBy(g => g.Key);
+                foreach (var day in days)
+                {
+                    var rows = day.ToList();
+                    <div class="tcm-day" @key=@($"day_{day.Key.Ticks}")>
+                        <div class="tcm-row tcm-dayhead">
+                            <span class="tcm-main">@day.Key.ToString("dd.MM.yyyy")</span>
+                            <span class="tcm-money">@NewUi.Money(rows.Where(CountsAsSpending).Sum(x => x.AmountInCurrentCurrency(Tour)))</span>
+                        </div>
+                        @foreach (var s in rows)
+                        {
+                            @SpendingRow(s, curName)
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="tcm-list">
+                    @foreach (var s in shown)
+                    {
+                        @SpendingRow(s, curName)
+                    }
+                </div>
+            }
+        }
+    };
+
+    private RenderFragment SpendingRow(Spending s, string curName) => __builder =>
+    {
+        var open = openSpending == s.GUID;
+        var svc = NewUi.AsServiceTransfer(s.Description);
+        var amount = s.AmountInCurrentCurrency(Tour);
+
+        <div class="tcm-item @SpendingClass(s)" @key=@($"sp_{s.GUID}")>
+            <div class="tcm-row">
+                <button type="button" class="tcm-main tcm-open" aria-expanded=@(open ? "true" : "false")
+                        @onclick=@(() => openSpending = open ? null : s.GUID)>
+                    <span class="tcm-name">
+                        @if (svc is {} t)
+                        {
+                            @($"{t.From} → {t.To}")
+                        }
+                        else
+                        {
+                            @s.Description
+                        }
+                    </span>
+                    <span class="tcm-who">@NewUi.PersonName(Tour, s.FromGuid)</span>
+                    @if (sortBy == Sort.Amount)
+                    {
+                        <span class="tcm-who">@s.SpendingDate.ToString("dd.MM")</span>
+                    }
+                    @if (s.IsDryRun)
+                    {
+                        <span class="tcm-tag is-amber" title="@(s.IncludeDryRunInCalc ? "Draft, counted" : "Draft, not counted")">draft</span>
+                    }
+                </button>
+                <span class="tcm-money">@NewUi.Money(amount)</span>
+            </div>
+
+            @if (open)
+            {
+                <div class="tcm-sub">
+                    <div class="tcm-facts-line">
+                        <span>@s.SpendingDate.ToString("dd.MM.yyyy HH:mm")</span>
+                        <span class="tcm-dot">·</span>
+                        @if (s.ToAll)
+                        {
+                            <span>for <b>everyone</b></span>
+                        }
+                        else
+                        {
+                            <span>for <b>@string.Join(", ", s.ToGuid.Select(g => NewUi.PersonName(Tour, g)).OrderBy(n => n))</b></span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(s.Type))
+                        {
+                            <span class="tcm-dot">·</span>
+                            <span>@s.Type</span>
+                        }
+                        @if (Tour.IsMultiCurrency() && s.Currency != Tour.Currency)
+                        {
+                            <span class="tcm-dot">·</span>
+                            <span>@NewUi.Money(s.AmountInCents) @s.Currency.Name</span>
+                        }
+                    </div>
+                    <div class="tcm-fields">
+                        @if (s.Planned)
+                        {
+                            <button type="button" class="tcm-btn is-primary" @onclick=@(() => MarkPaid(s))>mark paid</button>
+                        }
+                        else
+                        {
+                            @if (s.IsDryRun)
+                            {
+                                <button type="button" class="tcm-btn" title="Turn this draft into a real expense"
+                                        @onclick=@(() => MakeReal(s))>make real</button>
+                            }
+                            <SpendingEditInModal spending=@s tour=@RawTour @key=@($"sp_ed_{s.GUID}") />
+                            <button type="button" class="tcm-btn is-danger" @onclick=@(() => DeleteSpending(s))>delete</button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    private static string SpendingClass(Spending s)
+    {
+        if (s.Planned) return "is-planned";
+        if (s.IsDryRun) return "is-dim";
+        if (s.Description.StartsWith("X ") || s.Description.StartsWith("Family ")) return "is-dim";
+        return "";
+    }
+}
+
+@* -------------------------------------------------------------------- stats -- *@
+@code {
+    private RenderFragment StatsPanel(string curName) => __builder =>
+    {
+        var counted = Tour.Spendings.Where(CountsAsSpending).ToList();
+        var total = counted.Sum(s => s.AmountInCurrentCurrency(Tour));
+        var totalWeight = Tour.Persons.Sum(p => p.Weight);
+        if (totalWeight == 0) totalWeight = 100;
+        // a "full share" person: a parent if anybody is paid for, otherwise the lightest one
+        var oneShare = Tour.Persons.Any(p => !string.IsNullOrWhiteSpace(p.ParentId))
+            ? (Tour.Persons.FirstOrDefault(p => p.GUID == Tour.Persons.First(x => !string.IsNullOrWhiteSpace(x.ParentId)).ParentId)?.Weight ?? 100)
+            : (Tour.Persons.Any(p => p.Weight > 0) ? Tour.Persons.Where(p => p.Weight > 0).Min(p => p.Weight) : 100);
+        var days = Tour.Duration > 0 ? Tour.Duration : 1;
+        var perPerson = total * oneShare / totalWeight;
+
+        if (!counted.Any())
+        {
+            <div class="tcm-empty">Nothing to count yet — an expense needs a category to show up here.</div>
+        }
+        else
+        {
+            <div class="tcm-caption">
+                <b class="tcm-money">@NewUi.Money(total)</b>@(string.IsNullOrEmpty(curName) ? "" : " " + curName)
+                <span class="tcm-dot">·</span> <b class="tcm-money">@NewUi.Money(perPerson)</b> per person
+                <span class="tcm-dot">·</span> <b class="tcm-money">@NewUi.Money(perPerson / days)</b> per person per day
+                <span class="tcm-hint">over @days days</span>
+            </div>
+
+            <div class="tcm-bar">
+                <button type="button" class="tcm-btn @(statsByCategory ? "is-on" : "")" @onclick=@(() => statsByCategory = true)>by category</button>
+                <button type="button" class="tcm-btn @(statsByCategory ? "" : "is-on")" @onclick=@(() => statsByCategory = false)>by payer</button>
+            </div>
+
+            var groups = statsByCategory
+                ? counted.GroupBy(s => string.IsNullOrWhiteSpace(s.Type) ? "—" : s.Type)
+                         .Select(g => (Key: g.Key, Sum: g.Sum(x => x.AmountInCurrentCurrency(Tour)), N: g.Count()))
+                         .OrderByDescending(x => x.Sum).ToList()
+                : counted.GroupBy(s => NewUi.PersonName(Tour, s.FromGuid))
+                         .Select(g => (Key: g.Key, Sum: g.Sum(x => x.AmountInCurrentCurrency(Tour)), N: g.Count()))
+                         .OrderByDescending(x => x.Sum).ToList();
+            var top = groups.Any() ? groups.Max(g => g.Sum) : 1;
+            if (top <= 0) top = 1;
+
+            <div class="tcm-list">
+                @foreach (var g in groups)
+                {
+                    <div class="tcm-row" @key=@($"st_{g.Key}")>
+                        <span class="tcm-main"><span class="tcm-name">@g.Key</span><span class="tcm-who">@g.N</span></span>
+                        <span class="tcm-bar-cell" aria-hidden="true"><i style="width:@(Math.Max(2, (int)Math.Round(g.Sum * 100.0 / top)))%"></i></span>
+                        <span class="tcm-share">@Percent(g.Sum, total)</span>
+                        <span class="tcm-money">@NewUi.Money(g.Sum)</span>
+                    </div>
+                }
+            </div>
+        }
+    };
+
+    /// <summary>Rounding a small slice to "0%" reads as "nothing", which it is not.</summary>
+    private static string Percent(long part, long whole)
+    {
+        if (whole == 0) return "0%";
+        var p = part * 100.0 / whole;
+        if (p > 0 && p < 1) return "<1%";
+        return $"{Math.Round(p)}%";
+    }
+}
+
+@* --------------------------------------------------------------- plumbing -- *@
+@code {
+    /// <summary>Tour converted into the currency the user picked for display.</summary>
+    [Parameter]
+    public Tour Tour { get; set; } = new();
+
+    /// <summary>Tour as loaded - edit forms must see the original currencies.</summary>
+    [Parameter]
+    public Tour RawTour { get; set; } = new();
+
+    [Parameter]
+    public UISettings Settings { get; set; } = new();
+
+    [Parameter]
+    public bool IsFresh { get; set; }
+
+    [Parameter]
+    public DateTimeOffset StoredDt { get; set; } = DateTimeOffset.Now;
+
+    [Parameter]
+    public Currency? SelectedCurrency { get; set; }
+
+    [Parameter]
+    public EventCallback<Currency?> OnCurrencyChanged { get; set; }
+
+    [Parameter]
+    public SpendingAddInModal AddModal { get; set; } = new();
+
+    [Parameter]
+    public Func<Task<string?>> GetDefaultPayer { get; set; } = () => Task.FromResult<string?>(null);
+
+    /// <summary>"persons" / "spendings" - the legacy per-section routes land on the matching tab.</summary>
+    [Parameter]
+    public string? InitialSection { get; set; }
+
+    private enum Tab { Balance, People, Expenses, Stats }
+    private enum Sort { Date, Amount }
+
+    private Tab tab = Tab.Expenses;
+    private bool tabInitialized = false;
+
+    private Sort sortBy = Sort.Date;
+    private bool desc = true;
+    private string spSearch = "";
+    private string spCategory = "";
+    private string peopleSearch = "";
+    private string? openPerson = null;
+    private string? openSpending = null;
+    private bool showFamily = false;
+    private bool statsByCategory = true;
+
+    private bool personModalVisible = false;
+    private Person personToEdit = new();
+
+    private bool reloading = false;
+    private enum RefreshOutcome { None, Updated, UpToDate, Failed }
+    private RefreshOutcome outcome = RefreshOutcome.None;
+    private bool serverAnswered = false;
+    private bool refreshFailed = false;
+    private Tour? serverTour = null;
+
+    private string PeopleTitle => Tour.Persons.Any()
+        ? string.Join(", ", Tour.Persons.SortedByNameAndDependency().Select(p => p.Name))
+        : "Nobody in this tour yet";
+
+    /// <summary>What the tour counts as actual spending - paybacks and uncounted drafts are not.</summary>
+    private static bool CountsAsSpending(Spending s)
+        => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc);
+
+    protected override void OnParametersSet()
+    {
+        if (!tabInitialized)
+        {
+            tab = InitialSection switch
+            {
+                "persons" => Tab.People,
+                "spendings" => Tab.Expenses,
+                _ => (RawTour.IsFinalizing && !RawTour.IsArchived) ? Tab.Balance : Tab.Expenses,
+            };
+            tabInitialized = true;
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        engine.onTourLoaded += OnAnyTourLoaded;
+    }
+
+    public void Dispose()
+    {
+        engine.onTourLoaded -= OnAnyTourLoaded;
+    }
+
+    private IEnumerable<Spending> FilterSpendings(IEnumerable<Spending> src)
+    {
+        var res = src;
+        if (!string.IsNullOrEmpty(spCategory))
+        {
+            res = res.Where(s => (s.Type ?? "") == spCategory);
+        }
+        var q = spSearch.Trim();
+        if (q.Length > 0)
+        {
+            res = res.Where(s =>
+                (s.Description ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (s.Type ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || NewUi.PersonName(Tour, s.FromGuid).Contains(q, StringComparison.OrdinalIgnoreCase));
+        }
+        res = sortBy == Sort.Amount
+            ? (desc ? res.OrderByDescending(s => s.AmountInCurrentCurrency(Tour)) : res.OrderBy(s => s.AmountInCurrentCurrency(Tour)))
+            : (desc ? res.OrderByDescending(s => s.SpendingDate) : res.OrderBy(s => s.SpendingDate));
+        return res;
+    }
+
+    private void ToggleSort(Sort s)
+    {
+        if (sortBy == s) { desc = !desc; }
+        else { sortBy = s; desc = true; }
+    }
+
+    private async Task AddSpending()
+    {
+        AddModal.OpenModal(await GetDefaultPayer());
+    }
+
+    private async Task OnCurrencyPicked(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString();
+        var c = RawTour.Currencies.FirstOrDefault(cc => cc.Id == id);
+        await OnCurrencyChanged.InvokeAsync(c);
+    }
+
+    private async Task MarkPaid(Spending s)
+    {
+        var from = NewUi.PersonName(Tour, s.FromGuid);
+        var to = NewUi.PersonName(Tour, s.ToGuid.FirstOrDefault());
+        var amount = NewUi.Money(s.AmountInCurrentCurrency(Tour));
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", $"Record that {from} paid {amount} to {to}?")) return;
+        var ss = s.SafeClone<Spending>();
+        ss.Type = "";
+        ss.Color = ss.Description.StartsWith("X") ? "lightgreen" : "lightgray";
+        _ = engine.RequestAddSpending(RawTour?.Id, ss);
+    }
+
+    /// <summary>
+    /// Turning a draft into a real expense writes the row back, so it has to write the
+    /// tour's own amount - the row on screen may have been converted into whichever
+    /// currency is being watched, and saving that would change what was spent.
+    /// </summary>
+    private void MakeReal(Spending s)
+    {
+        var raw = RawTour.Spendings.FirstOrDefault(x => x.GUID == s.GUID) ?? s;
+        raw.IsDryRun = false;
+        _ = engine.RequestEditSpending(RawTour?.Id, raw);
+    }
+
+    private async Task DeleteSpending(Spending s)
+    {
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{s.Description}'?")) return;
+        _ = engine.RequestDeleteSpending(RawTour?.Id, s);
+    }
+
+    private void ClosePersonModal() => personModalVisible = false;
+
+    private void EditPerson(Person p)
+    {
+        personToEdit = p;
+        personModalVisible = true;
+        StateHasChanged();
+    }
+
+    private async Task SavePerson(Person person)
+    {
+        if (string.IsNullOrWhiteSpace(person.Name))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Person name should not be blank");
+            return;
+        }
+        if (person.GUID == "New")
+        {
+            // keep the id stable between the local copy and the server one, otherwise
+            // a child added right after would attach to the wrong parent
+            person.GUID = IdHelper.NewId();
+            _ = engine.RequestAddPerson(RawTour?.Id, person);
+        }
+        else
+        {
+            _ = engine.RequestEditPerson(RawTour?.Id, person);
+        }
+        personModalVisible = false;
+    }
+
+    private async Task DeletePerson(Person person)
+    {
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", $"Delete '{person.Name}'?")) return;
+        _ = engine.RequestDeletePerson(RawTour?.Id, person);
+    }
+
+    private async Task Reload()
+    {
+        if (reloading) return;
+        reloading = true;
+        outcome = RefreshOutcome.None;
+        serverAnswered = false;
+        serverTour = null;
+        var before = Fingerprint(RawTour);
+        var started = DateTime.UtcNow;
+
+        await engine.RequestTourLoad(RawTour.Id, forceLoadFromServer: true);
+
+        outcome = !serverAnswered
+            ? RefreshOutcome.Failed
+            : Fingerprint(serverTour) == before ? RefreshOutcome.UpToDate : RefreshOutcome.Updated;
+        refreshFailed = !serverAnswered;
+
+        var minVisible = TimeSpan.FromMilliseconds(450);
+        var elapsed = DateTime.UtcNow - started;
+        if (elapsed < minVisible) await Task.Delay(minVisible - elapsed);
+        reloading = false;
+        StateHasChanged();
+
+        var shownFor = outcome == RefreshOutcome.Failed ? 5000 : 2200;
+        var mine = outcome;
+        await Task.Delay(shownFor);
+        if (outcome == mine)
+        {
+            outcome = RefreshOutcome.None;
+            StateHasChanged();
+        }
+    }
+
+    private Task OnAnyTourLoaded(Tour t, bool isFromServer, DateTimeOffset dt)
+    {
+        if (isFromServer)
+        {
+            serverAnswered = true;
+            serverTour = t;
+            if (refreshFailed)
+            {
+                refreshFailed = false;
+                _ = InvokeAsync(StateHasChanged);
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Cheap "did anything actually change" stamp - counts and totals catch any real edit.</summary>
+    private static string Fingerprint(Tour? t)
+    {
+        if (t == null) return "";
+        var sp = t.Spendings ?? new List<Spending>();
+        return string.Join("|",
+            t.Name,
+            t.Persons?.Count ?? 0,
+            sp.Count,
+            sp.Sum(x => x.AmountInCents),
+            t.Duration, t.IsFinalizing, t.IsArchived, t.TourCurrencyId);
+    }
+}

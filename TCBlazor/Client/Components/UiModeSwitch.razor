@@ -2,26 +2,26 @@
 
 @if (Single)
 {
-    @* one small button that flips to the other interface - for the cramped classic header *@
-    <button type="button" class="tcn-uiswitch-single" title="Switch the interface"
-            @onclick=@(() => Set(!uiMode.IsNew))>
-        ⇄ @(uiMode.IsNew ? "Classic" : "New UI")
+    @* one small button that steps through the three interfaces - for the cramped classic header *@
+    <button type="button" class="tcn-uiswitch-single" title="@NextTitle"
+            @onclick=@(() => Set(Next))>
+        ⇄ @Label(Next)
     </button>
 }
 else
 {
-    @* segmented "New / Classic" control *@
-    <span class="tcn-uiswitch @(Light ? "tcn-uiswitch-light" : "")" title="Switch between the new and the classic interface">
-        <button type="button"
-                class="tcn-uiswitch-opt @(uiMode.IsNew ? "is-active" : "")"
-                @onclick=@(() => Set(true))>
-            @(Compact ? "New" : "New UI")
-        </button>
-        <button type="button"
-                class="tcn-uiswitch-opt @(uiMode.IsNew ? "" : "is-active")"
-                @onclick=@(() => Set(false))>
-            @(Compact ? "Old" : "Classic")
-        </button>
+    @* segmented "New / Mini / Classic" control *@
+    <span class="tcn-uiswitch @(Light ? "tcn-uiswitch-light" : "")" title="Switch between the three interfaces">
+        @foreach (var m in Order)
+        {
+            <button type="button"
+                    class="tcn-uiswitch-opt @(uiMode.Mode == m ? "is-active" : "")"
+                    title="@Hint(m)"
+                    @key=@m
+                    @onclick=@(() => Set(m))>
+                @Label(m)
+            </button>
+        }
     </span>
 }
 
@@ -33,12 +33,33 @@ else
     [Parameter]
     public bool Light { get; set; } = false;
 
-    /// <summary>Render a single toggle button instead of the two-option control.</summary>
+    /// <summary>Render a single cycling button instead of the three-option control.</summary>
     [Parameter]
     public bool Single { get; set; } = false;
 
-    private async Task Set(bool isNew)
+    private static readonly UiMode[] Order = new[] { UiMode.Full, UiMode.Mini, UiMode.Classic };
+
+    /// <summary>What the cycling button moves to - the order above, wrapping round.</summary>
+    private UiMode Next => Order[(Array.IndexOf(Order, uiMode.Mode) + 1) % Order.Length];
+
+    private string NextTitle => $"Switch to the {Hint(Next).ToLowerInvariant()}";
+
+    private string Label(UiMode m) => m switch
     {
-        await uiMode.SetMode(isNew);
+        UiMode.Mini => "Mini",
+        UiMode.Classic => Compact ? "Old" : "Classic",
+        _ => Compact ? "New" : "New UI",
+    };
+
+    private static string Hint(UiMode m) => m switch
+    {
+        UiMode.Mini => "Mini interface - one line per thing, for a small screen or a slow device",
+        UiMode.Classic => "Classic interface",
+        _ => "New interface",
+    };
+
+    private async Task Set(UiMode m)
+    {
+        await uiMode.SetMode(m);
     }
 }

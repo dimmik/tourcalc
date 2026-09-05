@@ -26,7 +26,7 @@
             @* A screen, not a dialog. As a modal it had no close button, no mask click and
                no Esc - once you were logged out there was literally no way out of it, which on
                a phone means force-closing the app. *@
-            <div class="tcn-shell">
+            <div class="tcn-shell @(uiMode.IsMini ? "tcm-shell" : "")">
                 <header class="tcn-topbar">
                     <span class="tcn-brand" aria-hidden="true">🧭</span>
                     <div class="tcn-topbar-title">Tourcalc</div>
@@ -99,7 +99,7 @@
             }
             else if (uiMode.IsNew)
             {
-                <div class="tcn-shell">
+                <div class="tcn-shell @(uiMode.IsMini ? "tcm-shell" : "")">
                     <header class="tcn-topbar">
                         <a class="tcn-brand" href="/tourlist" title="Tour list" aria-label="Tour list">🧭</a>
                         <a class="tcn-topbar-title" href="@TitleHref" title="@TopbarTitle">@TopbarTitle</a>
@@ -226,7 +226,7 @@
     {
         try
         {
-            await JS.InvokeVoidAsync("tcSetUiMode", uiMode.IsNew);
+            await JS.InvokeVoidAsync("tcSetUiMode", uiMode.ModeName);
             var settings = await engine.GetUISettings();
             await JS.InvokeVoidAsync("tcSetAccent", settings.Accent_Colour);
         }

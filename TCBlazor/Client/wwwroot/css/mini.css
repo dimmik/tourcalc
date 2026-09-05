@@ -1,0 +1,608 @@
+/* ==========================================================================
+   Tourcalc "mini" interface.
+
+   One line per thing, for a small screen, an old phone, or a terminal browser.
+   It is a variant of the new UI, not a third design system: the shell, the
+   dialogs and the accent variables come from newui.css, and everything here
+   is either a .tcm- class of its own or a .tcm-shell / body.tcm-on override
+   of something the roomy interface drew larger.
+
+   House rules, and the reason for most of what follows:
+     - a row is one line, never two; whatever does not fit is elided, and the
+       full text is in the title attribute;
+     - anything beyond a row's headline lives behind that row's own toggle,
+       so an unopened screen is nothing but rows;
+     - hairlines instead of cards: no shadow, no radius, no gradient. They
+       cost a repaint, they eat vertical space, and a terminal renderer
+       flattens them anyway;
+     - numbers are tabular and right-aligned, so a column of them can be read
+       down rather than across;
+     - colour carries one meaning only - the sign of a number - plus the
+       accent for what is currently selected.
+   ========================================================================== */
+
+body.tcm-on {
+    background: var(--tcn-surface);
+    font-size: 13px;
+}
+
+/* ---------------------------------------------------------------- shell -- */
+
+/* the topbar is the one thing on screen that is never data: on a 24-line
+   terminal it may have one line, not four-and-a-half */
+.tcm-shell .tcn-topbar {
+    height: 28px;
+    padding: 0 6px;
+    gap: 6px;
+    background: var(--tcn-primary);
+    box-shadow: none;
+}
+
+.tcm-shell .tcn-brand {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.tcm-shell .tcn-topbar-title {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.tcm-shell .tcn-topbar-actions {
+    gap: 2px;
+}
+
+.tcm-shell .tcn-iconbtn {
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+}
+
+.tcm-shell .tcn-uiswitch {
+    font-size: 10px;
+}
+
+.tcm-shell .tcn-uiswitch-opt {
+    padding: 1px 5px;
+}
+
+.tcm-shell .tcn-main {
+    padding: 0;
+    max-width: none;
+}
+
+/* the roomy interface's floating action button: mini has "+ spend" in the
+   header, on screen at all times and costing no layer of its own */
+.tcm-shell .tcn-fab {
+    display: none !important;
+}
+
+/* --------------------------------------------------------------- header -- */
+
+/* the header is not pinned and the tab bar is: the header's facts are worth a
+   glance when you arrive, the tabs are worth one at any point down a long list,
+   and a small screen has room to pin exactly one of the two */
+.tcm-head {
+    background: var(--tcn-surface);
+    border-bottom: 1px solid var(--tcn-border-strong);
+}
+
+.tcm-head-top {
+    min-height: 26px;
+}
+
+.tcm-title {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tcm-head-facts,
+.tcm-head-meta {
+    min-height: 20px;
+    color: var(--tcn-muted);
+    font-size: 12px;
+}
+
+.tcm-head-meta {
+    font-size: 11px;
+}
+
+    .tcm-head-meta .tcn-refresh-note {
+        font-size: 11px;
+    }
+
+/* ----------------------------------------------------------------- tabs -- */
+
+.tcm-tabs {
+    position: sticky;
+    top: 28px;
+    z-index: 20;
+    display: flex;
+    background: var(--tcn-surface-2);
+    border-bottom: 1px solid var(--tcn-border-strong);
+}
+
+.tcm-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 3px 2px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--tcn-muted);
+    font: inherit;
+    font-size: 12px;
+    line-height: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+    .tcm-tab.is-active {
+        color: var(--tcn-primary);
+        border-bottom-color: var(--tcn-primary);
+        font-weight: 700;
+    }
+
+.tcm-panel {
+    padding-bottom: 24px;
+}
+
+/* ----------------------------------------------------------------- rows -- */
+
+.tcm-list {
+    display: block;
+}
+
+.tcm-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+    padding: 1px 6px;
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+.tcm-item > .tcm-row {
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+.tcm-item.is-dim {
+    opacity: .62;
+}
+
+.tcm-item.is-planned .tcm-name {
+    font-style: italic;
+}
+
+/* the flexible half of a row: it is what shrinks, and the only part allowed
+   to be cut off */
+.tcm-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+}
+
+a.tcm-main:hover .tcm-name {
+    text-decoration: underline;
+}
+
+/* a whole row that is a button: no chrome of its own, the row is the target */
+button.tcm-main {
+    border: 0;
+    background: none;
+    font: inherit;
+    text-align: left;
+    padding: 0;
+    cursor: pointer;
+    min-height: 22px;
+}
+
+.tcm-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tcm-open[aria-expanded="true"] .tcm-name {
+    font-weight: 600;
+}
+
+.tcm-spacer {
+    flex: 1 1 auto;
+}
+
+.tcm-dot {
+    color: var(--tcn-border-strong);
+}
+
+.tcm-tree {
+    flex: 0 0 auto;
+    color: var(--tcn-faint);
+}
+
+.tcm-item.is-child .tcm-main {
+    padding-left: 8px;
+}
+
+/* second-rank facts on a row: the payer, the count, the date */
+.tcm-who,
+.tcm-weight {
+    flex: 0 0 auto;
+    color: var(--tcn-faint);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.tcm-facts {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 6px;
+    color: var(--tcn-muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.tcm-verb {
+    flex: 0 0 auto;
+    color: var(--tcn-muted);
+    font-size: 11px;
+}
+
+.tcm-arrow {
+    flex: 0 0 auto;
+    color: var(--tcn-faint);
+}
+
+/* numbers line up down the right edge, which is the whole point of the column */
+.tcm-money {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+    .tcm-money.is-neg {
+        color: var(--tcn-red);
+    }
+
+    .tcm-money.is-pos {
+        color: var(--tcn-green);
+    }
+
+.tcm-ok {
+    color: var(--tcn-green);
+}
+
+.tcm-share {
+    flex: 0 0 34px;
+    text-align: right;
+    color: var(--tcn-muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* the only chart mini draws: a rule as long as the number is big */
+.tcm-bar-cell {
+    flex: 0 1 70px;
+    height: 4px;
+    background: var(--tcn-border);
+}
+
+    .tcm-bar-cell > i {
+        display: block;
+        height: 100%;
+        background: var(--tcn-primary);
+    }
+
+.tcm-tag {
+    flex: 0 0 auto;
+    padding: 0 4px;
+    border: 1px solid var(--tcn-border-strong);
+    color: var(--tcn-muted);
+    font-size: 10px;
+    line-height: 15px;
+    white-space: nowrap;
+}
+
+    .tcm-tag.is-amber {
+        border-color: var(--tcn-amber);
+        color: var(--tcn-amber);
+    }
+
+/* the row's own toggle, and the one place a row spends width on an icon */
+.tcm-more {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 20px;
+    border: 0;
+    background: none;
+    color: var(--tcn-faint);
+    font: inherit;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+    .tcm-more:hover,
+    .tcm-more.is-on {
+        color: var(--tcn-primary);
+    }
+
+/* --------------------------------------------------------- day grouping -- */
+
+.tcm-dayhead {
+    background: var(--tcn-surface-2);
+    color: var(--tcn-muted);
+    font-size: 11px;
+    min-height: 20px;
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+/* -------------------------------------------------------------- captions -- */
+
+.tcm-caption {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 3px 6px;
+    color: var(--tcn-muted);
+    font-size: 11px;
+    background: var(--tcn-surface-2);
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+.tcm-count {
+    color: var(--tcn-primary);
+    font-weight: 700;
+}
+
+.tcm-hint {
+    color: var(--tcn-faint);
+}
+
+.tcm-fold {
+    display: block;
+    width: 100%;
+    padding: 3px 6px;
+    border: 0;
+    border-bottom: 1px solid var(--tcn-border);
+    background: none;
+    color: var(--tcn-muted);
+    font: inherit;
+    font-size: 11px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tcm-empty {
+    padding: 10px 8px;
+    color: var(--tcn-faint);
+    font-size: 12px;
+}
+
+/* -------------------------------------------------------- opened detail -- */
+
+/* what a row hides: still one line where it can be, indented so the eye can
+   tell it apart from the rows around it */
+.tcm-sub {
+    padding: 3px 6px 4px 14px;
+    background: var(--tcn-surface-2);
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+.tcm-facts-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    color: var(--tcn-muted);
+    font-size: 11px;
+    margin-bottom: 3px;
+}
+
+    .tcm-facts-line b {
+        color: var(--tcn-text);
+    }
+
+.tcm-fields {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 3px;
+}
+
+    .tcm-fields:last-child {
+        margin-bottom: 0;
+    }
+
+/* ------------------------------------------------------------- controls -- */
+
+.tcm-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--tcn-border);
+    background: var(--tcn-surface);
+}
+
+.tcm-btn,
+.tcm-shell .tcm-btn {
+    flex: 0 0 auto;
+    padding: 1px 6px;
+    min-height: 20px;
+    border: 1px solid var(--tcn-border-strong);
+    background: var(--tcn-surface);
+    color: var(--tcn-text);
+    font: inherit;
+    font-size: 12px;
+    line-height: 16px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+    .tcm-btn:hover {
+        border-color: var(--tcn-primary);
+        color: var(--tcn-primary);
+    }
+
+    .tcm-btn:disabled {
+        opacity: .5;
+        cursor: default;
+    }
+
+    .tcm-btn.is-on,
+    .tcm-btn.is-primary {
+        border-color: var(--tcn-primary);
+        background: var(--tcn-primary);
+        color: #fff;
+    }
+
+        .tcm-btn.is-primary:hover {
+            background: var(--tcn-primary-dark);
+            color: #fff;
+        }
+
+    .tcm-btn.is-danger {
+        border-color: var(--tcn-red);
+        color: var(--tcn-red);
+    }
+
+        .tcm-btn.is-danger:hover {
+            background: var(--tcn-red);
+            color: #fff;
+        }
+
+.tcm-input,
+.tcm-find {
+    min-width: 0;
+    padding: 1px 5px;
+    border: 1px solid var(--tcn-border-strong);
+    background: var(--tcn-surface);
+    color: var(--tcn-text);
+    font: inherit;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.tcm-input {
+    flex: 1 1 90px;
+    width: 100%;
+}
+
+.tcm-find {
+    flex: 1 1 60px;
+}
+
+.tcm-input-xs {
+    flex: 0 0 auto;
+    width: 68px;
+}
+
+    .tcm-input:focus,
+    .tcm-find:focus {
+        outline: 1px solid var(--tcn-primary);
+        outline-offset: -1px;
+    }
+
+textarea.tcm-input {
+    line-height: 1.3;
+    resize: vertical;
+}
+
+.tcm-check {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--tcn-muted);
+    font-size: 12px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+    .tcm-check input {
+        margin: 0;
+    }
+
+.tcm-saving {
+    color: var(--tcn-amber);
+    font-size: 11px;
+}
+
+/* --------------------------------------------------------- the dialogues -- */
+
+/* the expense sheet is shared with the roomy interface. Mini does not redraw
+   it - it only takes the decoration off and gives the form the screen, which
+   is what a phone in mini mode has and what a terminal has nothing but. */
+body.tcm-on .tcn-sheet .ant-modal {
+    max-width: 100vw;
+    top: 8px;
+    padding-bottom: 8px;
+}
+
+body.tcm-on .tcn-sheet .ant-modal-content {
+    border-radius: 0;
+}
+
+body.tcm-on .tcn-sheet-head {
+    padding: 6px 8px;
+    background: var(--tcn-primary);
+}
+
+body.tcm-on .tcn-sheet-title {
+    font-size: 13px;
+}
+
+body.tcm-on .tcn-sheet-body {
+    padding: 8px;
+    max-height: 78vh;
+}
+
+body.tcm-on .tcn-sheet-foot {
+    padding: 6px 8px;
+}
+
+/* the person dialog and the rest of the shared forms, tightened the same way */
+body.tcm-on .ant-modal-body {
+    padding: 8px;
+}
+
+body.tcm-on .tcn-field,
+body.tcm-on .tcn-form > div {
+    margin-bottom: 6px;
+}
+
+/* ------------------------------------------------------------ shared bits -- */
+
+/* ShareLinkButton and SpendingEditInModal draw their own trigger with the
+   roomy interface's classes; in a mini row they wear the mini button */
+.tcm-sub .tcn-btn,
+.tcm-head .tcn-btn {
+    padding: 1px 6px;
+    min-height: 20px;
+    border-radius: 0;
+    border: 1px solid var(--tcn-border-strong);
+    background: var(--tcn-surface);
+    box-shadow: none;
+    font-size: 12px;
+    line-height: 16px;
+    height: auto;
+}
