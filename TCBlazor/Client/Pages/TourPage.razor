@@ -31,6 +31,22 @@
         <span>Tour loading...</span>
     }
 }
+else if (uiMode.IsMini)
+{
+    engine.SendMessage("Title", tour.Name);
+    engine.SendMessage("Tour", tour);
+    <PageTitle>@tour.Name</PageTitle>
+    <TourPageMini Tour=@(tourLocal ?? tour)
+                  RawTour=@tour
+                  Settings=@settings
+                  IsFresh=@isFresh
+                  StoredDt=@storedDt
+                  SelectedCurrency=@curr
+                  OnCurrencyChanged=@(EventCallback.Factory.Create<Currency?>(this, OnDisplayCurrencyChanged))
+                  AddModal=@_spendingAddInModal
+                  InitialSection=@InitialSection
+                  GetDefaultPayer=@GetDefaultFromGuid />
+}
 else if (uiMode.IsNew)
 {
     engine.SendMessage("Title", tour.Name);

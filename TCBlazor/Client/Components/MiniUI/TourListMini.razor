@@ -1,0 +1,209 @@
+@namespace TCBlazor.Client.Components.MiniUI
+
+@using TCalcCore.Engine
+
+@* The tour list, one line per tour. Same parameters as TourListNew, so the page only
+   picks between the two. Everything that does not fit on the line - the toggles, the
+   clones, the delete - lives behind the row's own "…" and costs nothing until asked for. *@
+
+<div class="tcm-bar">
+    @if (Tours.Count() > SearchFrom)
+    {
+        <input class="tcm-find" type="text" placeholder="find" value="@search"
+               @oninput=@(e => search = e.Value?.ToString() ?? "") />
+    }
+    <button type="button" class="tcm-btn @(adding ? "is-on" : "")" @onclick=@(() => adding = !adding)>
+        @(adding ? "cancel" : "+ tour")
+    </button>
+    <label class="tcm-check" title="Show the archived tours too">
+        <input type="checkbox" checked=@ShowArchived @onchange=@(() => ShowArchivedChanged.InvokeAsync(!ShowArchived)) />
+        arch
+    </label>
+    <span class="tcm-spacer"></span>
+    @if (InProgress)
+    {
+        <span class="tcm-saving">saving…</span>
+    }
+</div>
+
+@if (adding)
+{
+    <div class="tcm-sub">
+        <div class="tcm-fields">
+            <input class="tcm-input" type="text" placeholder="tour name" @bind-value=@newName />
+            @if (IsMaster)
+            {
+                <input class="tcm-input tcm-input-xs" type="text" placeholder="code" @bind-value=@newCode />
+            }
+            <button type="button" class="tcm-btn is-primary" disabled=@InProgress @onclick=@Add>create</button>
+        </div>
+        <textarea class="tcm-input" rows="2" placeholder="tour JSON (optional)" @bind=@newJson></textarea>
+    </div>
+}
+
+@{
+    var shown = Filtered().ToList();
+}
+
+@if (!shown.Any())
+{
+    <div class="tcm-empty">
+        @(string.IsNullOrWhiteSpace(search)
+            ? "No tours yet — “+ tour” starts one."
+            : "Nothing matches. Try a shorter piece of the name.")
+    </div>
+}
+else
+{
+    <div class="tcm-list">
+        @foreach (var tour in shown)
+        {
+            <div class="tcm-item @(tour.IsArchived ? "is-dim" : "")" @key=@($"tour_{tour.Id}")>
+                <div class="tcm-row">
+                    <a class="tcm-main" href=@($"tour/{tour.Id}") title="@tour.Name">
+                        <span class="tcm-name">@tour.Name</span>
+                        @if (tour.IsFinalizing)
+                        {
+                            <span class="tcm-tag is-amber" title="Being settled up">settling</span>
+                        }
+                        @if (tour.IsArchived)
+                        {
+                            <span class="tcm-tag">arch</span>
+                        }
+                    </a>
+                    <span class="tcm-facts" title="@PeopleTitle(tour)">
+                        <span>@(tour.Persons?.Count ?? 0)p</span>
+                        <span>@tour.Duration@("d")</span>
+                    </span>
+                    <button type="button" class="tcm-more @(moreId == tour.Id ? "is-on" : "")"
+                            title="More about this tour" aria-label="More about this tour"
+                            aria-expanded=@(moreId == tour.Id ? "true" : "false")
+                            @onclick=@(() => moreId = moreId == tour.Id ? null : tour.Id)>@(moreId == tour.Id ? "×" : "…")</button>
+                </div>
+
+                @if (moreId == tour.Id)
+                {
+                    <div class="tcm-sub">
+                        <div class="tcm-fields">
+                            <input class="tcm-input" type="text" disabled=@InProgress @bind-value=@tour.Name />
+                            <input class="tcm-input tcm-input-xs" type="number" title="Days" disabled=@InProgress @bind-value=@tour.Duration />
+                            <button type="button" class="tcm-btn is-primary" disabled=@InProgress
+                                    @onclick=@(() => OnSaveTour.InvokeAsync(tour))>save</button>
+                        </div>
+                        <div class="tcm-fields">
+                            <label class="tcm-check" title="Everyone sees the payments to make">
+                                <input type="checkbox" checked=@tour.IsFinalizing disabled=@InProgress
+                                       @onchange=@(() => OnToggleFinalizing.InvokeAsync(tour)) />
+                                settling up
+                            </label>
+                            <label class="tcm-check" title="Hidden from the default list">
+                                <input type="checkbox" checked=@tour.IsArchived disabled=@InProgress
+                                       @onchange=@(() => OnToggleArchived.InvokeAsync(tour)) />
+                                archived
+                            </label>
+                        </div>
+                        <div class="tcm-fields">
+                            <ShareLinkButton Tour=@tour Text="link" CssClass="tcm-btn" @key=@($"share_{tour.Id}") />
+                            <button type="button" class="tcm-btn" @onclick=@(() => OnCloneTour.InvokeAsync((tour, false)))>clone</button>
+                            <button type="button" class="tcm-btn" title="Clone without the expenses"
+                                    @onclick=@(() => OnCloneTour.InvokeAsync((tour, true)))>clone∅</button>
+                            <button type="button" class="tcm-btn" @onclick=@(() => OnCopyJson.InvokeAsync(tour))>json</button>
+                            <button type="button" class="tcm-btn is-danger" @onclick=@(() => OnDeleteTour.InvokeAsync(tour))>delete</button>
+                        </div>
+                        @if (IsMaster)
+                        {
+                            <div class="tcm-fields">
+                                <span class="tcm-hint">code for clones</span>
+                                <input class="tcm-input tcm-input-xs" type="text" placeholder="code" @bind-value=@newCode />
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IEnumerable<Tour> Tours { get; set; } = Enumerable.Empty<Tour>();
+
+    [Parameter]
+    public bool IsMaster { get; set; }
+
+    [Parameter]
+    public bool InProgress { get; set; }
+
+    [Parameter]
+    public bool ShowArchived { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> ShowArchivedChanged { get; set; }
+
+    /// <summary>(name, json, code)</summary>
+    [Parameter]
+    public EventCallback<(string, string, string)> OnAddTour { get; set; }
+
+    [Parameter]
+    public EventCallback<Tour> OnSaveTour { get; set; }
+
+    [Parameter]
+    public EventCallback<Tour> OnToggleFinalizing { get; set; }
+
+    [Parameter]
+    public EventCallback<Tour> OnToggleArchived { get; set; }
+
+    [Parameter]
+    public EventCallback<Tour> OnDeleteTour { get; set; }
+
+    /// <summary>(tour, strip spendings)</summary>
+    [Parameter]
+    public EventCallback<(Tour, bool)> OnCloneTour { get; set; }
+
+    [Parameter]
+    public EventCallback<Tour> OnCopyJson { get; set; }
+
+    [Parameter]
+    public string DefaultCode { get; set; } = "new";
+
+    /// <summary>Under this many tours the list fits anyway and a search box is one line wasted.</summary>
+    private const int SearchFrom = 6;
+
+    private string search = "";
+    private bool adding = false;
+    private string newName = "";
+    private string newJson = "";
+    private string newCode = "";
+    private string? moreId = null;
+
+    protected override void OnInitialized()
+    {
+        newCode = DefaultCode;
+    }
+
+    private static string PeopleTitle(Tour t)
+        => (t.Persons?.Any() ?? false) ? string.Join(", ", t.Persons.Select(p => p.Name)) : "Nobody in this tour yet";
+
+    private IEnumerable<Tour> Filtered()
+    {
+        var res = Tours ?? Enumerable.Empty<Tour>();
+        if (!ShowArchived) res = res.Where(t => !t.IsArchived);
+        var q = search.Trim();
+        if (q.Length > 0)
+        {
+            // searching by who is in the tour is often easier than remembering its name
+            res = res.Where(t =>
+                (t.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (t.Persons ?? new List<Person>()).Any(p => (p.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)));
+        }
+        return res;
+    }
+
+    private async Task Add()
+    {
+        await OnAddTour.InvokeAsync((newName, newJson, newCode));
+        adding = false;
+        newName = "";
+        newJson = "";
+    }
+}

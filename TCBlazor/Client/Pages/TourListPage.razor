@@ -36,6 +36,22 @@
         <span>Tours loading...</span>
     }
 }
+else if (uiMode.IsMini)
+{
+    <TourListMini Tours=@(tours.Tours ?? new List<Tour>())
+                  IsMaster=@(engine.Auth?.IsMaster ?? false)
+                  InProgress=@InProgress
+                  ShowArchived=@ShowArchived
+                  ShowArchivedChanged=@(EventCallback.Factory.Create<bool>(this, v => ShowArchived = v))
+                  DefaultCode=@defaultNoCode
+                  OnAddTour=@(EventCallback.Factory.Create<(string, string, string)>(this, t => AddNewTour(t.Item1, t.Item2, t.Item3)))
+                  OnSaveTour=@(EventCallback.Factory.Create<Tour>(this, ChangeTourNameAndDuration))
+                  OnToggleFinalizing=@(EventCallback.Factory.Create<Tour>(this, OnFinChange))
+                  OnToggleArchived=@(EventCallback.Factory.Create<Tour>(this, OnArchChange))
+                  OnDeleteTour=@(EventCallback.Factory.Create<Tour>(this, OnDelete))
+                  OnCloneTour=@(EventCallback.Factory.Create<(Tour, bool)>(this, t => CloneTour(t.Item1, t.Item2)))
+                  OnCopyJson=@(EventCallback.Factory.Create<Tour>(this, CopyTourJsonToCb)) />
+}
 else if (uiMode.IsNew)
 {
     <TourListNew Tours=@(tours.Tours ?? new List<Tour>())

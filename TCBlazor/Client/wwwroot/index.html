@@ -97,13 +97,16 @@
             }, { passive: true });
         })();
         // /fab
-        // new UI: toggles a body class so the page background matches the active interface
-        window.tcSetUiMode = function (isNew) {
-            if (isNew) {
-                document.body.classList.add("tcn-on");
-            } else {
-                document.body.classList.remove("tcn-on");
-            }
+        // new UI: toggles the body classes so the page background matches the active
+        // interface. "mini" is a variant of the new one and wears both classes: tcn-on
+        // for everything the two share, tcm-on for what only the mini one changes.
+        window.tcSetUiMode = function (mode) {
+            // a boolean is what older builds passed - a cached index.html must not
+            // leave the app classless while the new .wasm is already running
+            if (mode === true) mode = "new";
+            if (mode === false) mode = "old";
+            document.body.classList.toggle("tcn-on", mode !== "old");
+            document.body.classList.toggle("tcm-on", mode === "mini");
         };
         // new UI: the accent is a data attribute on <body>; the stylesheet does the rest.
         // A hex value is a colour the user picked themselves, and there can be no
@@ -416,6 +419,7 @@
     <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="css/newui.css" rel="stylesheet" />
+    <link href="css/mini.css" rel="stylesheet" />
     <link href="TCBlazor.Client.styles.css" rel="stylesheet" />
     <link href="manifest.json" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
@@ -433,8 +437,10 @@
         // the new interface.
         (function () {
             try {
-                if ((localStorage.getItem("__tc_ui_mode") || "new") === "new") {
+                var mode = localStorage.getItem("__tc_ui_mode") || "new";
+                if (mode !== "old") {
                     document.body.classList.add("tcn-on");
+                    if (mode === "mini") document.body.classList.add("tcm-on");
                 }
                 var s = localStorage.getItem("__tc_ui_settings") || "";
                 var m = s.match(/"Accent_Colour"\s*:\s*"(#?[0-9a-zA-Z]+)"/);
