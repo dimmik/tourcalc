@@ -22,10 +22,11 @@
                 <div>
                     <div style="font-weight: 650;">Look and feel</div>
                     <div style="font-size: 12.5px; color: var(--tcn-muted);">
-                        The classic interface keeps every legacy control; the new one is the redesigned, mobile-first view.
+                        New is the redesigned, roomy view; Mini draws it one line per thing, for a small screen,
+                        an old phone or a terminal; Classic keeps every legacy control.
                     </div>
                 </div>
-                <UiModeSwitch Compact="false" Light="true" />
+                <UiModeSwitch Compact="false" Light="true" IncludeClassic="true" />
             </div>
         </div>
     </div>
@@ -68,7 +69,7 @@ else
     <h3>UI Settings</h3>
 
     <div style="margin-bottom: 8px;">
-        Interface: <UiModeSwitch Compact="false" Light="true" />
+        Interface: <UiModeSwitch Compact="false" Light="true" IncludeClassic="true" />
     </div>
 
     <Button @onclick=@(() => JsRuntime.InvokeVoidAsync("window.manualCheckRegistration"))>Check Update</Button>

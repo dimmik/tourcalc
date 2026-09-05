@@ -606,3 +606,146 @@ body.tcm-on .tcn-form > div {
     line-height: 16px;
     height: auto;
 }
+
+/* ==========================================================================
+   Shared forms in mini.
+
+   The expense sheet, the person editor, the tour editor and the currencies
+   dialog are the same components the roomy interface uses - mini does not
+   fork them, it only tightens them. The roomy versions are built for a
+   finger on a phone: a 30px amount field, pill-shaped payer chips two lines
+   tall, 16px gaps. On a small screen or a terminal that turns one short form
+   into a scroll, so here everything is pulled in to match the rows behind it.
+   ========================================================================== */
+
+/* labels: the roomy form gives each its own line with a 6px gap below; mini
+   keeps the line but halves the gap */
+body.tcm-on .tcn-field {
+    margin-bottom: 8px;
+}
+
+body.tcm-on .tcn-label {
+    margin-bottom: 2px;
+    font-size: 10.5px;
+    letter-spacing: .4px;
+}
+
+body.tcm-on .tcn-input {
+    padding: 3px 7px;
+    font-size: 13px;
+    border-radius: 0;
+}
+
+body.tcm-on textarea.tcn-input {
+    min-height: 44px;
+}
+
+/* the amount is still the one number that matters, but 30px is a headline, not
+   a field on a 24-line screen - bring it down to something that reads as one */
+body.tcm-on .tcn-amount {
+    margin-bottom: 8px;
+    padding: 5px 8px;
+    border-radius: 0;
+}
+
+body.tcm-on .tcn-amount-row {
+    gap: 6px;
+}
+
+body.tcm-on .tcn-amount-input {
+    font-size: 19px;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-width: 1px;
+    border-radius: 0;
+}
+
+body.tcm-on .tcn-amount-curr {
+    padding: 3px 6px;
+    font-size: 13px;
+    border-width: 1px;
+    border-radius: 0;
+}
+
+/* payer / split chips: the pill and the avatar inside it are what eat the most
+   room. A dense chip is a bordered rectangle with a small avatar, and it wraps
+   the same way. */
+body.tcm-on .tcn-pchips {
+    gap: 4px;
+}
+
+body.tcm-on .tcn-pchip {
+    gap: 4px;
+    padding: 1px 8px 1px 3px;
+    border-radius: 0;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+body.tcm-on .tcn-pchip > .tcn-avatar.tcn-avatar-sm {
+    width: 17px;
+    height: 17px;
+    font-size: 8px;
+    box-shadow: none;
+}
+
+body.tcm-on .tcn-switchline {
+    font-size: 12px;
+    gap: 4px;
+}
+
+    body.tcm-on .tcn-switchline input {
+        width: 13px;
+        height: 13px;
+    }
+
+body.tcm-on .tcn-hint {
+    margin-top: 2px;
+    font-size: 11px;
+}
+
+body.tcm-on .tcn-colour {
+    width: 34px;
+    height: 22px;
+    border-radius: 0;
+}
+
+body.tcm-on .tcn-input-date {
+    min-width: 130px;
+}
+
+/* the category / filter chips inside a form */
+body.tcm-on .tcn-sheet-body .tcn-chip {
+    padding: 0 6px;
+    font-size: 11px;
+    line-height: 16px;
+    border-radius: 0;
+}
+
+/* the sheet's own buttons (More options, Add, the footer Save/Cancel) match
+   the mini button metrics rather than the roomy 40px tap targets */
+body.tcm-on .tcn-sheet-body .tcn-btn,
+body.tcm-on .tcn-sheet-foot .tcn-btn {
+    padding: 2px 8px;
+    min-height: 22px;
+    height: auto;
+    font-size: 12px;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+body.tcm-on .tcn-sheet-foot {
+    gap: 6px;
+}
+
+/* the name row in the person editor leads with a 16px input - not needed here */
+body.tcm-on .tcn-namerow .tcn-input {
+    font-size: 14px;
+}
+
+body.tcm-on .tcn-errors {
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+    border-radius: 0;
+}

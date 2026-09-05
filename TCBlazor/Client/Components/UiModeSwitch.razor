@@ -10,9 +10,12 @@
 }
 else
 {
-    @* segmented "New / Mini / Classic" control *@
-    <span class="tcn-uiswitch @(Light ? "tcn-uiswitch-light" : "")" title="Switch between the three interfaces">
-        @foreach (var m in Order)
+    @* segmented control. The header offers only New / Mini - the everyday choice
+       between roomy and dense; Classic is an escape hatch reached from Settings,
+       so it is not on the bar you look at all day. Settings passes IncludeClassic
+       and shows all three. *@
+    <span class="tcn-uiswitch @(Light ? "tcn-uiswitch-light" : "")" title="Switch the interface">
+        @foreach (var m in Shown)
         {
             <button type="button"
                     class="tcn-uiswitch-opt @(uiMode.Mode == m ? "is-active" : "")"
@@ -33,13 +36,23 @@ else
     [Parameter]
     public bool Light { get; set; } = false;
 
-    /// <summary>Render a single cycling button instead of the three-option control.</summary>
+    /// <summary>Render a single cycling button instead of the multi-option control.</summary>
     [Parameter]
     public bool Single { get; set; } = false;
 
+    /// <summary>
+    /// Whether the segmented control offers Classic. Off in the header (New / Mini only),
+    /// on in Settings, which is the one place the classic interface is chosen from.
+    /// </summary>
+    [Parameter]
+    public bool IncludeClassic { get; set; } = false;
+
     private static readonly UiMode[] Order = new[] { UiMode.Full, UiMode.Mini, UiMode.Classic };
 
-    /// <summary>What the cycling button moves to - the order above, wrapping round.</summary>
+    /// <summary>The options the segmented control draws.</summary>
+    private UiMode[] Shown => IncludeClassic ? Order : new[] { UiMode.Full, UiMode.Mini };
+
+    /// <summary>What the cycling button moves to - the full order, wrapping round.</summary>
     private UiMode Next => Order[(Array.IndexOf(Order, uiMode.Mode) + 1) % Order.Length];
 
     private string NextTitle => $"Switch to the {Hint(Next).ToLowerInvariant()}";
