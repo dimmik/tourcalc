@@ -57,18 +57,22 @@ else
 
     private string NextTitle => $"Switch to the {Hint(Next).ToLowerInvariant()}";
 
+    // "Full" rather than "New": next to Mini the question is how much room a thing
+    // gets, not how old the design is - and in the header, where Classic is not on
+    // offer, "New" named a contrast the reader could not see. The stored value stays
+    // "new", so nobody's saved choice is disturbed.
     private string Label(UiMode m) => m switch
     {
         UiMode.Mini => "Mini",
         UiMode.Classic => Compact ? "Old" : "Classic",
-        _ => Compact ? "New" : "New UI",
+        _ => "Full",
     };
 
     private static string Hint(UiMode m) => m switch
     {
         UiMode.Mini => "Mini interface - one line per thing, for a small screen or a slow device",
         UiMode.Classic => "Classic interface",
-        _ => "New interface",
+        _ => "Full interface - the roomy view",
     };
 
     private async Task Set(UiMode m)
