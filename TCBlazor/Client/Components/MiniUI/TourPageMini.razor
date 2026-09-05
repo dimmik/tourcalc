@@ -149,20 +149,23 @@
         }
         else
         {
-            <div class="tcm-caption">who pays whom <span class="tcm-count">@transfers.Count</span>
-                <span class="tcm-hint">— suggested, nothing is paid yet</span>
+            <div class="tcm-caption is-band">who pays whom <span class="tcm-count">@transfers.Count</span>
+                <span class="tcm-spacer"></span>
+                <span class="tcm-hint">tap ✓ to record</span>
             </div>
             <div class="tcm-list">
                 @foreach (var s in transfers)
                 {
                     <div class="tcm-row" @key=@($"tr_{s.GUID}")>
+                        @* who hands the money over recedes, who ends up with it is the
+                           strong one - the direction is then readable without reading *@
                         <span class="tcm-main">
-                            <span class="tcm-name">@NewUi.PersonName(Tour, s.FromGuid)</span>
+                            <span class="tcm-name is-payer">@NewUi.PersonName(Tour, s.FromGuid)</span>
                             <span class="tcm-arrow">→</span>
-                            <span class="tcm-name">@NewUi.PersonName(Tour, s.ToGuid.FirstOrDefault())</span>
+                            <span class="tcm-name is-payee">@NewUi.PersonName(Tour, s.ToGuid.FirstOrDefault())</span>
                         </span>
                         <span class="tcm-money">@NewUi.Money(s.AmountInCurrentCurrency(Tour))</span>
-                        <button type="button" class="tcm-more" title="Record that this money has changed hands"
+                        <button type="button" class="tcm-act" title="Record that this money has changed hands"
                                 aria-label="Mark paid" @onclick=@(() => MarkPaid(s))>✓</button>
                     </div>
                 }
@@ -171,14 +174,17 @@
 
         if (balances.Any())
         {
-            <div class="tcm-caption">balances</div>
-            <div class="tcm-list">
+            <div class="tcm-caption is-band">balances
+                <span class="tcm-spacer"></span>
+                <span class="tcm-hh">gets</span><span class="tcm-hh">owes</span>
+            </div>
+            <div class="tcm-list tcm-2side">
                 @foreach (var b in balances)
                 {
                     <div class="tcm-row" @key=@($"bal_{b.person.GUID}")>
                         <span class="tcm-main"><span class="tcm-name">@b.person.Name</span></span>
-                        <span class="tcm-verb">@(b.amount > 0 ? "owes" : "gets")</span>
-                        <span class="tcm-money @(b.amount > 0 ? "is-neg" : "is-pos")">@NewUi.Money(Math.Abs(b.amount))</span>
+                        <span class="tcm-half is-pos">@(b.amount < 0 ? NewUi.Money(-b.amount) : "")</span>
+                        <span class="tcm-half is-neg">@(b.amount > 0 ? NewUi.Money(b.amount) : "")</span>
                     </div>
                 }
             </div>
@@ -237,7 +243,11 @@
             var q = all.Count > 8 ? peopleSearch.Trim() : "";
             var heads = all.Where(p => !HasParent(p)).SortedByNameAndDependency().ToList();
 
-            <div class="tcm-list">
+            <div class="tcm-caption is-band">@all.Count people
+                <span class="tcm-spacer"></span>
+                <span class="tcm-hh">gets</span><span class="tcm-hh">owes</span>
+            </div>
+            <div class="tcm-list tcm-2side">
                 @foreach (var head in heads)
                 {
                     var kids = all.Where(p => HasParent(p) && p.ParentId == head.GUID).SortedByNameAndDependency().ToList();
@@ -269,7 +279,7 @@
         var shown = isChild ? own : settle;
         var open = openPerson == person.GUID;
 
-        <div class="tcm-item @(isChild ? "is-child" : "")" @key=@($"pers_{person.GUID}")>
+        <div class="tcm-item @(isChild ? "is-child is-fam" : "") @(covers > 0 ? "is-famhead" : "")" @key=@($"pers_{person.GUID}")>
             <div class="tcm-row">
                 <button type="button" class="tcm-main tcm-open" aria-expanded=@(open ? "true" : "false")
                         @onclick=@(() => openPerson = open ? null : person.GUID)>
@@ -282,23 +292,23 @@
                     {
                         <span class="tcm-tag" title="@($"Pays for {covers}, {familyWeight} of weight between them")">+@covers ×@familyWeight</span>
                     }
-                    else
+                    else if (person.Weight != CommonWeight)
                     {
+                        @* the weight almost everybody shares is not worth a column of ink -
+                           only the people who differ from it are worth marking *@
                         <span class="tcm-weight" title="@($"Weight {person.Weight}")">×@person.Weight</span>
                     }
                 </button>
                 @if (shown == 0)
                 {
-                    <span class="tcm-verb tcm-ok" title="@(isChild ? $"Settled through {NewUi.PersonName(Tour, person.ParentId)}" : "")">settled</span>
+                    <span class="tcm-half"></span>
+                    <span class="tcm-half tcm-ok" title="@(isChild ? $"Settled through {NewUi.PersonName(Tour, person.ParentId)}" : "Settled")">✓</span>
                 }
                 else
                 {
-                    <span class="tcm-verb">@(shown > 0 ? "owes" : "gets")</span>
-                    <span class="tcm-money @(shown > 0 ? "is-neg" : "is-pos")">@NewUi.Money(Math.Abs(shown))</span>
+                    <span class="tcm-half is-pos">@(shown < 0 ? NewUi.Money(-shown) : "")</span>
+                    <span class="tcm-half is-neg">@(shown > 0 ? NewUi.Money(shown) : "")</span>
                 }
-                <button type="button" class="tcm-more" title="@($"Record an expense paid by {person.Name}")"
-                        aria-label="@($"Record an expense paid by {person.Name}")"
-                        @onclick=@(() => AddModal.OpenModal(person.GUID))>💸</button>
             </div>
 
             @if (open)
@@ -385,38 +395,39 @@
                 foreach (var day in days)
                 {
                     var rows = day.ToList();
+                    @* the day block survives only as a grouping element: it carries the
+                       alternating tint. The date itself rides in the first row's gutter,
+                       which is a line cheaper than a header and does not look like data. *@
                     <div class="tcm-day" @key=@($"day_{day.Key.Ticks}")>
-                        <div class="tcm-row tcm-dayhead">
-                            <span class="tcm-main">@day.Key.ToString("dd.MM.yyyy")</span>
-                            <span class="tcm-money">@NewUi.Money(rows.Where(CountsAsSpending).Sum(x => x.AmountInCurrentCurrency(Tour)))</span>
-                        </div>
-                        @foreach (var s in rows)
+                        @for (var i = 0; i < rows.Count; i++)
                         {
-                            @SpendingRow(s, curName)
+                            @SpendingRow(rows[i], curName, i == 0 ? day.Key.ToString("dd.MM") : "", i == 0)
                         }
                     </div>
                 }
             }
             else
             {
+                @* sorted by amount there are no day blocks, so every row carries its own date *@
                 <div class="tcm-list">
                     @foreach (var s in shown)
                     {
-                        @SpendingRow(s, curName)
+                        @SpendingRow(s, curName, s.SpendingDate.ToString("dd.MM"), false)
                     }
                 </div>
             }
         }
     };
 
-    private RenderFragment SpendingRow(Spending s, string curName) => __builder =>
+    private RenderFragment SpendingRow(Spending s, string curName, string dateLabel, bool dayStart) => __builder =>
     {
         var open = openSpending == s.GUID;
         var svc = NewUi.AsServiceTransfer(s.Description);
         var amount = s.AmountInCurrentCurrency(Tour);
 
-        <div class="tcm-item @SpendingClass(s)" @key=@($"sp_{s.GUID}")>
+        <div class="tcm-item @SpendingClass(s) @(dayStart ? "is-daystart" : "")" @key=@($"sp_{s.GUID}")>
             <div class="tcm-row">
+                <span class="tcm-date" title="@s.SpendingDate.ToString("dd.MM.yyyy")">@dateLabel</span>
                 <button type="button" class="tcm-main tcm-open" aria-expanded=@(open ? "true" : "false")
                         @onclick=@(() => openSpending = open ? null : s.GUID)>
                     <span class="tcm-name">
@@ -429,15 +440,13 @@
                             @s.Description
                         }
                     </span>
-                    <span class="tcm-who">@NewUi.PersonName(Tour, s.FromGuid)</span>
-                    @if (sortBy == Sort.Amount)
-                    {
-                        <span class="tcm-who">@s.SpendingDate.ToString("dd.MM")</span>
-                    }
                     @if (s.IsDryRun)
                     {
                         <span class="tcm-tag is-amber" title="@(s.IncludeDryRunInCalc ? "Draft, counted" : "Draft, not counted")">draft</span>
                     }
+                    @* the payer sits in a fixed column so the three columns line up down
+                       the list; a long name is cut, and the title carries it in full *@
+                    <span class="tcm-who" title="@NewUi.PersonName(Tour, s.FromGuid)">@NewUi.PersonName(Tour, s.FromGuid)</span>
                 </button>
                 <span class="tcm-money">@NewUi.Money(amount)</span>
             </div>
@@ -518,11 +527,16 @@
         }
         else
         {
-            <div class="tcm-caption">
-                <b class="tcm-money">@NewUi.Money(total)</b>@(string.IsNullOrEmpty(curName) ? "" : " " + curName)
-                <span class="tcm-dot">·</span> <b class="tcm-money">@NewUi.Money(perPerson)</b> per person
-                <span class="tcm-dot">·</span> <b class="tcm-money">@NewUi.Money(perPerson / days)</b> per person per day
-                <span class="tcm-hint">over @days days</span>
+            <div class="tcm-statline">
+                <div class="tcm-statcell">
+                    <b>@NewUi.Money(total)</b><span>total@(string.IsNullOrEmpty(curName) ? "" : " " + curName)</span>
+                </div>
+                <div class="tcm-statcell">
+                    <b>@NewUi.Money(perPerson)</b><span>per person</span>
+                </div>
+                <div class="tcm-statcell">
+                    <b>@NewUi.Money(perPerson / days)</b><span>per person / day · @days d</span>
+                </div>
             </div>
 
             <div class="tcm-bar">
@@ -544,7 +558,7 @@
                 @foreach (var g in groups)
                 {
                     <div class="tcm-row" @key=@($"st_{g.Key}")>
-                        <span class="tcm-main"><span class="tcm-name">@g.Key</span><span class="tcm-who">@g.N</span></span>
+                        <span class="tcm-main"><span class="tcm-name">@g.Key</span><span class="tcm-n">@g.N</span></span>
                         <span class="tcm-bar-cell" aria-hidden="true"><i style="width:@(Math.Max(2, (int)Math.Round(g.Sum * 100.0 / top)))%"></i></span>
                         <span class="tcm-share">@Percent(g.Sum, total)</span>
                         <span class="tcm-money">@NewUi.Money(g.Sum)</span>
@@ -618,6 +632,13 @@
     private bool personModalVisible = false;
     private Person personToEdit = new();
 
+    /// <summary>
+    /// The weight most people in this tour carry. A row only prints its weight when it
+    /// differs from this, so the usual "×100" on every single line disappears and the
+    /// few who are counted differently are the ones that stand out.
+    /// </summary>
+    private int CommonWeight = 100;
+
     private bool reloading = false;
     private enum RefreshOutcome { None, Updated, UpToDate, Failed }
     private RefreshOutcome outcome = RefreshOutcome.None;
@@ -633,8 +654,18 @@
     private static bool CountsAsSpending(Spending s)
         => !s.Planned && !string.IsNullOrWhiteSpace(s.Type) && (!s.IsDryRun || s.IncludeDryRunInCalc);
 
+    private void RecomputeCommonWeight()
+    {
+        var weights = (Tour.Persons ?? new List<Person>()).Select(p => p.Weight).ToList();
+        CommonWeight = weights.Count == 0
+            ? 100
+            : weights.GroupBy(w => w).OrderByDescending(g => g.Count()).ThenByDescending(g => g.Key).First().Key;
+    }
+
     protected override void OnParametersSet()
     {
+        RecomputeCommonWeight();
+
         if (!tabInitialized)
         {
             tab = InitialSection switch

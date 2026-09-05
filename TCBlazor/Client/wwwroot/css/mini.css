@@ -212,7 +212,12 @@ button.tcm-main {
     min-height: 22px;
 }
 
+/* the name is what gives way: it takes the room the fixed columns leave and is
+   the only part of a row allowed to be cut off. Without this the columns to its
+   right start wherever the text happens to end, which is what made the list a wall. */
 .tcm-name {
+    flex: 1 1 auto;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -239,12 +244,34 @@ button.tcm-main {
     padding-left: 8px;
 }
 
-/* second-rank facts on a row: the payer, the count, the date */
-.tcm-who,
+/* second-rank facts on a row: the payer, the count, the weight */
+
+/* The payer is a column, not a word trailing the description. Left free it
+   started at a different x on every line - which is what turned the list into
+   a wall: the amounts lined up and nothing else did. */
+.tcm-who {
+    flex: 0 0 76px;
+    color: var(--tcn-faint);
+    font-size: 11px;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .tcm-weight {
     flex: 0 0 auto;
     color: var(--tcn-faint);
     font-size: 11px;
+    white-space: nowrap;
+}
+
+/* the count in the statistics rows - the same idea, a narrower column */
+.tcm-n {
+    flex: 0 0 26px;
+    color: var(--tcn-faint);
+    font-size: 11px;
+    text-align: right;
     white-space: nowrap;
 }
 
@@ -271,6 +298,8 @@ button.tcm-main {
 /* numbers line up down the right edge, which is the whole point of the column */
 .tcm-money {
     flex: 0 0 auto;
+    min-width: 62px;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
     text-align: right;
     white-space: nowrap;
@@ -345,13 +374,146 @@ button.tcm-main {
 
 /* --------------------------------------------------------- day grouping -- */
 
-.tcm-dayhead {
-    background: var(--tcn-surface-2);
-    color: var(--tcn-muted);
-    font-size: 11px;
-    min-height: 20px;
-    border-bottom: 1px solid var(--tcn-border);
+/* A day used to cost a header row of its own, which looked exactly like a row
+   of data and so read as one. The date now lives in a narrow left gutter on
+   the day's first line, and whole day blocks alternate their ground: the tint
+   marks the real structure, where striping every second line would draw a
+   pattern the data does not have. The per-day total is gone with the header -
+   in a one-line-per-thing list it was not worth a line, and the tour total is
+   in the header and in the caption above the list.
+
+   This is also why the rows inside a day carry no rule: the tint separates
+   them from the next day, and a hairline under every line was the third
+   thing competing for the eye. */
+.tcm-date {
+    flex: 0 0 38px;
+    color: var(--tcn-faint);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
+
+.tcm-day:nth-of-type(even) {
+    background: var(--tcn-surface-2);
+}
+
+.tcm-day .tcm-item > .tcm-row {
+    border-bottom: 0;
+}
+
+.tcm-item.is-daystart {
+    border-top: 1px solid var(--tcn-border-strong);
+}
+
+    .tcm-item.is-daystart .tcm-date {
+        color: var(--tcn-primary-dark);
+        font-weight: 700;
+    }
+
+/* --------------------------------------------------- two-sided amounts -- */
+
+/* "owes" and "gets" written out once per line was seven identical words down
+   the page. Two columns either side of a rule say the same thing by position,
+   and the eye can compare magnitudes down each side. 84px holds six figures
+   plus a space separator, which is past anything these tours reach. */
+.tcm-2side .tcm-half {
+    flex: 0 0 84px;
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+    .tcm-2side .tcm-half.is-pos {
+        color: var(--tcn-green);
+        border-right: 1px solid var(--tcn-border);
+        padding-right: 6px;
+    }
+
+    .tcm-2side .tcm-half.is-neg {
+        color: var(--tcn-red);
+    }
+
+/* the column headings that make the two sides legible, carried by the caption */
+.tcm-hh {
+    flex: 0 0 84px;
+    text-align: right;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    opacity: .75;
+}
+
+/* the tab's primary action stops being the faintest mark on the row */
+.tcm-act {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 19px;
+    border: 1px solid var(--tcn-primary);
+    background: var(--tcn-surface);
+    color: var(--tcn-primary);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+    .tcm-act:hover {
+        background: var(--tcn-primary);
+        color: #fff;
+    }
+
+/* which way the money goes, without reading: the payer recedes, the receiver
+   is the one who ends up holding it */
+.tcm-name.is-payer {
+    flex: 0 1 auto;
+    color: var(--tcn-muted);
+}
+
+.tcm-name.is-payee {
+    font-weight: 600;
+}
+
+/* a family settles as one, so it reads as one block */
+.tcm-item.is-famhead,
+.tcm-item.is-fam {
+    background: var(--tcn-surface-2);
+}
+
+.tcm-item.is-famhead {
+    border-left: 2px solid var(--tcn-primary);
+}
+
+.tcm-item.is-fam {
+    border-left: 2px solid var(--tcn-border-strong);
+}
+
+/* the statistics headline: three figures, three cells, instead of one long
+   sentence that wraps wherever the width happens to run out */
+.tcm-statline {
+    display: flex;
+    border-bottom: 1px solid var(--tcn-border-strong);
+    background: var(--tcn-surface-2);
+}
+
+.tcm-statcell {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 3px 6px;
+}
+
+    .tcm-statcell + .tcm-statcell {
+        border-left: 1px solid var(--tcn-border);
+    }
+
+    .tcm-statcell b {
+        display: block;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .tcm-statcell span {
+        color: var(--tcn-faint);
+        font-size: 10px;
+    }
 
 /* -------------------------------------------------------------- captions -- */
 
@@ -365,6 +527,16 @@ button.tcm-main {
     font-size: 11px;
     background: var(--tcn-surface-2);
     border-bottom: 1px solid var(--tcn-border);
+}
+
+/* a caption is a heading, not another row of data */
+.tcm-caption.is-band {
+    background: var(--tcn-primary-soft);
+    color: var(--tcn-primary-dark);
+    font-weight: 700;
+    border-top: 1px solid var(--tcn-border-strong);
+    border-bottom: 1px solid var(--tcn-border-strong);
+    flex-wrap: nowrap;
 }
 
 .tcm-count {
