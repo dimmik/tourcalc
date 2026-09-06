@@ -4,6 +4,11 @@
 
 @await Html.PartialAsync("_TourHeader", Model)
 
+@if (Model.Recorded != null)
+{
+    <p><strong>Recorded:</strong> @Model.Recorded</p>
+}
+
 <h2>Who pays whom</h2>
 @if (!Model.Transfers.Any())
 {
@@ -17,7 +22,7 @@ else
        which way the money goes no matter how the table is laid out. *@
     <table>
         <thead>
-            <tr><th>Payment</th><th class="n">Amount</th></tr>
+            <tr><th>Payment</th><th class="n">Amount</th><th></th></tr>
         </thead>
         <tbody>
         @foreach (var s in Model.Transfers)
@@ -29,6 +34,14 @@ else
                     @TCBlazor.Server.Pages.Text.TextPageModel.PersonName(Model.Tour, s.ToGuid.FirstOrDefault())
                 </td>
                 <td class="n">@TCBlazor.Server.Pages.Text.TextPageModel.Money(s.AmountInCurrentCurrency(Model.Tour))</td>
+                <td>
+                    @* the planned payment's id is a hash of who, to whom and how much,
+                       so it survives the round trip and still names the same payment *@
+                    <form method="post" asp-page-handler="MarkPaid">
+                        <input type="hidden" name="transferId" value="@s.GUID" />
+                        <button type="submit">Mark paid</button>
+                    </form>
+                </td>
             </tr>
         }
         </tbody>

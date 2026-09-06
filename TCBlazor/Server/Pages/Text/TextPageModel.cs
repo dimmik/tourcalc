@@ -10,6 +10,7 @@ using TCalc.Domain;
 using TCalc.Logic;
 using TCalc.Storage;
 using TCalcCore.Auth;
+using TCalcCore.Storage;
 using Company.TCBlazor;
 using Company.TCBlazor.Auth;
 
@@ -39,19 +40,15 @@ namespace TCBlazor.Server.Pages.Text
         public bool IsSignedIn => Auth.Type != "None";
 
         /// <summary>
-        /// The cookie scheme is not the default one, so nothing has looked at it by the
-        /// time a page runs. Authenticating here rather than through an [Authorize]
+        /// Who the reader is. UseTextAuth has already signed them in from the cookie, so
+        /// this only reads the claims - checking it here rather than with an [Authorize]
         /// attribute is what lets a signed-out reader be sent to the login form instead
         /// of being handed a bare 401, which a text browser shows as an error page.
         /// </summary>
-        protected async Task ReadAuth()
+        protected Task ReadAuth()
         {
-            var result = await HttpContext.AuthenticateAsync(TextAuth.Scheme);
-            if (result?.Principal != null)
-            {
-                HttpContext.User = result.Principal;
-            }
             Auth = AuthHelper.GetAuthData(HttpContext.User, Configuration);
+            return Task.CompletedTask;
         }
 
         /// <summary>Sends a signed-out reader to the login form, remembering where they were going.</summary>
@@ -95,6 +92,32 @@ namespace TCBlazor.Server.Pages.Text
                 Configuration.GetValue("ReturnVersionsInAllTours", false),
                 0, int.MaxValue, out _);
             return tours ?? Enumerable.Empty<Tour>();
+        }
+
+        // ---- writing ---------------------------------------------------------------
+
+        /// <summary>
+        /// The same processor the API uses; it holds what a change to a tour actually
+        /// means - dropping the planned payments a change invalidates, detaching the
+        /// people a deleted person paid for, and so on.
+        /// </summary>
+        protected readonly ITourStorageProcessor Processor = new TourStorageProcessor();
+
+        /// <summary>
+        /// Stores a changed tour. The state id has to move: the app guards against two
+        /// people saving over each other by comparing it, and a change made here that
+        /// left it alone would be silently overwritten by an app tab that had the tour
+        /// open from before.
+        ///
+        /// Load, change and store all happen inside one request, so the window for two
+        /// text posts to race is small - but it is not zero, and the loser is the one
+        /// whose change is lost rather than rejected. Worth revisiting if the text pages
+        /// ever get more than occasional use.
+        /// </summary>
+        protected void SaveTour(Tour tour)
+        {
+            tour.StateGUID = IdHelper.NewStateGuid();
+            TourStorage.StoreTour(tour);
         }
 
         // ---- formatting helpers the views use -------------------------------------

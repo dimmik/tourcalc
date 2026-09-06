@@ -7,6 +7,8 @@
 
 <h2>Expenses</h2>
 
+<p><a href="/t/@Model.TourId/spend/edit">Add an expense</a></p>
+
 <form method="get">
     <label for="q">Search</label>
     <input type="text" id="q" name="q" value="@Model.Query" size="20" />
@@ -35,6 +37,7 @@ else
                 <th>Paid by</th>
                 <th>For</th>
                 <th class="n">Amount</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -49,6 +52,7 @@ else
                 <td>@TextPageModel.Short(TextPageModel.PersonName(Model.Tour, s.FromGuid), 12)</td>
                 <td>@Model.ForWhomShort(s)</td>
                 <td class="n">@TextPageModel.Money(s.AmountInCurrentCurrency(Model.Tour))</td>
+                <td><a href="/t/@Model.TourId/spend/edit/@s.GUID">edit</a></td>
             </tr>
         }
         </tbody>

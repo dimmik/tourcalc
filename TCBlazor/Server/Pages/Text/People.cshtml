@@ -7,6 +7,8 @@
 
 <h2>People</h2>
 
+<p><a href="/t/@Model.TourId/people/edit">Add a person</a></p>
+
 @if (!Model.Tour.Persons.Any())
 {
     <p>Nobody in this tour yet.</p>
@@ -21,6 +23,7 @@ else
                 <th class="n">Paid</th>
                 <th class="n">Charged</th>
                 <th>Balance</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -43,6 +46,7 @@ else
                         @TextPageModel.Money(Math.Abs(row.settle))
                     }
                 </td>
+                <td><a href="/t/@Model.TourId/people/edit/@p.GUID">edit</a></td>
             </tr>
         }
         </tbody>

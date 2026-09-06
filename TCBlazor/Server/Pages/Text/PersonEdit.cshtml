@@ -1,0 +1,48 @@
+@page "/t/{id}/people/edit/{personId?}"
+@model TCBlazor.Server.Pages.Text.PersonEditModel
+@{ ViewData["Title"] = Model.IsNew ? "New person" : "Edit person"; }
+
+@await Html.PartialAsync("_TourHeader", Model)
+
+<h2>@(Model.IsNew ? "Add a person" : "Edit person")</h2>
+
+@if (Model.Error != null)
+{
+    <p><strong>@Model.Error</strong></p>
+}
+
+<form method="post">
+    <p>
+        <label for="name">Name</label><br />
+        <input type="text" id="name" name="Name" value="@Model.Name" size="30" />
+    </p>
+    <p>
+        <label for="weight">Share of the common expenses</label>
+        <input type="number" id="weight" name="Weight" value="@Model.Weight" size="6" />
+        <br />
+        <span class="muted">A full share is 100. Someone on 50 pays for half as much of everything shared.</span>
+    </p>
+    <p>
+        <label for="parent">Paid for by</label>
+        <select id="parent" name="ParentId">
+            <option value="">pays for themselves</option>
+            @foreach (var p in Model.PossibleParents())
+            {
+                <option value="@p.GUID" selected="@(p.GUID == Model.ParentId)">@p.Name</option>
+            }
+        </select>
+    </p>
+    <p>
+        <button type="submit">@(Model.IsNew ? "Add person" : "Save")</button>
+        <a href="/t/@Model.TourId/people">Cancel</a>
+    </p>
+</form>
+
+@if (!Model.IsNew)
+{
+    <form method="post" asp-page-handler="Delete">
+        <input type="hidden" name="personId" value="@Model.PersonId" />
+        <button type="submit">Delete this person</button>
+        <span class="muted">Their expenses go with them.</span>
+    </form>
+}

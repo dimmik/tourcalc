@@ -147,6 +147,9 @@ namespace Company.TCBlazor
             app.UseCors("mypolicy");
 
             app.UseAuthentication();
+            // the text pages' cookie, read before the endpoint filters so antiforgery
+            // sees the same reader the form was rendered for
+            app.UseTextAuth();
             app.UseAuthorization();
 
             // after the static files, so assets are already served and never reach it,

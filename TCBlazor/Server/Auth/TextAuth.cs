@@ -1,4 +1,6 @@
 using System;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 
 namespace Company.TCBlazor.Auth
@@ -12,6 +14,27 @@ namespace Company.TCBlazor.Auth
     {
         public const string Scheme = "TextCookie";
         public const string CookieName = "tc_text";
+
+        /// <summary>
+        /// Signs the reader in from the cookie for requests under /t, and only those.
+        ///
+        /// It has to happen in middleware rather than inside the page: antiforgery ties
+        /// its token to the identity it was issued for, and the filter that checks it runs
+        /// before any page code. Authenticating in the handler meant the form was rendered
+        /// for a signed-in reader and its token then checked against an anonymous one, so
+        /// every post was rejected. Scoping it by path keeps the JSON API exactly as it
+        /// was: it never sees this, so a cookie still cannot speak for the reader there.
+        /// </summary>
+        public static IApplicationBuilder UseTextAuth(this IApplicationBuilder app)
+            => app.Use(async (context, next) =>
+            {
+                if (context.Request.Path.StartsWithSegments("/t"))
+                {
+                    var result = await context.AuthenticateAsync(Scheme);
+                    if (result?.Principal != null) context.User = result.Principal;
+                }
+                await next();
+            });
 
         public static void SetCookie(HttpResponse response, string token, TimeSpan lifetime)
         {
