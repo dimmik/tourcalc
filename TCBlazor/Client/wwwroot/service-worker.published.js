@@ -79,12 +79,31 @@ async function onActivate(event) {
         .map(key => caches.delete(key)));
 }
 
+// Paths the server renders itself, which must therefore reach the network instead of
+// being answered from the cache with the app shell.
+//
+// /t is the text interface. Without this entry every navigation to it was served
+// index.html by the fallback below, the SPA router found no such route, and the reader
+// got "Nothing at this address". Ctrl-F5 appeared to fix it only because a forced reload
+// bypasses the service worker altogether - the next ordinary click broke again. It never
+// showed up in development either: the dev service worker does not cache at all.
+const serverRenderedPaths = [/^\/t$/, /^\/t\//];
+
+function isServerRendered(url) {
+    try {
+        return serverRenderedPaths.some(p => p.test(new URL(url).pathname));
+    } catch {
+        return false;
+    }
+}
+
 async function onFetch(event) {
     let cachedResponse = null;
     if (event.request.method === 'GET') {
         // For all navigation requests, try to serve index.html from cache
         // If you need some URLs to be server-rendered, edit the following check to exclude those URLs
-        const shouldServeIndexHtml = event.request.mode === 'navigate';
+        const shouldServeIndexHtml = event.request.mode === 'navigate'
+            && !isServerRendered(event.request.url);
 
         const request = shouldServeIndexHtml ? 'index.html' : event.request;
         const cache = await caches.open(cacheName);
