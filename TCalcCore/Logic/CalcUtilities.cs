@@ -9,6 +9,22 @@ namespace TCalc.Logic
 {
     public static class CalcUtilities
     {
+        /// <summary>
+        /// A "too small to bother with" threshold, expressed in whatever currency the tour
+        /// is being looked at in. It lived in the Blazor client until the text pages needed
+        /// exactly the same cut-off; two copies of it would have been two ways for the two
+        /// interfaces to disagree about who is settled.
+        /// </summary>
+        public static int GetAmountInCurrentCurrencyFromMinValued(this Tour tour, int amount)
+        {
+            if (tour == null) return amount;
+            if (!tour.IsMultiCurrency()) return amount;
+            var currentCurrencyRate = tour.Currency.CurrencyRate;
+            var minCurrencyRate = tour.Currencies.Min(c => c.CurrencyRate);
+            var rate = minCurrencyRate * 1.0 / currentCurrencyRate;
+            return (int)Math.Floor(amount * rate);
+        }
+
         public static (bool WillPay, IEnumerable<Spending> sp) GetPayOrReceiveSpendings(this Tour tour, Person person, long minMeaningfulAmount)
         {
             IEnumerable<Spending> sp;

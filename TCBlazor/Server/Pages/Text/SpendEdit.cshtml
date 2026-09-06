@@ -1,0 +1,84 @@
+@page "/t/{id}/spend/edit/{spendingId?}"
+@model TCBlazor.Server.Pages.Text.SpendEditModel
+@using TCBlazor.Server.Pages.Text
+@{ ViewData["Title"] = Model.IsNew ? "New expense" : "Edit expense"; }
+
+@await Html.PartialAsync("_TourHeader", Model)
+
+<h2>@(Model.IsNew ? "New expense" : "Edit expense")</h2>
+
+@if (Model.Error != null)
+{
+    <p><strong>@Model.Error</strong></p>
+}
+
+<form method="post">
+    <p>
+        <label for="amount">Amount</label><br />
+        <input type="number" id="amount" name="Amount" value="@Model.Amount" size="12" />
+        @Model.CurrencyName
+    </p>
+    <p>
+        <label for="desc">What for</label><br />
+        <input type="text" id="desc" name="Description" value="@Model.Description" size="40" />
+    </p>
+    <p>
+        <label for="from">Paid by</label>
+        <select id="from" name="FromGuid">
+            @foreach (var p in Model.Tour.Persons)
+            {
+                <option value="@p.GUID" selected="@(p.GUID == Model.FromGuid)">@p.Name</option>
+            }
+        </select>
+    </p>
+    <p>
+        <label>
+            <input type="checkbox" name="ToAll" value="true" checked="@Model.ToAll" />
+            For everyone
+        </label>
+    </p>
+    <fieldset>
+        <legend>…or only for these (ignored when "for everyone" is ticked)</legend>
+        @* checkboxes rather than a multi-select: picking several options out of a
+           <select multiple> in a text browser is a fiddly business, a list of
+           checkboxes is not *@
+        @foreach (var p in Model.Tour.Persons)
+        {
+            <label>
+                <input type="checkbox" name="ToGuid" value="@p.GUID" checked="@Model.ToGuid.Contains(p.GUID)" />
+                @p.Name
+            </label>
+            <br />
+        }
+    </fieldset>
+    <p>
+        <label for="type">Category</label>
+        <input type="text" id="type" name="Type" value="@Model.Type" size="20" />
+        @if (Model.Categories.Any())
+        {
+            <br /><span class="muted">already used: @string.Join(", ", Model.Categories)</span>
+        }
+    </p>
+    <p>
+        <label for="date">Date</label>
+        <input type="date" id="date" name="Date" value="@Model.Date" />
+    </p>
+    <p>
+        <label>
+            <input type="checkbox" name="IsDryRun" value="true" checked="@Model.IsDryRun" />
+            Draft &mdash; a possible expense, not a real one yet
+        </label>
+    </p>
+    <p>
+        <button type="submit">@(Model.IsNew ? "Add expense" : "Save")</button>
+        <a href="/t/@Model.TourId/spend">Cancel</a>
+    </p>
+</form>
+
+@if (!Model.IsNew)
+{
+    <form method="post" asp-page-handler="Delete">
+        <input type="hidden" name="spendingId" value="@Model.SpendingId" />
+        <button type="submit">Delete this expense</button>
+    </form>
+}

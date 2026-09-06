@@ -420,6 +420,7 @@
     <link href="css/app.css" rel="stylesheet" />
     <link href="css/newui.css" rel="stylesheet" />
     <link href="css/mini.css" rel="stylesheet" />
+    <noscript><meta http-equiv="refresh" content="0; url=/t" /></noscript>
     <link href="TCBlazor.Client.styles.css" rel="stylesheet" />
     <link href="manifest.json" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
@@ -451,6 +452,18 @@
         })();
     </script>
     <div id="app">Loading...</div>
+
+    <!-- The app is WebAssembly, so a browser without scripting has nothing to run and
+         would sit on "Loading..." for ever. This is what actually catches that case:
+         it keys off the missing capability rather than the browser's name, so it also
+         covers scripting simply being turned off. The redirect above fires by itself
+         where it is honoured; lynx renders it as a link, and this one is visible. -->
+    <noscript>
+        <p style="font-family: monospace; padding: 1em;">
+            Tourcalc needs JavaScript to run here.
+            <a href="/t">Open the text version</a> &mdash; it works without it.
+        </p>
+    </noscript>
 
     <div id="blazor-error-ui">
         An unhandled error has occurred.

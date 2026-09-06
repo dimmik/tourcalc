@@ -1,0 +1,60 @@
+@page "/t/{id}/spend"
+@model TCBlazor.Server.Pages.Text.SpendModel
+@using TCBlazor.Server.Pages.Text
+@{ ViewData["Title"] = Model.Tour.Name + " · expenses"; }
+
+@await Html.PartialAsync("_TourHeader", Model)
+
+<h2>Expenses</h2>
+
+<p><a href="/t/@Model.TourId/spend/edit">Add an expense</a></p>
+
+<form method="get">
+    <label for="q">Search</label>
+    <input type="text" id="q" name="q" value="@Model.Query" size="20" />
+    <button type="submit">Find</button>
+    @if (!string.IsNullOrEmpty(Model.Query))
+    {
+        <a href="/t/@Model.TourId/spend">clear</a>
+    }
+</form>
+
+@if (!Model.Shown.Any())
+{
+    <p>@(string.IsNullOrEmpty(Model.Query) ? "No expenses yet." : "Nothing matches that search.")</p>
+}
+else
+{
+    <p class="muted">
+        @Model.Shown.Count of @Model.TotalCount &middot;
+        @TextPageModel.Money(Model.ShownTotal) @Model.CurrencyName
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>What for</th>
+                <th>Paid by</th>
+                <th>For</th>
+                <th class="n">Amount</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var s in Model.Shown)
+        {
+            <tr>
+                <td>@s.SpendingDate.ToString("dd.MM.yyyy")</td>
+                <td>
+                    @s.Description
+                    @if (s.IsDryRun) { <text>(draft)</text> }
+                </td>
+                <td>@TextPageModel.Short(TextPageModel.PersonName(Model.Tour, s.FromGuid), 12)</td>
+                <td>@Model.ForWhomShort(s)</td>
+                <td class="n">@TextPageModel.Money(s.AmountInCurrentCurrency(Model.Tour))</td>
+                <td><a href="/t/@Model.TourId/spend/edit/@s.GUID">edit</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

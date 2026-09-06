@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.HttpOverrides;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using TCalc.Storage;
@@ -146,7 +147,14 @@ namespace Company.TCBlazor
             app.UseCors("mypolicy");
 
             app.UseAuthentication();
+            // the text pages' cookie, read before the endpoint filters so antiforgery
+            // sees the same reader the form was rendered for
+            app.UseTextAuth();
             app.UseAuthorization();
+
+            // after the static files, so assets are already served and never reach it,
+            // and before the endpoints, so it can answer instead of the SPA shell
+            app.UseTextBrowserRedirect();
 
             app.MapRazorPages();
             app.MapControllers();
@@ -178,6 +186,23 @@ namespace Company.TCBlazor
             services.AddSingleton<IECDsaCryptoKey>(sk);
 
             const string jwtSchemeName = "JwtBearer";
+
+            TokenValidationParameters Validation() => new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = sk.GetPublicKey(),
+
+                ValidateIssuer = true,
+                ValidIssuer = "TourCalc",
+
+                ValidateAudience = true,
+                ValidAudience = "Users",
+
+                ValidateLifetime = true,
+
+                ClockSkew = TimeSpan.FromSeconds(5)
+            };
+
             services
                 .AddAuthentication(options =>
                 {
@@ -186,20 +211,24 @@ namespace Company.TCBlazor
                 })
                 .AddJwtBearer(jwtSchemeName, jwtBearerOptions =>
                 {
-                    jwtBearerOptions.TokenValidationParameters = new TokenValidationParameters
+                    jwtBearerOptions.TokenValidationParameters = Validation();
+                })
+                // The text pages carry the very same token, only in a cookie: a browser
+                // without JavaScript cannot set an Authorization header. It is a scheme of
+                // its own rather than an extra source for the one above, because a cookie
+                // travels on every request by itself - accepting it for the JSON API would
+                // hand any other site the ability to call that API as the reader. Nothing
+                // asks for this scheme except the pages under /t.
+                .AddJwtBearer(TextAuth.Scheme, jwtBearerOptions =>
+                {
+                    jwtBearerOptions.TokenValidationParameters = Validation();
+                    jwtBearerOptions.Events = new JwtBearerEvents
                     {
-                        ValidateIssuerSigningKey = true,
-                        IssuerSigningKey = sk.GetPublicKey(),
-
-                        ValidateIssuer = true,
-                        ValidIssuer = "TourCalc",
-
-                        ValidateAudience = true,
-                        ValidAudience = "Users",
-
-                        ValidateLifetime = true,
-
-                        ClockSkew = TimeSpan.FromSeconds(5)
+                        OnMessageReceived = ctx =>
+                        {
+                            ctx.Token = ctx.Request.Cookies[TextAuth.CookieName];
+                            return Task.CompletedTask;
+                        }
                     };
                 });
         }

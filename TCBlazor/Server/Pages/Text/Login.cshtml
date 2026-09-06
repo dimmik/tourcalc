@@ -1,0 +1,29 @@
+@page "/t/login"
+@model TCBlazor.Server.Pages.Text.LoginModel
+@{ ViewData["Title"] = "Log in"; }
+
+<h1>Log in</h1>
+
+@if (Model.Failed)
+{
+    <p><strong>That code was not accepted.</strong> Check it and try again.</p>
+}
+
+<form method="post">
+    <p>
+        <label for="code">Access code</label><br />
+        <input type="text" id="code" name="Code" size="24" autocomplete="off" />
+    </p>
+    <p>
+        <label for="scope">Scope</label>
+        <select id="scope" name="Scope">
+            <option value="code" selected>access code</option>
+            <option value="admin">master key</option>
+        </select>
+    </p>
+    <p><button type="submit">Log in</button></p>
+</form>
+
+<p class="muted">
+    Opening a tour share link logs you in by itself &mdash; ask whoever shares the tour to send it again.
+</p>

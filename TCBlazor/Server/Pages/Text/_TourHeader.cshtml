@@ -1,0 +1,32 @@
+@model TCBlazor.Server.Pages.Text.TourTextPageModel
+@*
+    The tour's name, its headline figures and the links that stand in for the app's
+    tabs. A text browser has no tabs, so they are what they always were underneath:
+    four pages and four links.
+*@
+<h1>@Model.Tour.Name</h1>
+
+<p>
+    <strong>@TCBlazor.Server.Pages.Text.TextPageModel.Money(Model.TotalSpent)</strong> @Model.CurrencyName spent
+    &middot; @Model.Tour.Persons.Count people
+    &middot; @Model.ExpenseCount expenses
+    &middot;
+    @if (Model.Transfers.Any())
+    {
+        <text>left to settle <strong>@TCBlazor.Server.Pages.Text.TextPageModel.Money(Model.LeftToSettle)</strong> @Model.CurrencyName</text>
+    }
+    else
+    {
+        <text>everyone is settled up</text>
+    }
+    @if (Model.Tour.IsFinalizing) { <text>&middot; settling up</text> }
+    @if (Model.Tour.IsArchived) { <text>&middot; archived</text> }
+</p>
+
+<nav>
+    <a href="/t/@Model.TourId">Balance</a>
+    <a href="/t/@Model.TourId/people">People</a>
+    <a href="/t/@Model.TourId/spend">Expenses</a>
+    <a href="/t/@Model.TourId/stats">Stats</a>
+</nav>
+<hr />
