@@ -66,27 +66,8 @@ namespace Company.TCBlazor.Controllers
         public string GetToken([FromServices] IECDsaCryptoKey signerKey, string scope, string key, string? isMd5 = null)
         {
 
-            if (key == null) key = "";
-            AuthData auth = Authorize(scope, key, (isMd5 != null));
-
-            var claims = new Claim[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, scope),
-                new Claim("AuthDataJson", Newtonsoft.Json.JsonConvert.SerializeObject(auth))
-            };
-            var tokenValidTimeInMinutes = Configuration.GetValue("TokenValidTimeInMinutes", (180 * 60 * 24));
-            var token = new JwtSecurityToken(
-                issuer: "TourCalc",
-                audience: "Users",
-                claims: claims,
-                expires: DateTime.Now.AddMinutes(tokenValidTimeInMinutes),
-                signingCredentials: new SigningCredentials(
-                                       signerKey.GetPrivateKey(),
-                                       signerKey.SigningAlgorithm
-                                       )
-                );
-            string jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
-            return jwtToken;
+            AuthData auth = AccessAuthorizer.Authorize(Configuration, scope, key, (isMd5 != null));
+            return AccessAuthorizer.CreateToken(Configuration, signerKey, scope, auth);
         }
         /// <summary>
         ///Current authorization status
@@ -103,49 +84,5 @@ namespace Company.TCBlazor.Controllers
             return auth;
         }
 
-        private AuthData Authorize(string scope, string accessCode, bool accessCodeIsMd5 = false)
-        {
-            // TODO: think about what to return. Maybe exceptions is not the best way
-            AuthData auth = new AuthData();
-            if (scope == "admin")
-            {
-                // generate for master key
-                string keyProvided = accessCode;
-                string keyFromConfig = Configuration.GetValue<string>("MasterKey");
-                if (keyProvided == keyFromConfig)
-                {
-                    auth.Type = "Master";
-                    auth.IsMaster = true;
-                } else
-                {
-                    throw HttpException.NotAuthenticated($"Wrong Master Key");
-                }
-            }
-            /*else if (scope == "user")
-            {
-                // can create tours, but not delete. TODO: think about it
-                string keyProvided = accessCode;
-                string keyFromConfig = Configuration.GetValue<string>("UserKey");
-                if (keyProvided == keyFromConfig)
-                {
-                    auth.Type = "User";
-                    auth.IsMaster = false;
-                }
-            }*/
-            else if (scope == "code")
-            {
-                // TODO change to user-related 
-                // Access code
-                // get all tours with given access code
-                auth.Type = "AccessCode";
-                auth.IsMaster = false;
-                auth.AccessCodeMD5 = accessCodeIsMd5 ? accessCode : AuthHelper.CreateMD5(accessCode);
-            } else
-            {
-                throw HttpException.NotAuthenticated("Wrong scope. Please try 'code' or 'admin'. Or 'pigeon', who knows. Maybe 'slippery' will work.");
-            }
-
-            return auth;
-        }
     }
 }

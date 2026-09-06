@@ -1,0 +1,37 @@
+@page "/t"
+@model TCBlazor.Server.Pages.Text.IndexModel
+@{ ViewData["Title"] = "Tours"; }
+
+<h1>Tours</h1>
+
+@if (!Model.Tours.Any())
+{
+    <p>No tours are visible with this access code.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Tour</th>
+                <th class="n">People</th>
+                <th class="n">Days</th>
+                <th>State</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var t in Model.Tours)
+        {
+            <tr>
+                <td><a href="/t/@t.Id">@t.Name</a></td>
+                <td class="n">@(t.Persons?.Count ?? 0)</td>
+                <td class="n">@t.Duration</td>
+                <td>
+                    @(t.IsFinalizing ? "settling up" : "")
+                    @(t.IsArchived ? "archived" : "")
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

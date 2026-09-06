@@ -1,0 +1,66 @@
+@page "/t/{id}"
+@model TCBlazor.Server.Pages.Text.TourModel
+@{ ViewData["Title"] = Model.Tour.Name; }
+
+@await Html.PartialAsync("_TourHeader", Model)
+
+<h2>Who pays whom</h2>
+@if (!Model.Transfers.Any())
+{
+    <p>Nothing left to settle.</p>
+}
+else
+{
+    <p class="muted">Suggested payments &mdash; none of them has happened yet.</p>
+    @* One column, not two. lynx sizes columns itself and pads them barely, so two
+       adjacent name columns came out as "Саша О. Паша" - unreadable. The arrow says
+       which way the money goes no matter how the table is laid out. *@
+    <table>
+        <thead>
+            <tr><th>Payment</th><th class="n">Amount</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var s in Model.Transfers)
+        {
+            <tr>
+                <td>
+                    @TCBlazor.Server.Pages.Text.TextPageModel.PersonName(Model.Tour, s.FromGuid)
+                    &rarr;
+                    @TCBlazor.Server.Pages.Text.TextPageModel.PersonName(Model.Tour, s.ToGuid.FirstOrDefault())
+                </td>
+                <td class="n">@TCBlazor.Server.Pages.Text.TextPageModel.Money(s.AmountInCurrentCurrency(Model.Tour))</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+<h2>Balances</h2>
+@{ var balances = Model.Balances().ToList(); }
+@if (!balances.Any())
+{
+    <p>Everyone is square.</p>
+}
+else
+{
+    @* "owes"/"gets" spelled out rather than split into two columns: lynx drops the
+       CSS that would right-align them, so the only thing telling the two apart would
+       be how wide it decided to make the name column. *@
+    <table>
+        <thead>
+            <tr><th>Person</th><th>Balance</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var b in balances)
+        {
+            <tr>
+                <td>@b.person.Name</td>
+                <td>
+                    @(b.amount > 0 ? "owes" : "gets")
+                    @TCBlazor.Server.Pages.Text.TextPageModel.Money(Math.Abs(b.amount))
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

@@ -1,0 +1,39 @@
+@*
+    The shell for the text interface.
+
+    Every element here has to mean something without CSS, because lynx does not load
+    stylesheets at all: headings are headings, tables are tables, and navigation is
+    plain links. The small stylesheet is only so the same pages are bearable in a
+    graphical browser - nothing about the layout depends on it.
+*@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · Tourcalc text</title>
+    <style>
+        body { font-family: monospace, monospace; margin: 1em auto; max-width: 60em; padding: 0 1em; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
+        th, td { text-align: left; padding: 2px 8px 2px 0; vertical-align: top; }
+        th { border-bottom: 1px solid #999; }
+        td.n, th.n { text-align: right; white-space: nowrap; }
+        nav a { margin-right: 1em; }
+        .muted { color: #666; }
+        hr { border: 0; border-top: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <p class="muted">
+        Tourcalc &mdash; text interface.
+        <a href="/">Full app</a>
+    </p>
+    <hr />
+    @RenderBody()
+    <hr />
+    <p class="muted">
+        <a href="/t">Tours</a>
+        <a href="/t/logout">Log out</a>
+    </p>
+</body>
+</html>

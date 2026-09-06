@@ -1,0 +1,54 @@
+@page "/t/{id}/people"
+@model TCBlazor.Server.Pages.Text.PeopleModel
+@using TCBlazor.Server.Pages.Text
+@{ ViewData["Title"] = Model.Tour.Name + " · people"; }
+
+@await Html.PartialAsync("_TourHeader", Model)
+
+<h2>People</h2>
+
+@if (!Model.Tour.Persons.Any())
+{
+    <p>Nobody in this tour yet.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Person</th>
+                <th class="n">Weight</th>
+                <th class="n">Paid</th>
+                <th class="n">Charged</th>
+                <th>Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows())
+        {
+            var p = row.person;
+            <tr>
+                <td>@(row.isChild ? "└ " : "")@p.Name</td>
+                <td class="n">@p.Weight</td>
+                <td class="n">@TextPageModel.Money(p.SpentInCents)</td>
+                <td class="n">@TextPageModel.Money(p.ReceivedInCents)</td>
+                <td>
+                    @if (row.settle == 0)
+                    {
+                        <text>settled</text>
+                    }
+                    else
+                    {
+                        @(row.settle > 0 ? "owes" : "gets") <text> </text>
+                        @TextPageModel.Money(Math.Abs(row.settle))
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    <p class="muted">
+        Total weight @Model.Tour.Persons.Sum(p => p.Weight).
+        A person listed under another is paid for by them and settles through them.
+    </p>
+}

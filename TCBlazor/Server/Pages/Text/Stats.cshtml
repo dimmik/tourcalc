@@ -1,0 +1,58 @@
+@page "/t/{id}/stats"
+@model TCBlazor.Server.Pages.Text.StatsModel
+@using TCBlazor.Server.Pages.Text
+@{ ViewData["Title"] = Model.Tour.Name + " · stats"; }
+
+@await Html.PartialAsync("_TourHeader", Model)
+
+<h2>Statistics</h2>
+
+<p>
+    <strong>@TextPageModel.Money(Model.TotalSpent)</strong> @Model.CurrencyName total
+    &middot; <strong>@TextPageModel.Money(Model.PerPerson)</strong> per person
+    &middot; <strong>@TextPageModel.Money(Model.PerPersonPerDay)</strong> per person per day
+    over @Model.Days days
+</p>
+
+@if (!Model.ByCategory.Any())
+{
+    <p>Nothing to count yet &mdash; an expense needs a category to appear here.</p>
+}
+else
+{
+    <h3>By category</h3>
+    <table>
+        <thead>
+            <tr><th>Category</th><th class="n">Entries</th><th class="n">Share</th><th class="n">Amount</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var g in Model.ByCategory)
+        {
+            <tr>
+                <td>@g.Key</td>
+                <td class="n">@g.Count</td>
+                <td class="n">@Model.Percent(g.Sum)</td>
+                <td class="n">@TextPageModel.Money(g.Sum)</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+
+    <h3>By payer</h3>
+    <table>
+        <thead>
+            <tr><th>Person</th><th class="n">Entries</th><th class="n">Share</th><th class="n">Amount</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var g in Model.ByPayer)
+        {
+            <tr>
+                <td>@g.Key</td>
+                <td class="n">@g.Count</td>
+                <td class="n">@Model.Percent(g.Sum)</td>
+                <td class="n">@TextPageModel.Money(g.Sum)</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
