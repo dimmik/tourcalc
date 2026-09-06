@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Company.TCBlazor;
 
 namespace TCBlazor.Server
 {
@@ -11,18 +13,42 @@ namespace TCBlazor.Server
     ///
     /// This is a convenience, not the mechanism: the honest signal is the &lt;noscript&gt;
     /// block in index.html, which keys off the actual missing capability and so covers
-    /// every browser with scripting off, including ones nobody has heard of. Matching
-    /// on the user agent only recognises the names below, and that list will age - it
-    /// exists so the common case needs no click, and it is deliberately kept small.
+    /// every browser with scripting off, including ones nobody has heard of. Matching on
+    /// the user agent only recognises names it has been told about, and such a list ages
+    /// - which is why it is configuration rather than code, and why it is small.
     /// </summary>
     public static class TextBrowserRedirect
     {
-        private static readonly string[] TextBrowsers = { "lynx", "w3m", "elinks", "links" };
+        /// <summary>Config key: which agents count as text browsers, separated by ";".</summary>
+        public const string AgentsKey = "TextBrowserAgents";
+
+        /// <summary>Config key: set false to stop redirecting altogether.</summary>
+        public const string EnabledKey = "TextBrowserRedirectEnabled";
+
+        /// <summary>
+        /// "elinks" is not here on purpose: "links" is a substring of it, so the shorter
+        /// name already catches ELinks.
+        /// </summary>
+        public const string DefaultAgents = "lynx;w3m;links";
 
         public static IApplicationBuilder UseTextBrowserRedirect(this IApplicationBuilder app)
-            => app.Use(async (context, next) =>
+        {
+            var configuration = app.ApplicationServices.GetService<ITcConfiguration>();
+
+            // Read once, at startup. ITcConfiguration.GetValue captures a stack trace on
+            // every call for its diagnostics page, which is fine for configuration read
+            // when something is being set up and quite wrong to do per request. The cost
+            // is that changing the list needs a restart - acceptable for a list that
+            // changes when a new text browser appears.
+            var enabled = configuration?.GetValue(EnabledKey, true) ?? true;
+            if (!enabled) return app;
+
+            var agents = ParseAgents(configuration?.GetValue(AgentsKey, DefaultAgents) ?? DefaultAgents);
+            if (agents.Length == 0) return app;
+
+            return app.Use(async (context, next) =>
             {
-                if (TryMap(context, out var target))
+                if (TryMap(context, agents, out var target))
                 {
                     // temporary: whether a reader wants the text pages is not something
                     // to write into their cache for good
@@ -31,14 +57,22 @@ namespace TCBlazor.Server
                 }
                 await next();
             });
+        }
 
-        private static bool TryMap(HttpContext context, out string target)
+        internal static string[] ParseAgents(string configured)
+            => (configured ?? "")
+                .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(a => a.Trim())
+                .Where(a => a.Length > 0)
+                .ToArray();
+
+        private static bool TryMap(HttpContext context, string[] agents, out string target)
         {
             target = null;
             var request = context.Request;
 
             if (!HttpMethods.IsGet(request.Method)) return false;
-            if (!IsTextBrowser(request.Headers["User-Agent"].ToString())) return false;
+            if (!IsTextBrowser(request.Headers["User-Agent"].ToString(), agents)) return false;
 
             var path = request.Path.HasValue ? request.Path.Value : "/";
 
@@ -82,10 +116,10 @@ namespace TCBlazor.Server
             return true;
         }
 
-        private static bool IsTextBrowser(string userAgent)
+        private static bool IsTextBrowser(string userAgent, string[] agents)
         {
             if (string.IsNullOrEmpty(userAgent)) return false;
-            return TextBrowsers.Any(b => userAgent.Contains(b, StringComparison.OrdinalIgnoreCase));
+            return agents.Any(b => userAgent.Contains(b, StringComparison.OrdinalIgnoreCase));
         }
     }
 }
