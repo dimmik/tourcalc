@@ -149,6 +149,10 @@ namespace Company.TCBlazor
             app.UseAuthentication();
             app.UseAuthorization();
 
+            // after the static files, so assets are already served and never reach it,
+            // and before the endpoints, so it can answer instead of the SPA shell
+            app.UseTextBrowserRedirect();
+
             app.MapRazorPages();
             app.MapControllers();
             app.Map("api/{**any}", HandleApiFallback);
