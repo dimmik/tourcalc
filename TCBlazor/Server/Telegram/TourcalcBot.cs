@@ -31,6 +31,17 @@ namespace TCBlazor.Server.Telegram
         /// </summary>
         internal const string DefaultCategory = "прочее";
 
+        internal const string RenamePrompt = "Новое имя";
+        internal const string WeightPrompt = "Какая доля";
+
+        /// <summary>
+        /// A prompt that asks about a particular person has to say which one, and the reply
+        /// Telegram sends back carries only the prompt's own text. Rather than keep a map of
+        /// who was asked what - which a restart would lose and a second person in the chat
+        /// could collide with - the prompt ends with the id and the reply is read from it.
+        /// </summary>
+        private const string IdMarker = "\n#";
+
         private const int DefaultMinimumMeaningfulDebt = 49;
 
         private readonly ITourStorage storage;
@@ -53,10 +64,21 @@ namespace TCBlazor.Server.Telegram
 
             // a reply to the bot's own prompt is how free text arrives without turning
             // the bot's privacy mode off
-            if (!string.IsNullOrWhiteSpace(update.ReplyToBotText)
-                && update.ReplyToBotText.StartsWith(CoversPrompt, StringComparison.Ordinal))
+            if (!string.IsNullOrWhiteSpace(update.ReplyToBotText))
             {
-                return AddDependent(update, update.Text);
+                var prompt = update.ReplyToBotText;
+                if (prompt.StartsWith(CoversPrompt, StringComparison.Ordinal))
+                {
+                    return AddDependent(update, update.Text);
+                }
+                if (prompt.StartsWith(RenamePrompt, StringComparison.Ordinal))
+                {
+                    return Rename(update, PromptId(prompt), update.Text);
+                }
+                if (prompt.StartsWith(WeightPrompt, StringComparison.Ordinal))
+                {
+                    return SetWeight(update, PromptId(prompt), update.Text);
+                }
             }
 
             var command = TgCommand.Parse(update.Text);
@@ -87,6 +109,8 @@ namespace TCBlazor.Server.Telegram
             "/spend <сумма> <на что> — записать трату\n" +
             "/balance — кто сколько должен\n" +
             "/settle — кто кому платит\n\n" +
+            "Поправить имя, долю, кто за кого платит или удалить — " +
+            "кнопка «Изменить» в /who.\n\n" +
             "Доля по умолчанию 100. Ребёнку обычно ставят меньше.");
 
         private TgReply NewTrip(TgUpdate update, string name)
@@ -283,8 +307,9 @@ namespace TCBlazor.Server.Telegram
                 }
             }
 
-            return TgReply.Say(string.Join("\n", lines))
-                .Row(new TgButton("Кто кому платит", "settle"), new TgButton("Открыть", "link"));
+            var reply = TgReply.Say(string.Join("\n", lines));
+            AddOpenButton(reply, calculated, new TgButton("Кто кому платит", "settle"));
+            return reply;
         }
 
         private static string Settlement(Tour calculated, Person person, long min)
@@ -335,6 +360,194 @@ namespace TCBlazor.Server.Telegram
             return Settle(tour);
         }
 
+        // --------------------------------------------------------- editing people --
+
+        private TgReply PeoplePicker(Tour tour, int? messageId)
+        {
+            var reply = TgReply.Say("Кого поправить?");
+            reply.EditMessageId = messageId;
+            foreach (var person in (tour.Persons ?? new List<Person>()).OrderBy(p => p.Name))
+            {
+                reply.Row(new TgButton(person.Name, $"p:{person.GUID}"));
+            }
+            reply.Row(new TgButton("← назад", "who"));
+            return reply;
+        }
+
+        private TgReply PersonCard(Tour tour, string personId, int? messageId)
+        {
+            var person = Find(tour, personId);
+            if (person == null) return TgReply.Toast("Такого человека уже нет");
+
+            var parent = string.IsNullOrEmpty(person.ParentId) ? null : Find(tour, person.ParentId);
+            var lines = new List<string> { $"{person.Name} · доля {person.Weight}" };
+            lines.Add(parent == null ? "платит за себя" : $"за него платит {parent.Name}");
+
+            var kids = (tour.Persons ?? new List<Person>()).Where(k => k.ParentId == person.GUID).ToList();
+            if (kids.Any()) lines.Add("везёт: " + string.Join(", ", kids.Select(k => k.Name)));
+
+            var reply = TgReply.Say(string.Join("\n", lines));
+            reply.EditMessageId = messageId;
+            reply.Row(new TgButton("переименовать", $"pren:{personId}"), new TgButton("доля", $"pw:{personId}"));
+            reply.Row(new TgButton("кто за него платит", $"par:{personId}"));
+            reply.Row(new TgButton("удалить", $"pdel:{personId}"), new TgButton("← назад", "edit"));
+            return reply;
+        }
+
+        private TgReply Rename(TgUpdate update, string personId, string name)
+        {
+            var tour = ActiveTour(update.ChatId);
+            if (tour == null) return NoTrip();
+            var person = Find(tour, personId);
+            if (person == null) return TgReply.Say("Такого человека уже нет.");
+
+            name = (name ?? "").Trim();
+            if (name.Length == 0) return TgReply.Say("Имя не может быть пустым.");
+
+            person.Name = name;
+            processor.UpdatePerson(tour, person, personId);
+            Save(tour);
+            return TripCard(update, tour);
+        }
+
+        private TgReply SetWeight(TgUpdate update, string personId, string text)
+        {
+            var tour = ActiveTour(update.ChatId);
+            if (tour == null) return NoTrip();
+            if (!int.TryParse((text ?? "").Trim(), out var weight) || weight < 0)
+            {
+                return TgReply.Say("Доля — целое число от 0. Полная доля 100.");
+            }
+            return ApplyWeight(tour, personId, weight, null) ?? TripCard(update, tour);
+        }
+
+        private TgReply ApplyWeight(Tour tour, string personId, int weight, int? messageId)
+        {
+            var person = Find(tour, personId);
+            if (person == null) return TgReply.Toast("Такого человека уже нет");
+
+            person.Weight = weight;
+            processor.UpdatePerson(tour, person, personId);
+            Save(tour);
+            return PersonCard(tour, personId, messageId);
+        }
+
+        private TgReply WeightPicker(Tour tour, string personId, int? messageId)
+        {
+            var person = Find(tour, personId);
+            if (person == null) return TgReply.Toast("Такого человека уже нет");
+
+            var reply = TgReply.Say($"Доля для {person.Name}? Сейчас {person.Weight}. Полная доля — 100.");
+            reply.EditMessageId = messageId;
+            reply.Row(new TgButton("100", $"pw:{personId}:100"), new TgButton("50", $"pw:{personId}:50"),
+                      new TgButton("35", $"pw:{personId}:35"));
+            reply.Row(new TgButton("25", $"pw:{personId}:25"), new TgButton("0", $"pw:{personId}:0"),
+                      new TgButton("своё", $"pw:{personId}:x"));
+            reply.Row(new TgButton("← назад", $"p:{personId}"));
+            return reply;
+        }
+
+        private TgReply ParentPicker(Tour tour, string personId, int? messageId)
+        {
+            var person = Find(tour, personId);
+            if (person == null) return TgReply.Toast("Такого человека уже нет");
+
+            var reply = TgReply.Say($"Кто платит за {person.Name}?");
+            reply.EditMessageId = messageId;
+            reply.Row(new TgButton("никто — платит за себя", $"par:{personId}:-"));
+            foreach (var other in (tour.Persons ?? new List<Person>())
+                     .Where(p => CanBeParentOf(tour, p, person))
+                     .OrderBy(p => p.Name))
+            {
+                reply.Row(new TgButton(other.Name, $"par:{personId}:{other.GUID}"));
+            }
+            reply.Row(new TgButton("← назад", $"p:{personId}"));
+            return reply;
+        }
+
+        /// <summary>
+        /// Nobody may pay for themselves, and nobody may be moved under one of their own
+        /// dependents: either would make a cycle the settle-up walk never leaves.
+        /// </summary>
+        internal static bool CanBeParentOf(Tour tour, Person candidate, Person person)
+        {
+            if (candidate.GUID == person.GUID) return false;
+            var all = tour.Persons ?? new List<Person>();
+            var cursor = candidate;
+            for (var guard = 0; cursor != null && guard < 50; guard++)
+            {
+                if (cursor.ParentId == person.GUID) return false;
+                cursor = all.FirstOrDefault(p => p.GUID == cursor.ParentId);
+            }
+            return true;
+        }
+
+        private TgReply SetParent(Tour tour, string personId, string parentId, int? messageId)
+        {
+            var person = Find(tour, personId);
+            if (person == null) return TgReply.Toast("Такого человека уже нет");
+
+            if (parentId == "-")
+            {
+                person.ParentId = null;
+            }
+            else
+            {
+                var parent = Find(tour, parentId);
+                if (parent == null || !CanBeParentOf(tour, parent, person))
+                {
+                    return TgReply.Toast("Так нельзя — получится кольцо");
+                }
+                person.ParentId = parentId;
+            }
+
+            processor.UpdatePerson(tour, person, personId);
+            Save(tour);
+            return PersonCard(tour, personId, messageId);
+        }
+
+        private TgReply ConfirmDelete(Tour tour, string personId, int? messageId)
+        {
+            var person = Find(tour, personId);
+            if (person == null) return TgReply.Toast("Такого человека уже нет");
+
+            var spendings = tour.Spendings.Count(sp => !sp.Planned && sp.FromGuid == personId);
+            var kids = (tour.Persons ?? new List<Person>()).Count(k => k.ParentId == personId);
+
+            var lines = new List<string> { $"Удалить {person.Name}?" };
+            // deleting a person takes their spendings with them - worth saying before, not after
+            if (spendings > 0) lines.Add($"Вместе с ним удалятся его траты: {spendings}.");
+            if (kids > 0) lines.Add($"Те, кого он везёт ({kids}), станут платить за себя.");
+
+            var reply = TgReply.Say(string.Join("\n", lines));
+            reply.EditMessageId = messageId;
+            reply.Row(new TgButton("да, удалить", $"pdely:{personId}"), new TgButton("отмена", $"p:{personId}"));
+            return reply;
+        }
+
+        private TgReply DeletePerson(TgUpdate update, Tour tour, string personId, int? messageId)
+        {
+            var person = Find(tour, personId);
+            if (person == null) return TgReply.Toast("Такого человека уже нет");
+
+            processor.DeletePerson(tour, personId);
+            Save(tour);
+
+            var card = TripCard(update, tour);
+            card.EditMessageId = messageId;
+            return card;
+        }
+
+        private static Person Find(Tour tour, string personId)
+            => (tour.Persons ?? new List<Person>()).FirstOrDefault(p => p.GUID == personId);
+
+        /// <summary>The person id a prompt was about, taken off its last line.</summary>
+        internal static string PromptId(string promptText)
+        {
+            var at = (promptText ?? "").LastIndexOf(IdMarker, StringComparison.Ordinal);
+            return at < 0 ? "" : promptText.Substring(at + IdMarker.Length).Trim();
+        }
+
         // ------------------------------------------------------------------- buttons --
 
         private TgReply OnButton(TgUpdate update)
@@ -365,6 +578,14 @@ namespace TCBlazor.Server.Telegram
 
                 case "settle":
                     return Settle(tour);
+
+                case "who":
+                    var back = TripCard(update, tour);
+                    back.EditMessageId = update.CallbackMessageId;
+                    return back;
+
+                case "edit":
+                    return PeoplePicker(tour, update.CallbackMessageId);
             }
 
             // the ones that carry an id: "verb:id" and, for the payer picker, "from:sp:person"
@@ -384,6 +605,45 @@ namespace TCBlazor.Server.Telegram
 
                     case "paid":
                         return MarkPaid(tour, parts[1]);
+
+                    case "p":
+                        return PersonCard(tour, parts[1], update.CallbackMessageId);
+
+                    case "pren":
+                        var who = Find(tour, parts[1]);
+                        if (who == null) return TgReply.Toast("Такого человека уже нет");
+                        return new TgReply
+                        {
+                            Text = $"{RenamePrompt} для «{who.Name}»? Ответь на это сообщение.{IdMarker}{parts[1]}",
+                            ForceReply = true,
+                        };
+
+                    case "pw" when parts.Length == 2:
+                        return WeightPicker(tour, parts[1], update.CallbackMessageId);
+
+                    case "pw" when parts.Length == 3 && parts[2] == "x":
+                        var forWhom = Find(tour, parts[1]);
+                        if (forWhom == null) return TgReply.Toast("Такого человека уже нет");
+                        return new TgReply
+                        {
+                            Text = $"{WeightPrompt} у «{forWhom.Name}»? Ответь числом.{IdMarker}{parts[1]}",
+                            ForceReply = true,
+                        };
+
+                    case "pw" when parts.Length == 3 && int.TryParse(parts[2], out var weight):
+                        return ApplyWeight(tour, parts[1], weight, update.CallbackMessageId);
+
+                    case "par" when parts.Length == 2:
+                        return ParentPicker(tour, parts[1], update.CallbackMessageId);
+
+                    case "par" when parts.Length == 3:
+                        return SetParent(tour, parts[1], parts[2], update.CallbackMessageId);
+
+                    case "pdel":
+                        return ConfirmDelete(tour, parts[1], update.CallbackMessageId);
+
+                    case "pdely":
+                        return DeletePerson(update, tour, parts[1], update.CallbackMessageId);
                 }
             }
             return null;
@@ -450,9 +710,10 @@ namespace TCBlazor.Server.Telegram
                     .Select(p => Describe(people, p))));
             }
 
-            return TgReply.Say(string.Join("\n", lines))
-                .Row(new TgButton("Я еду", "join"), new TgButton("Я везу ещё кого-то", "covers"))
-                .Row(new TgButton("Ссылка", "link"));
+            var card = TgReply.Say(string.Join("\n", lines))
+                .Row(new TgButton("Я еду", "join"), new TgButton("Я везу ещё кого-то", "covers"));
+            AddOpenButton(card, tour, new TgButton("Изменить", "edit"));
+            return card;
         }
 
         private static string Describe(IEnumerable<Person> all, Person person)
@@ -462,8 +723,44 @@ namespace TCBlazor.Server.Telegram
             return $"{person.Name} (+ {string.Join(", ", kids.Select(k => $"{k.Name} ×{k.Weight}"))})";
         }
 
+        private string TourUrl(Tour tour)
+            => $"{options.PublicBaseUrl.TrimEnd('/')}/goto/{tour.AccessCodeMD5}/{tour.Id}";
+
+        /// <summary>
+        /// Whether Telegram will accept this address on a button. It refuses anything it
+        /// does not consider a real public address - a development server on localhost
+        /// comes back as "Wrong HTTP URL" - and it refuses the whole message with it, so
+        /// asking first is the difference between a reply and silence.
+        /// </summary>
+        internal static bool CanLinkTo(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return false;
+            if (uri.IsLoopback) return false;
+            return uri.Host.Contains(".");
+        }
+
         private TgReply Link(Tour tour)
-            => TgReply.Say($"{options.PublicBaseUrl.TrimEnd('/')}/goto/{tour.AccessCodeMD5}/{tour.Id}");
+        {
+            var url = TourUrl(tour);
+            if (CanLinkTo(url))
+            {
+                return TgReply.Say($"🧳 «{tour.Name}» в браузере — по кнопке. Код вводить не надо.")
+                    .Row(TgButton.Link("Открыть Tourcalc", url));
+            }
+            // a development server: no button is possible, so the address goes in the text
+            // where it can at least be copied
+            return TgReply.Say($"🧳 «{tour.Name}»\n{url}");
+        }
+
+        /// <summary>The "open it" button, when there is an address Telegram will take.</summary>
+        private void AddOpenButton(TgReply reply, Tour tour, params TgButton[] before)
+        {
+            var url = TourUrl(tour);
+            var row = new List<TgButton>(before);
+            if (CanLinkTo(url)) row.Add(TgButton.Link("Открыть", url));
+            if (row.Count > 0) reply.Row(row.ToArray());
+        }
 
         private static TgReply NoTrip()
             => TgReply.Say("В этом чате пока нет поездки. Заведи: /newtrip <название>");

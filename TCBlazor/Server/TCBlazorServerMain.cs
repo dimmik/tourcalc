@@ -206,6 +206,10 @@ namespace Company.TCBlazor
             {
                 services.AddHostedService<TelegramPollingService>();
             }
+            else if (options.IsWebhook)
+            {
+                services.AddHostedService<TelegramWebhookRegistrar>();
+            }
         }
 
         private static void SetupAuth(IServiceCollection services, ITcConfiguration configuration)

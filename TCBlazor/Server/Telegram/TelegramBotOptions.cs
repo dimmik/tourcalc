@@ -32,6 +32,9 @@ namespace TCBlazor.Server.Telegram
         /// <summary>A bot with no token cannot run whatever the mode says.</summary>
         public bool Enabled => !string.IsNullOrWhiteSpace(Token) && (IsPolling || IsWebhook);
 
+        /// <summary>Where Telegram is told to deliver updates - the webhook controller's route.</summary>
+        public string WebhookUrl => $"{(PublicBaseUrl ?? "").TrimEnd('/')}/api/tg/update";
+
         public bool ChatAllowed(long chatId) => AllowedChats.Count == 0 || AllowedChats.Contains(chatId);
 
         public static TelegramBotOptions Read(ITcConfiguration configuration)

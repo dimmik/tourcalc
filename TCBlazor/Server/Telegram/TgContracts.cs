@@ -32,6 +32,10 @@ namespace TCBlazor.Server.Telegram
         public string ReplyToBotText { get; set; }
     }
 
+    /// <summary>
+    /// A button. It either sends a callback back to us (<see cref="Data"/>) or opens an
+    /// address (<see cref="Url"/>) - Telegram has no button that does both.
+    /// </summary>
     public class TgButton
     {
         public TgButton(string label, string data)
@@ -40,8 +44,25 @@ namespace TCBlazor.Server.Telegram
             Data = data;
         }
 
+        private TgButton(string label, string url, bool _)
+        {
+            Label = label;
+            Url = url;
+        }
+
         public string Label { get; }
         public string Data { get; }
+        public string Url { get; }
+
+        public bool IsLink => !string.IsNullOrEmpty(Url);
+
+        /// <summary>
+        /// A button that opens a link. Worth having rather than putting the address in the
+        /// message: Telegram only turns text into a link when it recognises the host, and a
+        /// development server on localhost is never recognised - the address arrived as dead
+        /// text. A button is tappable whatever the host.
+        /// </summary>
+        public static TgButton Link(string label, string url) => new TgButton(label, url, true);
     }
 
     /// <summary>What the bot wants done. Null means "say nothing".</summary>

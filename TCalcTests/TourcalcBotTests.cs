@@ -162,14 +162,42 @@ namespace TCalcTests
         }
 
         [Fact]
-        public void LinkSignsTheReaderIn()
+        public void LinkComesAsAButtonThatSignsTheReaderIn()
         {
             var (bot, storage) = NewBot();
             bot.Handle(Msg("/newtrip Черногория"));
             var tour = OnlyTour(storage);
 
-            Assert.Equal($"https://tc.example.org/goto/{tour.AccessCodeMD5}/{tour.Id}",
-                         bot.Handle(Msg("/link")).Text);
+            // a button rather than the address in the text: Telegram only linkifies hosts
+            // it recognises, and a development server on localhost is not one of them
+            var button = bot.Handle(Msg("/link")).Buttons.SelectMany(r => r).Single();
+            Assert.True(button.IsLink);
+            Assert.Equal($"https://tc.example.org/goto/{tour.AccessCodeMD5}/{tour.Id}", button.Url);
+            Assert.Null(button.Data);
+        }
+
+        [Fact]
+        public void OnADevelopmentServerTheAddressGoesInTheTextInstead()
+        {
+            var storage = new InMemoryTourStorage();
+            var bot = new TourcalcBot(storage, new TourStorageProcessor(),
+                new TelegramBotOptions { PublicBaseUrl = "http://localhost:5399" });
+            bot.Handle(Msg("/newtrip Черногория"));
+
+            var reply = bot.Handle(Msg("/link"));
+            Assert.Empty(reply.Buttons);                       // no button Telegram would refuse
+            Assert.Contains("http://localhost:5399/goto/", reply.Text);
+        }
+
+        [Fact]
+        public void TheTripCardOpensTheTourWithoutAnExtraMessage()
+        {
+            var (bot, storage) = NewBot();
+            var card = bot.Handle(Msg("/newtrip Черногория"));
+            var tour = OnlyTour(storage);
+
+            var open = card.Buttons.SelectMany(r => r).Single(b => b.IsLink);
+            Assert.Equal($"https://tc.example.org/goto/{tour.AccessCodeMD5}/{tour.Id}", open.Url);
         }
 
         [Fact]

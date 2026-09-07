@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -85,14 +86,26 @@ namespace TCBlazor.Server.Telegram
 
             var markup = Markup(reply);
 
-            if (reply.EditMessageId.HasValue)
+            try
             {
-                await client.EditMessageTextAsync(chatId, reply.EditMessageId.Value, reply.Text,
-                    replyMarkup: markup as InlineKeyboardMarkup, cancellationToken: token);
-                return;
-            }
+                if (reply.EditMessageId.HasValue)
+                {
+                    await client.EditMessageTextAsync(chatId, reply.EditMessageId.Value, reply.Text,
+                        replyMarkup: markup as InlineKeyboardMarkup, cancellationToken: token);
+                    return;
+                }
 
-            await client.SendTextMessageAsync(chatId, reply.Text, replyMarkup: markup, cancellationToken: token);
+                await client.SendTextMessageAsync(chatId, reply.Text, replyMarkup: markup, cancellationToken: token);
+            }
+            catch (Exception e) when (markup != null)
+            {
+                // Telegram refuses the whole message when it dislikes something in the
+                // keyboard - a button URL it does not consider public, say - and the reader
+                // is then left with silence and no idea why. The words are worth more than
+                // the buttons, so they go out on their own.
+                Console.Error.WriteLine($"Telegram bot: keyboard rejected ({e.Message}), sending the text alone");
+                await client.SendTextMessageAsync(chatId, reply.Text, cancellationToken: token);
+            }
         }
 
         private static IReplyMarkup Markup(TgReply reply)
@@ -101,7 +114,9 @@ namespace TCBlazor.Server.Telegram
             if (!reply.Buttons.Any()) return null;
             return new InlineKeyboardMarkup(reply.Buttons
                 .Select(row => (IEnumerable<InlineKeyboardButton>)row
-                    .Select(b => InlineKeyboardButton.WithCallbackData(b.Label, b.Data))
+                    .Select(b => b.IsLink
+                        ? InlineKeyboardButton.WithUrl(b.Label, b.Url)
+                        : InlineKeyboardButton.WithCallbackData(b.Label, b.Data))
                     .ToList()));
         }
     }

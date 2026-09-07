@@ -65,6 +65,22 @@ namespace TCalcTests
             Assert.False(limited.ChatAllowed(2));
         }
 
+        [Theory]
+        [InlineData("https://tc.dimmik.org/goto/A/b", true)]
+        [InlineData("http://tc.dimmik.org/goto/A/b", true)]
+        [InlineData("http://localhost:5399/goto/A/b", false)]   // Telegram: "Wrong HTTP URL"
+        [InlineData("http://127.0.0.1:5399/goto/A/b", false)]
+        [InlineData("http://devbox:5399/goto/A/b", false)]      // no dot, not a public host
+        [InlineData("ftp://tc.dimmik.org/x", false)]
+        [InlineData("not a url", false)]
+        public void OnlyAPublicAddressCanGoOnAButton(string url, bool ok)
+        {
+            // Telegram rejects the entire message when a button URL displeases it, so this
+            // is asked before the button is built rather than discovered by the reply
+            // never arriving
+            Assert.Equal(ok, TourcalcBot.CanLinkTo(url));
+        }
+
         [Fact]
         public void BotWillNotRunWithoutAToken()
         {
