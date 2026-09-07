@@ -196,6 +196,22 @@ namespace TCalcTests
         }
 
         [Fact]
+        public void WithNoAddressConfiguredTheBotSaysSoRatherThanInventingOne()
+        {
+            // there is no sensible default: guessing would be some other installation's
+            // address, and the link would look like it works while leading nowhere
+            var storage = new InMemoryTourStorage();
+            var bot = new TourcalcBot(storage, new TourStorageProcessor(), new TelegramBotOptions());
+            bot.Handle(Msg("/newtrip Черногория"));
+
+            var reply = bot.Handle(Msg("/link"));
+            Assert.Contains("не настроен", reply.Text);
+            Assert.Contains("TelegramBot_PublicBaseUrl", reply.Text);
+            Assert.DoesNotContain("/goto/", reply.Text);
+            Assert.Empty(reply.Buttons);
+        }
+
+        [Fact]
         public void TheTripCardOpensTheTourWithoutAnExtraMessage()
         {
             var (bot, storage) = NewBot();

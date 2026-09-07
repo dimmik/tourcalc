@@ -1074,6 +1074,13 @@ namespace TCBlazor.Server.Telegram
 
         private TgReply Link(Tour tour)
         {
+            if (string.IsNullOrWhiteSpace(options.PublicBaseUrl))
+            {
+                // better to say so than to hand out half an address that looks like a link
+                return TgReply.Say("Адрес этого сервера не настроен, поэтому ссылку дать не могу.\n"
+                                 + $"Нужен {TelegramBotOptions.BaseUrlKey}.");
+            }
+
             var url = TourUrl(tour);
             // the address is always written out, button or no button: it is the one thing
             // here worth copying, forwarding or opening somewhere other than this phone

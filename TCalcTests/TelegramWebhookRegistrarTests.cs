@@ -10,19 +10,19 @@ namespace TCalcTests
             Token = "123:abc",
             Mode = "webhook",
             WebhookSecret = "a-good-secret_123",
-            PublicBaseUrl = "https://tc.dimmik.org",
+            PublicBaseUrl = "https://tourcalc.example.org",
         };
 
         [Fact]
         public void TheWebhookGoesToTheControllersRoute()
-            => Assert.Equal("https://tc.dimmik.org/api/tg/update", Ok().WebhookUrl);
+            => Assert.Equal("https://tourcalc.example.org/api/tg/update", Ok().WebhookUrl);
 
         [Fact]
         public void ATrailingSlashDoesNotDoubleUp()
         {
             var options = Ok();
-            options.PublicBaseUrl = "https://tc.dimmik.org/";
-            Assert.Equal("https://tc.dimmik.org/api/tg/update", options.WebhookUrl);
+            options.PublicBaseUrl = "https://tourcalc.example.org/";
+            Assert.Equal("https://tourcalc.example.org/api/tg/update", options.WebhookUrl);
         }
 
         [Fact]
