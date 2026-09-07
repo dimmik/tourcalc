@@ -82,6 +82,27 @@ namespace TCalcTests
         }
 
         [Fact]
+        public void TheMiniAppEntryIsExcludedFromTheOfflineFallback()
+        {
+            // the service worker answers every navigation with the app shell unless told
+            // otherwise, which is how /t broke; /tgapp is server-rendered the same way
+            var sw = System.IO.File.ReadAllText(ServiceWorkerPath());
+            Assert.Contains("serverRenderedPaths", sw);
+            Assert.Contains("tgapp", sw);
+        }
+
+        private static string ServiceWorkerPath()
+        {
+            var dir = new System.IO.DirectoryInfo(System.AppContext.BaseDirectory);
+            while (dir != null && !System.IO.Directory.Exists(System.IO.Path.Combine(dir.FullName, "TCBlazor")))
+            {
+                dir = dir.Parent;
+            }
+            Assert.NotNull(dir);
+            return System.IO.Path.Combine(dir.FullName, "TCBlazor", "Client", "wwwroot", "service-worker.published.js");
+        }
+
+        [Fact]
         public void BotWillNotRunWithoutAToken()
         {
             Assert.False(new TelegramBotOptions { Mode = "polling" }.Enabled);
