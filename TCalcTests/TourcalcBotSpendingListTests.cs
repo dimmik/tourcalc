@@ -53,7 +53,8 @@ namespace TCalcTests
 
             var list = bot.Handle(Msg("/spendings"));
             var button = list.Buttons.SelectMany(r => r).Single();
-            Assert.Equal($"sp:{id}", button.Data);
+            // the page it was opened from rides along, so "back" returns there
+            Assert.Equal($"sp:{id}:0", button.Data);
             Assert.Contains("такси", button.Label);
             Assert.Contains("1 200", button.Label);
 
@@ -61,14 +62,73 @@ namespace TCalcTests
         }
 
         [Fact]
-        public void TheListIsNewestFirstAndCapped()
+        public void TheListShowsAPageAtATime()
         {
-            var (bot, storage) = Trip();
+            var (bot, _) = Trip();
             for (var i = 1; i <= 18; i++) bot.Handle(Msg($"/spend {i}00 трата{i}"));
 
+            var first = bot.Handle(Msg("/spendings"));
+            Assert.Contains("1–15 из 18", first.Text);
+            Assert.Equal(15, first.Buttons.Count(r => r.Any(b => b.Data.StartsWith("sp:"))));
+
+            // only one way to go from the first page
+            var nav = first.Buttons.Last();
+            Assert.Single(nav);
+            Assert.Equal("sps:15", nav[0].Data);
+        }
+
+        [Fact]
+        public void TheNextPageHasTheRestAndAWayBack()
+        {
+            var (bot, _) = Trip();
+            for (var i = 1; i <= 18; i++) bot.Handle(Msg($"/spend {i}00 трата{i}"));
+
+            var second = bot.Handle(Tap("sps:15"));
+            Assert.Contains("16–18 из 18", second.Text);
+            Assert.Equal(3, second.Buttons.Count(r => r.Any(b => b.Data.StartsWith("sp:"))));
+            Assert.Equal(5, second.EditMessageId);           // the same message, not a new one
+
+            var nav = second.Buttons.Last().Select(b => b.Data).ToList();
+            Assert.Contains("sps:0", nav);                   // back to the newer ones
+            Assert.DoesNotContain(nav, d => d == "sps:30");  // nothing older to go to
+        }
+
+        [Fact]
+        public void OpeningASpendingFromAPageOffersAWayBackToThatPage()
+        {
+            // returning to the first page would make paging pointless the moment you
+            // fixed something on the third
+            var (bot, _) = Trip();
+            for (var i = 1; i <= 18; i++) bot.Handle(Msg($"/spend {i}00 трата{i}"));
+
+            var second = bot.Handle(Tap("sps:15"));
+            var row = second.Buttons.First(r => r.Any(b => b.Data.StartsWith("sp:")));
+            Assert.EndsWith(":15", row[0].Data);
+
+            var card = bot.Handle(Tap(row[0].Data));
+            Assert.Contains(card.Buttons.SelectMany(r => r), b => b.Data == "sps:15");
+        }
+
+        [Fact]
+        public void AShortListNeedsNoPagingAtAll()
+        {
+            var (bot, _) = Trip();
+            bot.Handle(Msg("/spend 100 такси"));
+
             var list = bot.Handle(Msg("/spendings"));
-            Assert.Equal(15, list.Buttons.Count);            // a keyboard has to stay tappable
-            Assert.Contains("из 18", list.Text);
+            Assert.DoesNotContain("из", list.Text);
+            Assert.DoesNotContain(list.Buttons.SelectMany(r => r), b => b.Data.StartsWith("sps:"));
+        }
+
+        [Fact]
+        public void APageThatNoLongerExistsLandsOnTheLastRealOne()
+        {
+            // spendings can be deleted while somebody is looking at the list
+            var (bot, _) = Trip();
+            for (var i = 1; i <= 18; i++) bot.Handle(Msg($"/spend {i}00 трата{i}"));
+
+            var beyond = bot.Handle(Tap("sps:900"));
+            Assert.Contains("16–18 из 18", beyond.Text);
         }
 
         [Fact]

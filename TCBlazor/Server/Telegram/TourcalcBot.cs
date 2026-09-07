@@ -109,7 +109,7 @@ namespace TCBlazor.Server.Telegram
             if (command.Is("covers")) return AddDependent(update, command.Args);
             if (command.Is("add")) return AddPerson(update, command.Args);
             if (command.Is("spend")) return Spend(update, command.Args);
-            if (command.Is("spendings")) return WithTrip(update, (u, t) => SpendingList(t, null));
+            if (command.Is("spendings")) return WithTrip(update, (u, t) => SpendingList(t, 0, null));
             if (command.Is("trips")) return Trips(update, null);
             if (command.Is("use")) return UseByName(update, command.Args);
             if (command.Is("balance")) return WithTrip(update, (u, t) => Balance(t, u.IsPrivate));
@@ -290,7 +290,7 @@ namespace TCBlazor.Server.Telegram
             return what.Length > 0;
         }
 
-        private TgReply SpendingCard(Tour tour, string spendingId, int? messageId = null)
+        private TgReply SpendingCard(Tour tour, string spendingId, int? messageId = null, int? fromOffset = null)
         {
             var spending = tour.Spendings.FirstOrDefault(sp => sp.GUID == spendingId);
             if (spending == null) return TgReply.Say("Трата не найдена — возможно, её уже удалили.");
@@ -305,6 +305,9 @@ namespace TCBlazor.Server.Telegram
                      new TgButton("не на всех", $"to:{spendingId}"))
                 .Row(new TgButton("категория", $"cat:{spendingId}"),
                      new TgButton("🗑", $"del:{spendingId}"));
+            // back to the very page it was opened from: returning to the first one would
+            // make paging pointless the moment you fixed something on page three
+            if (fromOffset.HasValue) card.Row(new TgButton("← к тратам", $"sps:{fromOffset.Value}"));
             card.EditMessageId = messageId;
             return card;
         }
@@ -454,29 +457,40 @@ namespace TCBlazor.Server.Telegram
         /// the card scrolled away with the conversation and nothing led back to it, so a
         /// mistyped amount meant opening the web app.
         /// </summary>
-        private TgReply SpendingList(Tour tour, int? messageId)
+        private TgReply SpendingList(Tour tour, int offset, int? messageId)
         {
-            var spendings = (tour.Spendings ?? new List<Spending>())
+            var all = (tour.Spendings ?? new List<Spending>())
                 .Where(sp => !sp.Planned)
                 .OrderByDescending(sp => sp.SpendingDate)
                 .ThenByDescending(sp => sp.DateCreated)
-                .Take(SpendingsShown)
                 .ToList();
 
-            if (!spendings.Any()) return TgReply.Say("Трат пока нет. Первая: /spend 1200 такси");
+            if (!all.Any()) return TgReply.Say("Трат пока нет. Первая: /spend 1200 такси");
 
-            var total = (tour.Spendings ?? new List<Spending>()).Count(sp => !sp.Planned);
-            var reply = TgReply.Say(total > spendings.Count
-                ? $"Последние {spendings.Count} из {total}. Нажми, чтобы поправить."
+            // a page that has fallen off the end - spendings can be deleted while somebody
+            // is looking at the list - lands back on the last real one rather than empty
+            if (offset >= all.Count) offset = Math.Max(0, ((all.Count - 1) / SpendingsShown) * SpendingsShown);
+            if (offset < 0) offset = 0;
+
+            var page = all.Skip(offset).Take(SpendingsShown).ToList();
+
+            var reply = TgReply.Say(all.Count > SpendingsShown
+                ? $"Траты {offset + 1}–{offset + page.Count} из {all.Count}. Нажми, чтобы поправить."
                 : "Траты. Нажми, чтобы поправить.");
             reply.EditMessageId = messageId;
 
-            foreach (var spending in spendings)
+            foreach (var spending in page)
             {
                 var who = PersonName(tour, spending.FromGuid);
                 var label = $"{spending.SpendingDate:dd.MM} · {Trim(spending.Description, 22)} · {Money(spending.AmountInCents)} · {Trim(who, 10)}";
-                reply.Row(new TgButton(label, $"sp:{spending.GUID}"));
+                reply.Row(new TgButton(label, $"sp:{spending.GUID}:{offset}"));
             }
+
+            var nav = new List<TgButton>();
+            if (offset > 0) nav.Add(new TgButton("← новее", $"sps:{Math.Max(0, offset - SpendingsShown)}"));
+            if (offset + page.Count < all.Count) nav.Add(new TgButton("старее →", $"sps:{offset + SpendingsShown}"));
+            if (nav.Count > 0) reply.Row(nav.ToArray());
+
             return reply;
         }
 
@@ -859,7 +873,7 @@ namespace TCBlazor.Server.Telegram
                     return Trips(update, update.CallbackMessageId);
 
                 case "spendings":
-                    return SpendingList(tour, update.CallbackMessageId);
+                    return SpendingList(tour, 0, update.CallbackMessageId);
             }
 
             // the ones that carry an id: "verb:id" and, for the payer picker, "from:sp:person"
@@ -922,8 +936,15 @@ namespace TCBlazor.Server.Telegram
                     case "use":
                         return Activate(update, parts[1], update.CallbackMessageId);
 
-                    case "sp":
+                    case "sps":
+                        return SpendingList(tour, int.TryParse(parts[1], out var off) ? off : 0, update.CallbackMessageId);
+
+                    case "sp" when parts.Length == 2:
                         return SpendingCard(tour, parts[1], update.CallbackMessageId);
+
+                    case "sp" when parts.Length == 3:
+                        return SpendingCard(tour, parts[1], update.CallbackMessageId,
+                            int.TryParse(parts[2], out var back) ? back : 0);
 
                     case "amt":
                         var forAmount = tour.Spendings.FirstOrDefault(sp => sp.GUID == parts[1]);
