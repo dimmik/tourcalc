@@ -1075,14 +1075,11 @@ namespace TCBlazor.Server.Telegram
         private TgReply Link(Tour tour)
         {
             var url = TourUrl(tour);
-            if (CanLinkTo(url))
-            {
-                return TgReply.Say($"🧳 «{tour.Name}» в браузере — по кнопке. Код вводить не надо.")
-                    .Row(TgButton.Link("Открыть Tourcalc", url));
-            }
-            // a development server: no button is possible, so the address goes in the text
-            // where it can at least be copied
-            return TgReply.Say($"🧳 «{tour.Name}»\n{url}");
+            // the address is always written out, button or no button: it is the one thing
+            // here worth copying, forwarding or opening somewhere other than this phone
+            var reply = TgReply.Say($"🧳 «{tour.Name}»\n{url}\n\nОткрывает поездку сразу, код вводить не надо.");
+            if (CanLinkTo(url)) reply.Row(TgButton.Link("Открыть Tourcalc", url));
+            return reply;
         }
 
         /// <summary>The Mini App entry point for a tour - it proves who is looking before letting them in.</summary>

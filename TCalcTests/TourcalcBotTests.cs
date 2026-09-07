@@ -170,10 +170,16 @@ namespace TCalcTests
 
             // a button rather than the address in the text: Telegram only linkifies hosts
             // it recognises, and a development server on localhost is not one of them
-            var button = bot.Handle(Msg("/link")).Buttons.SelectMany(r => r).Single();
+            var url = $"https://tc.example.org/goto/{tour.AccessCodeMD5}/{tour.Id}";
+            var reply = bot.Handle(Msg("/link"));
+
+            var button = reply.Buttons.SelectMany(r => r).Single();
             Assert.True(button.IsLink);
-            Assert.Equal($"https://tc.example.org/goto/{tour.AccessCodeMD5}/{tour.Id}", button.Url);
+            Assert.Equal(url, button.Url);
             Assert.Null(button.Data);
+
+            // and the address itself, which is what you copy or forward
+            Assert.Contains(url, reply.Text);
         }
 
         [Fact]
