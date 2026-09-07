@@ -34,6 +34,8 @@ namespace TCBlazor.Server.Telegram
         internal const string RenamePrompt = "Новое имя";
         internal const string WeightPrompt = "Какая доля";
         internal const string CategoryPrompt = "Категория";
+        internal const string AmountPrompt = "Новая сумма";
+        internal const string DescriptionPrompt = "Новое описание";
 
         /// <summary>
         /// A prompt that asks about a particular person has to say which one, and the reply
@@ -85,6 +87,16 @@ namespace TCBlazor.Server.Telegram
                     var tour = ActiveTour(update.ChatId);
                     return tour == null ? NoTrip() : SetCategory(tour, PromptId(prompt), update.Text, null);
                 }
+                if (prompt.StartsWith(AmountPrompt, StringComparison.Ordinal))
+                {
+                    var tour = ActiveTour(update.ChatId);
+                    return tour == null ? NoTrip() : SetAmount(tour, PromptId(prompt), update.Text);
+                }
+                if (prompt.StartsWith(DescriptionPrompt, StringComparison.Ordinal))
+                {
+                    var tour = ActiveTour(update.ChatId);
+                    return tour == null ? NoTrip() : SetDescription(tour, PromptId(prompt), update.Text);
+                }
             }
 
             var command = TgCommand.Parse(update.Text);
@@ -97,6 +109,7 @@ namespace TCBlazor.Server.Telegram
             if (command.Is("covers")) return AddDependent(update, command.Args);
             if (command.Is("add")) return AddPerson(update, command.Args);
             if (command.Is("spend")) return Spend(update, command.Args);
+            if (command.Is("spendings")) return WithTrip(update, (u, t) => SpendingList(t, 0, null));
             if (command.Is("trips")) return Trips(update, null);
             if (command.Is("use")) return UseByName(update, command.Args);
             if (command.Is("balance")) return WithTrip(update, (u, t) => Balance(t, u.IsPrivate));
@@ -107,17 +120,10 @@ namespace TCBlazor.Server.Telegram
 
         // ------------------------------------------------------------------ commands --
 
+        // built from TgCommands so it cannot drift from the menu Telegram shows
         private TgReply Help() => TgReply.Say(
             "Учёт общих трат в этом чате.\n\n" +
-            "/newtrip <название> — завести поездку\n" +
-            "/who — кто едет\n" +
-            "/link — открыть в браузере\n" +
-            "/covers <Имя> [доля] — записать того, кого ты везёшь\n" +
-            "/add <Имя> [доля] — добавить человека без телеграма\n" +
-            "/spend <сумма> <на что> — записать трату\n" +
-            "/balance — кто сколько должен\n" +
-            "/settle — кто кому платит\n" +
-            "/trips — поездки чата, /use <название> — переключиться\n\n" +
+            TgCommands.HelpLines() + "\n\n" +
             "Поправить имя, долю, кто за кого платит или удалить — " +
             "кнопка «Изменить» в /who.\n\n" +
             "Доля по умолчанию 100. Ребёнку обычно ставят меньше.");
@@ -276,7 +282,7 @@ namespace TCBlazor.Server.Telegram
             return what.Length > 0;
         }
 
-        private TgReply SpendingCard(Tour tour, string spendingId, int? messageId = null)
+        private TgReply SpendingCard(Tour tour, string spendingId, int? messageId = null, int? fromOffset = null)
         {
             var spending = tour.Spendings.FirstOrDefault(sp => sp.GUID == spendingId);
             if (spending == null) return TgReply.Say("Трата не найдена — возможно, её уже удалили.");
@@ -285,10 +291,15 @@ namespace TCBlazor.Server.Telegram
             var card = TgReply.Say(
                     $"💸 {Money(spending.AmountInCents)} — {spending.Description}\n" +
                     $"платил {payer?.Name ?? "?"} · {ForWhom(tour, spending)} · {spending.Type}")
+                .Row(new TgButton("сумма", $"amt:{spendingId}"),
+                     new TgButton("описание", $"desc:{spendingId}"))
                 .Row(new TgButton("платил не я", $"from:{spendingId}"),
                      new TgButton("не на всех", $"to:{spendingId}"))
                 .Row(new TgButton("категория", $"cat:{spendingId}"),
                      new TgButton("🗑", $"del:{spendingId}"));
+            // back to the very page it was opened from: returning to the first one would
+            // make paging pointless the moment you fixed something on page three
+            if (fromOffset.HasValue) card.Row(new TgButton("← к тратам", $"sps:{fromOffset.Value}"));
             card.EditMessageId = messageId;
             return card;
         }
@@ -424,6 +435,92 @@ namespace TCBlazor.Server.Telegram
             var card = TripCard(update, wanted);
             card.EditMessageId = messageId;
             return card;
+        }
+
+        // ------------------------------------------------------ the list of spendings --
+
+        /// <summary>How many spendings the list shows. A Telegram keyboard has to stay tappable.</summary>
+        private const int SpendingsShown = 15;
+
+        /// <summary>
+        /// Past spendings, each one a button that opens its card.
+        ///
+        /// Without this a spending could only ever be touched in the moment it was created:
+        /// the card scrolled away with the conversation and nothing led back to it, so a
+        /// mistyped amount meant opening the web app.
+        /// </summary>
+        private TgReply SpendingList(Tour tour, int offset, int? messageId)
+        {
+            var all = (tour.Spendings ?? new List<Spending>())
+                .Where(sp => !sp.Planned)
+                .OrderByDescending(sp => sp.SpendingDate)
+                .ThenByDescending(sp => sp.DateCreated)
+                .ToList();
+
+            if (!all.Any()) return TgReply.Say("Трат пока нет. Первая: /spend 1200 такси");
+
+            // a page that has fallen off the end - spendings can be deleted while somebody
+            // is looking at the list - lands back on the last real one rather than empty
+            if (offset >= all.Count) offset = Math.Max(0, ((all.Count - 1) / SpendingsShown) * SpendingsShown);
+            if (offset < 0) offset = 0;
+
+            var page = all.Skip(offset).Take(SpendingsShown).ToList();
+
+            var reply = TgReply.Say(all.Count > SpendingsShown
+                ? $"Траты {offset + 1}–{offset + page.Count} из {all.Count}. Нажми, чтобы поправить."
+                : "Траты. Нажми, чтобы поправить.");
+            reply.EditMessageId = messageId;
+
+            foreach (var spending in page)
+            {
+                var who = PersonName(tour, spending.FromGuid);
+                var label = $"{spending.SpendingDate:dd.MM} · {Trim(spending.Description, 22)} · {Money(spending.AmountInCents)} · {Trim(who, 10)}";
+                reply.Row(new TgButton(label, $"sp:{spending.GUID}:{offset}"));
+            }
+
+            var nav = new List<TgButton>();
+            if (offset > 0) nav.Add(new TgButton("← новее", $"sps:{Math.Max(0, offset - SpendingsShown)}"));
+            if (offset + page.Count < all.Count) nav.Add(new TgButton("старее →", $"sps:{offset + SpendingsShown}"));
+            if (nav.Count > 0) reply.Row(nav.ToArray());
+
+            return reply;
+        }
+
+        /// <summary>Button text has to fit on a phone, so the long parts are cut.</summary>
+        private static string Trim(string text, int max)
+        {
+            text = (text ?? "").Trim();
+            return text.Length <= max ? text : text.Substring(0, Math.Max(1, max - 1)) + "…";
+        }
+
+        private TgReply SetAmount(Tour tour, string spendingId, string text)
+        {
+            var spending = tour.Spendings.FirstOrDefault(sp => sp.GUID == spendingId);
+            if (spending == null) return TgReply.Say("Трата не найдена — возможно, её уже удалили.");
+
+            if (!long.TryParse((text ?? "").Trim(), out var amount) || amount <= 0)
+            {
+                return TgReply.Say("Сумма — целое число больше нуля.");
+            }
+
+            spending.AmountInCents = amount;
+            processor.UpdateSpending(tour, spending, spendingId);
+            Save(tour);
+            return SpendingCard(tour, spendingId);
+        }
+
+        private TgReply SetDescription(Tour tour, string spendingId, string text)
+        {
+            var spending = tour.Spendings.FirstOrDefault(sp => sp.GUID == spendingId);
+            if (spending == null) return TgReply.Say("Трата не найдена — возможно, её уже удалили.");
+
+            text = (text ?? "").Trim();
+            if (text.Length == 0) return TgReply.Say("Описание не может быть пустым.");
+
+            spending.Description = text;
+            processor.UpdateSpending(tour, spending, spendingId);
+            Save(tour);
+            return SpendingCard(tour, spendingId);
         }
 
         // ------------------------------------------------- who a spending is for --
@@ -766,6 +863,9 @@ namespace TCBlazor.Server.Telegram
 
                 case "trips":
                     return Trips(update, update.CallbackMessageId);
+
+                case "spendings":
+                    return SpendingList(tour, 0, update.CallbackMessageId);
             }
 
             // the ones that carry an id: "verb:id" and, for the payer picker, "from:sp:person"
@@ -828,8 +928,33 @@ namespace TCBlazor.Server.Telegram
                     case "use":
                         return Activate(update, parts[1], update.CallbackMessageId);
 
-                    case "sp":
+                    case "sps":
+                        return SpendingList(tour, int.TryParse(parts[1], out var off) ? off : 0, update.CallbackMessageId);
+
+                    case "sp" when parts.Length == 2:
                         return SpendingCard(tour, parts[1], update.CallbackMessageId);
+
+                    case "sp" when parts.Length == 3:
+                        return SpendingCard(tour, parts[1], update.CallbackMessageId,
+                            int.TryParse(parts[2], out var back) ? back : 0);
+
+                    case "amt":
+                        var forAmount = tour.Spendings.FirstOrDefault(sp => sp.GUID == parts[1]);
+                        if (forAmount == null) return TgReply.Toast("Трата не найдена");
+                        return new TgReply
+                        {
+                            Text = $"{AmountPrompt} для «{forAmount.Description}»? Сейчас {Money(forAmount.AmountInCents)}. Ответь числом.{IdMarker}{parts[1]}",
+                            ForceReply = true,
+                        };
+
+                    case "desc":
+                        var forText = tour.Spendings.FirstOrDefault(sp => sp.GUID == parts[1]);
+                        if (forText == null) return TgReply.Toast("Трата не найдена");
+                        return new TgReply
+                        {
+                            Text = $"{DescriptionPrompt} вместо «{forText.Description}»? Ответь на это сообщение.{IdMarker}{parts[1]}",
+                            ForceReply = true,
+                        };
 
                     case "to" when parts.Length == 2:
                         return SharePicker(tour, parts[1], update.CallbackMessageId);
@@ -949,15 +1074,19 @@ namespace TCBlazor.Server.Telegram
 
         private TgReply Link(Tour tour)
         {
-            var url = TourUrl(tour);
-            if (CanLinkTo(url))
+            if (string.IsNullOrWhiteSpace(options.PublicBaseUrl))
             {
-                return TgReply.Say($"🧳 «{tour.Name}» в браузере — по кнопке. Код вводить не надо.")
-                    .Row(TgButton.Link("Открыть Tourcalc", url));
+                // better to say so than to hand out half an address that looks like a link
+                return TgReply.Say("Адрес этого сервера не настроен, поэтому ссылку дать не могу.\n"
+                                 + $"Нужен {TelegramBotOptions.BaseUrlKey}.");
             }
-            // a development server: no button is possible, so the address goes in the text
-            // where it can at least be copied
-            return TgReply.Say($"🧳 «{tour.Name}»\n{url}");
+
+            var url = TourUrl(tour);
+            // the address is always written out, button or no button: it is the one thing
+            // here worth copying, forwarding or opening somewhere other than this phone
+            var reply = TgReply.Say($"🧳 «{tour.Name}»\n{url}\n\nОткрывает поездку сразу, код вводить не надо.");
+            if (CanLinkTo(url)) reply.Row(TgButton.Link("Открыть Tourcalc", url));
+            return reply;
         }
 
         /// <summary>The Mini App entry point for a tour - it proves who is looking before letting them in.</summary>

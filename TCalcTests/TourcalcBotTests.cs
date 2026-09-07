@@ -170,10 +170,16 @@ namespace TCalcTests
 
             // a button rather than the address in the text: Telegram only linkifies hosts
             // it recognises, and a development server on localhost is not one of them
-            var button = bot.Handle(Msg("/link")).Buttons.SelectMany(r => r).Single();
+            var url = $"https://tc.example.org/goto/{tour.AccessCodeMD5}/{tour.Id}";
+            var reply = bot.Handle(Msg("/link"));
+
+            var button = reply.Buttons.SelectMany(r => r).Single();
             Assert.True(button.IsLink);
-            Assert.Equal($"https://tc.example.org/goto/{tour.AccessCodeMD5}/{tour.Id}", button.Url);
+            Assert.Equal(url, button.Url);
             Assert.Null(button.Data);
+
+            // and the address itself, which is what you copy or forward
+            Assert.Contains(url, reply.Text);
         }
 
         [Fact]
@@ -187,6 +193,22 @@ namespace TCalcTests
             var reply = bot.Handle(Msg("/link"));
             Assert.Empty(reply.Buttons);                       // no button Telegram would refuse
             Assert.Contains("http://localhost:5399/goto/", reply.Text);
+        }
+
+        [Fact]
+        public void WithNoAddressConfiguredTheBotSaysSoRatherThanInventingOne()
+        {
+            // there is no sensible default: guessing would be some other installation's
+            // address, and the link would look like it works while leading nowhere
+            var storage = new InMemoryTourStorage();
+            var bot = new TourcalcBot(storage, new TourStorageProcessor(), new TelegramBotOptions());
+            bot.Handle(Msg("/newtrip Черногория"));
+
+            var reply = bot.Handle(Msg("/link"));
+            Assert.Contains("не настроен", reply.Text);
+            Assert.Contains("TelegramBot_PublicBaseUrl", reply.Text);
+            Assert.DoesNotContain("/goto/", reply.Text);
+            Assert.Empty(reply.Buttons);
         }
 
         [Fact]

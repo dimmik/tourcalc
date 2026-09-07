@@ -33,7 +33,13 @@ namespace TCBlazor.Server.Telegram
         /// <summary>Empty means any chat may use the bot.</summary>
         public IReadOnlyList<long> AllowedChats { get; set; } = new List<long>();
 
-        public string PublicBaseUrl { get; set; } = "https://tc.dimmik.org";
+        /// <summary>
+        /// Where this instance is reachable from the outside - the root of the links the
+        /// bot hands out. There is deliberately no default: a guess would be some other
+        /// installation's address, and the bot would then send people links to a site
+        /// where their tour does not exist, which looks like it works and does not.
+        /// </summary>
+        public string PublicBaseUrl { get; set; } = "";
 
         public bool IsPolling => string.Equals(Mode, "polling", StringComparison.OrdinalIgnoreCase);
         public bool IsWebhook => string.Equals(Mode, "webhook", StringComparison.OrdinalIgnoreCase);
@@ -66,7 +72,7 @@ namespace TCBlazor.Server.Telegram
                 Token = configuration.GetValue(TokenKey, ""),
                 Mode = configuration.GetValue(ModeKey, "off"),
                 WebhookSecret = configuration.GetValue(WebhookSecretKey, ""),
-                PublicBaseUrl = configuration.GetValue(BaseUrlKey, "https://tc.dimmik.org"),
+                PublicBaseUrl = configuration.GetValue(BaseUrlKey, ""),
                 AllowedChats = ParseChats(configuration.GetValue(AllowedChatsKey, "")),
             };
             return options;

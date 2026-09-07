@@ -204,6 +204,9 @@ namespace Company.TCBlazor
                 options));
             services.AddSingleton<TgDispatcher>();
 
+            // the menu goes up whichever way updates arrive
+            services.AddHostedService<TelegramCommandsRegistrar>();
+
             if (options.IsPolling)
             {
                 services.AddHostedService<TelegramPollingService>();
