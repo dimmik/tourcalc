@@ -88,5 +88,34 @@ namespace TCalcTests
             Assert.False(new TelegramBotOptions { Token = "x", Mode = "off" }.Enabled);
             Assert.True(new TelegramBotOptions { Token = "x", Mode = "polling" }.Enabled);
         }
+
+        [Fact]
+        public void TheSwitchTurnsTheBotOffWithoutDisturbingTheRest()
+        {
+            var configured = new TelegramBotOptions
+            {
+                Token = "x", Mode = "webhook", WebhookSecret = "s", EnabledSetting = false,
+            };
+
+            Assert.False(configured.Enabled);
+            // everything else is still there, so flipping it back needs no remembering
+            Assert.Equal("webhook", configured.Mode);
+            Assert.Equal("s", configured.WebhookSecret);
+
+            configured.EnabledSetting = true;
+            Assert.True(configured.Enabled);
+        }
+
+        [Fact]
+        public void TheStartupLineSaysWhyTheBotIsOff()
+        {
+            Assert.Contains("TelegramBot_Enabled",
+                new TelegramBotOptions { Token = "x", Mode = "polling", EnabledSetting = false }.DisabledBecause);
+            Assert.Contains("TelegramBot_Token",
+                new TelegramBotOptions { Mode = "polling" }.DisabledBecause);
+            Assert.Contains("TelegramBot_Mode",
+                new TelegramBotOptions { Token = "x", Mode = "off" }.DisabledBecause);
+            Assert.Null(new TelegramBotOptions { Token = "x", Mode = "polling" }.DisabledBecause);
+        }
     }
 }
