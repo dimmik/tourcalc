@@ -189,6 +189,9 @@ namespace Company.TCBlazor
         {
             var options = TelegramBotOptions.Read(configuration);
             services.AddSingleton(options);
+            // one line at startup saying whether the bot is on, and why not when it is
+            // off: a silent no-op was impossible to tell apart from a broken token
+            Console.WriteLine($"Telegram bot: mode={options.Mode}, token={(string.IsNullOrWhiteSpace(options.Token) ? "absent" : "present")}, enabled={options.Enabled}");
             if (!options.Enabled) return;
 
             services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(options.Token));

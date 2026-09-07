@@ -39,6 +39,9 @@ namespace TCBlazor.Server.Telegram
                 AllowedUpdates = new[] { UpdateType.Message, UpdateType.CallbackQuery },
             };
 
+            var me = await client.GetMeAsync(stoppingToken);
+            Console.WriteLine($"Telegram bot: polling as @{me.Username}");
+
             await client.ReceiveAsync(
                 updateHandler: (_, update, token) => dispatcher.Dispatch(update, token),
                 pollingErrorHandler: (_, exception, _) =>
