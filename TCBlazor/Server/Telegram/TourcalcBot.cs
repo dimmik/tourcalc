@@ -33,6 +33,7 @@ namespace TCBlazor.Server.Telegram
 
         internal const string RenamePrompt = "Новое имя";
         internal const string WeightPrompt = "Какая доля";
+        internal const string CategoryPrompt = "Категория";
 
         /// <summary>
         /// A prompt that asks about a particular person has to say which one, and the reply
@@ -79,6 +80,11 @@ namespace TCBlazor.Server.Telegram
                 {
                     return SetWeight(update, PromptId(prompt), update.Text);
                 }
+                if (prompt.StartsWith(CategoryPrompt, StringComparison.Ordinal))
+                {
+                    var tour = ActiveTour(update.ChatId);
+                    return tour == null ? NoTrip() : SetCategory(tour, PromptId(prompt), update.Text, null);
+                }
             }
 
             var command = TgCommand.Parse(update.Text);
@@ -91,6 +97,8 @@ namespace TCBlazor.Server.Telegram
             if (command.Is("covers")) return AddDependent(update, command.Args);
             if (command.Is("add")) return AddPerson(update, command.Args);
             if (command.Is("spend")) return Spend(update, command.Args);
+            if (command.Is("trips")) return Trips(update, null);
+            if (command.Is("use")) return UseByName(update, command.Args);
             if (command.Is("balance")) return WithTrip(update, (u, t) => Balance(t));
             if (command.Is("settle")) return WithTrip(update, (u, t) => Settle(t));
 
@@ -108,7 +116,8 @@ namespace TCBlazor.Server.Telegram
             "/add <Имя> [доля] — добавить человека без телеграма\n" +
             "/spend <сумма> <на что> — записать трату\n" +
             "/balance — кто сколько должен\n" +
-            "/settle — кто кому платит\n\n" +
+            "/settle — кто кому платит\n" +
+            "/trips — поездки чата, /use <название> — переключиться\n\n" +
             "Поправить имя, долю, кто за кого платит или удалить — " +
             "кнопка «Изменить» в /who.\n\n" +
             "Доля по умолчанию 100. Ребёнку обычно ставят меньше.");
@@ -267,17 +276,21 @@ namespace TCBlazor.Server.Telegram
             return what.Length > 0;
         }
 
-        private TgReply SpendingCard(Tour tour, string spendingId)
+        private TgReply SpendingCard(Tour tour, string spendingId, int? messageId = null)
         {
             var spending = tour.Spendings.FirstOrDefault(sp => sp.GUID == spendingId);
             if (spending == null) return TgReply.Say("Трата не найдена — возможно, её уже удалили.");
 
             var payer = tour.Persons.FirstOrDefault(p => p.GUID == spending.FromGuid);
-            return TgReply.Say(
+            var card = TgReply.Say(
                     $"💸 {Money(spending.AmountInCents)} — {spending.Description}\n" +
-                    $"платил {payer?.Name ?? "?"} · на всех · {spending.Type}")
+                    $"платил {payer?.Name ?? "?"} · {ForWhom(tour, spending)} · {spending.Type}")
                 .Row(new TgButton("платил не я", $"from:{spendingId}"),
+                     new TgButton("не на всех", $"to:{spendingId}"))
+                .Row(new TgButton("категория", $"cat:{spendingId}"),
                      new TgButton("🗑", $"del:{spendingId}"));
+            card.EditMessageId = messageId;
+            return card;
         }
 
         private TgReply Balance(Tour tour)
@@ -358,6 +371,170 @@ namespace TCBlazor.Server.Telegram
             Save(tour);
 
             return Settle(tour);
+        }
+
+        // ---------------------------------------------------- several trips a chat --
+
+        private TgReply Trips(TgUpdate update, int? messageId)
+        {
+            var tours = ChatTours(update.ChatId).OrderByDescending(t => t.DateCreated).ToList();
+            if (!tours.Any()) return NoTrip();
+
+            var reply = TgReply.Say("Поездки этого чата. Текущая отмечена галочкой.");
+            reply.EditMessageId = messageId;
+            foreach (var tour in tours)
+            {
+                var mark = TgMeta.IsActive(tour) ? "✓" : "·";
+                reply.Row(new TgButton($"{mark} {tour.Name}", $"use:{tour.Id}"));
+            }
+            return reply;
+        }
+
+        private TgReply UseByName(TgUpdate update, string name)
+        {
+            name = (name ?? "").Trim();
+            if (name.Length == 0) return Trips(update, null);
+
+            var tours = ChatTours(update.ChatId).ToList();
+            var found = tours.FirstOrDefault(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase))
+                     ?? tours.FirstOrDefault(t => (t.Name ?? "").IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0);
+            if (found == null) return TgReply.Say($"Не нашёл поездку «{name}». Список: /trips");
+
+            return Activate(update, found.Id, null);
+        }
+
+        /// <summary>
+        /// Makes one trip of this chat the current one. Only one is ever active, so every
+        /// command that says "the trip" has exactly one answer.
+        /// </summary>
+        private TgReply Activate(TgUpdate update, string tourId, int? messageId)
+        {
+            var tours = ChatTours(update.ChatId).ToList();
+            var wanted = tours.FirstOrDefault(t => t.Id == tourId);
+            if (wanted == null) return TgReply.Toast("Такой поездки в этом чате нет");
+
+            foreach (var tour in tours)
+            {
+                var shouldBeActive = tour.Id == tourId;
+                if (TgMeta.IsActive(tour) == shouldBeActive) continue;
+                TgMeta.SetActive(tour, shouldBeActive);
+                storage.StoreTour(tour);
+            }
+
+            var card = TripCard(update, wanted);
+            card.EditMessageId = messageId;
+            return card;
+        }
+
+        // ------------------------------------------------- who a spending is for --
+
+        private static string ForWhom(Tour tour, Spending spending)
+        {
+            if (spending.ToAll) return "на всех";
+            var names = (spending.ToGuid ?? new List<string>())
+                .Select(g => PersonName(tour, g)).OrderBy(n => n).ToList();
+            if (names.Count == 0) return "ни на кого";
+            return names.Count <= 3 ? "на " + string.Join(", ", names) : $"на {names.Count} человек";
+        }
+
+        private TgReply SharePicker(Tour tour, string spendingId, int? messageId)
+        {
+            var spending = tour.Spendings.FirstOrDefault(sp => sp.GUID == spendingId);
+            if (spending == null) return TgReply.Toast("Трата не найдена");
+
+            var reply = TgReply.Say($"На кого делим «{spending.Description}»?\nСейчас: {ForWhom(tour, spending)}");
+            reply.EditMessageId = messageId;
+            foreach (var person in (tour.Persons ?? new List<Person>()).OrderBy(p => p.Name))
+            {
+                var on = spending.ToAll || (spending.ToGuid ?? new List<string>()).Contains(person.GUID);
+                reply.Row(new TgButton($"{(on ? "✓" : "·")} {person.Name}", $"to:{spendingId}:{person.GUID}"));
+            }
+            reply.Row(new TgButton("на всех", $"to:{spendingId}:*"), new TgButton("готово", $"sp:{spendingId}"));
+            return reply;
+        }
+
+        private TgReply ToggleShare(Tour tour, string spendingId, string personId, int? messageId)
+        {
+            var spending = tour.Spendings.FirstOrDefault(sp => sp.GUID == spendingId);
+            if (spending == null) return TgReply.Toast("Трата не найдена");
+
+            if (personId == "*")
+            {
+                spending.ToAll = true;
+                spending.ToGuid = new List<string>();
+            }
+            else
+            {
+                if (!(tour.Persons ?? new List<Person>()).Any(p => p.GUID == personId))
+                {
+                    return TgReply.Toast("Нет такого человека");
+                }
+                // leaving "everyone" starts from everyone, so unticking one person keeps
+                // the rest rather than emptying the list
+                var chosen = spending.ToAll
+                    ? (tour.Persons ?? new List<Person>()).Select(p => p.GUID).ToList()
+                    : new List<string>(spending.ToGuid ?? new List<string>());
+
+                if (!chosen.Remove(personId)) chosen.Add(personId);
+
+                if (chosen.Count == 0)
+                {
+                    // a spending for nobody is not a thing the calculator can split
+                    spending.ToAll = true;
+                    spending.ToGuid = new List<string>();
+                }
+                else
+                {
+                    spending.ToAll = false;
+                    spending.ToGuid = chosen;
+                }
+            }
+
+            processor.UpdateSpending(tour, spending, spendingId);
+            Save(tour);
+            return SharePicker(tour, spendingId, messageId);
+        }
+
+        // ------------------------------------------------------------- categories --
+
+        internal static List<string> Categories(Tour tour)
+            => (tour.Spendings ?? new List<Spending>())
+                .Where(sp => !sp.Planned && !string.IsNullOrWhiteSpace(sp.Type))
+                .Select(sp => sp.Type)
+                .Distinct()
+                .OrderBy(t => t)
+                .ToList();
+
+        private TgReply CategoryPicker(Tour tour, string spendingId, int? messageId)
+        {
+            var spending = tour.Spendings.FirstOrDefault(sp => sp.GUID == spendingId);
+            if (spending == null) return TgReply.Toast("Трата не найдена");
+
+            var reply = TgReply.Say($"Категория для «{spending.Description}»? Сейчас: {spending.Type}");
+            reply.EditMessageId = messageId;
+            var categories = Categories(tour);
+            // by position, not by name: a category is free text and would not survive the
+            // trip through callback data, which Telegram caps at 64 bytes
+            for (var i = 0; i < categories.Count; i++)
+            {
+                reply.Row(new TgButton(categories[i], $"cat:{spendingId}:{i}"));
+            }
+            reply.Row(new TgButton("своя", $"cat:{spendingId}:x"), new TgButton("готово", $"sp:{spendingId}"));
+            return reply;
+        }
+
+        private TgReply SetCategory(Tour tour, string spendingId, string category, int? messageId)
+        {
+            var spending = tour.Spendings.FirstOrDefault(sp => sp.GUID == spendingId);
+            if (spending == null) return TgReply.Toast("Трата не найдена");
+
+            category = (category ?? "").Trim();
+            if (category.Length == 0) return TgReply.Say("Категория не может быть пустой.");
+
+            spending.Type = category;
+            processor.UpdateSpending(tour, spending, spendingId);
+            Save(tour);
+            return SpendingCard(tour, spendingId, messageId);
         }
 
         // --------------------------------------------------------- editing people --
@@ -586,6 +763,9 @@ namespace TCBlazor.Server.Telegram
 
                 case "edit":
                     return PeoplePicker(tour, update.CallbackMessageId);
+
+                case "trips":
+                    return Trips(update, update.CallbackMessageId);
             }
 
             // the ones that carry an id: "verb:id" and, for the payer picker, "from:sp:person"
@@ -644,6 +824,33 @@ namespace TCBlazor.Server.Telegram
 
                     case "pdely":
                         return DeletePerson(update, tour, parts[1], update.CallbackMessageId);
+
+                    case "use":
+                        return Activate(update, parts[1], update.CallbackMessageId);
+
+                    case "sp":
+                        return SpendingCard(tour, parts[1], update.CallbackMessageId);
+
+                    case "to" when parts.Length == 2:
+                        return SharePicker(tour, parts[1], update.CallbackMessageId);
+
+                    case "to" when parts.Length == 3:
+                        return ToggleShare(tour, parts[1], parts[2], update.CallbackMessageId);
+
+                    case "cat" when parts.Length == 2:
+                        return CategoryPicker(tour, parts[1], update.CallbackMessageId);
+
+                    case "cat" when parts.Length == 3 && parts[2] == "x":
+                        return new TgReply
+                        {
+                            Text = $"{CategoryPrompt} для этой траты? Ответь одним словом.{IdMarker}{parts[1]}",
+                            ForceReply = true,
+                        };
+
+                    case "cat" when parts.Length == 3 && int.TryParse(parts[2], out var index):
+                        var categories = Categories(tour);
+                        if (index < 0 || index >= categories.Count) return TgReply.Toast("Категория пропала");
+                        return SetCategory(tour, parts[1], categories[index], update.CallbackMessageId);
                 }
             }
             return null;
