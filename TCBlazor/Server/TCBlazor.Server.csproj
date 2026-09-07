@@ -21,7 +21,7 @@
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.2.0" />
     <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.2.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.0" />
-    <PackageReference Include="Telegram.Bot" Version="22.0.2" />
+    <PackageReference Include="Telegram.Bot" Version="19.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,5 +31,10 @@
     <ProjectReference Include="..\Shared\TCBlazor.Shared.csproj" />
   </ItemGroup>
 
+
+  <ItemGroup>
+    <!-- the bot's parsing helpers are internal on purpose; the tests drive them directly -->
+    <InternalsVisibleTo Include="TCalcTests" />
+  </ItemGroup>
 
 </Project>

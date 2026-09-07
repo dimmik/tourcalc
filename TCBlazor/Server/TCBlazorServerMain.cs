@@ -9,6 +9,8 @@ using TCalcStorage.Storage;
 using TCalcStorage.Storage.MongoDB;
 using TCBlazor.Server;
 using Company.TCBlazor.Auth;
+using TCBlazor.Server.Telegram;
+using Telegram.Bot;
 using Company.TCBlazor.Storage;
 using Company.TCBlazor.Controllers;
 
@@ -46,6 +48,10 @@ namespace Company.TCBlazor
             builder.Services.AddSingleton<INotifier, WebPushNotifier>();
             // /notifier
             builder.Services.AddSingleton<ITourStorage, TourCalcStorage>();
+
+            // Telegram bot. Nothing is registered without a token and a mode, so a build
+            // with neither behaves exactly as it did before the bot existed.
+            SetupTelegram(builder.Services, Configuration);
             var providerType = Configuration.GetValue("StorageType", "InMemory");
             if (providerType.ToLower() == "InMemory".ToLower())
             {
@@ -177,6 +183,35 @@ namespace Company.TCBlazor
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return Task.CompletedTask;
+        }
+
+        private static void SetupTelegram(IServiceCollection services, ITcConfiguration configuration)
+        {
+            var options = TelegramBotOptions.Read(configuration);
+            services.AddSingleton(options);
+            // one line at startup saying whether the bot is on, and precisely why not when
+            // it is off: a silent no-op was impossible to tell apart from a broken token
+            Console.WriteLine(options.Enabled
+                ? $"Telegram bot: on, mode={options.Mode}"
+                : $"Telegram bot: off - {options.DisabledBecause}");
+            if (!options.Enabled) return;
+
+            services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(options.Token));
+            services.AddSingleton<ITourStorageProcessor, TourStorageProcessor>();
+            services.AddSingleton<TourcalcBot>(sp => new TourcalcBot(
+                sp.GetRequiredService<ITourStorage>(),
+                sp.GetRequiredService<ITourStorageProcessor>(),
+                options));
+            services.AddSingleton<TgDispatcher>();
+
+            if (options.IsPolling)
+            {
+                services.AddHostedService<TelegramPollingService>();
+            }
+            else if (options.IsWebhook)
+            {
+                services.AddHostedService<TelegramWebhookRegistrar>();
+            }
         }
 
         private static void SetupAuth(IServiceCollection services, ITcConfiguration configuration)
