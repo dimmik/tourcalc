@@ -87,7 +87,7 @@ async function onActivate(event) {
 // got "Nothing at this address". Ctrl-F5 appeared to fix it only because a forced reload
 // bypasses the service worker altogether - the next ordinary click broke again. It never
 // showed up in development either: the dev service worker does not cache at all.
-const serverRenderedPaths = [/^\/t$/, /^\/t\//];
+const serverRenderedPaths = [/^\/t$/, /^\/t\//, /^\/tgapp$/];
 
 function isServerRendered(url) {
     try {

@@ -99,7 +99,7 @@ namespace TCBlazor.Server.Telegram
             if (command.Is("spend")) return Spend(update, command.Args);
             if (command.Is("trips")) return Trips(update, null);
             if (command.Is("use")) return UseByName(update, command.Args);
-            if (command.Is("balance")) return WithTrip(update, (u, t) => Balance(t));
+            if (command.Is("balance")) return WithTrip(update, (u, t) => Balance(t, u.IsPrivate));
             if (command.Is("settle")) return WithTrip(update, (u, t) => Settle(t));
 
             return null;
@@ -293,7 +293,7 @@ namespace TCBlazor.Server.Telegram
             return card;
         }
 
-        private TgReply Balance(Tour tour)
+        private TgReply Balance(Tour tour, bool isPrivate)
         {
             var calculated = Calculated(tour);
             var min = MinMeaningful(calculated);
@@ -321,7 +321,7 @@ namespace TCBlazor.Server.Telegram
             }
 
             var reply = TgReply.Say(string.Join("\n", lines));
-            AddOpenButton(reply, calculated, new TgButton("Кто кому платит", "settle"));
+            AddOpenButton(reply, calculated, isPrivate, new TgButton("Кто кому платит", "settle"));
             return reply;
         }
 
@@ -919,7 +919,7 @@ namespace TCBlazor.Server.Telegram
 
             var card = TgReply.Say(string.Join("\n", lines))
                 .Row(new TgButton("Я еду", "join"), new TgButton("Я везу ещё кого-то", "covers"));
-            AddOpenButton(card, tour, new TgButton("Изменить", "edit"));
+            AddOpenButton(card, tour, update.IsPrivate, new TgButton("Изменить", "edit"));
             return card;
         }
 
@@ -960,12 +960,25 @@ namespace TCBlazor.Server.Telegram
             return TgReply.Say($"🧳 «{tour.Name}»\n{url}");
         }
 
-        /// <summary>The "open it" button, when there is an address Telegram will take.</summary>
-        private void AddOpenButton(TgReply reply, Tour tour, params TgButton[] before)
+        /// <summary>The Mini App entry point for a tour - it proves who is looking before letting them in.</summary>
+        private string MiniAppUrl(Tour tour)
+            => $"{options.PublicBaseUrl.TrimEnd('/')}/tgapp?tour={tour.Id}";
+
+        /// <summary>
+        /// The "open it" button, when there is an address Telegram will take. In a private
+        /// chat it opens as a Mini App - Telegram only allows those on an inline keyboard
+        /// there - and in a group it is an ordinary link, which lands in the same in-app
+        /// browser anyway.
+        /// </summary>
+        private void AddOpenButton(TgReply reply, Tour tour, bool isPrivate, params TgButton[] before)
         {
-            var url = TourUrl(tour);
             var row = new List<TgButton>(before);
-            if (CanLinkTo(url)) row.Add(TgButton.Link("Открыть", url));
+            if (CanLinkTo(TourUrl(tour)))
+            {
+                row.Add(isPrivate
+                    ? TgButton.WebApp("Открыть", MiniAppUrl(tour))
+                    : TgButton.Link("Открыть", TourUrl(tour)));
+            }
             if (row.Count > 0) reply.Row(row.ToArray());
         }
 

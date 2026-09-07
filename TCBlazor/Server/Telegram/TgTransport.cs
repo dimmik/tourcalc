@@ -114,9 +114,11 @@ namespace TCBlazor.Server.Telegram
             if (!reply.Buttons.Any()) return null;
             return new InlineKeyboardMarkup(reply.Buttons
                 .Select(row => (IEnumerable<InlineKeyboardButton>)row
-                    .Select(b => b.IsLink
-                        ? InlineKeyboardButton.WithUrl(b.Label, b.Url)
-                        : InlineKeyboardButton.WithCallbackData(b.Label, b.Data))
+                    .Select(b => b.IsWebApp
+                        ? InlineKeyboardButton.WithWebApp(b.Label, new WebAppInfo { Url = b.Url })
+                        : b.IsLink
+                            ? InlineKeyboardButton.WithUrl(b.Label, b.Url)
+                            : InlineKeyboardButton.WithCallbackData(b.Label, b.Data))
                     .ToList()));
         }
     }

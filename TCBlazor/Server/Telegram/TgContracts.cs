@@ -54,6 +54,9 @@ namespace TCBlazor.Server.Telegram
         public string Data { get; }
         public string Url { get; }
 
+        /// <summary>Open the address as a Mini App rather than in a browser.</summary>
+        public bool IsWebApp { get; private set; }
+
         public bool IsLink => !string.IsNullOrEmpty(Url);
 
         /// <summary>
@@ -63,6 +66,14 @@ namespace TCBlazor.Server.Telegram
         /// text. A button is tappable whatever the host.
         /// </summary>
         public static TgButton Link(string label, string url) => new TgButton(label, url, true);
+
+        /// <summary>
+        /// A Mini App button - the page opens inside Telegram and can prove who is looking
+        /// at it. Telegram allows these on an inline keyboard in private chats only, so a
+        /// group gets an ordinary link instead.
+        /// </summary>
+        public static TgButton WebApp(string label, string url)
+            => new TgButton(label, url, true) { IsWebApp = true };
     }
 
     /// <summary>What the bot wants done. Null means "say nothing".</summary>
