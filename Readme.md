@@ -211,7 +211,6 @@ docker build -f tourcalc.blazor.docker -t tourcalc .
 | `TCBlazor/Client` | The Blazor WebAssembly app: Full, Mini and Classic interfaces. |
 | `TCBlazor/Server` | The API, the no-JavaScript text pages, and the Telegram bot. |
 | `TCalcTests` | Tests. |
-| `TourCalcWebApp` | The older React client. Still builds its own image; no longer where the work happens. |
 
 The bot's own logic knows nothing about Telegram — it takes a message and returns a
 reply — so almost all of it is tested without a token, a network, or a bot.
@@ -222,4 +221,3 @@ reply — so almost all of it is tested without a token, a network, or a bot.
 |---|---|
 | `ghcr.io/dimmik/tourcalc:blazor-latest` | branch `prod` |
 | `ghcr.io/dimmik/tourcalc:beta-latest` | branches `beta/**` |
-| `ghcr.io/dimmik/tourcalc:react-latest` | the older React client |
