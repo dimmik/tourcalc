@@ -1,9 +1,0 @@
-@namespace TCBlazor.Client.Components
-<hr style="@Style" @attributes="Extra" />
-
-@code {
-    [Parameter] public string Style { get; set; } = "";
-
-    [Parameter(CaptureUnmatchedValues = true)]
-    public Dictionary<string, object> Extra { get; set; }
-}
