@@ -3,7 +3,7 @@
 @* AntDesign's <InputNumber>, as the number input it always was underneath.
    Not called InputNumber: Blazor ships a component of that name, and two in scope
    makes every use of it ambiguous. *@
-<input class="tcn-input @(Is(Size, "small") ? "tcn-input-sm" : "")" type="number"
+<input class="tcn-input tc-legacy-number @(Is(Size, "small") ? "tcn-input-sm" : "")" type="number"
        style="@Style" value="@Value" @onchange=@Changed @attributes="Extra" />
 
 @code {

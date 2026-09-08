@@ -1,10 +1,13 @@
 @namespace TCBlazor.Client.Components
-<label class="tcn-switchline">
+<label class="tcn-switchline" @attributes="Extra">
     <input type="checkbox" checked="@Value" @onchange=@Toggle disabled="@Disabled" />
     @ChildContent
 </label>
 
 @code {
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> Extra { get; set; }
+
     [Parameter] public bool Value { get; set; }
     [Parameter] public EventCallback<bool> ValueChanged { get; set; }
     [Parameter] public EventCallback<bool> OnChange { get; set; }

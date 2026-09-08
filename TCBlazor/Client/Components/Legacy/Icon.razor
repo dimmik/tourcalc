@@ -1,4 +1,11 @@
 @namespace TCBlazor.Client.Components
 @* only a couple of names are used, and TcIcon already draws them *@
-<TcIcon Name="@(Type == "plus" ? "plus" : Type)" />
-@code { [Parameter] public string Type { get; set; } = ""; }
+<span style="@Style" @attributes="Extra"><TcIcon Name="@Type" /></span>
+
+@code {
+    [Parameter] public string Type { get; set; } = "";
+    [Parameter] public string Style { get; set; } = "";
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> Extra { get; set; }
+}

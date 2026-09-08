@@ -10,7 +10,7 @@
 *@
 
 <button type="@(HtmlType == "submit" ? "submit" : "button")"
-        class="tcn-btn @TypeClass @SizeClass @ShapeClass @(Danger ? "tcn-btn-danger" : "") @(Ghost ? "tcn-btn-ghost" : "") @(Block ? "tcn-btn-block" : "")"
+        class="tcn-btn @TypeClass @SizeClass @ShapeClass @(Danger ? "tcn-btn-danger" : "") @(Ghost && !Is(Type, "primary") ? "tcn-btn-ghost" : "") @(Block ? "tcn-btn-block" : "")"
         style="@Style"
         disabled="@(Disabled || Loading)"
         @onclick="Clicked"
@@ -40,7 +40,12 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object> Extra { get; set; }
 
-    private string TypeClass => Is(Type, "primary") ? "tcn-btn-primary" : "";
+    /// <summary>
+    /// Ant's "ghost primary" was an outlined blue button, not a borderless one - which is
+    /// what .tcn-btn-ghost means here - so that pair keeps its outline.
+    /// </summary>
+    private string TypeClass
+        => Is(Type, "primary") ? (Ghost ? "tcn-btn-outline" : "tcn-btn-primary") : "";
 
     private string SizeClass => Is(Size, "small") ? "tcn-btn-sm" : "";
 
