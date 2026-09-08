@@ -1,44 +1,37 @@
-@using TCalc.Domain
+﻿@using TCalc.Domain
 @using TCalcCore.Engine
-@using AntDesign
+
 @using System.ComponentModel.DataAnnotations
 
 @inject TourcalcEngine engine
 
-<Modal Title="@(IsAdding ? "Add Person" : $"Edit {Person?.Name}")"
+<TcModal Title="@(IsAdding ? "Add Person" : $"Edit {Person?.Name}")"
        Visible="@Visible"
-       OnOk="@(async (e) => await HandleOk(e))"
-       OnCancel="@(async (e) => await HandleCancel(e))"
-       Footer="null">
-    <Form Model="@_person"
-          LabelColSpan="8"
-          WrapperColSpan="16"
-          OnFinish="OnFinish"
-          OnFinishFailed="OnFinishFailed">
-        <FormItem Label="Name">
-            <Input @bind-Value="@_person.Name" />
-        </FormItem>
-        <FormItem Label="Weight">
-            <AntDesign.InputNumber @bind-Value="@_person.Weight" />
-        </FormItem>
-        <FormItem Label="Parent">
-            <Select @bind-Value="@_person.ParentId"
-                    TItemValue="string"
-                    TItem="string"
-                    Placeholder="Select a parent"
-                    AllowClear="true">
-                @foreach (var p in Tour?.Persons.Where(p => p.GUID != _person.GUID && string.IsNullOrWhiteSpace(p.ParentId)) ?? new List<Person>())
-                {
-                    <SelectOption Value="@p.GUID" Label="@p.Name" />
-                }
-            </Select>
-        </FormItem>
-        <div style="text-align: right;">
-            <Button OnClick="HandleCancel">Cancel</Button>
-            <Button Type="@ButtonType.Primary" HtmlType="submit">Save</Button>
-        </div>
-    </Form>
-</Modal>
+       OnCancel="@(async () => await HandleCancel(null))">
+    <div class="tcn-field">
+        <div class="tcn-label">Name</div>
+        <input class="tcn-input" type="text" @bind-value="_person.Name" @bind-value:event="oninput" />
+    </div>
+    <div class="tcn-field">
+        <div class="tcn-label">Weight</div>
+        <input class="tcn-input" type="number" @bind-value="_person.Weight" />
+    </div>
+    <div class="tcn-field">
+        <div class="tcn-label">Parent</div>
+        @* a plain select: AntDesign's had a clear button, which "pays for themselves" is *@
+        <select class="tcn-input" @bind="ParentId">
+            <option value="">pays for themselves</option>
+            @foreach (var p in Tour?.Persons.Where(p => p.GUID != _person.GUID && string.IsNullOrWhiteSpace(p.ParentId)) ?? new List<Person>())
+            {
+                <option value="@p.GUID">@p.Name</option>
+            }
+        </select>
+    </div>
+    <div style="text-align: right;">
+        <button type="button" class="tcn-btn" @onclick=@(() => HandleCancel(null))>Cancel</button>
+        <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => HandleOk(null))>Save</button>
+    </div>
+</TcModal>
 
 @code {
     [Parameter]
@@ -81,13 +74,13 @@
         await OnCancel.InvokeAsync(null);
     }
 
-    private async Task OnFinish(EditContext editContext)
+    /// <summary>
+    /// Empty means nobody pays for them. The domain stores that as null, and a select
+    /// cannot carry null - so the empty option is translated at this boundary.
+    /// </summary>
+    private string ParentId
     {
-        await OnOk.InvokeAsync(_person);
-    }
-
-    private void OnFinishFailed(EditContext editContext)
-    {
-        // Handle form validation errors if any
+        get => _person.ParentId ?? "";
+        set => _person.ParentId = string.IsNullOrEmpty(value) ? null : value;
     }
 }

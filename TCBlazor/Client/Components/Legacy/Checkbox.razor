@@ -1,0 +1,23 @@
+@namespace TCBlazor.Client.Components
+<label class="tcn-switchline" @attributes="Extra">
+    <input type="checkbox" checked="@Value" @onchange=@Toggle disabled="@Disabled" />
+    @ChildContent
+</label>
+
+@code {
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> Extra { get; set; }
+
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+    [Parameter] public EventCallback<bool> OnChange { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public RenderFragment ChildContent { get; set; }
+
+    private async Task Toggle(ChangeEventArgs e)
+    {
+        Value = (bool)(e.Value ?? false);
+        if (ValueChanged.HasDelegate) await ValueChanged.InvokeAsync(Value);
+        if (OnChange.HasDelegate) await OnChange.InvokeAsync(Value);
+    }
+}

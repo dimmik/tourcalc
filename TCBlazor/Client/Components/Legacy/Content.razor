@@ -1,0 +1,9 @@
+@namespace TCBlazor.Client.Components
+<main class="tc-legacy-content" style="@Style" @attributes="Extra">@ChildContent</main>
+@code {
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> Extra { get; set; }
+
+    [Parameter] public string Style { get; set; } = "";
+    [Parameter] public RenderFragment ChildContent { get; set; }
+}

@@ -22,12 +22,10 @@
     if (coeff == 0) coeff = 1;
     long toSpend = (long)Math.Round(- totalToPay * 1.0 / coeff);
 }
-<Modal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCurrentCurrency(tour))?.Sum() ?? 0).ToString("N0", GlobConsts.NumGroupSpaceSeparated)  } {tour.CurrencyNameEmptyIfSingleCurrency()}")"
+<TcModal Title="@($"{person.Name} will {(WillPay ? "PAY" : "Collect")} {(spendingToShow?.Where( s => DebtStatusOfSpending(s) != JustOk)?.Select(s => s.AmountInCurrentCurrency(tour))?.Sum() ?? 0).ToString("N0", GlobConsts.NumGroupSpaceSeparated)  } {tour.CurrencyNameEmptyIfSingleCurrency()}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
-       OnOk=@(() => open = false)
        OnCancel=@(() => open = false)
-       DestroyOnClose=@true
        Closable=@true>
     <div style="height: 55vh; overflow:scroll;">
         <TableTemplateDiv Items=@spendingToShow
@@ -95,7 +93,7 @@
             </RowTemplate>
         </TableTemplateDiv>
     </div>
-</Modal>
+</TcModal>
 
 @code {
     [Parameter]

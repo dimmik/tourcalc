@@ -17,13 +17,11 @@
    (The date and colour fields open on click, after a whole down+up pair, and their
    widgets return nothing on close - they were never affected.)
    Cancel, the X and Esc still close this sheet. *@
-<Modal Visible=@true
-       Footer="null"
+<TcModal Visible=@true
        Closable=@false
-       DestroyOnClose=@true
        MaskClosable=@false
-       OnCancel=@(e => Close())
-       WrapClassName="tcn-sheet"
+       OnCancel=@(() => Close())
+       WrapClass="tcn-sheet"
        BodyStyle="padding:0"
        Width="540">
 
@@ -211,7 +209,7 @@
             <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Save>@SaveText</button>
         </div>
     </div>
-</Modal>
+</TcModal>
 
 @code {
     [Parameter]

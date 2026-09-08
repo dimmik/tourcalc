@@ -1,4 +1,4 @@
-﻿@using SimpleBlazorPieChart
+@using SimpleBlazorPieChart
 @using ColorSequenceGenerator
 
 @using TCalcCore.Engine
@@ -28,7 +28,7 @@
                         if (Seed == null) Seed = csg.Seed.ToString("#");
                     }
                     <input type="color" @bind-value="@SeedBind"/>
-                    <AntDesign.InputNumber Size="@InputSize.Small" @bind-Value="MagicBind"/>
+                    <NumberBox Size="@InputSize.Small" @bind-Value="MagicBind"/>
                 </ExtraControls>
             </SimplePieChart>
         } else {
@@ -44,7 +44,7 @@
                         if (Seed == null) Seed = csg.Seed.ToString("#");
                     }
                     <input type="color" @bind-value="@SeedBind" />
-                    <AntDesign.InputNumber Size="@InputSize.Small" @bind-Value="MagicBind" />
+                    <NumberBox Size="@InputSize.Small" @bind-Value="MagicBind" />
                 </ExtraControls>
             </SimplePieChart>
         }
@@ -59,12 +59,13 @@
         <div class="grid-table" style="grid-template-columns: repeat(@currenciesNum,auto)">
             <div class="row">
                 <div class="grid-header">
-                    <Select @bind-Value=@selectedCat
-                    TItemValue="string"
-                    TItem="string"
-                    AllowClear=@true
-                    DataSource=@totalSpentByCat.Keys
-                    IgnoreItemChangesLeadsToException="false" />
+                    <select class="tcn-input" @bind="selectedCat">
+                        <option value="">everything</option>
+                        @foreach (var c in totalSpentByCat.Keys.Where(k => !string.IsNullOrWhiteSpace(k)))
+                        {
+                            <option value="@c">@c</option>
+                        }
+                    </select>
                 </div>
                 @{
                     foreach (var (c, i) in currencies)

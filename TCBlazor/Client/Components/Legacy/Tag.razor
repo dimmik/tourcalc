@@ -1,0 +1,18 @@
+@namespace TCBlazor.Client.Components
+<span class="tcn-chip" style="@Style" @attributes="Extra">
+    @ChildContent
+    @if (Closable || OnClose.HasDelegate)
+    {
+        <button type="button" class="tcn-linkbtn" title="Remove" @onclick=@(() => OnClose.InvokeAsync())>×</button>
+    }
+</span>
+
+@code {
+    [Parameter] public RenderFragment ChildContent { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public bool Closable { get; set; }
+    [Parameter] public string Style { get; set; } = "";
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> Extra { get; set; }
+}

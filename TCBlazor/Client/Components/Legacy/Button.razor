@@ -1,0 +1,64 @@
+@namespace TCBlazor.Client.Components
+
+@*
+    Stands in for AntDesign's <Button> so the classic markup can stay as it is while the
+    package goes away. Dressed with the .tcn-btn primitives the new interface already has.
+
+    Note on sizes: most call sites write Size="ButtonSize.Small" without an @, which Razor
+    passes as that literal string rather than as the constant - so those buttons were never
+    actually small. Both spellings are accepted here, which quietly fixes them.
+*@
+
+<button type="@(HtmlType == "submit" ? "submit" : "button")"
+        class="tcn-btn @TypeClass @SizeClass @ShapeClass @(Danger ? "tcn-btn-danger" : "") @(Ghost && !Is(Type, "primary") ? "tcn-btn-ghost" : "") @(Block ? "tcn-btn-block" : "")"
+        style="@Style"
+        disabled="@(Disabled || Loading)"
+        @onclick="Clicked"
+        @attributes="Extra">
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <TcIcon Name="@Icon" />
+    }
+    @ChildContent
+</button>
+
+@code {
+    [Parameter] public string Type { get; set; } = "";
+    [Parameter] public string Size { get; set; } = "";
+    [Parameter] public string Shape { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public string HtmlType { get; set; } = "";
+    [Parameter] public string Style { get; set; } = "";
+    [Parameter] public bool Danger { get; set; }
+    [Parameter] public bool Ghost { get; set; }
+    [Parameter] public bool Block { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter] public RenderFragment ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> Extra { get; set; }
+
+    /// <summary>
+    /// Ant's "ghost primary" was an outlined blue button, not a borderless one - which is
+    /// what .tcn-btn-ghost means here - so that pair keeps its outline.
+    /// </summary>
+    private string TypeClass
+        => Is(Type, "primary") ? (Ghost ? "tcn-btn-outline" : "tcn-btn-primary") : "";
+
+    private string SizeClass => Is(Size, "small") ? "tcn-btn-sm" : "";
+
+    private string ShapeClass
+        => Is(Shape, "circle") ? "tcn-btn-circle" : Is(Shape, "round") ? "tcn-btn-round" : "";
+
+    /// <summary>Matches both "small" and the unevaluated "ButtonSize.Small".</summary>
+    private static bool Is(string value, string name)
+        => !string.IsNullOrEmpty(value)
+           && value.EndsWith(name, StringComparison.OrdinalIgnoreCase);
+
+    private async Task Clicked(MouseEventArgs e)
+    {
+        if (OnClick.HasDelegate) await OnClick.InvokeAsync(e);
+    }
+}

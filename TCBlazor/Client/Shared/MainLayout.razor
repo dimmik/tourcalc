@@ -1,4 +1,3 @@
-﻿@using AntDesign
 
 @inherits LayoutComponentBase
 @implements IDisposable
@@ -14,6 +13,7 @@
 
 
 <div class="page">
+<TcMessages/>
 @if (engine.Auth == null)
 {
    <div class="tcn-splash"><span class="tcn-spin"><TcIcon Name="refresh" /></span> Checking access…</div>
@@ -83,7 +83,7 @@
                login modal, which is the one screen the help page is meant to explain away *@
             @if (engine.Auth.Type == "None" && !IsHelpRoute)
             {
-                <AntDesign.Modal
+                <TcModal
                 Visible=@true
                 Title="Log In"
                 Footer=@dummyFooter
@@ -95,7 +95,7 @@
                 })/>
                     <button @onclick="LogIn">Auth</button>
                 </span>
-                </AntDesign.Modal>
+                </TcModal>
             }
             else if (uiMode.IsNew)
             {
@@ -161,18 +161,18 @@
         }
         else
         {
-            <AntDesign.Modal
+            <TcModal
                 Visible=@true
                 Title="Logging In"
                 Footer=@dummyFooter
                 >
                 <div style="text-align:center">Logging In...</div>
-                </AntDesign.Modal>
+                </TcModal>
         }
 
 }
 </div>
-<AntContainer/>
+
 
 @code {
     private string? code;

@@ -43,14 +43,9 @@ RUN export TZ='Europe/Moscow' && export DT="$(date +"%Y%m%d-%H%M%S")" && dotnet 
 # What a running app has no use for. Done here, before the COPY, so none of it ever lands
 # in a layer of the final image.
 #   BlazorDebugProxy  - the WASM debugger, 11 MB, published even in Release
-#   AntDesign css     - ten themes ship, index.html links one (see service-worker.published.js,
-#                       which is told to skip the other nine so the cache stays consistent)
-#   AntDesign less    - the stylesheet sources, 1 MB, of no use at runtime
 #   .br / .gz         - nothing serves pre-compressed files: no ResponseCompression, no
 #                       content-encoding mapping, and they are not in the assets manifest
 RUN rm -rf /app/BlazorDebugProxy \
- && find /app/wwwroot/_content/AntDesign/css -type f ! -name 'ant-design-blazor.css' -delete \
- && rm -rf /app/wwwroot/_content/AntDesign/less \
  && find /app/wwwroot/_framework \( -name '*.br' -o -name '*.gz' \) -delete \
  && du -sh /app
 

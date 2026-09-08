@@ -109,7 +109,24 @@ namespace Company.TCBlazor
                     ctx.Response.OnStarting(
                         () =>
                         {
-                            ctx.Response.Headers[HeaderNames.CacheControl] = "no-cache";
+                            // "no-cache" belongs on what may differ from one request to the
+                            // next: the app shell, the server-rendered pages, the API. It
+                            // used to be put on *every* response, which made the browser ask
+                            // about all eighty-odd framework files on every single load - a
+                            // round trip each, for nothing: they always came back 304.
+                            //
+                            // Static assets are left alone rather than given an invented
+                            // lifetime. They keep their ETag and Last-Modified, so the
+                            // browser decides; and a Blazor 8 framework file is not named
+                            // after its contents, so pinning one for a fixed time could put
+                            // a stale assembly next to a fresh blazor.boot.json.
+                            var contentType = ctx.Response.ContentType ?? "";
+                            var isDocument = contentType.StartsWith("text/html", StringComparison.OrdinalIgnoreCase);
+                            var isApi = ctx.Request.Path.StartsWithSegments("/api");
+                            if (isDocument || isApi)
+                            {
+                                ctx.Response.Headers[HeaderNames.CacheControl] = "no-cache";
+                            }
                             ctx.Response.Headers["X-Tourcalc-Version"] = "#{BuildType}# v #{Build.BuildNumber}#";
                             return Task.CompletedTask;
                         }

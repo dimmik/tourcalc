@@ -77,16 +77,13 @@ else
                 @if (tour?.IsMultiCurrency() ?? false)
                 {
                 <!-- choose local currency -->
-                <Select @bind-Value=@(curr)
-                    TItemValue="Currency"
-                    TItem="Currency"
-                    LabelName="@nameof(Currency.Name)"
-                    AllowClear=@true
-                    Style="width: 80px;"
-                    DataSource="tour?.Currencies ?? new Currency[0]"
-                    OnSelectedItemChanged="() => tourLocal = GetTourInCurrency(tourLocal??new())"
-                    OnClearSelected="() => {curr = tour?.Currency; tourLocal = GetTourInCurrency(tourLocal??new());}"
-                    IgnoreItemChangesLeadsToException="false" />
+                <select class="tcn-input" style="width: auto"
+                        @onchange="@(e => PickDisplayCurrency(e.Value?.ToString()))">
+                    @foreach (var c in tour?.Currencies ?? new Currency[0])
+                    {
+                        <option value="@c.Id" selected="@(curr?.Id == c.Id)">@c.Name</option>
+                    }
+                </select>
                 }
         </div>
         <div style="display: table-cell; width: 50%; align-content: flex-end; text-align: end;">
@@ -161,6 +158,16 @@ else
 <AnchorNavigation />
 <SpendingAddInModal @ref="_spendingAddInModal" tour="tour" DefaultCurrency=@curr />
 @code {
+    /// <summary>
+    /// Was AntDesign's OnSelectedItemChanged plus OnClearSelected; an unknown value now
+    /// means "back to the tour's own currency", which is what clearing used to do.
+    /// </summary>
+    private void PickDisplayCurrency(string id)
+    {
+        curr = (tour?.Currencies ?? new Currency[0]).FirstOrDefault(c => c.Id == id) ?? tour?.Currency;
+        tourLocal = GetTourInCurrency(tourLocal ?? new());
+    }
+
     [Parameter]
     public string? TourId { get; set; }
 

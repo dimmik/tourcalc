@@ -5,11 +5,10 @@
 
 <Button Danger Type="@ButtonType.Dashed" Shape="@ButtonShape.Round" @onclick=@(() => open = !open)>Balance</Button>
 
-<Modal Title=@($"Tour Balance for '{tour?.Name}'")
+<TcModal Title=@($"Tour Balance for '{tour?.Name}'")
 Visible="@open"
-OnOk=@(() => open = false)
 OnCancel=@(() => open = false)
-DestroyOnClose=@true
+Footer=@closeFooter
 Closable=@true>
     <TableTemplateDiv
     Items=@balanceS
@@ -53,9 +52,13 @@ Closable=@true>
             </div>
         </RowTemplate>
     </TableTemplateDiv>
-</Modal>
+</TcModal>
 
 @code {
+    // AntDesign supplied an OK button when no footer was given; this is that button
+    private RenderFragment closeFooter => @<button type="button" class="tcn-btn tcn-btn-primary"
+                                                   @onclick=@(() => open = false)>Close</button>;
+
     public bool open { get; set; } = false;
     [Parameter]
     public Tour? tour { get; set; }

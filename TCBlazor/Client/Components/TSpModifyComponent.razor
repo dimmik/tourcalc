@@ -1,4 +1,4 @@
-﻿@inject IJSRuntime JsRuntime
+@inject IJSRuntime JsRuntime
 @inject NavigationManager NavManager
 <div style="text-align: center; width: 100%;">
     <div
@@ -28,46 +28,40 @@
          {
             <div class="grid-cell label">Currency:</div>
             <div class="grid-cell">
-                <Select @bind-Value=@(spending.Currency)
-                    TItemValue="Currency"
-                    TItem="Currency"
-                    LabelName="@nameof(Currency.Name)"
-                    AllowClear=@false
-                    DataSource="tour.Currencies"
-                    IgnoreItemChangesLeadsToException="false" />
+                <select class="tcn-input" @bind="CurrencyId">
+                    @foreach (var c in tour.Currencies)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
             </div>
          }
         <div class="grid-cell label">Category:</div>
         <div class="grid-cell">
-            <Select
-                @bind-Value=@(spending.Type)
-                TItemValue="string"
-		        TItem="string"
-                AllowClear=@true
-                DropdownRender=@CategoryDropdownRenderer
-                DataSource="SpendingCategories"
-                IgnoreItemChangesLeadsToException="false"
-                />
+            <select class="tcn-input" @bind="spending.Type">
+                <option value=""></option>
+                @foreach (var c in SpendingCategories)
+                {
+                    <option value="@c">@c</option>
+                }
+            </select>
+            @* AntDesign let a new category be typed inside the dropdown itself; a plain
+               select has no room for markup, so the same field sits next to it *@
+            <div class="tcn-row" style="margin-top:4px">
+                <input class="tcn-input" style="flex:1 1 auto" placeholder="new category"
+                       @bind-value="_cname" />
+                <button type="button" class="tcn-btn tcn-btn-sm" @onclick="AddCatToList">+ Add</button>
+            </div>
         </div>
         <div class="grid-cell label">From:</div>
         <div class="grid-cell">
-
-            <Select
-                OnSelectedItemChanged="OnFromSelectedChangedHandler"
-                @bind-Value=@(spending.FromGuid)
-                TItemValue="string"
-		        TItem="string"
-                Placeholder="From"
-                DefaultActiveFirstItem="false" 
-                AllowClear=@true
-            >
-            <SelectOptions>
-			    @foreach(var p in TourPersons())
-			    {
-				    <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@PersonLabel(p) />
-			    }
-		    </SelectOptions>
-        </Select>
+            <select class="tcn-input" @onchange="@(e => PickFrom(e.Value?.ToString()))">
+                <option value="">From...</option>
+                @foreach (var p in TourPersons())
+                {
+                    <option value="@p.GUID" selected="@(spending.FromGuid == p.GUID)">@PersonLabel(p)</option>
+                }
+            </select>
         </div>
         <div class="grid-cell label">To All:</div>
         <div class="grid-cell">
@@ -75,21 +69,17 @@
         </div>
         <div class="grid-cell label">To:</div>
         <div class="grid-cell">
-            <Select Mode="SelectMode.Multiple"
-                Placeholder="To..."
-		        @bind-Values="@_selectedValuesTo"
-		        TItemValue="string"
-		        TItem="string"
-                OnSelectedItemsChanged="OnToPersonsChangedHandler"
-                Disabled=@(spending.ToAll)
-		        AllowClear>
-		            <SelectOptions>
-			            @foreach(var p in TourPersons())
-			            {
-				            <SelectOption TItemValue="string" TItem="string" Value=@p.GUID Label=@PersonLabel(p) />
-			            }
-		            </SelectOptions>
-            </Select>
+            @* the multiple-select showed removable tags; checkboxes say the same and
+               need no widget of their own *@
+            @foreach (var p in TourPersons())
+            {
+                <label class="tcn-switchline" style="display:block">
+                    <input type="checkbox" disabled="@spending.ToAll"
+                           checked="@spending.ToGuid.Contains(p.GUID)"
+                           @onchange="@(e => ToggleTo(p.GUID, (bool)(e.Value ?? false)))" />
+                    @PersonLabel(p)
+                </label>
+            }
         </div>
         <div class="grid-cell label">Date: </div>
         <div class="grid-cell">
@@ -98,7 +88,7 @@
         <div class="grid-cell grid-cell-span-all-cols">
             <div style="display: table; width: 100%">
                     <div style="display: table-cell; align-content: flex-start; width: 65%; text-align: start;">
-            <Button Type="@AntDesign.ButtonType.Primary" Loading=@ShowInProgress @onclick=@SaveSpending>
+            <Button Type="@ButtonType.Primary" Loading=@ShowInProgress @onclick=@SaveSpending>
                 @($"{(IsItANewSpending() ? "Submit" : "Submit")}")
             </Button>
             <Button Danger=@true @onclick=@OnCancel>
@@ -106,7 +96,7 @@
             </Button>
                 </div>
                     <div style="display: table-cell; align-content: flex-end; width: 35%; text-align: end;">
-                        <Button Type="@AntDesign.ButtonType.Primary" Danger=@true 
+                        <Button Type="@ButtonType.Primary" Danger=@true 
                             Shape="@ButtonShape.Circle"
                             Icon="@IconType.Outline.Close"
                             @onclick=@(OnX == null ? () => NavManager.NavigateTo($"/tour/{tour.Id}") : OnX)/>
@@ -199,6 +189,32 @@
 
     IEnumerable<string> _selectedValuesTo = new List<string>();
 
+    /// <summary>A select carries strings, the spending carries a Currency.</summary>
+    private string CurrencyId
+    {
+        get => spending.Currency?.Id ?? "";
+        set
+        {
+            var picked = tour.Currencies.FirstOrDefault(c => c.Id == value);
+            if (picked != null) spending.Currency = picked;
+        }
+    }
+
+    /// <summary>AntDesign's two-way binding set this itself; now it is explicit.</summary>
+    private void PickFrom(string guid)
+    {
+        spending.FromGuid = guid ?? "";
+        OnFromSelectedChangedHandler(spending.FromGuid);
+    }
+
+    private void ToggleTo(string guid, bool on)
+    {
+        var chosen = new List<string>(spending.ToGuid ?? new List<string>());
+        if (on) { if (!chosen.Contains(guid)) chosen.Add(guid); }
+        else { chosen.Remove(guid); }
+        OnToPersonsChangedHandler(chosen);
+    }
+
     private void OnToPersonsChangedHandler(IEnumerable<string> values)
     {
         if (values != null){
@@ -248,30 +264,19 @@
     private string _cname = "";
     private void AddCatToList(MouseEventArgs args)
     {
-        if (!string.IsNullOrWhiteSpace(_cname))
-        {
-            SpendingCategories.Add(_cname);
-            _cname = string.Empty;
-	   }
-    }
-    private RenderFragment CategoryDropdownRenderer(RenderFragment originNode)
-    {
-        RenderFragment customDropdownRender =
-    @<Template>
-               <div>
-                    @originNode
-                    <Divider Style="margin: 4px 0"></Divider>
-                    <div style="display: flex; flex-wrap: nowrap; padding: 8px">
-                        <Input Style="flex: auto" @bind-Value="@_cname"/>
-                        <a style="flex: none; padding: 8px; display: block; cursor: pointer" @onclick="AddCatToList">
-                            <Icon Type="plus"></Icon>
-                            Add Category
-                        </a>
-                     </div>
-                 </div>
-    </Template>;
+        var name = (_cname ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name)) return;
 
-        return customDropdownRender;
+        // a name that is already there is not an error - the point of typing it was to
+        // use it, so fall through to selecting it either way
+        if (!SpendingCategories.Contains(name))
+        {
+            SpendingCategories.Add(name);
+        }
+        // you typed a category to put this spending in it; leaving the previous one
+        // selected meant the new one was added and then silently ignored
+        spending.Type = name;
+        _cname = string.Empty;
     }
 
 }

@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @* Wraps a number so it can be tapped for an explanation. With the setting off it
    renders the value and nothing else - no button, no wrapper, no cost. *@
@@ -16,13 +16,11 @@ else
 
     @if (open)
     {
-        <Modal Visible=@true
-               Footer="null"
+        <TcModal Visible=@true
                Closable=@false
-               DestroyOnClose=@true
                MaskClosable=@true
-               OnCancel=@(e => open = false)
-               WrapClassName="tcn-sheet"
+               OnCancel=@(() => open = false)
+               WrapClass="tcn-sheet"
                BodyStyle="padding:0"
                Width="520">
             <div class="tcn-sheet-head">
@@ -40,7 +38,7 @@ else
                 <span style="flex:1 1 auto"></span>
                 <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => open = false)>Got it</button>
             </div>
-        </Modal>
+        </TcModal>
     }
 }
 

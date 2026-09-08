@@ -6,12 +6,10 @@
 </div>
 
 
-<Modal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}")"
+<TcModal Title="@($"Received for {person.Name} {person.ReceivedInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}")"
        Visible="@open"
        Footer=@(footer(() => open = false))
-       OnOk=@(() => open = false)
        OnCancel=@(() => open = false)
-       DestroyOnClose=@true
        Closable=@true>
         <div style="height: 55vh; overflow:scroll;">
             @{
@@ -88,7 +86,7 @@
                 </RowTemplate>
             </TableTemplateDiv>
         </div>
-</Modal>
+</TcModal>
 
 
 @code {
