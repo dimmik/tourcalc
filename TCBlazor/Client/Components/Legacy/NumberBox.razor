@@ -1,0 +1,32 @@
+@namespace TCBlazor.Client.Components
+@typeparam TValue
+@* AntDesign's <InputNumber>, as the number input it always was underneath.
+   Not called InputNumber: Blazor ships a component of that name, and two in scope
+   makes every use of it ambiguous. *@
+<input class="tcn-input @(Is(Size, "small") ? "tcn-input-sm" : "")" type="number"
+       style="@Style" value="@Value" @onchange=@Changed @attributes="Extra" />
+
+@code {
+    [Parameter] public TValue Value { get; set; }
+    [Parameter] public EventCallback<TValue> ValueChanged { get; set; }
+    [Parameter] public EventCallback<TValue> OnChange { get; set; }
+    [Parameter] public string Size { get; set; } = "";
+    [Parameter] public string Style { get; set; } = "";
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> Extra { get; set; }
+
+    private static bool Is(string v, string n)
+        => !string.IsNullOrEmpty(v) && v.EndsWith(n, StringComparison.OrdinalIgnoreCase);
+
+    private async Task Changed(ChangeEventArgs e)
+    {
+        var text = e.Value?.ToString() ?? "";
+        TValue converted;
+        try { converted = (TValue)Convert.ChangeType(text, typeof(TValue)); }
+        catch { return; }
+        Value = converted;
+        if (ValueChanged.HasDelegate) await ValueChanged.InvokeAsync(Value);
+        if (OnChange.HasDelegate) await OnChange.InvokeAsync(Value);
+    }
+}

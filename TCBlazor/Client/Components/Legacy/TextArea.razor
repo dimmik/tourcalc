@@ -1,0 +1,19 @@
+@namespace TCBlazor.Client.Components
+<textarea class="tcn-input" placeholder="@placeholder" rows="@Rows"
+          value="@Value" @oninput=@Changed @attributes="Extra"></textarea>
+
+@code {
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string placeholder { get; set; } = "";
+    [Parameter] public int Rows { get; set; } = 3;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> Extra { get; set; }
+
+    private async Task Changed(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString() ?? "";
+        if (ValueChanged.HasDelegate) await ValueChanged.InvokeAsync(Value);
+    }
+}

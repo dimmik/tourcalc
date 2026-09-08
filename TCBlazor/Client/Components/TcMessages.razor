@@ -1,0 +1,59 @@
+@namespace TCBlazor.Client.Components
+@implements IDisposable
+@using TCBlazor.Client.SharedCode
+@inject SimpleMessageShower shower
+
+@*
+    Draws the errors the data layer raises - what AntDesign's message service used to do.
+
+    It lives in the layout rather than on a page so that an error raised while syncing in
+    the background still has somewhere to appear, whichever screen the reader is on. The
+    toasts time out on their own and can be dismissed; nothing here blocks the page.
+*@
+
+@if (messages.Count > 0)
+{
+    <div class="tcn-toasts" role="status" aria-live="polite">
+        @foreach (var m in messages)
+        {
+            <div class="tcn-toast" @onclick=@(() => Dismiss(m))>@m.Text</div>
+        }
+    </div>
+}
+
+@code {
+    private sealed class Msg
+    {
+        public string Text { get; init; } = "";
+    }
+
+    /// <summary>Long enough to read a sentence, short enough not to sit over the page.</summary>
+    private const int VisibleMs = 6000;
+
+    /// <summary>A failing sync can raise the same error repeatedly; the screen is not a log.</summary>
+    private const int MaxShown = 3;
+
+    private readonly List<Msg> messages = new();
+
+    protected override void OnInitialized() => shower.OnError += OnError;
+
+    public void Dispose() => shower.OnError -= OnError;
+
+    private void OnError(string text)
+    {
+        var m = new Msg { Text = text };
+        _ = InvokeAsync(async () =>
+        {
+            messages.Add(m);
+            while (messages.Count > MaxShown) messages.RemoveAt(0);
+            StateHasChanged();
+            await Task.Delay(VisibleMs);
+            Dismiss(m);
+        });
+    }
+
+    private void Dismiss(Msg m)
+    {
+        if (messages.Remove(m)) StateHasChanged();
+    }
+}

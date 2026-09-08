@@ -1,4 +1,4 @@
-@using TCalcCore.Engine
+﻿@using TCalcCore.Engine
 @inject TourcalcEngine engine
 @inject UiModeService uiMode
 @inject IJSRuntime JsRuntime
@@ -11,12 +11,10 @@
     if (verTask == null) {
           verTask = GetVersions();
     }
-    <Modal Title="@($"Versions of tour '{Tour?.Name ?? "n/a"}'")"
+    <TcModal Title="@($"Versions of tour '{Tour?.Name ?? "n/a"}'")"
        Visible="@open"
        Footer=@(footer(() => open = false))
-       OnOk=@(() => open = false)
        OnCancel=@(() => open = false)
-       DestroyOnClose=@true
        Closable=@true>
             @if (versions == null)
             {
@@ -45,7 +43,7 @@
                 </div>
             </RowTemplate>
         </TableTemplateDiv>
-    </Modal>
+    </TcModal>
 } 
 else // free up memory. Better to load again
 {

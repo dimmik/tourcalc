@@ -4,11 +4,10 @@
 @if (!open){
     <u style="cursor: pointer;" @onclick=@(() => open = true)><i>@tour.Currency.Name</i></u>
 } else {
-    <Modal Title=@($"Edit {tour.Name} Currencies")
+    <TcModal Title=@($"Edit {tour.Name} Currencies")
        Visible="@open"
-       OnOk=@Apply
        OnCancel=@(() => open = false)
-       DestroyOnClose=@true
+       Footer=@applyFooter
        Closable=@true
        Width="600">
         <div class="grid-table" style="grid-template-columns: repeat(2,auto);">
@@ -18,13 +17,12 @@
         <div class="row">
             <div class="grid-cell"><b>Current Currency</b></div>
             <div class="grid-cell">
-                    <Select @bind-Value=@(Currency)
-                        TItemValue="Currency"
-                        TItem="Currency"
-                        LabelName="@nameof(Currency.Name)"
-                        AllowClear=@false
-                        DataSource="Currencies"
-                        IgnoreItemChangesLeadsToException="false" />
+                    <select class="tcn-input" @bind="CurrentCurrencyId">
+                        @foreach (var c in Currencies)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
             </div>
         </div>
         <div class="row"><div class="grid-header grid-cell-span-all-cols"><hr/></div></div>
@@ -56,12 +54,29 @@
         </div>
        </div>
 
-    </Modal>
+    </TcModal>
 }
 
 
 
 @code {
+    /// <summary>A select carries strings; the tour carries a Currency.</summary>
+    private string CurrentCurrencyId
+    {
+        get => Currency?.Id ?? "";
+        set
+        {
+            var picked = Currencies?.FirstOrDefault(c => c.Id == value);
+            if (picked != null) Currency = picked;
+        }
+    }
+
+    // AntDesign's default footer called OnOk; the buttons are explicit now
+    private RenderFragment applyFooter => @<span>
+        <button type="button" class="tcn-btn" @onclick=@(() => open = false)>Cancel</button>
+        <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Apply>OK</button>
+    </span>;
+
     [Parameter]
     public Tour tour { get; set; } = new();
     bool open = false;

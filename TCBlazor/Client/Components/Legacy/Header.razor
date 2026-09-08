@@ -1,0 +1,6 @@
+@namespace TCBlazor.Client.Components
+<header class="tc-legacy-header" style="@Style">@ChildContent</header>
+@code {
+    [Parameter] public string Style { get; set; } = "";
+    [Parameter] public RenderFragment ChildContent { get; set; }
+}

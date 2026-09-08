@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @using TCalc.Logic
 
@@ -7,13 +7,11 @@
 
 @if (Visible)
 {
-    <Modal Visible=@true
-           Footer="null"
+    <TcModal Visible=@true
            Closable=@false
-           DestroyOnClose=@true
            MaskClosable=@true
-           OnCancel=@(e => OnCancel.InvokeAsync())
-           WrapClassName="tcn-sheet"
+           OnCancel=@(() => OnCancel.InvokeAsync())
+           WrapClass="tcn-sheet"
            BodyStyle="padding:0"
            Width="460">
 
@@ -86,7 +84,7 @@
             <button type="button" class="tcn-btn" @onclick=@(() => OnCancel.InvokeAsync())>Cancel</button>
             <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Save>@(IsAdding ? "Add person" : "Save")</button>
         </div>
-    </Modal>
+    </TcModal>
 }
 
 @code {

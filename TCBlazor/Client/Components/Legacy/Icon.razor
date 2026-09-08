@@ -1,0 +1,4 @@
+@namespace TCBlazor.Client.Components
+@* only a couple of names are used, and TcIcon already draws them *@
+<TcIcon Name="@(Type == "plus" ? "plus" : Type)" />
+@code { [Parameter] public string Type { get; set; } = ""; }

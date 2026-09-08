@@ -1,0 +1,82 @@
+@namespace TCBlazor.Client.Components
+
+@*
+    Our own dialog, replacing AntDesign's Modal.
+
+    It exists so the AntDesign package can go: it was the single component the new and
+    mini interfaces still needed, and it cost four megabytes. The classic interface used
+    it too, so this one covers both.
+
+    Closing is deliberately driven by *click*, not by the mouseup that AntDesign watched
+    for. That was a real bug: a native <select> hands the page an orphaned mouseup when
+    an option is picked, and choosing a currency threw away a half-typed expense. A click
+    that lands on the mask itself is unambiguous.
+*@
+
+@if (Visible)
+{
+    <div class="tcn-modal @WrapClass" @onclick=@OnMaskClick @onkeydown=@OnKeyDown tabindex="-1">
+        <div class="tcn-modal-card" style="@(Width > 0 ? $"max-width:{Width}px" : "")"
+             @onclick:stopPropagation="true">
+            @if (!string.IsNullOrEmpty(Title) || Closable)
+            {
+                <div class="tcn-modal-head">
+                    <div class="tcn-modal-title">@Title</div>
+                    @if (Closable)
+                    {
+                        <button type="button" class="tcn-modal-x" title="Close" aria-label="Close"
+                                @onclick=@Close>✕</button>
+                    }
+                </div>
+            }
+            <div class="tcn-modal-body" style="@BodyStyle">
+                @ChildContent
+            </div>
+            @if (Footer != null)
+            {
+                <div class="tcn-modal-foot">@Footer</div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+
+    [Parameter] public string Title { get; set; } = "";
+
+    /// <summary>Maximum width in pixels; 0 leaves it to the stylesheet.</summary>
+    [Parameter] public int Width { get; set; }
+
+    /// <summary>Show the × in the header.</summary>
+    [Parameter] public bool Closable { get; set; } = true;
+
+    /// <summary>Close when the mask around the card is clicked.</summary>
+    [Parameter] public bool MaskClosable { get; set; } = true;
+
+    [Parameter] public string WrapClass { get; set; } = "";
+
+    [Parameter] public string BodyStyle { get; set; } = "";
+
+    [Parameter] public RenderFragment ChildContent { get; set; }
+
+    /// <summary>Null means no footer row at all.</summary>
+    [Parameter] public RenderFragment Footer { get; set; }
+
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task Close()
+    {
+        if (OnCancel.HasDelegate) await OnCancel.InvokeAsync();
+    }
+
+    private async Task OnMaskClick()
+    {
+        if (MaskClosable) await Close();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await Close();
+    }
+}

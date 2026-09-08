@@ -18,13 +18,11 @@
 
 @if (open)
 {
-    <Modal Visible=@true
-           Footer="null"
+    <TcModal Visible=@true
            Closable=@false
-           DestroyOnClose=@true
            MaskClosable=@true
-           OnCancel=@(e => open = false)
-           WrapClassName="tcn-sheet"
+           OnCancel=@(() => open = false)
+           WrapClass="tcn-sheet"
            BodyStyle="padding:0"
            Width="480">
 
@@ -106,7 +104,7 @@
             <button type="button" class="tcn-btn" @onclick=@(() => open = false)>Cancel</button>
             <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@Apply>Save</button>
         </div>
-    </Modal>
+    </TcModal>
 }
 
 @code {

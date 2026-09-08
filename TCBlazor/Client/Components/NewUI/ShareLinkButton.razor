@@ -1,4 +1,4 @@
-@namespace TCBlazor.Client.Components.NewUI
+﻿@namespace TCBlazor.Client.Components.NewUI
 
 @implements IDisposable
 
@@ -23,13 +23,11 @@
 {
     @* the browser refused to copy - offer it in a dialog rather than dropping a
        white input into the middle of the coloured header *@
-    <Modal Visible=@true
-           Footer="null"
+    <TcModal Visible=@true
            Closable=@false
-           DestroyOnClose=@true
            MaskClosable=@true
-           OnCancel=@(e => failed = false)
-           WrapClassName="tcn-sheet"
+           OnCancel=@(() => failed = false)
+           WrapClass="tcn-sheet"
            BodyStyle="padding:0"
            Width="460">
         <div class="tcn-sheet-head">
@@ -46,7 +44,7 @@
             <span style="flex:1 1 auto"></span>
             <button type="button" class="tcn-btn tcn-btn-primary" @onclick=@(() => failed = false)>Done</button>
         </div>
-    </Modal>
+    </TcModal>
 }
 
 @code {

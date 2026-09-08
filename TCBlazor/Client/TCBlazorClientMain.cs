@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using TCBlazor.Client;
 using TCalcCore.Storage;
@@ -22,8 +22,8 @@ namespace Company.WebApplication1
             builder.Services
                 .AddSingleton<ILocalLogger, LocalLogger>()
                 .AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
-                .AddAntDesign()
-                .AddScoped<ISimpleMessageShower, SimpleMessageShower>()
+                .AddScoped<SimpleMessageShower>()
+                .AddScoped<ISimpleMessageShower>(sp => sp.GetRequiredService<SimpleMessageShower>())
                 .AddScoped<ITokenStorage, CookieTokenStorage>()
                 .AddSingleton<ITourcalcLocalStorage, TourcalcLocalStorage>()
                 .AddSingleton<UiModeService>()

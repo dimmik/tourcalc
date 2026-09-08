@@ -1,0 +1,13 @@
+@namespace TCBlazor.Client.Components
+<span class="tcn-chip">
+    @ChildContent
+    @if (OnClose.HasDelegate)
+    {
+        <button type="button" class="tcn-linkbtn" title="Remove" @onclick=@(() => OnClose.InvokeAsync())>×</button>
+    }
+</span>
+
+@code {
+    [Parameter] public RenderFragment ChildContent { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+}

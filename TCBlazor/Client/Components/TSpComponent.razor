@@ -5,8 +5,6 @@
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavManager
 
-@using AntDesign.Select
-
 
 <TableTemplateDiv
 cols="4"
@@ -47,19 +45,18 @@ TopPadding="30"
             }
             &nbsp; <span style="cursor: pointer; background-color:aquamarine" @onclick=@(() => OnToggleShowPlanned?.Invoke())>[@(ShowPlanned ? "-Balance Sh**t" : "+Balance Sh**t")]</span>
 
-            <Select Mode="SelectMode.Multiple"
-            Placeholder="Categories"
-            DataSource="TourCategories"
-            @bind-Values="@filterCategories"
-            TItemValue="string"
-            TItem="string"
-            Style="width:100%;"
-            DropdownMatchSelectWidth=@false
-            HideSelected=@false
-            Size="InputSize.Small"
-            MaxTagCount="@ResponsiveTag.Responsive"
-            IgnoreItemChangesLeadsToException="false"
-            AllowClear/>
+            @* the multiple-select is now toggle chips: same filter, no widget *@
+            <div class="tcn-chips" style="margin-top:4px">
+                @foreach (var c in TourCategories)
+                {
+                    <span class="tcn-chip tcn-filter-chip @((filterCategories ?? Enumerable.Empty<string>()).Contains(c) ? "is-on" : "")"
+                          @key=@($"fc_{c}") @onclick=@(() => ToggleCategoryFilter(c))>@c</span>
+                }
+                @if ((filterCategories ?? Enumerable.Empty<string>()).Any())
+                {
+                    <span class="tcn-chip tcn-filter-chip" @onclick=@(() => filterCategories = new List<string>())>clear x</span>
+                }
+            </div>
         </div>
         <div class="grid-header"><span style="cursor:pointer;@(sortingField == SortingField.From ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.From))>From</span></div>
         <div class="grid-header"><span style="cursor:pointer;@(sortingField == SortingField.Amount ? "color: blue;" : "")" @onclick=@(() => ToggleSorting(SortingField.Amount))>Amount</span></div>
@@ -182,6 +179,13 @@ TopPadding="30"
 </TableTemplateDiv>
 
 @code {
+    private void ToggleCategoryFilter(string c)
+    {
+        var chosen = new List<string>(filterCategories ?? Enumerable.Empty<string>());
+        if (!chosen.Remove(c)) chosen.Add(c);
+        filterCategories = chosen;
+    }
+
     string guid = Guid.NewGuid().ToString();
     [Parameter]
     public Tour? Tour { get; set; } = null;

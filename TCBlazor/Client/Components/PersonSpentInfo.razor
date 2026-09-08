@@ -25,13 +25,11 @@
 
 
 
-<Modal Title="@($"Spent for {person.Name} {person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}"+
+<TcModal Title="@($"Spent for {person.Name} {person.SpentInCents.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {tour.CurrencyNameEmptyIfSingleCurrency()}"+
                 (byCur.Count() > 1 ? $" ({string.Join(", ", byCur.Select(cv => $"{cv.Value.ToString("N0", GlobConsts.NumGroupSpaceSeparated)} {cv.Key.Name}"))})" : ""))"
        Visible="@open"
        Footer=@(footer(() => open = false))
-       OnOk=@(() => open = false)
        OnCancel=@(() => open = false)
-       DestroyOnClose=@true
        Closable=@true>
         <div style="height: 55vh; overflow:scroll;">
             @{
@@ -106,7 +104,7 @@
                 </RowTemplate>
             </TableTemplateDiv>
         </div>
-</Modal>
+</TcModal>
 @code {
     [Parameter]
     public Person person { get; set; } = new Person();

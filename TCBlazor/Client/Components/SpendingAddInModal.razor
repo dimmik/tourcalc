@@ -1,4 +1,4 @@
-@using TCalcCore.Engine
+﻿@using TCalcCore.Engine
 @using TCalcCore.UI
 @inject TourcalcEngine engine
 @inject IJSRuntime JsRuntime
@@ -18,12 +18,10 @@
 }
 else if (open)
 {
-    <Modal Title=@("Add spending x")
+    <TcModal Title=@("Add spending x")
        Visible="@open"
        Footer=@(footer)
-       OnOk=@(async (e) => CloseModal())
-       OnCancel=@((e) => CloseModal())
-       DestroyOnClose=@true
+       OnCancel=@(() => CloseModal())
        Closable=@true
        Width="600"
        >
@@ -36,7 +34,7 @@ else if (open)
             OnX=@(() => CloseModal())
             TitleText="NEW"
         />
-    </Modal>
+    </TcModal>
 }
 
 @code {

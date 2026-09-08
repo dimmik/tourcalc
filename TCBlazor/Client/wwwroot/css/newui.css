@@ -1665,6 +1665,93 @@ textarea.tcn-input {
     }
 
 /* ===========================================================================
+   Our own dialog. Replaces AntDesign's Modal, which was the only component of
+   that package the new and mini interfaces still used - four megabytes for an
+   overlay and a card. The .tcn-sheet-* classes below dress what goes inside it
+   and were always ours.
+   =========================================================================== */
+
+.tcn-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 12px;
+    overflow-y: auto;
+    background: rgba(16, 24, 40, .45);
+}
+
+.tcn-modal-card {
+    width: 100%;
+    max-width: 560px;
+    background: var(--tcn-surface);
+    border-radius: var(--tcn-radius);
+    box-shadow: var(--tcn-shadow-lg);
+    overflow: hidden;
+}
+
+.tcn-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--tcn-border);
+    font-weight: 700;
+}
+
+.tcn-modal-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tcn-modal-x {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--tcn-muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+    .tcn-modal-x:hover {
+        background: var(--tcn-surface-2);
+        color: var(--tcn-text);
+    }
+
+.tcn-modal-body {
+    padding: 14px 16px;
+}
+
+.tcn-modal-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--tcn-border);
+    background: var(--tcn-surface-2);
+}
+
+/* the expense sheet keeps its own head and foot, so the shell adds none */
+.tcn-sheet .tcn-modal-head,
+.tcn-sheet .tcn-modal-foot {
+    display: none;
+}
+
+.tcn-sheet .tcn-modal-body {
+    padding: 0;
+}
+
+/* ===========================================================================
    Sheet dialogs - the new-UI "add expense" and "add person" forms. The Ant
    Modal is used only as the overlay; everything inside is ours, so its own
    header/footer chrome is switched off here.
@@ -3527,3 +3614,47 @@ body[data-tcn-accent="graphite"] {   /* Graphite */
         border-radius: 999px;
     }
 
+
+/* ---- error toasts --------------------------------------------------------
+   Where the data layer's errors land now that AntDesign's message service is
+   gone. Fixed to the top so a failed save is visible whatever the reader has
+   scrolled to, and above the modal layer, since saves are made from dialogs. */
+
+.tcn-toasts {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: min(520px, calc(100vw - 24px));
+    pointer-events: none;
+}
+
+.tcn-toast {
+    pointer-events: auto;
+    cursor: pointer;
+    padding: 9px 14px;
+    border-radius: 10px;
+    background: var(--tcn-red-soft);
+    border: 1px solid #f7cdd6;
+    color: var(--tcn-red);
+    font-size: 13px;
+    line-height: 1.35;
+    box-shadow: var(--tcn-shadow-lg);
+    word-break: break-word;
+}
+
+/* the two button shapes the classic markup asks for by name */
+
+.tcn-btn-circle {
+    width: 28px;
+    padding: 0;
+    border-radius: 50%;
+}
+
+.tcn-btn-round {
+    border-radius: 999px;
+}
