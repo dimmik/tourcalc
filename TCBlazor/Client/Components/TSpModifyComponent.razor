@@ -1,4 +1,4 @@
-﻿@inject IJSRuntime JsRuntime
+@inject IJSRuntime JsRuntime
 @inject NavigationManager NavManager
 <div style="text-align: center; width: 100%;">
     <div
@@ -264,11 +264,19 @@
     private string _cname = "";
     private void AddCatToList(MouseEventArgs args)
     {
-        if (!string.IsNullOrWhiteSpace(_cname))
+        var name = (_cname ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        // a name that is already there is not an error - the point of typing it was to
+        // use it, so fall through to selecting it either way
+        if (!SpendingCategories.Contains(name))
         {
-            SpendingCategories.Add(_cname);
-            _cname = string.Empty;
-	   }
+            SpendingCategories.Add(name);
+        }
+        // you typed a category to put this spending in it; leaving the previous one
+        // selected meant the new one was added and then silently ignored
+        spending.Type = name;
+        _cname = string.Empty;
     }
 
 }
