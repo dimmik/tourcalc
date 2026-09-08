@@ -1,0 +1,11 @@
+[package]
+name = "spike-bare"
+version = "0.1.0"
+edition = "2021"
+
+# No framework at all: the same data and the same arithmetic, written straight into the
+# DOM. This is the floor - whatever a framework costs, it costs on top of this.
+[dependencies]
+tc-core = { path = "../tc-core" }
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["Document", "Window", "Element", "HtmlElement", "Node"] }

@@ -1,0 +1,3 @@
+# build output: cargo's shared target dir and trunk's per-crate dist
+/target
+dist/

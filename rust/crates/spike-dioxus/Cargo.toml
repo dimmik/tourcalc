@@ -1,0 +1,8 @@
+[package]
+name = "spike-dioxus"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dioxus = { version = "0.7.10", features = ["web"] }
+tc-core = { path = "../tc-core" }

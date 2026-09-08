@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crates/tc-core", "crates/spike-leptos", "crates/spike-bare", "crates/spike-dioxus"]
+
+# Everything the browser downloads is built with this profile, so it is tuned for
+# size rather than for speed: this whole experiment is about how small the result is.
+[profile.release]
+opt-level = "z"      # optimise for size, not speed
+lto = true           # let the linker throw away across crate boundaries
+codegen-units = 1    # one unit optimises better than sixteen parallel ones
+panic = "abort"      # no unwinding tables; a panic in a browser is fatal anyway
+strip = true
