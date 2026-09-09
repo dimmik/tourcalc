@@ -57,7 +57,13 @@ async fn main() {
         tracing::info!("serving {dir}");
     }
 
-    let app = app.layer(tower_http::trace::TraceLayer::new_for_http());
+    // Compress what goes out. The features were enabled from the start and the layer was
+    // never added, so the client was downloading a 690 K wasm file that brotli takes to
+    // about 225 K - on a project whose whole premise is the size of that file. Negotiated
+    // per request: a client that asks for neither gets the bytes as they are.
+    let app = app
+        .layer(tower_http::compression::CompressionLayer::new())
+        .layer(tower_http::trace::TraceLayer::new_for_http());
 
     let listener = match tokio::net::TcpListener::bind(&cfg.listen).await {
         Ok(l) => l,

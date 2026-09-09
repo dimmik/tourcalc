@@ -14,7 +14,7 @@ use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{any, get};
 use axum::Router;
 
 pub fn routes(state: Shared) -> Router {
@@ -33,6 +33,14 @@ pub fn routes(state: Shared) -> Router {
         // The client fires these off and never reads the answer; without a route they would
         // fill its console with 404s.
         .route("/api/Log/x/{*rest}", get(|| async { StatusCode::OK }))
+        // Anything else under /api is a 404 and not the app.
+        //
+        // Without this the request falls through to the static fallback and comes back as
+        // index.html with a 200, so a client asking for an endpoint that does not exist gets
+        // a page and has to discover it is not JSON. The C# has the same catch-all for the
+        // same reason. Registered last, and matched last: axum prefers a static segment to a
+        // parameter and a parameter to a wildcard, so the real routes still win.
+        .route("/api/{*rest}", any(|| async { StatusCode::NOT_FOUND }))
         .with_state(state)
 }
 

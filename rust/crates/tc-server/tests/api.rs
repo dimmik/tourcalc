@@ -329,3 +329,20 @@ async fn a_version_restore_is_refused_for_now() {
     let (status, _) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+/// An endpoint that does not exist is a 404, and not the app's index page.
+///
+/// It fell through to the static fallback before, so a client that asked for a misspelled
+/// endpoint got HTML with a 200 and had to work out for itself that it was not JSON.
+#[tokio::test]
+async fn an_unknown_endpoint_is_not_the_app() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let (status, _) = get(&app, "/api/Tour/all/suggestedX", Some(&token)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // And the routes that do exist still answer, which is the half a catch-all can break.
+    let (status, _) = get(&app, "/api/Tour/all/suggested", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+}
