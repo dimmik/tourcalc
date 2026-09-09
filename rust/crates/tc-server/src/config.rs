@@ -28,6 +28,9 @@ pub struct Config {
     pub wakeup_code: String,
     pub wakeup_pre_delay_min: u64,
     pub wakeup_post_delay_min: u64,
+    /// Which user agents are sent to the text pages, and whether to send them at all.
+    pub text_browser_redirect: bool,
+    pub text_browser_agents: String,
 }
 
 impl Config {
@@ -53,6 +56,9 @@ impl Config {
             wakeup_code: var("WakeupCode").unwrap_or_else(|| "secCode".to_owned()),
             wakeup_pre_delay_min: number("WaketimePreDelayInMin", 1) as u64,
             wakeup_post_delay_min: number("WaketimePostDelayInMin", 1) as u64,
+            text_browser_redirect: flag("TextBrowserRedirectEnabled", true),
+            text_browser_agents: var("TextBrowserAgents")
+                .unwrap_or_else(|| "lynx;w3m;links".to_owned()),
         }
     }
 }

@@ -9,4 +9,5 @@ pub mod config;
 pub mod fields;
 pub mod state;
 pub mod store;
+pub mod text;
 pub mod versions;

@@ -115,7 +115,7 @@ pub async fn update(
 }
 
 /// The copy of a state that is kept when it is replaced.
-fn version_of(previous: &Tour, comment: String) -> Tour {
+pub fn version_of(previous: &Tour, comment: String) -> Tour {
     let mut version = previous.clone();
     // Its own record, pointing at the tour it belongs to.
     version.id = TourId::new(new_version_id());
@@ -230,7 +230,7 @@ pub async fn delete(
 ///
 /// Nothing parses it - the only thing anybody does with it is compare it for equality - but
 /// keeping the shape means a tour saved here is indistinguishable from one saved there.
-fn new_state_guid() -> String {
+pub fn new_state_guid() -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -239,6 +239,27 @@ fn new_state_guid() -> String {
         // a bug to anybody comparing two records.
         + 3 * 3600;
     format!("{} .{}", super::stamp(now), random_hex(32))
+}
+
+/// The id a suggested payment would have if it were stored.
+///
+/// The C# gives every generated payment an id that is the MD5 of who pays, the description,
+/// the amount and who is paid - so it is the same id every time the settlement is worked out
+/// from the same tour. That is what lets a page show a payment, and a form post afterwards
+/// name the very same one, without either of them being stored in between.
+pub fn transfer_id(t: &tc_core::Transfer) -> String {
+    crate::auth::code_md5(&format!(
+        "{}{}{}{}",
+        t.from.as_str(),
+        t.description,
+        t.amount.0,
+        t.to.as_str()
+    ))
+}
+
+/// A short id for something new inside a tour, in the style of the existing ones.
+pub fn new_spending_id() -> String {
+    new_tour_id()
 }
 
 /// A version's own id. The C# uses a GUID here, and nothing reads it but the store.

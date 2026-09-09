@@ -4,6 +4,7 @@
 //! pointing the existing Blazor client at it. If that client cannot tell the difference,
 //! the contract is right.
 
+use axum::response::IntoResponse;
 use axum::Router;
 use std::sync::Arc;
 use tc_server::{api, auth, config, state, store};
@@ -54,7 +55,10 @@ async fn main() {
         wakeups: Default::default(),
     });
 
-    let mut app = Router::new().merge(api::routes(state));
+    let mut app = Router::new()
+        .merge(api::routes(state.clone()))
+        // The text interface, for browsers that cannot run the app at all.
+        .merge(tc_server::text::routes().with_state(state));
 
     // Optionally serve the built Blazor client from here as well, which is what makes the
     // "point the old client at the new server" test possible without a proxy in between.
@@ -63,6 +67,35 @@ async fn main() {
         app = app.fallback_service(ServeDir::new(dir).fallback(ServeFile::new(index)));
         tracing::info!("serving {dir}");
     }
+
+    // A text browser asking for the app gets the text pages instead.
+    let agents = tc_server::text::redirect::parse_agents(&cfg.text_browser_agents);
+    let redirecting = cfg.text_browser_redirect && !agents.is_empty();
+    let text_browsers = axum::middleware::from_fn(
+        move |request: axum::extract::Request, next: axum::middleware::Next| {
+            let agents = agents.clone();
+            async move {
+                if redirecting {
+                    let ua = request
+                        .headers()
+                        .get(axum::http::header::USER_AGENT)
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("");
+                    if let Some(target) = tc_server::text::redirect::target_for(
+                        request.method().as_str(),
+                        request.uri().path(),
+                        ua,
+                        &agents,
+                    ) {
+                        // Temporary: whether a reader wants the text pages is not something
+                        // to write into their cache for good.
+                        return axum::response::Redirect::temporary(&target).into_response();
+                    }
+                }
+                next.run(request).await
+            }
+        },
+    );
 
     // What the browser may keep, and for how long.
     //
@@ -99,6 +132,7 @@ async fn main() {
         .unwrap_or_else(|_| axum::http::HeaderValue::from_static("rust"));
 
     let app = app
+        .layer(text_browsers)
         .layer(cache_headers)
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
             axum::http::HeaderName::from_static("x-tourcalc-version"),

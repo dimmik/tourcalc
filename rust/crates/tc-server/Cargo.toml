@@ -19,6 +19,9 @@ sha2 = "0.10"
 md-5 = "0.10"
 base64 = "0.22"
 
+# The text pages: reading posted forms, and putting a code into a URL.
+form_urlencoded = "1"
+
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
