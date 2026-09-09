@@ -11,8 +11,8 @@
 //! "already mutably borrowed" panics that come with it - out of this file entirely.
 
 use crate::edit::{self, PersonDraft, SpendingDraft};
+use crate::queue::Operation;
 use leptos::prelude::*;
-use leptos::task::spawn_local;
 use tc_core::{Cents, PersonId, Tour};
 
 /// Wraps a dialog in the app's modal shell.
@@ -48,7 +48,9 @@ pub fn SpendingDialog(
     tour: Tour,
     draft: SpendingDraft,
     on_close: Callback<()>,
-    on_saved: Callback<()>,
+    /// Where the finished edit goes. The dialog does not save: it says what was meant, and
+    /// the page writes that down and gets it to the server when it can.
+    on_apply: Callback<Operation>,
 ) -> impl IntoView {
     let people = tour.persons.clone();
     let known_categories = edit::categories(&tour);
@@ -67,38 +69,27 @@ pub fn SpendingDialog(
     let everyone = RwSignal::new(draft.everyone);
     let to = RwSignal::new(draft.to.clone());
     let error = RwSignal::new(String::new());
-    let saving = RwSignal::new(false);
 
     let base = draft.clone();
-    let submit = {
-        let tour = tour.clone();
-        move |_| {
-            let mut d = base.clone();
-            d.description = description.get();
-            d.category = category.get();
-            d.amount = Cents(amount.get().trim().parse::<i64>().unwrap_or(0));
-            d.from = PersonId::new(from.get());
-            d.everyone = everyone.get();
-            d.to = to.get();
+    let submit = move |_| {
+        let mut d = base.clone();
+        d.description = description.get();
+        d.category = category.get();
+        d.amount = Cents(amount.get().trim().parse::<i64>().unwrap_or(0));
+        d.from = PersonId::new(from.get());
+        d.everyone = everyone.get();
+        d.to = to.get();
 
-            if let Some(why) = d.problem() {
-                error.set(why.to_owned());
-                return;
-            }
-
-            let next = edit::put_spending(&tour, &d);
-            error.set(String::new());
-            saving.set(true);
-            spawn_local(async move {
-                match edit::save(&next).await {
-                    Ok(()) => on_saved.run(()),
-                    Err(e) => {
-                        error.set(e);
-                        saving.set(false);
-                    }
-                }
-            });
+        if let Some(why) = d.problem() {
+            error.set(why.to_owned());
+            return;
         }
+        // A new spending gets its id here, where the edit is decided - see the note on
+        // `SpendingDraft::id`.
+        if d.id.is_none() {
+            d.id = Some(tc_core::SpendingId::new(edit::new_id()));
+        }
+        on_apply.run(Operation::PutSpending(d));
     };
 
     let title = if editing {
@@ -112,10 +103,8 @@ pub fn SpendingDialog(
             let submit = submit.clone();
             view! {
                 <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>"Cancel"</button>
-                <button type="button" class="tcn-btn tcn-btn-primary"
-                        disabled=move || saving.get()
-                        on:click=submit.clone()>
-                    {move || if saving.get() { "Saving…" } else { "Save" }}
+                <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit.clone()>
+                    "Save"
                 </button>
             }
         })
@@ -219,7 +208,7 @@ pub fn PersonDialog(
     tour: Tour,
     draft: PersonDraft,
     on_close: Callback<()>,
-    on_saved: Callback<()>,
+    on_apply: Callback<Operation>,
 ) -> impl IntoView {
     let editing = draft.id.is_some();
     let myself = draft.id.clone();
@@ -234,7 +223,6 @@ pub fn PersonDialog(
             .unwrap_or_default(),
     );
     let error = RwSignal::new(String::new());
-    let saving = RwSignal::new(false);
 
     // Somebody cannot pay for themselves, and a payer who is paid for by another would
     // make a chain the settlement deliberately does not follow.
@@ -247,33 +235,21 @@ pub fn PersonDialog(
         .collect();
 
     let base = draft.clone();
-    let submit = {
-        let tour = tour.clone();
-        move |_| {
-            let mut d = base.clone();
-            d.name = name.get();
-            d.weight = weight.get().trim().parse::<i32>().unwrap_or(0);
-            let p = parent.get();
-            d.parent = (!p.is_empty()).then(|| PersonId::new(p));
+    let submit = move |_| {
+        let mut d = base.clone();
+        d.name = name.get();
+        d.weight = weight.get().trim().parse::<i32>().unwrap_or(0);
+        let p = parent.get();
+        d.parent = (!p.is_empty()).then(|| PersonId::new(p));
 
-            if let Some(why) = d.problem() {
-                error.set(why.to_owned());
-                return;
-            }
-
-            let next = edit::put_person(&tour, &d);
-            error.set(String::new());
-            saving.set(true);
-            spawn_local(async move {
-                match edit::save(&next).await {
-                    Ok(()) => on_saved.run(()),
-                    Err(e) => {
-                        error.set(e);
-                        saving.set(false);
-                    }
-                }
-            });
+        if let Some(why) = d.problem() {
+            error.set(why.to_owned());
+            return;
         }
+        if d.id.is_none() {
+            d.id = Some(PersonId::new(edit::new_id()));
+        }
+        on_apply.run(Operation::PutPerson(d));
     };
 
     let title = if editing { "Edit person" } else { "Add person" };
@@ -283,10 +259,8 @@ pub fn PersonDialog(
             let submit = submit.clone();
             view! {
                 <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>"Cancel"</button>
-                <button type="button" class="tcn-btn tcn-btn-primary"
-                        disabled=move || saving.get()
-                        on:click=submit.clone()>
-                    {move || if saving.get() { "Saving…" } else { "Save" }}
+                <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit.clone()>
+                    "Save"
                 </button>
             }
         })

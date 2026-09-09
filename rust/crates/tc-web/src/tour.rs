@@ -9,9 +9,10 @@
 //! this itself, and so the alternative is two implementations of the same money that must
 //! agree forever.
 
-use crate::api;
 use crate::dialogs::{PersonDialog, SpendingDialog};
-use crate::edit::{self, PersonDraft, SpendingDraft};
+use crate::edit::{PersonDraft, SpendingDraft};
+use crate::queue::{self, Operation};
+use crate::sync::{self, Status};
 use crate::ui::{avatar_colour, initials, money, name_of};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -45,6 +46,50 @@ enum Dialog {
     Person(PersonDraft),
 }
 
+/// Says whether anything is still waiting to reach the server.
+///
+/// Quiet when there is nothing to say: an app that announces "saved" after every keystroke
+/// teaches people to ignore it, and then it cannot tell them the one thing that matters.
+#[component]
+fn SyncLine(status: RwSignal<Status>, reload: Callback<()>, tour_id: String) -> impl IntoView {
+    view! {
+        {move || match status.get() {
+            Status::Idle | Status::Synced => ().into_any(),
+            Status::Waiting(n) => {
+                // Naming the edits rather than counting them: "2 changes waiting" invites
+                // the question this can answer directly.
+                let what = queue::pending(&tour_id)
+                    .iter()
+                    .map(|op| op.describe())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                view! {
+                    <div class="tcn-section" style="padding-bottom:0">
+                        <div class="tcn-chip tcn-chip-amber">
+                            {if n == 0 {
+                                "Offline — showing what this device had last".to_owned()
+                            } else {
+                                format!("Offline — saved here, waiting to be sent: {what}")
+                            }}
+                        </div>
+                    </div>
+                }.into_any()
+            }
+            Status::Failed(why) => view! {
+                <div class="tcn-section" style="padding-bottom:0">
+                    <div class="tcn-errors">
+                        {why}
+                        <button type="button" class="tcn-btn tcn-btn-sm" style="margin-left:10px"
+                                on:click=move |_| reload.run(())>
+                            "Try again"
+                        </button>
+                    </div>
+                </div>
+            }.into_any(),
+        }}
+    }
+}
+
 /// What a delete button asks for.
 #[derive(Clone)]
 enum Removal {
@@ -55,17 +100,25 @@ enum Removal {
 #[component]
 pub fn TourPage(id: String) -> impl IntoView {
     let (state, set_state) = signal(Load::Loading);
+    let status = RwSignal::new(Status::Idle);
 
-    // One place that fetches, used on arrival and after every save. A `Callback` is `Copy`,
-    // so it can be handed to children without anybody having to own it.
+    // Arriving is the same operation as saving: drain whatever is queued, then show what
+    // the server has with anything still waiting applied on top. So a reload after an
+    // offline edit finishes the job by itself.
     let load = Callback::new({
         let id = id.clone();
         move |_: ()| {
             let id = id.clone();
             spawn_local(async move {
-                set_state.set(match api::tour(&id).await {
-                    Ok(t) => Load::Ready(t),
-                    Err(e) => Load::Failed(e),
+                let (tour, st) = sync::push(&id).await;
+                status.set(st);
+                set_state.set(match tour {
+                    Some(t) => Load::Ready(queue::with_pending(&t)),
+                    None => Load::Failed(
+                        "This tour has not been opened on this device before, and there is \
+                         no connection to fetch it."
+                            .into(),
+                    ),
                 });
             });
         }
@@ -81,16 +134,33 @@ pub fn TourPage(id: String) -> impl IntoView {
                     <a class="tcn-btn" href="/">"Go to my tours"</a>
                 </div>
             }.into_any(),
-            Load::Ready(tour) => view! { <TourView tour=tour reload=load /> }.into_any(),
+            Load::Ready(tour) => view! {
+                <TourView tour=tour reload=load status=status />
+            }.into_any(),
         }}
     }
 }
 
 #[component]
-fn TourView(tour: Tour, reload: Callback<()>) -> impl IntoView {
+fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl IntoView {
     let tab = RwSignal::new(Tab::Balance);
     let dialog: RwSignal<Option<Dialog>> = RwSignal::new(None);
-    let trouble = RwSignal::new(String::new());
+    let tour_id = tour.id.as_str().to_owned();
+
+    // Every edit takes the same road: write it down, try to send it, redraw from whatever
+    // came back. Nothing here waits for the network to decide what to show.
+    let apply = {
+        let tour_id = tour_id.clone();
+        Callback::new(move |op: Operation| {
+            let tour_id = tour_id.clone();
+            dialog.set(None);
+            spawn_local(async move {
+                let (_, st) = sync::record(&tour_id, op).await;
+                status.set(st);
+                reload.run(());
+            });
+        })
+    };
 
     // Computed from a borrowed tour. No copy of it is made to calculate over - which is the
     // point `tc-core::calc` is written to make.
@@ -133,39 +203,25 @@ fn TourView(tour: Tour, reload: Callback<()>) -> impl IntoView {
     let expenses = real.len();
     let title = tour.name.clone();
 
-    // Deleting is the one edit with no dialog, so it asks and saves on its own.
-    let delete = {
-        let tour = tour.clone();
-        Callback::new(move |what: Removal| {
-            let question = match &what {
-                Removal::Spending(s) => format!("Delete '{}'?", s.description),
-                Removal::Person(p) => format!("Delete '{}'?", p.name),
-            };
-            let confirmed = web_sys::window()
-                .and_then(|w| w.confirm_with_message(&question).ok())
-                .unwrap_or(false);
-            if !confirmed {
-                return;
-            }
-            let next = match &what {
-                Removal::Spending(s) => edit::remove_spending(&tour, &s.id),
-                Removal::Person(p) => edit::remove_person(&tour, &p.id),
-            };
-            trouble.set(String::new());
-            spawn_local(async move {
-                match edit::save(&next).await {
-                    Ok(()) => reload.run(()),
-                    Err(e) => trouble.set(e),
-                }
-            });
-        })
-    };
+    // Deleting is the one edit with no dialog, so it does its own asking.
+    let delete = Callback::new(move |what: Removal| {
+        let question = match &what {
+            Removal::Spending(s) => format!("Delete '{}'?", s.description),
+            Removal::Person(p) => format!("Delete '{}'?", p.name),
+        };
+        let confirmed = web_sys::window()
+            .and_then(|w| w.confirm_with_message(&question).ok())
+            .unwrap_or(false);
+        if !confirmed {
+            return;
+        }
+        apply.run(match &what {
+            Removal::Spending(s) => Operation::RemoveSpending(s.id.clone()),
+            Removal::Person(p) => Operation::RemovePerson(p.id.clone()),
+        });
+    });
 
     let close = Callback::new(move |_: ()| dialog.set(None));
-    let saved = Callback::new(move |_: ()| {
-        dialog.set(None);
-        reload.run(());
-    });
 
     // Each `Show` body is its own closure, and a `String` is not `Copy`: one clone per
     // place that needs it, made here where it is obvious, rather than a borrow that would
@@ -194,9 +250,7 @@ fn TourView(tour: Tour, reload: Callback<()>) -> impl IntoView {
             </div>
         </div>
 
-        <Show when=move || !trouble.get().is_empty()>
-            <div class="tcn-section"><div class="tcn-errors">{move || trouble.get()}</div></div>
-        </Show>
+        <SyncLine status=status reload=reload tour_id=tour_id.clone() />
 
         <div class="tcn-section" style="padding-bottom:0">
             <TabButton tab=tab mine=Tab::Balance label="Balance" count=between.len() />
@@ -230,10 +284,10 @@ fn TourView(tour: Tour, reload: Callback<()>) -> impl IntoView {
             let tour = tour_for_dialog.clone();
             dialog.get().map(|d| match d {
                 Dialog::Spending(draft) => view! {
-                    <SpendingDialog tour=tour draft=draft on_close=close on_saved=saved />
+                    <SpendingDialog tour=tour draft=draft on_close=close on_apply=apply />
                 }.into_any(),
                 Dialog::Person(draft) => view! {
-                    <PersonDialog tour=tour draft=draft on_close=close on_saved=saved />
+                    <PersonDialog tour=tour draft=draft on_close=close on_apply=apply />
                 }.into_any(),
             })
         }}

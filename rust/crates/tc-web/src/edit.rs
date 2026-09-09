@@ -6,7 +6,6 @@
 //! rather than mutating in place: the caller keeps what it had until the server has agreed,
 //! and can put it back if it has not.
 
-use crate::api;
 use tc_core::{Cents, Kind, Person, PersonId, Spending, SpendingId, Split, Tour};
 
 /// A new id, in the style the app uses: short, lowercase, URL-safe.
@@ -28,9 +27,17 @@ pub fn new_id() -> String {
 }
 
 /// What the spending dialog collects.
-#[derive(Clone, Debug)]
+///
+/// Serialisable because it is also what sits in the offline queue: an edit is remembered as
+/// the intention behind it, so that it can be replayed onto a tour that has changed since.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SpendingDraft {
-    /// `None` for a new one.
+    /// Which spending this is about.
+    ///
+    /// `None` only while the dialog is open. The id is settled when the edit is *recorded*,
+    /// not when it is applied - otherwise replaying a queued "add" a second time would
+    /// invent a second id and leave two copies of one taxi fare. Assigning it up front makes
+    /// the operation say exactly one thing, however many times it is carried out.
     pub id: Option<SpendingId>,
     pub description: String,
     pub category: String,
@@ -126,29 +133,34 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
         Split::Equally(draft.to.clone())
     };
 
-    match &draft.id {
-        Some(id) => {
-            if let Some(existing) = next.spendings.iter_mut().find(|s| &s.id == id) {
-                existing.description = draft.description.clone();
-                existing.category = draft.category.clone();
-                existing.amount = draft.amount;
-                existing.from = draft.from.clone();
-                // What the form had before "everyone" was switched on is kept, as the
-                // stored format does.
-                if matches!(split, Split::Everyone) {
-                    existing.remembered_split = Some(match &existing.split {
-                        Split::Everyone => existing
-                            .remembered_split
-                            .clone()
-                            .unwrap_or(Split::Equally(Vec::new())),
-                        other => other.clone(),
-                    });
-                }
-                existing.split = split;
+    let id = draft
+        .id
+        .clone()
+        .unwrap_or_else(|| SpendingId::new(String::new()));
+
+    match next.spendings.iter_mut().find(|s| s.id == id) {
+        Some(existing) => {
+            existing.description = draft.description.clone();
+            existing.category = draft.category.clone();
+            existing.amount = draft.amount;
+            existing.from = draft.from.clone();
+            // What the form had before "everyone" was switched on is kept, as the stored
+            // format does.
+            if matches!(split, Split::Everyone) {
+                existing.remembered_split = Some(match &existing.split {
+                    Split::Everyone => existing
+                        .remembered_split
+                        .clone()
+                        .unwrap_or(Split::Equally(Vec::new())),
+                    other => other.clone(),
+                });
             }
+            existing.split = split;
         }
+        // Not there: this is the add. Replaying it again finds the spending and updates it
+        // instead of adding a second one.
         None => next.spendings.push(Spending {
-            id: SpendingId::new(new_id()),
+            id,
             description: draft.description.clone(),
             category: draft.category.clone(),
             amount: draft.amount,
@@ -171,7 +183,7 @@ pub fn remove_spending(tour: &Tour, id: &SpendingId) -> Tour {
 }
 
 /// What the person dialog collects.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PersonDraft {
     pub id: Option<PersonId>,
     pub name: String,
@@ -214,16 +226,19 @@ pub fn put_person(tour: &Tour, draft: &PersonDraft) -> Tour {
     let mut next = tour.clone();
     next.spendings.retain(|s| s.kind != Kind::Planned);
 
-    match &draft.id {
-        Some(id) => {
-            if let Some(existing) = next.persons.iter_mut().find(|p| &p.id == id) {
-                existing.name = draft.name.trim().to_owned();
-                existing.weight = draft.weight;
-                existing.parent = draft.parent.clone();
-            }
+    let id = draft
+        .id
+        .clone()
+        .unwrap_or_else(|| PersonId::new(String::new()));
+
+    match next.persons.iter_mut().find(|p| p.id == id) {
+        Some(existing) => {
+            existing.name = draft.name.trim().to_owned();
+            existing.weight = draft.weight;
+            existing.parent = draft.parent.clone();
         }
         None => next.persons.push(Person {
-            id: PersonId::new(new_id()),
+            id,
             name: draft.name.trim().to_owned(),
             weight: draft.weight,
             parent: draft.parent.clone(),
@@ -260,9 +275,4 @@ pub fn remove_person(tour: &Tour, id: &PersonId) -> Tour {
         }
     }
     next
-}
-
-/// Sends a changed tour and says what happened.
-pub async fn save(tour: &Tour) -> Result<(), String> {
-    api::save_tour(tour).await
 }

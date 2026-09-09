@@ -36,6 +36,27 @@ pub fn set_token(token: &str) {
 /// What went wrong, in the words the screen will show.
 pub type Failed = String;
 
+/// Why a save did not happen - the caller has to tell these apart.
+///
+/// A conflict is resolvable: replay the pending operations on top of whatever is there now.
+/// Being offline is not a failure at all, only a "later". Everything else is a real error.
+#[derive(Debug)]
+pub enum SaveError {
+    Conflict,
+    Offline(String),
+    Other(String),
+}
+
+impl std::fmt::Display for SaveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SaveError::Conflict => f.write_str("somebody else changed this tour"),
+            SaveError::Offline(e) => write!(f, "no connection: {e}"),
+            SaveError::Other(e) => f.write_str(e),
+        }
+    }
+}
+
 /// Exchanges an access code - already hashed, as it comes in a share link - for a token.
 pub async fn log_in_with_md5(code_md5: &str) -> Result<(), Failed> {
     let url = format!("/api/Auth/token/code/{code_md5}/md5");
@@ -53,6 +74,11 @@ pub async fn log_in_with_md5(code_md5: &str) -> Result<(), Failed> {
         .map_err(|e| format!("could not read the token: {e}"))?;
     set_token(token.trim());
     Ok(())
+}
+
+/// Whether a failure was the network rather than the server.
+pub fn looks_offline(message: &str) -> bool {
+    message.contains("could not reach the server")
 }
 
 async fn get(url: &str) -> Result<String, Failed> {
@@ -106,12 +132,12 @@ pub async fn tours() -> Result<Vec<Tour>, Failed> {
 /// The soft lock lives in the tour's own `StateGUID`, which travels with it: the server
 /// compares what arrives against what it holds and refuses a save built on a stale read.
 /// A 409 is therefore not a failure to report and forget - it means somebody else wrote
-/// while this screen was open, and the only honest answer is to reload and let the reader
-/// see what changed.
-pub async fn save_tour(tour: &Tour) -> Result<(), Failed> {
+/// while this one was reading, and `sync` answers it by replaying the queued operations on
+/// top of what they saved.
+pub async fn save_tour(tour: &Tour) -> Result<(), SaveError> {
     let body = tour
         .to_json()
-        .map_err(|e| format!("could not write the tour: {e}"))?;
+        .map_err(|e| SaveError::Other(format!("could not write the tour: {e}")))?;
 
     let mut req = Request::patch(&format!("/api/Tour/{}", tour.id));
     if let Some(t) = token() {
@@ -120,20 +146,24 @@ pub async fn save_tour(tour: &Tour) -> Result<(), Failed> {
     let resp = req
         .header("Content-Type", "application/json")
         .body(body)
-        .map_err(|e| format!("could not build the request: {e}"))?
+        .map_err(|e| SaveError::Other(format!("could not build the request: {e}")))?
         .send()
         .await
-        .map_err(|e| format!("could not reach the server: {e}"))?;
+        // A failed fetch is what being offline looks like from here; the browser does not
+        // say more than that, and it does not need to.
+        .map_err(|e| SaveError::Offline(e.to_string()))?;
 
     match resp.status() {
         200 => Ok(()),
-        409 => {
-            Err("Somebody else changed this tour while it was open. Reload and try again.".into())
-        }
-        404 => Err("This tour is gone, or the login no longer covers it.".into()),
+        409 => Err(SaveError::Conflict),
+        404 => Err(SaveError::Other(
+            "This tour is gone, or the login no longer covers it.".into(),
+        )),
         s => {
             let detail = resp.text().await.unwrap_or_default();
-            Err(format!("The server answered {s}. {detail}"))
+            Err(SaveError::Other(format!(
+                "The server answered {s}. {detail}"
+            )))
         }
     }
 }

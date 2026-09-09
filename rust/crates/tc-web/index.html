@@ -17,6 +17,16 @@
     -->
     <link data-trunk rel="rust" data-wasm-opt="z"
           data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext" />
+    <link data-trunk rel="copy-file" href="sw.js" />
 </head>
-<body></body>
+<body>
+    <script>
+        // Registration is three lines of JavaScript and there is no reason to route it
+        // through wasm. It is deliberately not awaited: the app must start whether or not
+        // the browser supports service workers.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
+</body>
 </html>

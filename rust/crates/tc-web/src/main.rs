@@ -8,6 +8,8 @@ mod api;
 mod dialogs;
 mod edit;
 mod list;
+mod queue;
+mod sync;
 mod tour;
 mod ui;
 
