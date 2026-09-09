@@ -5,6 +5,13 @@
 # architecture rather than compiled under QEMU, which is the difference between a couple of
 # minutes and most of an hour. Both are possible because every dependency is pure Rust -
 # there is no OpenSSL, no BouncyCastle, nothing that needs a C toolchain for the target.
+#
+# The server is linked against musl, statically, with rustc's own linker. That is not for
+# the smallness (though the result is 1.9 MB and the image has nothing else in it): it is
+# because cross-linking glibc needs the target's libc to link against, which means an apt
+# package per architecture and a linker to point cargo at. Static musl needs none of that -
+# rustc ships the crt objects and rust-lld links them - so the whole cross-compilation is
+# two environment variables and no toolchain at all.
 
 # ---------------------------------------------------------------------------------------
 # The browser side.
@@ -46,21 +53,18 @@ FROM --platform=$BUILDPLATFORM rust:1-bookworm AS server
 ARG TARGETARCH
 WORKDIR /src
 
-# One linker per target. The gnu targets are used rather than musl because the runtime image
-# below is Debian-based anyway, and this way there is no second libc to reason about.
+# rustc links musl targets with its own `rust-lld` and its own bundled crt objects, so there
+# is nothing to install and nothing architecture-specific on the builder.
+ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld \
+    CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld
+
 RUN case "$TARGETARCH" in \
-        amd64) TRIPLE=x86_64-unknown-linux-gnu ;; \
-        arm64) TRIPLE=aarch64-unknown-linux-gnu ;; \
+        amd64) TRIPLE=x86_64-unknown-linux-musl ;; \
+        arm64) TRIPLE=aarch64-unknown-linux-musl ;; \
         *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
     esac \
  && echo "$TRIPLE" > /triple \
- && rustup target add "$TRIPLE" \
- && if [ "$TARGETARCH" = "arm64" ]; then \
-        apt-get update && apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu \
-        && rm -rf /var/lib/apt/lists/*; \
-    fi
-
-ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+ && rustup target add "$TRIPLE"
 
 COPY rust/ ./rust/
 
@@ -68,13 +72,15 @@ COPY rust/ ./rust/
 # been published since.
 RUN cd rust \
  && cargo build --release --locked -p tc-server --target "$(cat /triple)" \
- && cp "target/$(cat /triple)/release/tc-server" /tc-server
+ && cp "target/$(cat /triple)/release/tc-server" /tc-server \
+ && ls -la /tc-server
 
 # ---------------------------------------------------------------------------------------
-# What actually ships. No shell, no package manager, no .NET runtime: a static-ish binary,
-# the wasm client, and a seed file.
+# What actually ships. The binary is static, so the image needs no libc either: no shell, no
+# package manager, no runtime - a binary, the wasm client and a seed file, running as a user
+# that is not root.
 # ---------------------------------------------------------------------------------------
-FROM gcr.io/distroless/cc-debian12
+FROM gcr.io/distroless/static-debian12:nonroot
 
 ARG BUILD_TYPE=na
 LABEL org.opencontainers.image.title="Tourcalc (Rust experiment)" \
