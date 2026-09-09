@@ -12,6 +12,22 @@ pub struct Config {
     /// Where the built Blazor client lives, if it is to be served from here as well.
     pub static_dir: Option<String>,
     pub listen: String,
+
+    /// How many tours one access code may hold. `-1` is no limit, which is the default the
+    /// C# ships with.
+    pub max_tours_per_code: i64,
+    /// Whether saving a tour keeps the state it replaced.
+    pub versioning: bool,
+    /// Whether a stored version may itself be written to. Off, as in the C#: a version is a
+    /// record of what was, and editing one would make it a record of nothing.
+    pub version_editable: bool,
+    /// The word this build calls itself, echoed in `X-Tourcalc-Version`.
+    pub build_type: String,
+    /// The secret in the wake-up URL. Not authentication - it is one string in a path, and
+    /// it only guards an endpoint that does nothing but wait.
+    pub wakeup_code: String,
+    pub wakeup_pre_delay_min: u64,
+    pub wakeup_post_delay_min: u64,
 }
 
 impl Config {
@@ -30,10 +46,30 @@ impl Config {
                 .unwrap_or_else(|| "TCBlazor/Server/inmemory-tours.json".to_owned()),
             static_dir: var("StaticFilesDir"),
             listen: var("Listen").unwrap_or_else(|| "127.0.0.1:5400".to_owned()),
+            max_tours_per_code: number("MaxCountOfToursPerCode", -1),
+            versioning: flag("TourVersioning", true),
+            version_editable: flag("TourVersionEditable", false),
+            build_type: var("BUILD_TYPE").unwrap_or_else(|| "na".to_owned()),
+            wakeup_code: var("WakeupCode").unwrap_or_else(|| "secCode".to_owned()),
+            wakeup_pre_delay_min: number("WaketimePreDelayInMin", 1) as u64,
+            wakeup_post_delay_min: number("WaketimePostDelayInMin", 1) as u64,
         }
     }
 }
 
 fn var(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|v| !v.trim().is_empty())
+}
+
+fn number(name: &str, default: i64) -> i64 {
+    var(name)
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or(default)
+}
+
+/// A boolean the way .NET configuration reads one: "true"/"false", any case.
+fn flag(name: &str, default: bool) -> bool {
+    var(name)
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or(default)
 }

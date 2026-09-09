@@ -124,28 +124,44 @@ pub async fn all_suggested(
     })
 }
 
-/// `GET /api/Tour/{id}/versions` - always empty for now.
+/// `GET /api/Tour/{id}/versions` - what this tour used to be, newest first.
 ///
-/// Versions are kept by the storage layer, which this server does not have yet. An empty
-/// list is what a tour with no history returns anyway, so the client renders correctly
-/// rather than erroring; when storage arrives this stops being a stub.
+/// Without their people and spendings: the screen that lists them shows a date and a line
+/// saying what changed, and the contents are most of the payload. The C# clears both fields
+/// for the same reason, and a client that wants one back asks for it by restoring it.
 pub async fn versions(
     State(state): State<Shared>,
     Bearer(auth): Bearer,
     Path(id): Path<String>,
+    Query(paging): Query<Paging>,
 ) -> Result<Json<TourList>, ApiError> {
+    let tour_id = TourId::new(id.clone());
     state
         .store
-        .get(&TourId::new(id.clone()))
+        .get(&tour_id)
         .filter(|t| auth.may_see(access_code_of(t)))
         .ok_or_else(|| ApiError::NotFound(format!("no tour with id {id}")))?;
 
+    let (page, total) = state.store.versions(&tour_id, paging.from, paging.count);
+
+    let tours: Vec<serde_json::Value> = page
+        .iter()
+        .map(|v| {
+            let mut value = to_value(v);
+            if let Some(obj) = value.as_object_mut() {
+                obj.insert("Persons".into(), serde_json::json!([]));
+                obj.insert("Spendings".into(), serde_json::json!([]));
+            }
+            value
+        })
+        .collect();
+
     Ok(Json(TourList {
-        tours: Vec::new(),
-        total_count: 0,
-        from: 0,
-        count: 0,
-        requested_count: 0,
+        count: tours.len(),
+        tours,
+        total_count: total,
+        from: paging.from,
+        requested_count: paging.count,
     }))
 }
 

@@ -45,6 +45,13 @@ async fn main() {
         master_key: cfg.master_key.clone(),
         token_valid_minutes: cfg.token_valid_minutes,
         started: std::time::SystemTime::now(),
+        versioning: cfg.versioning,
+        version_editable: cfg.version_editable,
+        max_tours_per_code: cfg.max_tours_per_code,
+        wakeup_code: cfg.wakeup_code.clone(),
+        wakeup_pre_delay_min: cfg.wakeup_pre_delay_min,
+        wakeup_post_delay_min: cfg.wakeup_post_delay_min,
+        wakeups: Default::default(),
     });
 
     let mut app = Router::new().merge(api::routes(state));
@@ -57,11 +64,62 @@ async fn main() {
         tracing::info!("serving {dir}");
     }
 
+    // What the browser may keep, and for how long.
+    //
+    // "no-cache" belongs on what can differ between two requests: the app shell, the API.
+    // It does *not* belong on the hashed assets - `tc-web-<hash>.wasm` is named after its
+    // own contents, so it can be kept until its name changes - and putting it there was
+    // what made the C# ask about every framework file on every load, a round trip each,
+    // for answers that were always 304.
+    let cache_headers = axum::middleware::from_fn(
+        |request: axum::extract::Request, next: axum::middleware::Next| async move {
+            let is_api = request.uri().path().starts_with("/api");
+            let mut response = next.run(request).await;
+            let is_document = response
+                .headers()
+                .get(axum::http::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|v| v.starts_with("text/html"));
+            if is_api || is_document {
+                response.headers_mut().insert(
+                    axum::http::header::CACHE_CONTROL,
+                    axum::http::HeaderValue::from_static("no-cache"),
+                );
+            }
+            response
+        },
+    );
+
     // Compress what goes out. The features were enabled from the start and the layer was
     // never added, so the client was downloading a 690 K wasm file that brotli takes to
     // about 225 K - on a project whose whole premise is the size of that file. Negotiated
     // per request: a client that asks for neither gets the bytes as they are.
+    // Which build answered, visible in the network tab without asking anybody.
+    let version = axum::http::HeaderValue::from_str(&format!("rust v {}", cfg.build_type))
+        .unwrap_or_else(|_| axum::http::HeaderValue::from_static("rust"));
+
     let app = app
+        .layer(cache_headers)
+        .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
+            axum::http::HeaderName::from_static("x-tourcalc-version"),
+            version,
+        ))
+        // Anywhere, any method, any header, credentials included - the C#'s policy. It is
+        // as open as a policy gets, and it is not what protects anything here: a tour is
+        // reached with a token, and a token comes from an access code.
+        //
+        // Everything is *mirrored* rather than answered with `*`, and that is not a
+        // preference. A wildcard alongside `Allow-Credentials: true` is invalid CORS and
+        // browsers reject it; tower-http refuses to build such a layer at all, which is how
+        // this was found - the server would not start. ASP.NET quietly echoes the request in
+        // the same situation, so mirroring is also what the C# actually sends.
+        .layer(
+            tower_http::cors::CorsLayer::new()
+                .allow_origin(tower_http::cors::AllowOrigin::mirror_request())
+                .allow_methods(tower_http::cors::AllowMethods::mirror_request())
+                .allow_headers(tower_http::cors::AllowHeaders::mirror_request())
+                .allow_credentials(true),
+        )
         .layer(tower_http::compression::CompressionLayer::new())
         .layer(tower_http::trace::TraceLayer::new_for_http());
 

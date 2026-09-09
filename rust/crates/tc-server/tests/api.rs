@@ -14,17 +14,31 @@ const CODE: &str = "1C0369EA42B2F746D3DF1E66BCB2DE46";
 const DEV_KEY: &str = "aSXx0m1XH4K1GfIYR8mi7/XrSWGCH30Eqn074DhewZo=";
 
 fn app() -> axum::Router {
+    app_with(|_| {})
+}
+
+/// The same server with one setting changed, for the tests that are about a setting.
+fn app_with(tweak: impl FnOnce(&mut tc_server::state::AppState)) -> axum::Router {
     let seed = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../TCBlazor/Server/inmemory-tours.json");
     let store = tc_server::store::InMemoryStore::from_seed_file(&seed).expect("seed file");
-    let state = std::sync::Arc::new(tc_server::state::AppState {
+    let state = tc_server::state::AppState {
         store: Box::new(store),
         signer: tc_server::auth::Signer_::from_base64(DEV_KEY).unwrap(),
         master_key: "master".to_owned(),
         token_valid_minutes: 60,
         started: std::time::SystemTime::now(),
-    });
-    tc_server::api::routes(state)
+        versioning: true,
+        version_editable: false,
+        max_tours_per_code: -1,
+        wakeup_code: "secCode".into(),
+        wakeup_pre_delay_min: 0,
+        wakeup_post_delay_min: 0,
+        wakeups: Default::default(),
+    };
+    let mut state = state;
+    tweak(&mut state);
+    tc_server::api::routes(std::sync::Arc::new(state))
 }
 
 async fn get(app: &axum::Router, uri: &str, token: Option<&str>) -> (StatusCode, String) {
@@ -40,6 +54,13 @@ async fn get(app: &axum::Router, uri: &str, token: Option<&str>) -> (StatusCode,
     let status = resp.status();
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
     (status, String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// A token for the administrator, who is not subject to the rules the codes are.
+async fn token_for_admin(app: &axum::Router) -> String {
+    let (status, body) = get(app, "/api/Auth/token/admin/master", None).await;
+    assert_eq!(status, StatusCode::OK);
+    body
 }
 
 async fn token_for_code(app: &axum::Router) -> String {
@@ -318,16 +339,150 @@ async fn a_tour_can_be_deleted_while_others_remain() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-/// Restoring a version is a different operation; better refused than mistaken for an edit.
+/// Saving keeps what it replaced, with a line saying what the save did.
 #[tokio::test]
-async fn a_version_restore_is_refused_for_now() {
+async fn a_save_keeps_the_state_it_replaced() {
     let app = app();
     let token = token_for_code(&app).await;
-    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
-    tour["IsVersion"] = true.into();
 
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    let was = tour["Name"].as_str().unwrap().to_owned();
+    tour["Name"] = "Renamed once".into();
     let (status, _) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = get(&app, "/api/Tour/zscph2y/versions", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    let list: serde_json::Value = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(list["TotalCount"], 1, "one save, one version: {body}");
+    let version = &list["Tours"][0];
+    assert_eq!(version["Name"], was, "the version holds what was replaced");
+    assert!(
+        version["VersionComment"]
+            .as_str()
+            .unwrap_or_default()
+            .contains(&was),
+        "the comment names the change: {}",
+        version["VersionComment"]
+    );
+    // The list screen shows a date and a comment, so the contents are left out.
+    assert_eq!(version["Persons"].as_array().map(|a| a.len()), Some(0));
+    assert_eq!(version["Spendings"].as_array().map(|a| a.len()), Some(0));
+}
+
+/// A save that changed nothing anybody can name leaves no version.
+///
+/// Otherwise every reopened tour and every re-saved form would add a line to the history,
+/// and the history would be useless by the end of the week.
+#[tokio::test]
+async fn saving_the_same_tour_again_keeps_nothing() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let tour = fetch_tour(&app, &token, "zscph2y").await;
+    let (status, _) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (_, body) = get(&app, "/api/Tour/zscph2y/versions", Some(&token)).await;
+    let list: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(
+        list["TotalCount"], 0,
+        "nothing changed, nothing kept: {body}"
+    );
+}
+
+/// Restoring a version puts the old state back, and says so in the history.
+#[tokio::test]
+async fn a_version_can_be_restored() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    let original = tour["Name"].as_str().unwrap().to_owned();
+    tour["Name"] = "A name nobody wanted".into();
+    send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+
+    // Take the kept copy and send it back as it is: that is what restoring is.
+    let (_, body) = get(&app, "/api/Tour/zscph2y/versions", Some(&token)).await;
+    let list: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let version_id = list["Tours"][0]["GUID"].as_str().unwrap().to_owned();
+
+    let mut restore = fetch_tour(&app, &token, "zscph2y").await;
+    // A real client sends the version record back as it came. `Id` and `GUID` are one field
+    // in the C# - `Id` is a property over `GUID` - so both carry the version's own id, and a
+    // body that set only one of them would not be a restore at all.
+    restore["Id"] = version_id.clone().into();
+    restore["GUID"] = version_id.into();
+    restore["IsVersion"] = true.into();
+    restore["Name"] = original.clone().into();
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        "/api/Tour/zscph2y",
+        Some(&token),
+        Some(restore),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let back = fetch_tour(&app, &token, "zscph2y").await;
+    assert_eq!(back["Name"], serde_json::Value::from(original));
+    assert_eq!(
+        back["IsVersion"],
+        serde_json::Value::Bool(false),
+        "what came back is the tour, not a version of it"
+    );
+
+    let (_, body) = get(&app, "/api/Tour/zscph2y/versions", Some(&token)).await;
+    let list: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(list["TotalCount"], 2, "the undone state is kept too");
+    assert!(
+        list["Tours"][0]["VersionComment"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("Tour Restored to"),
+        "the restore names itself: {body}"
+    );
+}
+
+/// A version is history, not a tour: it never shows up in anybody's list.
+#[tokio::test]
+async fn versions_are_not_tours() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let (_, before) = get(&app, "/api/Tour/all/suggested", Some(&token)).await;
+    let before: serde_json::Value = serde_json::from_str(&before).unwrap();
+    let count = before["TotalCount"].as_u64().unwrap();
+
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    tour["Name"] = "Renamed".into();
+    send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+
+    let (_, after) = get(&app, "/api/Tour/all/suggested", Some(&token)).await;
+    let after: serde_json::Value = serde_json::from_str(&after).unwrap();
+    assert_eq!(after["TotalCount"].as_u64().unwrap(), count);
+}
+
+/// Deleting a tour takes its history with it.
+#[tokio::test]
+async fn deleting_a_tour_deletes_its_versions() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    tour["Name"] = "About to go".into();
+    send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+
+    let (status, _) = send(&app, "DELETE", "/api/Tour/zscph2y", Some(&token), None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Nothing of it is left to be listed, and asking for its versions is a 404 like any
+    // other unknown tour.
+    let (status, _) = get(&app, "/api/Tour/zscph2y/versions", Some(&token)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
 /// An endpoint that does not exist is a 404, and not the app's index page.
@@ -344,5 +499,140 @@ async fn an_unknown_endpoint_is_not_the_app() {
 
     // And the routes that do exist still answer, which is the half a catch-all can break.
     let (status, _) = get(&app, "/api/Tour/all/suggested", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+/// Two saves of the same tour at the same moment: one wins, the other is told.
+///
+/// This is what the soft lock is for, and checking the state id in the handler and writing
+/// afterwards does not provide it - between those two steps the other request can land, and
+/// then one client's work is gone with both told they succeeded. The check and the write are
+/// one step in the store, and this is the test that would fail if they were ever separated
+/// again.
+#[tokio::test]
+async fn two_saves_at_once_do_not_lose_one() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    // Both start from the same state, as two people with the tour open would.
+    let base = fetch_tour(&app, &token, "zscph2y").await;
+    let mut mine = base.clone();
+    let mut theirs = base;
+    mine["Name"] = "Mine".into();
+    theirs["Name"] = "Theirs".into();
+
+    let first = {
+        let app = app.clone();
+        let token = token.clone();
+        tokio::spawn(async move {
+            send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(mine)).await
+        })
+    };
+    let second = {
+        let app = app.clone();
+        let token = token.clone();
+        tokio::spawn(async move {
+            send(
+                &app,
+                "PATCH",
+                "/api/Tour/zscph2y",
+                Some(&token),
+                Some(theirs),
+            )
+            .await
+        })
+    };
+
+    let (a, _) = first.await.unwrap();
+    let (b, _) = second.await.unwrap();
+
+    let mut outcomes = [a, b];
+    outcomes.sort_by_key(|s| s.as_u16());
+    assert_eq!(
+        outcomes,
+        [StatusCode::OK, StatusCode::CONFLICT],
+        "exactly one save may win, and the other has to be told"
+    );
+
+    // And what is stored is one of the two, not a mixture.
+    let after = fetch_tour(&app, &token, "zscph2y").await;
+    let name = after["Name"].as_str().unwrap();
+    assert!(name == "Mine" || name == "Theirs", "stored: {name}");
+}
+
+/// Random bytes come back base64, and an unreasonable length is refused.
+#[tokio::test]
+async fn random_bytes_are_bytes() {
+    let app = app();
+
+    let (status, body) = get(&app, "/api/Auth/random/32", None).await;
+    assert_eq!(status, StatusCode::OK);
+    use base64::Engine;
+    let raw = base64::engine::general_purpose::STANDARD
+        .decode(body.trim())
+        .expect("base64");
+    assert_eq!(raw.len(), 32);
+
+    // Twice is not the same twice.
+    let (_, again) = get(&app, "/api/Auth/random/32", None).await;
+    assert_ne!(body, again);
+
+    let (status, _) = get(&app, "/api/Auth/random/9000", None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+/// The wake-up endpoint answers only to its own code.
+#[tokio::test]
+async fn a_wakeup_needs_the_word() {
+    let app = app();
+
+    let (status, body) = get(&app, "/api/Info/wakeup/nonsense", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "wrong code");
+
+    // The real code is accepted, and the wake-up is recorded where the startup info shows
+    // it. The delays are zero in these tests; in a deployment they are what holds the
+    // instance open.
+    let (status, body) = get(&app, "/api/Info/wakeup/secCode", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "ok");
+
+    let (_, info) = get(&app, "/api/Info/start", None).await;
+    let info: serde_json::Value = serde_json::from_str(&info).unwrap();
+    assert_eq!(
+        info["lastWakeups"].as_array().map(|a| a.len()),
+        Some(1),
+        "the wake-up is on the record: {info}"
+    );
+}
+
+/// One access code may be capped, and an administrator is not subject to the cap.
+#[tokio::test]
+async fn a_code_can_be_limited_to_so_many_tours() {
+    let app = app_with(|state| state.max_tours_per_code = 2);
+    let token = token_for_code(&app).await;
+
+    // The seed gives this code two tours already, so the next one is one too many.
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/Tour/add/whatever",
+        Some(&token),
+        Some(serde_json::json!({ "Name": "One too many" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert!(body.contains("up to 2 tours"), "{body}");
+
+    // An administrator is asked precisely so that they can say yes.
+    let admin = token_for_admin(&app).await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/api/Tour/add/somecode",
+        Some(&admin),
+        Some(serde_json::json!({ "Name": "Allowed" })),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
 }

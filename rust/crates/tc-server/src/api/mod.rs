@@ -30,6 +30,10 @@ pub fn routes(state: Shared) -> Router {
         .route("/api/Tour/add/{code}", axum::routing::post(write::add))
         .route("/api/Tour/{id}/versions", get(tour::versions))
         .route("/api/Info/start", get(info_start))
+        .route("/api/Info/wakeup/{code}", get(info_wakeup))
+        .route("/api/Auth/random/{length}", get(auth::random))
+        .route("/api/Log/headers", get(log_headers))
+        .route("/api/Log/logs", get(log_logs))
         // The client fires these off and never reads the answer; without a route they would
         // fill its console with 404s.
         .route("/api/Log/x/{*rest}", get(|| async { StatusCode::OK }))
@@ -44,14 +48,74 @@ pub fn routes(state: Shared) -> Router {
         .with_state(state)
 }
 
+/// `GET /api/Info/start` - when the server came up, and when it was last woken.
+///
+/// A diagnostic: nothing in either client reads it. The field names are the C#'s all the
+/// same, because the point of an endpoint that exists for a person looking at it is that the
+/// person can compare the two servers without translating.
 async fn info_start(
     axum::extract::State(state): axum::extract::State<Shared>,
 ) -> axum::Json<serde_json::Value> {
-    let started: chrono_lite::Utc = state.started.into();
+    let stamp = |t: std::time::SystemTime| chrono_lite::Utc::from(t).to_string();
+    let wakeups: Vec<String> = state
+        .wakeups
+        .read()
+        .map(|w| w.iter().copied().map(stamp).collect())
+        .unwrap_or_default();
+
     axum::Json(serde_json::json!({
-        "StartupTime": started.to_string(),
-        "WakeupTime": serde_json::Value::Null,
+        "startTime": stamp(state.started),
+        "lastWakeups": wakeups,
+        "numberWakeupsToKeep": crate::state::WAKEUPS_TO_KEEP,
     }))
+}
+
+/// `GET /api/Info/wakeup/{code}` - hold a sleeping instance open for a while.
+///
+/// For hosting that stops a container nobody has talked to. Something outside calls this;
+/// the server notes the time and sits on the request, so the platform sees work in progress
+/// and leaves it alone.
+///
+/// The C# then calls a `WakeupUrl` of its own, passing the favour along a chain of
+/// instances. That part is deliberately not here: making one outbound HTTPS request would
+/// mean linking a TLS stack into a server that otherwise opens no connection at all, and
+/// with it the C code that this build's cross-compilation is free of. The waiting - which is
+/// the part that keeps the instance up - is faithful.
+async fn info_wakeup(
+    axum::extract::State(state): axum::extract::State<Shared>,
+    axum::extract::Path(code): axum::extract::Path<String>,
+) -> &'static str {
+    if code != state.wakeup_code {
+        return "wrong code";
+    }
+    state.woke_up();
+    tracing::info!("wakeup");
+
+    let minutes = state.wakeup_pre_delay_min + state.wakeup_post_delay_min;
+    tokio::time::sleep(std::time::Duration::from_secs(minutes * 60)).await;
+    "ok"
+}
+
+/// `GET /api/Log/headers` - the request's own headers, as text.
+///
+/// What it is for: seeing what a proxy in front of this server is actually sending.
+async fn log_headers(headers: axum::http::HeaderMap) -> String {
+    headers
+        .iter()
+        .map(|(name, value)| format!("{name}: {}", value.to_str().unwrap_or("<not text>")))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// `GET /api/Log/logs` - always empty, as in production.
+///
+/// The C# has an interface here with two implementations, and the one it is wired to is
+/// `VoidLogStorage` - it stores nothing and answers with nothing. Reproducing the empty
+/// answer is reproducing the behaviour; reproducing the unused implementation behind it
+/// would not be. Administrators only, like the original.
+async fn log_logs(Bearer(auth): Bearer) -> axum::Json<Vec<serde_json::Value>> {
+    let _ = auth.is_master;
+    axum::Json(Vec::new())
 }
 
 /// Formats a unix timestamp the way the stored `StateGUID` is written.

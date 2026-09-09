@@ -15,12 +15,17 @@
 //!   else's pile.
 
 use super::{ApiError, Bearer};
+use crate::fields;
 use crate::state::Shared;
 use axum::extract::{Path, State};
 use axum::Json;
 use tc_core::{Tour, TourId};
 
 /// `PATCH /api/Tour/{id}` - store the tour as given, and answer with its id.
+///
+/// Two different operations arrive here, as they do in the C#. Sending a tour saves it, and
+/// sending a *version* of it restores that version - which is why the version check comes
+/// first and skips the soft lock: a restore is deliberately overwriting whatever is there.
 pub async fn update(
     State(state): State<Shared>,
     Bearer(auth): Bearer,
@@ -31,39 +36,102 @@ pub async fn update(
     let stored = state
         .store
         .get(&tour_id)
-        .filter(|t| auth.may_see(super::tour::access_code_of(t)))
+        .filter(|t| auth.may_see(&fields::access_code(t)))
         .ok_or_else(|| ApiError::NotFound(format!("no tour with id {id}")))?;
 
     let mut incoming = Tour::from_json(&body.to_string())
         .map_err(|e| ApiError::BadRequest(format!("could not read the tour: {e}")))?;
 
-    // Restoring an old version is a different operation with different rules, and versions
-    // are not kept here yet. Refusing plainly beats saving it as if it were an edit.
-    if extra_bool(&incoming, "IsVersion") {
-        return Err(ApiError::BadRequest(
-            "restoring a version is not supported by this server yet".into(),
-        ));
+    // A version's own record may not be written to: it is what was, and editing it would
+    // make it a record of nothing.
+    if fields::is_version(&stored) && !state.version_editable {
+        return Err(ApiError::Forbidden("Versions are not editable".into()));
     }
 
-    let stored_state = extra_str(&stored, "StateGUID");
-    let sent_state = extra_str(&incoming, "StateGUID");
-    if stored_state != sent_state {
-        return Err(ApiError::Conflict(format!(
-            "You are trying to override newer version of tour ({stored_state})"
-        )));
+    let restoring = fields::is_version(&incoming)
+        && incoming.id.as_str() != stored.id.as_str()
+        && !fields::is_version(&stored);
+
+    if restoring {
+        // The restored copy becomes the tour again, and the state it replaces is kept with
+        // a line saying what happened - otherwise a restore is the one change in a tour's
+        // history that leaves no trace of what it undid.
+        let when = fields::str_of(&incoming, fields::VERSIONED_AT);
+        fields::set(&mut incoming, fields::IS_VERSION, false.into());
+        fields::set(
+            &mut incoming,
+            fields::INTERNAL_VERSION_COMMENT,
+            format!("Tour Restored to {when}").into(),
+        );
+    } else {
+        let sent_state = fields::str_of(&incoming, fields::STATE);
+        let stored_state = fields::str_of(&stored, fields::STATE);
+        if stored_state != sent_state {
+            return Err(ApiError::Conflict(format!(
+                "You are trying to override newer version of tour ({stored_state})"
+            )));
+        }
     }
 
     // The id and the access code come from what is stored, never from the body.
-    incoming.id = tour_id;
-    set_extra(&mut incoming, "StateGUID", new_state_guid().into());
-    set_extra(
+    incoming.id = tour_id.clone();
+    fields::set(&mut incoming, fields::STATE, new_state_guid().into());
+    fields::set(
         &mut incoming,
-        "AccessCodeMD5",
-        super::tour::access_code_of(&stored).into(),
+        fields::ACCESS_CODE,
+        fields::access_code(&stored).into(),
     );
+    // Asked for by whoever is saving, and never stored on the tour itself.
+    let asked_comment = fields::str_of(&incoming, fields::INTERNAL_VERSION_COMMENT);
+    fields::remove(&mut incoming, fields::INTERNAL_VERSION_COMMENT);
 
-    state.store.store(incoming);
-    Ok(id)
+    let keep_versions = state.versioning;
+    let make_version = |previous: &Tour| -> Option<Tour> {
+        if !keep_versions {
+            return None;
+        }
+        // A save that changed nothing anybody can name leaves no version. Without that,
+        // every reopened tour and every re-saved form would add a line to the history.
+        let comment = if asked_comment.is_empty() {
+            crate::versions::describe_change(previous, &incoming)?
+        } else {
+            asked_comment.clone()
+        };
+        Some(version_of(previous, comment))
+    };
+
+    // The check and the write are one step; see `TourStore::replace`.
+    match state.store.replace(
+        &tour_id,
+        &fields::str_of(&stored, fields::STATE),
+        incoming.clone(),
+        &make_version,
+    ) {
+        Ok(()) => Ok(id),
+        Err(crate::store::Stale(now)) => Err(ApiError::Conflict(format!(
+            "You are trying to override newer version of tour ({now})"
+        ))),
+    }
+}
+
+/// The copy of a state that is kept when it is replaced.
+fn version_of(previous: &Tour, comment: String) -> Tour {
+    let mut version = previous.clone();
+    // Its own record, pointing at the tour it belongs to.
+    version.id = TourId::new(new_version_id());
+    fields::set(&mut version, fields::IS_VERSION, true.into());
+    fields::set(
+        &mut version,
+        fields::VERSION_FOR,
+        previous.id.as_str().into(),
+    );
+    fields::set(
+        &mut version,
+        fields::VERSIONED_AT,
+        fields::now_stamp().into(),
+    );
+    fields::set(&mut version, fields::VERSION_COMMENT, comment.into());
+    version
 }
 
 /// `POST /api/Tour/add/{accessCode}` - create a tour and answer with its new id.
@@ -77,11 +145,21 @@ pub async fn add(
     // has something in it. Otherwise a stray code would quietly become a new account.
     let mine: Vec<_> = state
         .store
-        .list(&|t: &Tour| auth.may_see(super::tour::access_code_of(t)));
-    if !auth.is_master && mine.is_empty() {
-        return Err(ApiError::Forbidden(
-            "Only admin can create first tour for a code".into(),
-        ));
+        .list(&|t: &Tour| auth.may_see(&fields::access_code(t)));
+    if !auth.is_master {
+        if mine.is_empty() {
+            return Err(ApiError::Forbidden(
+                "Only admin can create first tour for a code".into(),
+            ));
+        }
+        // A limit on how many tours one code may hold, off by default. An administrator is
+        // not subject to it, which is the point of asking one.
+        let most = state.max_tours_per_code;
+        if most >= 0 && mine.len() as i64 >= most {
+            return Err(ApiError::Forbidden(format!(
+                "You can create up to {most} tours per code. To add more please ask administrator"
+            )));
+        }
     }
 
     let target_code = if auth.is_master {
@@ -100,8 +178,12 @@ pub async fn add(
 
     let id = new_tour_id();
     tour.id = TourId::new(id.clone());
-    set_extra(&mut tour, "AccessCodeMD5", target_code.into());
-    set_extra(&mut tour, "StateGUID", new_state_guid().into());
+    fields::set(&mut tour, fields::ACCESS_CODE, target_code.into());
+    fields::set(&mut tour, fields::STATE, new_state_guid().into());
+    fields::set(&mut tour, fields::CREATED_AT, fields::now_stamp().into());
+    // Nobody creates a tour that is already somebody's history.
+    fields::remove(&mut tour, fields::IS_VERSION);
+    fields::remove(&mut tour, fields::VERSION_FOR);
 
     state.store.store(tour);
     Ok(id)
@@ -118,7 +200,7 @@ pub async fn delete(
     if !auth.is_master {
         let mine = state
             .store
-            .list(&|t: &Tour| auth.may_see(super::tour::access_code_of(t)));
+            .list(&|t: &Tour| auth.may_see(&fields::access_code(t)));
         if mine.len() <= 1 {
             return Err(ApiError::Forbidden(
                 "Only admin can delete last tour for a code".into(),
@@ -130,51 +212,19 @@ pub async fn delete(
     state
         .store
         .get(&tour_id)
-        .filter(|t| auth.may_see(super::tour::access_code_of(t)))
+        .filter(|t| auth.may_see(&fields::access_code(t)))
         .ok_or_else(|| ApiError::NotFound(format!("no tour with id {id}")))?;
 
+    // The versions go with it: they are that tour's history and belong to nobody else.
+    let (versions, _) = state.store.versions(&tour_id, 0, usize::MAX);
+    for v in versions {
+        state.store.remove(&v.id);
+    }
     state.store.remove(&tour_id);
     Ok(id)
 }
 
-// --- the bits of a tour this crate keeps in `Extras` --------------------------------------
-//
-// `StateGUID` and `AccessCodeMD5` are about storage and access rather than about money, so
-// `tc-core` does not model them and they travel in the carry-through bag. Reading them is
-// case-insensitive for the same reason as everywhere else: the stored data is not
-// consistent about it.
-
-fn extra_str(tour: &Tour, key: &str) -> String {
-    tour.extras
-        .0
-        .iter()
-        .find(|(k, _)| k.eq_ignore_ascii_case(key))
-        .and_then(|(_, v)| v.as_str())
-        .unwrap_or("")
-        .to_owned()
-}
-
-fn extra_bool(tour: &Tour, key: &str) -> bool {
-    tour.extras
-        .0
-        .iter()
-        .find(|(k, _)| k.eq_ignore_ascii_case(key))
-        .and_then(|(_, v)| v.as_bool())
-        .unwrap_or(false)
-}
-
-fn set_extra(tour: &mut Tour, key: &str, value: serde_json::Value) {
-    // Replace whatever spelling is already there, so a camelCase tour does not end up with
-    // both `stateGUID` and `StateGUID`.
-    let existing: Option<String> = tour
-        .extras
-        .0
-        .keys()
-        .find(|k| k.eq_ignore_ascii_case(key))
-        .cloned();
-    let key = existing.unwrap_or_else(|| key.to_owned());
-    tour.extras.0.insert(key, value);
-}
+// --- ids, in the shapes the C# writes -----------------------------------------------------
 
 /// The soft lock's value: a timestamp and a random part, in the shape the C# writes.
 ///
@@ -189,6 +239,18 @@ fn new_state_guid() -> String {
         // a bug to anybody comparing two records.
         + 3 * 3600;
     format!("{} .{}", super::stamp(now), random_hex(32))
+}
+
+/// A version's own id. The C# uses a GUID here, and nothing reads it but the store.
+fn new_version_id() -> String {
+    format!(
+        "{}-{}-{}-{}-{}",
+        random_hex(8),
+        random_hex(4),
+        random_hex(4),
+        random_hex(4),
+        random_hex(12)
+    )
 }
 
 /// A short, URL-safe id for a new tour, in the style of the existing ones.
@@ -210,7 +272,7 @@ fn random_hex(chars: usize) -> String {
         .collect()
 }
 
-fn random_bytes(n: usize) -> Vec<u8> {
+pub fn random_bytes(n: usize) -> Vec<u8> {
     use p256::elliptic_curve::rand_core::RngCore;
     let mut buf = vec![0u8; n];
     // The same source the signing key uses; no extra dependency for a handful of bytes.

@@ -29,13 +29,42 @@ use tc_core::{Tour, TourId};
 /// and because the tests should not need it.
 pub trait TourStore: Send + Sync {
     fn get(&self, id: &TourId) -> Option<Arc<Tour>>;
-    /// Every tour the given access codes may see, newest first.
+    /// Every tour the given access codes may see, in the order they were added.
+    ///
+    /// Never a version: those live in the same collection and are somebody's history, not a
+    /// tour in their list.
     fn list(&self, allowed: &dyn Fn(&Tour) -> bool) -> Vec<Arc<Tour>>;
     /// Writes a tour, adding it if its id is new.
     fn store(&self, tour: Tour);
     /// Removes a tour; `false` if there was none.
     fn remove(&self, id: &TourId) -> bool;
+
+    /// Replaces a tour, but only while it is still the one the caller looked at.
+    ///
+    /// This is the soft lock, and it has to be one indivisible step. Checking the state id
+    /// in a handler and writing afterwards is two, and between them another request can save
+    /// its own version of the tour - which then vanishes, with both clients told they
+    /// succeeded. The C# wraps the pair in a per-tour `lock`; this puts the whole decision
+    /// where the data is, so no caller can get it wrong.
+    ///
+    /// `version_of` is given the state about to be replaced and may return a copy to keep
+    /// alongside it. It runs inside the same critical section, so the history cannot record
+    /// a state that was never stored.
+    fn replace(
+        &self,
+        id: &TourId,
+        expected_state: &str,
+        next: Tour,
+        version_of: &dyn Fn(&Tour) -> Option<Tour>,
+    ) -> Result<(), Stale>;
+
+    /// The kept states of one tour, newest first, and how many there are in all.
+    fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize);
 }
+
+/// Somebody else saved first: this is the state id that is stored now.
+#[derive(Debug)]
+pub struct Stale(pub String);
 
 /// Tours held in memory, seeded from a file at startup and never written back.
 ///
@@ -121,6 +150,66 @@ impl InMemoryStore {
 }
 
 impl TourStore for InMemoryStore {
+    fn replace(
+        &self,
+        id: &TourId,
+        expected_state: &str,
+        next: Tour,
+        version_of: &dyn Fn(&Tour) -> Option<Tour>,
+    ) -> Result<(), Stale> {
+        // One write lock around read, compare, and both writes. Nothing can interleave.
+        let mut tours = self.tours.write().expect("store lock");
+
+        let stored = tours.get(id).ok_or_else(|| Stale(String::new()))?;
+        let stored_state = crate::fields::str_of(stored, crate::fields::STATE);
+        if stored_state != expected_state {
+            return Err(Stale(stored_state));
+        }
+
+        if let Some(version) = version_of(stored) {
+            let vid = version.id.clone();
+            if tours.insert(vid.clone(), Arc::new(version)).is_none() {
+                self.order.write().expect("store lock").push(vid);
+            }
+        }
+
+        tours.insert(id.clone(), Arc::new(next));
+        Ok(())
+    }
+
+    fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize) {
+        let tours = self.tours.read().expect("store lock");
+
+        // Walked in the order they were written, not in whatever order the map holds them:
+        // two versions of the same tour can share a timestamp to the second, and then the
+        // map's order is the only thing deciding which of them is "newest" - which is to say
+        // nothing is.
+        let mut mine: Vec<Arc<Tour>> = self
+            .order
+            .read()
+            .expect("store lock")
+            .iter()
+            .rev()
+            .filter_map(|i| tours.get(i))
+            .filter(|t| {
+                crate::fields::is_version(t)
+                    && crate::fields::str_of(t, crate::fields::VERSION_FOR) == id.as_str()
+            })
+            .cloned()
+            .collect();
+
+        // Newest first: the version somebody wants is nearly always the last one. A stable
+        // sort, so anything written within the same second keeps the order it was written
+        // in rather than swapping about between requests.
+        mine.sort_by(|a, b| {
+            crate::fields::str_of(b, crate::fields::VERSIONED_AT)
+                .cmp(&crate::fields::str_of(a, crate::fields::VERSIONED_AT))
+        });
+
+        let total = mine.len();
+        (mine.into_iter().skip(from).take(count).collect(), total)
+    }
+
     fn store(&self, tour: Tour) {
         let id = tour.id.clone();
         let mut tours = self.tours.write().expect("store lock");
@@ -152,6 +241,7 @@ impl TourStore for InMemoryStore {
             .expect("store lock")
             .iter()
             .filter_map(|id| tours.get(id))
+            .filter(|t| !crate::fields::is_version(t))
             .filter(|t| allowed(t))
             .cloned()
             .collect()

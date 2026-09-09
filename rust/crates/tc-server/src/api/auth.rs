@@ -49,3 +49,17 @@ pub async fn token(
 pub async fn whoami(Bearer(auth): Bearer) -> Json<AuthData> {
     Json(auth)
 }
+
+/// `GET /api/Auth/random/{length}` - random bytes, base64, for making a key with.
+///
+/// Not a secret-issuing endpoint: it hands out entropy, not authority. The cap is the C#'s.
+pub async fn random(Path(length): Path<usize>) -> Result<String, ApiError> {
+    const MOST: usize = 8192;
+    if length > MOST {
+        return Err(ApiError::Forbidden(format!(
+            "Length should be up to {MOST} bytes. You specified {length}"
+        )));
+    }
+    use base64::Engine;
+    Ok(base64::engine::general_purpose::STANDARD.encode(crate::api::write::random_bytes(length)))
+}
