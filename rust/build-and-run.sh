@@ -4,13 +4,13 @@
 # together so the whole app can be clicked through.
 #
 #   ./rust/build-and-run.sh              build everything and run
+#   ./rust/build-and-run.sh --blazor     serve the Blazor client instead of the Rust one
 #   ./rust/build-and-run.sh --fast       skip rebuilding the front end (reuse the last one)
-#   ./rust/build-and-run.sh --rust-ui    serve the Rust client instead of the Blazor one
 #   ./rust/build-and-run.sh --port 5555  listen somewhere else
 #
-# By default the front end is the one the C# server ships: this server is meant to be
-# indistinguishable to it, so there is nothing Rust-specific to look at. `--rust-ui` swaps
-# in the Rust client on the same port, so the two can be compared link for link.
+# The Rust client is the default. `--blazor` serves the one the C# server ships instead, on
+# the same port and the same links - useful because this server is meant to be
+# indistinguishable to it, so the two can be compared by restarting with the flag.
 
 set -euo pipefail
 
@@ -19,11 +19,12 @@ ROOT="$PWD"
 
 PORT=5401
 PUBLISH=1
-RUST_UI=0
+RUST_UI=1
 for arg in "$@"; do
     case "$arg" in
         --fast) PUBLISH=0 ;;
-        --rust-ui) RUST_UI=1 ;;
+        --blazor) RUST_UI=0 ;;
+        --rust-ui) RUST_UI=1 ;;   # still accepted, now the default
         --port) ;;                       # value is read below
         --port=*) PORT="${arg#*=}" ;;
         ''|*[!0-9]*) ;;                  # not a number: ignore
@@ -162,10 +163,10 @@ echo
 if [ "$RUST_UI" = 1 ]; then
     printf "  Serving the \033[1mRust\033[0m client. It has the tour list and the Balance tab, and\n"
     echo "  computes the balances in the browser with the same tc-core the server uses."
-    echo "  Run without --rust-ui for the Blazor one on the same links."
+    echo "  Run with --blazor for the original client on the same links."
 else
     printf "  Serving the \033[1mBlazor\033[0m client - the one the C# server ships, unchanged.\n"
-    echo "  Run with --rust-ui for the Rust one on the same links."
+    echo "  Run without --blazor for the Rust one on the same links."
 fi
 echo
 echo "  This server is read-only: adding and editing are phase 4."
