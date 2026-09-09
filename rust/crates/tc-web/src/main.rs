@@ -9,6 +9,7 @@ mod dialogs;
 mod edit;
 mod list;
 mod login;
+mod people;
 mod queue;
 mod sync;
 mod tour;

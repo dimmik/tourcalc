@@ -11,6 +11,7 @@
 
 use crate::dialogs::{PersonDialog, SpendingDialog};
 use crate::edit::{PersonDraft, SpendingDraft};
+use crate::people::PeopleTab;
 use crate::queue::{self, Operation};
 use crate::sync::{self, Status};
 use crate::ui::{avatar_colour, initials, money, name_of};
@@ -18,7 +19,7 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 use tc_core::{
     settlement_summary, split_family, suggest_settlement, Cents, Kind, Person, PersonId, Spending,
-    Split, Tour, Transfer,
+    Split, Tour, Transfer, MINIMUM_MEANINGFUL,
 };
 
 /// A screen that is waiting, has something, or has failed.
@@ -42,7 +43,7 @@ enum Tab {
 
 /// Which dialog is open, if any.
 #[derive(Clone)]
-enum Dialog {
+pub enum Dialog {
     Spending(SpendingDraft),
     Person(PersonDraft),
     /// Renaming the tour: one field, so it carries just the name.
@@ -215,7 +216,7 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<()>, tour_id: String) -> 
 
 /// What a delete button asks for.
 #[derive(Clone)]
-enum Removal {
+pub enum Removal {
     Spending(Spending),
     Person(Person),
 }
@@ -266,6 +267,11 @@ pub fn TourPage(id: String) -> impl IntoView {
 
 #[component]
 fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl IntoView {
+    // Every avatar on this screen can now tell one Дима from another.
+    provide_context(crate::ui::Peers(
+        tour.persons.iter().map(|p| p.name.clone()).collect(),
+    ));
+
     let tab = RwSignal::new(Tab::Balance);
     let dialog: RwSignal<Option<Dialog>> = RwSignal::new(None);
     let tour_id = tour.id.as_str().to_owned();
@@ -290,9 +296,17 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
     let transfers = suggest_settlement(&tour).unwrap_or_default();
     let (family, between): (Vec<Transfer>, Vec<Transfer>) = {
         let (f, b) = split_family(&transfers);
+        // Dividing in whole cents leaves dust, and the settlement dutifully proposes moving
+        // it: on one of the tours here, six separate payments of two cents. The app does not
+        // show them and neither does this - below the threshold is not money anybody is
+        // going to hand over. They are only dropped from the *display*: the People tab is
+        // given the settlement entire, because "has this person anything at all to pay"
+        // is a question about the dust too.
+        let worth_showing =
+            |t: &&Transfer| tour.convert(t.amount, &t.currency).abs().0 > MINIMUM_MEANINGFUL;
         (
-            f.into_iter().cloned().collect(),
-            b.into_iter().cloned().collect(),
+            f.into_iter().filter(worth_showing).cloned().collect(),
+            b.into_iter().filter(worth_showing).cloned().collect(),
         )
     };
 
@@ -361,6 +375,11 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
     let tour_for_stats = tour.clone();
     let tour_for_balance = tour.clone();
     let tour_for_people = tour.clone();
+    let unit_people = unit.clone();
+    // The People tab wants every payment, family ones included: what somebody hands over
+    // covers the people they pay for, and that is a different figure from their own debt.
+    let all_transfers = transfers.clone();
+    let all_for_balance = transfers.clone();
     let tour_for_expenses = tour.clone();
     let tour_for_fab = tour.clone();
     let tour_for_dialog = tour.clone();
@@ -402,12 +421,14 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
         </div>
 
         <Show when=move || tab.get() == Tab::Balance>
-            <BalanceTab tour=tour_for_balance.clone() between=between.clone()
+            <BalanceTab tour=tour_for_balance.clone() all_for_summary=all_for_balance.clone()
+                        between=between.clone()
                         family=family.clone() unit=unit_balance.clone() />
         </Show>
 
         <Show when=move || tab.get() == Tab::People>
-            <PeopleTab tour=tour_for_people.clone() dialog=dialog delete=delete />
+            <PeopleTab tour=tour_for_people.clone() transfers=all_transfers.clone()
+                       unit=unit_people.clone() dialog=dialog delete=delete />
         </Show>
 
         <Show when=move || tab.get() == Tab::Expenses>
@@ -442,66 +463,6 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
                 }.into_any(),
             })
         }}
-    }
-}
-
-#[component]
-fn PeopleTab(
-    tour: Tour,
-    dialog: RwSignal<Option<Dialog>>,
-    delete: Callback<Removal>,
-) -> impl IntoView {
-    let rows = tour.persons.clone();
-    let by_id = tour.clone();
-
-    view! {
-        <div class="tcn-section">
-            <div class="tcn-section-title">
-                "People " <span class="tcn-count">{rows.len()}</span>
-                <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary" style="margin-left:10px"
-                        on:click=move |_| dialog.set(Some(Dialog::Person(PersonDraft::new())))>
-                    "Add person"
-                </button>
-            </div>
-            <div class="tcn-card" style="padding: 12px;">
-                {rows
-                    .iter()
-                    .map(|p| {
-                        let paid_by = p
-                            .parent
-                            .as_ref()
-                            .and_then(|id| by_id.person(id))
-                            .map(|pp| pp.name.clone());
-                        let for_edit = p.clone();
-                        let for_delete = p.clone();
-                        view! {
-                            <div class="tcn-bal-row" style="margin-bottom:10px">
-                                <Avatar name=p.name.clone() />
-                                <span class="tcn-bal-name">
-                                    {p.name.clone()}
-                                    {paid_by.map(|n| view! {
-                                        <small class="tcn-hint">" · paid for by " {n}</small>
-                                    })}
-                                </span>
-                                <span class="tcn-hint">"weight " {p.weight}</span>
-                                <button type="button" class="tcn-btn tcn-btn-sm"
-                                        on:click=move |_| dialog.set(Some(
-                                            Dialog::Person(PersonDraft::of(&for_edit))))>
-                                    "Edit"
-                                </button>
-                                <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
-                                        on:click={
-                                            let p = for_delete.clone();
-                                            move |_| delete.run(Removal::Person(p.clone()))
-                                        }>
-                                    "✕"
-                                </button>
-                            </div>
-                        }
-                    })
-                    .collect_view()}
-            </div>
-        </div>
     }
 }
 
@@ -947,6 +908,9 @@ fn days_of(spendings: &[Spending]) -> i64 {
 #[component]
 fn BalanceTab(
     tour: Tour,
+    /// Every suggested payment, including the ones too small to show: the summary needs to
+    /// see them to decide who has anything left to pay.
+    all_for_summary: Vec<Transfer>,
     between: Vec<Transfer>,
     family: Vec<Transfer>,
     unit: String,
@@ -955,7 +919,9 @@ fn BalanceTab(
         let tour = tour.clone();
         move |id: &PersonId| name_of(tour.person(id))
     };
-    let rows = settlement_summary(&tour, &between.iter().collect::<Vec<_>>());
+    // The whole settlement, dust and all: `settlement_summary` applies the app's own
+    // rule for what counts and what is too small to mention.
+    let rows = settlement_summary(&tour, &all_for_summary);
     let has_real = tour.spendings.iter().any(|s| s.kind == Kind::Real);
     let names_for_rows = name_by.clone();
 

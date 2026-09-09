@@ -161,15 +161,15 @@ echo "  Or open http://localhost:$PORT/ and type an access code. 'admin:master' 
 echo "  administrator and shows every tour."
 echo
 if [ "$RUST_UI" = 1 ]; then
-    printf "  Serving the \033[1mRust\033[0m client. It has the tour list and the Balance tab, and\n"
-    echo "  computes the balances in the browser with the same tc-core the server uses."
+    printf "  Serving the \033[1mRust\033[0m client: the tour list and all four tabs, with adding,\n"
+    echo "  editing and deleting, and the per-person breakdowns behind every figure."
+    echo "  The arithmetic runs in the browser, on the same tc-core the server uses, and"
+    echo "  edits made with no network wait in a queue until there is one."
     echo "  Run with --blazor for the original client on the same links."
 else
     printf "  Serving the \033[1mBlazor\033[0m client - the one the C# server ships, unchanged.\n"
     echo "  Run without --blazor for the Rust one on the same links."
 fi
-echo
-echo "  This server is read-only: adding and editing are phase 4."
 echo
 say "Ctrl+C to stop"
 echo

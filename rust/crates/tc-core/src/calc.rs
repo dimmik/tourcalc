@@ -35,6 +35,13 @@ use crate::money::Cents;
 /// because the two implementations have to agree to the cent.
 const MAGNITUDE: i128 = 10_000_000;
 
+/// Below this, in cents, a debt is not worth mentioning.
+///
+/// Half a unit of currency: the difference between "settled" and "owes 0.31" is noise the
+/// arithmetic produced, not money anybody is going to hand over. The interface hides
+/// amounts under it and the settlement stops chasing them.
+pub const MINIMUM_MEANINGFUL: i64 = 49;
+
 /// What one person ended up with.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PersonBalance {
@@ -153,38 +160,44 @@ fn spent_by(person: &Person, tour: &Tour, counted: &[&Spending]) -> Cents {
 /// Each spending's share is computed scaled up by `MAGNITUDE` and rounded once, which is
 /// what keeps a tour's shares adding back up to the amounts that were actually paid.
 fn received_by(person: &Person, tour: &Tour, counted: &[&Spending], total_weight: i64) -> Cents {
-    let mut scaled_total: i128 = 0;
-
-    for s in counted {
-        let amount = tour.amount_in_current(s).0 as i128;
-
-        // Three arms, and the compiler will not let a fourth appear unnoticed: adding a
-        // variant to `Split` breaks this match until it is handled.
-        let share = match &s.split {
-            Split::Everyone => amount * person.weight as i128 * MAGNITUDE / total_weight as i128,
-
-            Split::ByWeight(to) if to.contains(&person.id) => {
-                let group_weight: i64 = to
-                    .iter()
-                    .filter_map(|id| tour.person(id))
-                    .map(|p| p.weight as i64)
-                    .sum();
-                let group_weight = if group_weight == 0 { 1 } else { group_weight };
-                amount * person.weight as i128 * MAGNITUDE / group_weight as i128
-            }
-
-            Split::Equally(to) if to.contains(&person.id) => {
-                amount * MAGNITUDE / to.len().max(1) as i128
-            }
-
-            // Not one of theirs.
-            _ => continue,
-        };
-
-        scaled_total += share;
-    }
+    let scaled_total: i128 = counted
+        .iter()
+        .filter_map(|s| share_of(s, person, tour, total_weight))
+        .sum();
 
     Cents(((scaled_total + MAGNITUDE / 2) / MAGNITUDE) as i64)
+}
+
+/// This person's share of one spending, scaled by [`MAGNITUDE`], or `None` if it was not
+/// for them.
+///
+/// Split out so that the totals and the breakdown behind them cannot drift apart: there is
+/// one place that decides what a share is.
+fn share_of(s: &Spending, person: &Person, tour: &Tour, total_weight: i64) -> Option<i128> {
+    let amount = tour.amount_in_current(s).0 as i128;
+
+    // Three arms, and the compiler will not let a fourth appear unnoticed: adding a
+    // variant to `Split` breaks this match until it is handled.
+    match &s.split {
+        Split::Everyone => Some(amount * person.weight as i128 * MAGNITUDE / total_weight as i128),
+
+        Split::ByWeight(to) if to.contains(&person.id) => {
+            let group_weight: i64 = to
+                .iter()
+                .filter_map(|id| tour.person(id))
+                .map(|p| p.weight as i64)
+                .sum();
+            let group_weight = if group_weight == 0 { 1 } else { group_weight };
+            Some(amount * person.weight as i128 * MAGNITUDE / group_weight as i128)
+        }
+
+        Split::Equally(to) if to.contains(&person.id) => {
+            Some(amount * MAGNITUDE / to.len().max(1) as i128)
+        }
+
+        // Not one of theirs.
+        _ => None,
+    }
 }
 
 /// Nudges one person so that what is owed equals what is due.
@@ -320,6 +333,124 @@ pub fn suggest_settlement(tour: &Tour) -> Result<Vec<Transfer>, CalcError> {
     })
 }
 
+/// One line of a person's breakdown: a spending, and what it meant for them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Line {
+    /// The spending this came from. `None` for the rounding line, which belongs to no
+    /// single spending.
+    pub spending: Option<SpendingId>,
+    pub description: String,
+    /// Who paid for it. Only interesting on the "charged" side.
+    pub from: Option<PersonId>,
+    pub category: String,
+    /// What this person paid, or was charged, in the tour's current currency.
+    pub amount: Cents,
+}
+
+/// What adds up to a person's two totals.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Breakdown {
+    /// Spendings this person paid for, in full.
+    pub paid: Vec<Line>,
+    /// Their share of each spending that was for them.
+    pub charged: Vec<Line>,
+}
+
+impl Breakdown {
+    pub fn paid_total(&self) -> Cents {
+        self.paid.iter().map(|l| l.amount).sum()
+    }
+    pub fn charged_total(&self) -> Cents {
+        self.charged.iter().map(|l| l.amount).sum()
+    }
+}
+
+/// Where a person's numbers come from, spending by spending.
+///
+/// The app shows this behind every figure, and it has to add up to the figure exactly -
+/// a breakdown whose lines do not sum to the total it explains is worse than none.
+///
+/// That is harder than it sounds, and the last line is why. Two roundings sit between the
+/// individual shares and the total shown above them:
+///
+/// * a share is divided in whole cents, so the rounded shares of one spending need not add
+///   up to that spending, nor a person's rounded shares to their rounded total;
+/// * [`settle_rounding`] then moves the tour's whole remainder onto a single person, so
+///   *that* person's total is deliberately a few cents away from their own arithmetic.
+///
+/// Rather than paper over either, both land in one final line. The C# does the same and
+/// calls it "Distribution Rounding Error"; this uses a plainer name for the same cents.
+/// The total is taken from [`calculate`] and not recomputed here, so the figure explained
+/// is by construction the figure displayed.
+pub fn breakdown(tour: &Tour, person: &PersonId, opts: Options) -> Breakdown {
+    let Some(who) = tour.person(person) else {
+        return Breakdown::default();
+    };
+
+    let counted: Vec<&Spending> = tour
+        .spendings
+        .iter()
+        .filter(|s| s.kind.counts(opts.with_planned))
+        .collect();
+
+    let paid: Vec<Line> = counted
+        .iter()
+        .filter(|s| &s.from == person)
+        .map(|s| Line {
+            spending: Some(s.id.clone()),
+            description: describe(s),
+            from: None,
+            category: s.category.clone(),
+            amount: tour.amount_in_current(s),
+        })
+        .collect();
+
+    let total_weight = tour.total_weight();
+    let mut charged: Vec<Line> = Vec::new();
+
+    for s in &counted {
+        let Some(share) = share_of(s, who, tour, total_weight) else {
+            continue;
+        };
+        charged.push(Line {
+            spending: Some(s.id.clone()),
+            description: describe(s),
+            from: Some(s.from.clone()),
+            category: s.category.clone(),
+            // Rounded per spending, which is what the reader sees against each line.
+            amount: Cents(((share + MAGNITUDE / 2) / MAGNITUDE) as i64),
+        });
+    }
+
+    // The authority on the total is whatever the balances say - including the remainder
+    // this person may have absorbed for the whole tour.
+    let rounded_total = calculate(tour, opts)
+        .get(person)
+        .map(|b| b.received)
+        .unwrap_or_default();
+    let lines_total: Cents = charged.iter().map(|l| l.amount).sum();
+    let drift = rounded_total - lines_total;
+    if !drift.is_zero() {
+        charged.push(Line {
+            spending: None,
+            description: "rounding the shares".to_owned(),
+            from: None,
+            category: String::new(),
+            amount: drift,
+        });
+    }
+
+    Breakdown { paid, charged }
+}
+
+fn describe(s: &Spending) -> String {
+    if s.description.trim().is_empty() {
+        "no description".to_owned()
+    } else {
+        s.description.clone()
+    }
+}
+
 /// What the balances list shows: how much each person still has to hand over, or is still
 /// owed, once the suggested payments are made.
 ///
@@ -332,30 +463,100 @@ pub fn suggest_settlement(tour: &Tour) -> Result<Vec<Transfer>, CalcError> {
 ///
 /// `transfers` is the settlement with the family payments taken out: those are shown
 /// separately and must not net off here.
-pub fn settlement_summary(tour: &Tour, transfers: &[&Transfer]) -> Vec<(PersonId, Cents)> {
-    /// Below this a balance is noise and the app does not show it. The reader's own
-    /// setting overrides it in the interface; this is the value the app ships with.
-    const MINIMUM_MEANINGFUL: i64 = 49;
-
+pub fn settlement_summary(tour: &Tour, transfers: &[Transfer]) -> Vec<(PersonId, Cents)> {
     let mut rows: Vec<(PersonId, Cents)> = tour
         .persons
         .iter()
+        // Only people who settle up themselves: whoever is paid for by somebody else is
+        // shown inside that person's family, not as a line of their own.
         .filter(|p| p.parent.is_none())
-        .map(|p| {
-            let sum = |pick: fn(&Transfer) -> &PersonId| -> i64 {
-                transfers
-                    .iter()
-                    .filter(|t| pick(t) == &p.id)
-                    .map(|t| tour.convert(t.amount, &t.currency).0)
-                    .sum()
-            };
-            (p.id.clone(), Cents(sum(|t| &t.from) - sum(|t| &t.to)))
-        })
+        .map(|p| (p.id.clone(), will_pay(tour, transfers, &p.id, Cents::ZERO)))
         .filter(|(_, amount)| amount.abs().0 > MINIMUM_MEANINGFUL)
         .collect();
 
     rows.sort_by_key(|(_, amount)| -amount.0);
     rows
+}
+
+/// The payments one person actually makes or receives when the tour is settled.
+///
+/// Answers two things at once, because they are one decision: whether this person is paying
+/// or collecting, and which payments say so. The rule is the app's, and it is not the
+/// obvious one - it does not net what somebody pays against what they receive. It asks
+/// **"has this person anything to pay?"**; if they have, those payments are the whole
+/// answer and money coming in is not subtracted.
+///
+/// The difference is the odd cent, and it is not academic. Dividing in whole cents can leave
+/// somebody who is plainly owed 5 055 with a two-cent payment to make. Netting calls them a
+/// creditor; the app calls them settled, because two cents is their entire obligation and
+/// nobody is going to hand it over. Which of the two readings is *better* is a matter of
+/// taste; which one the app uses is not, and two implementations of the same money that
+/// disagree are the thing this rewrite exists to avoid.
+///
+/// `ignore_below` is how much is too small to count, and it changes the answer rather than
+/// just tidying it. At zero - what a person's headline figure uses - the two-cent payment
+/// counts, and that person is "settled". At [`MINIMUM_MEANINGFUL`] - what the itemised view
+/// uses - it does not, so the same person is shown collecting 5 057. Both are in the app,
+/// deliberately: the headline says "nothing to do here", and the detail says what the money
+/// would be if you did it.
+///
+/// The returned payments are borrowed from `transfers`, which is what the `'a` says: the
+/// list may not be dropped while these are still in hand. No copy is made to answer a
+/// question about somebody's money.
+pub fn settlement_for<'a>(
+    tour: &Tour,
+    transfers: &'a [Transfer],
+    who: &PersonId,
+    ignore_below: Cents,
+) -> (bool, Vec<&'a Transfer>) {
+    // A payment between somebody and whoever pays for them is family business, and is part
+    // of neither one's settlement with the group.
+    let within_family = |other: &PersonId| -> bool {
+        let mine = tour.person(who).and_then(|p| p.parent.clone());
+        let theirs = tour.person(other).and_then(|p| p.parent.clone());
+        mine.as_ref() == Some(other) || theirs.as_ref() == Some(who)
+    };
+    let big_enough = |t: &Transfer| tour.convert(t.amount, &t.currency) > ignore_below;
+
+    let outgoing: Vec<&Transfer> = transfers
+        .iter()
+        .filter(|t| &t.from == who && big_enough(t))
+        .collect();
+
+    // The side is chosen before family payments are struck out - so somebody whose only
+    // payment is to the person they are settled through comes out at nothing, rather than
+    // falling through to the other branch and being reported as a creditor.
+    if !outgoing.is_empty() {
+        return (
+            true,
+            outgoing
+                .into_iter()
+                .filter(|t| !within_family(&t.to))
+                .collect(),
+        );
+    }
+
+    (
+        false,
+        transfers
+            .iter()
+            .filter(|t| &t.to == who && big_enough(t) && !within_family(&t.from))
+            .collect(),
+    )
+}
+
+/// What one person hands over, as a single figure: negative if they collect instead.
+pub fn will_pay(tour: &Tour, transfers: &[Transfer], who: &PersonId, ignore_below: Cents) -> Cents {
+    let (paying, rows) = settlement_for(tour, transfers, who, ignore_below);
+    let total: Cents = rows
+        .iter()
+        .map(|t| tour.convert(t.amount, &t.currency))
+        .sum();
+    if paying {
+        total
+    } else {
+        -total
+    }
 }
 
 /// Splits a settlement into the payments inside families and the rest.

@@ -254,8 +254,7 @@ fn balances_list_matches_the_app() {
         .expect("the Ural tour");
 
     let transfers = suggest_settlement(&tour).expect("converges");
-    let (_family, between) = tc_core::split_family(&transfers);
-    let rows = tc_core::settlement_summary(&tour, &between);
+    let rows = tc_core::settlement_summary(&tour, &transfers);
 
     let named: Vec<(String, i64)> = rows
         .iter()
@@ -298,4 +297,102 @@ fn spendings_have_a_day() {
     let mut sorted = days.clone();
     sorted.sort();
     assert_eq!(sorted.first(), Some(&"2021-06-10"));
+}
+
+/// The breakdown behind a figure adds up to that figure - for every person of every tour.
+///
+/// The one property a breakdown has to have. A list of lines that does not sum to the total
+/// printed above it is worse than showing nothing, because the reader will add it up.
+///
+/// Both sides are checked against `calculate`, which is itself checked against the C#
+/// above, so this pins the itemised view to the same numbers without a second golden file.
+#[test]
+fn the_breakdown_adds_up_to_the_totals() {
+    for (file, tour, _) in cases() {
+        let balances = calculate(&tour, Options::default());
+        for b in &balances.per_person {
+            let who = tour.person(&b.person).expect("person");
+            let it = tc_core::breakdown(&tour, &b.person, Options::default());
+
+            assert_eq!(
+                it.paid_total(),
+                b.spent,
+                "{file}: what {} paid, itemised, is what they paid",
+                who.name
+            );
+            assert_eq!(
+                it.charged_total(),
+                b.received,
+                "{file}: what {} was charged, itemised, is what they were charged",
+                who.name
+            );
+        }
+    }
+}
+
+/// Every line of a breakdown points at a spending that is really in the tour.
+///
+/// Except the rounding line, which points at none - that is what `Option` is saying, and
+/// the test says the same thing in the other direction: nothing else is allowed to be
+/// unattributable.
+#[test]
+fn breakdown_lines_point_at_real_spendings() {
+    for (file, tour, _) in cases() {
+        for p in &tour.persons {
+            let it = tc_core::breakdown(&tour, &p.id, Options::default());
+
+            for line in it.paid.iter() {
+                let id = line.spending.as_ref().expect("a payment has a spending");
+                assert!(
+                    tour.spendings.iter().any(|s| &s.id == id),
+                    "{file}: {} paid for something that is in the tour",
+                    p.name
+                );
+            }
+
+            let unattributed = it.charged.iter().filter(|l| l.spending.is_none()).count();
+            assert!(
+                unattributed <= 1,
+                "{file}: at most one line - the rounding - belongs to no spending"
+            );
+        }
+    }
+}
+
+/// The balances list of a tour whose settlement leaves dust, against what the app shows.
+///
+/// The companion to `balances_list_matches_the_app`, and the one that has an opinion: on
+/// this tour three people are owed real money *and* have a two-cent payment to make, and the
+/// app reports all three as settled. Netting what they pay against what they receive would
+/// list them as creditors of 5 055, 10 197 and 15 626 - plausible, tidy, and not what the
+/// reader sees in the app they already use.
+///
+/// The numbers are read off the running C# client for this tour.
+#[test]
+fn dust_does_not_turn_a_creditor_into_a_line_item() {
+    let (_, tour, _) = cases()
+        .into_iter()
+        .find(|(name, _, _)| name == "hs3huvy")
+        .expect("the unfinished Ural tour");
+
+    let transfers = suggest_settlement(&tour).expect("converges");
+    let named: Vec<(String, i64)> = tc_core::settlement_summary(&tour, &transfers)
+        .iter()
+        .map(|(id, amount)| {
+            (
+                tour.person(id).map(|p| p.name.clone()).unwrap_or_default(),
+                amount.0,
+            )
+        })
+        .collect();
+
+    assert_eq!(
+        named,
+        vec![
+            ("Женя К.".to_owned(), 28_389),
+            ("Дима Т.".to_owned(), 3_403),
+            ("Дима А.".to_owned(), -916),
+        ],
+        "three people owed money are settled: their whole obligation is two cents"
+    );
 }
