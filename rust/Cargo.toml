@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/tc-core", "crates/spike-leptos", "crates/spike-bare", "crates/spike-dioxus"]
+members = ["crates/tc-core", "crates/spike-leptos", "crates/spike-bare", "crates/spike-dioxus", "crates/tc-server"]
 
 # Everything the browser downloads is built with this profile, so it is tuned for
 # size rather than for speed: this whole experiment is about how small the result is.

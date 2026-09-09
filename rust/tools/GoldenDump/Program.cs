@@ -14,6 +14,18 @@ using TCalc.Logic;
 //
 // usage: dotnet run --project rust/tools/GoldenDump -- <tours.json> <output dir>
 
+if (args.Length > 0 && args[0] == "issue-token")
+{
+    GoldenDump.Tokens.Issue(args.Length > 1 ? args[1] : "{\"Type\":\"AccessCode\",\"IsMaster\":false,\"AccessCodeMD5\":\"ABC\"}");
+    return;
+}
+
+if (args.Length > 0 && args[0] == "check-token")
+{
+    Environment.ExitCode = GoldenDump.Tokens.Validate(args[1]);
+    return;
+}
+
 if (args.Length > 0 && args[0] == "verify")
 {
     Environment.ExitCode = GoldenDump.Verify.Run(args[1], args.Length > 2 ? args[2] : "rust/fixtures");

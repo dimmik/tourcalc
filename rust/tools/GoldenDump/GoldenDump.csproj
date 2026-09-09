@@ -18,7 +18,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.1" />
+    <PackageReference Include="BouncyCastle.NetCore" Version="2.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\TCalcCore\TCalcCore.csproj" />
+    <Compile Include="..\..\..\TCBlazor\Server\Auth\ECDSAKey.cs" Link="ECDSAKey.cs" />
+    <Compile Include="..\..\..\TCBlazor\Server\Auth\IECDsaCryptoKey.cs" Link="IECDsaCryptoKey.cs" />
+    <Compile Include="..\..\..\TCBlazor\Server\Auth\ECDsaPublicKey.cs" Link="ECDsaPublicKey.cs" />
   </ItemGroup>
 
 </Project>

@@ -83,7 +83,7 @@ fn is_blank(v: &Value) -> bool {
 fn compare(before: &Value, after: &Value, path: String, out: &mut Vec<String>) {
     // The stored data spells "nobody" both ways in different tours, and everything that
     // reads it uses IsNullOrWhiteSpace, so the two are the same value written differently.
-    if path.ends_with(".ParentId") && is_blank(before) && is_blank(after) {
+    if is_blank(before) && is_blank(after) {
         return;
     }
     match (before, after) {
@@ -91,6 +91,9 @@ fn compare(before: &Value, after: &Value, path: String, out: &mut Vec<String>) {
             for (k, va) in a {
                 match b.get(k) {
                     Some(vb) => compare(va, vb, format!("{path}.{k}"), out),
+                    // A field that held nothing and is now absent still holds nothing:
+                    // everything that reads these treats null, "" and missing alike.
+                    None if is_blank(va) => {}
                     None => out.push(format!("{path}.{k} is missing")),
                 }
             }
@@ -105,6 +108,96 @@ fn compare(before: &Value, after: &Value, path: String, out: &mut Vec<String>) {
             }
         }
         (a, b) if a != b => out.push(format!("{path}: {a} became {b}")),
+        _ => {}
+    }
+}
+
+/// A tour written in camelCase reads the same as one written in PascalCase.
+///
+/// Both spellings are in the seed file the server boots from: Newtonsoft never minded, so
+/// nobody noticed. serde does mind, and three tours silently came back empty until the
+/// field names were normalised.
+#[test]
+fn camel_case_reads_too() {
+    let pascal = r#"{
+        "Id": "t1", "Name": "Trip",
+        "Persons": [
+            {"GUID": "a", "Name": "Ann", "Weight": 100},
+            {"GUID": "b", "Name": "Bob", "Weight": 100}
+        ],
+        "Spendings": [
+            {"GUID": "s1", "FromGuid": "a", "AmountInCents": 1000, "ToAll": true, "Type": "food"}
+        ]
+    }"#;
+    let camel = r#"{
+        "id": "t1", "name": "Trip",
+        "persons": [
+            {"guid": "a", "name": "Ann", "weight": 100},
+            {"guid": "b", "name": "Bob", "weight": 100}
+        ],
+        "spendings": [
+            {"guid": "s1", "fromGuid": "a", "amountInCents": 1000, "toAll": true, "type": "food"}
+        ]
+    }"#;
+
+    let a = Tour::from_json(pascal).expect("PascalCase parses");
+    let b = Tour::from_json(camel).expect("camelCase parses");
+
+    assert_eq!(a.id.as_str(), "t1");
+    assert_eq!(a, b, "the two spellings are the same tour");
+
+    // And the arithmetic works on it, rather than quietly producing nothing.
+    let balances = tc_core::calculate(&b, tc_core::Options::default());
+    assert_eq!(balances.per_person.len(), 2);
+    assert_eq!(
+        balances.get(&tc_core::PersonId::new("a")).unwrap().spent.0,
+        1000
+    );
+}
+
+/// Nothing is written that the source did not have - in particular, no nulls.
+///
+/// The mirror of `no_field_is_lost`, and the one that matters more. The C# model fills an
+/// absent field with a default, and `Person.GroupId`'s default is a freshly generated Guid.
+/// Writing `"GroupId": null` back does not leave the tour unchanged: it replaces a
+/// generated value with nothing, and the settlement then dies on `GroupId.StartsWith(...)`
+/// with a NullReferenceException - which is exactly how this was found, by feeding a
+/// response from the Rust server to the C# calculator.
+#[test]
+fn no_null_is_invented() {
+    for (name, json) in tour_files() {
+        let tour = Tour::from_json(&json).unwrap();
+        let before: Value = serde_json::from_str(&json).unwrap();
+        let after: Value = serde_json::from_str(&tour.to_json().unwrap()).unwrap();
+
+        let mut invented = Vec::new();
+        find_invented_nulls(&before, &after, String::new(), &mut invented);
+
+        assert!(
+            invented.is_empty(),
+            "[{name}] {} null(s) written where the source had no such field:\n  {}",
+            invented.len(),
+            invented.join("\n  ")
+        );
+    }
+}
+
+fn find_invented_nulls(before: &Value, after: &Value, path: String, out: &mut Vec<String>) {
+    match (before, after) {
+        (Value::Object(a), Value::Object(b)) => {
+            for (k, vb) in b {
+                match a.get(k) {
+                    Some(va) => find_invented_nulls(va, vb, format!("{path}.{k}"), out),
+                    None if vb.is_null() => out.push(format!("{path}.{k}")),
+                    None => {}
+                }
+            }
+        }
+        (Value::Array(a), Value::Array(b)) if a.len() == b.len() => {
+            for (i, (va, vb)) in a.iter().zip(b).enumerate() {
+                find_invented_nulls(va, vb, format!("{path}[{i}]"), out);
+            }
+        }
         _ => {}
     }
 }

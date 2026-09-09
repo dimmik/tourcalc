@@ -219,7 +219,9 @@ impl Tour {
     }
 
     pub fn from_json(s: &str) -> Result<Tour, serde_json::Error> {
-        let w: wire::Tour = serde_json::from_str(s)?;
+        let mut value: serde_json::Value = serde_json::from_str(s)?;
+        wire::normalise_case(&mut value);
+        let w: wire::Tour = serde_json::from_value(value)?;
         Ok(w.into())
     }
 
@@ -249,6 +251,87 @@ static DEFAULT_CURRENCY: std::sync::LazyLock<Currency> =
 // ---------------------------------------------------------------------------------------
 pub mod wire {
     use super::*;
+    use serde_json::Value;
+
+    /// Fixes the spelling of the field names before they reach serde.
+    ///
+    /// Three of the eight tours in the seed file are written in camelCase (`id`, `persons`,
+    /// `accessCodeMD5`) and the rest in PascalCase. Newtonsoft reads both without noticing,
+    /// because it matches property names case-insensitively; serde matches them exactly and
+    /// would quietly return an empty tour for the camelCase ones.
+    ///
+    /// So any key that matches a field this module knows about, whatever its case, is
+    /// renamed to the spelling the structs below declare. Keys nobody claims are left
+    /// exactly as they were, because they travel on into `Extras` and back out again.
+    ///
+    /// This is the same hazard the plan flagged for swapping Newtonsoft for
+    /// System.Text.Json in the C# app, found here first because this port hit it first.
+    pub fn normalise_case(value: &mut Value) {
+        const TOUR: &[&str] = &[
+            "Id",
+            "GUID",
+            "Name",
+            "Persons",
+            "Spendings",
+            "Currencies",
+            "TourCurrencyId",
+        ];
+        const PERSON: &[&str] = &["GUID", "Name", "Weight", "ParentId", "GroupId"];
+        const SPENDING: &[&str] = &[
+            "GUID",
+            "Description",
+            "Type",
+            "AmountInCents",
+            "Currency",
+            "FromGuid",
+            "ToGuid",
+            "ToAll",
+            "IsPartialWeighted",
+            "Planned",
+            "IsDryRun",
+            "IncludeDryRunInCalc",
+        ];
+        const CURRENCY: &[&str] = &["Id", "Name", "CurrencyRate"];
+
+        rename(value, TOUR);
+        for person in array_at(value, "Persons") {
+            rename(person, PERSON);
+        }
+        for currency in array_at(value, "Currencies") {
+            rename(currency, CURRENCY);
+        }
+        for spending in array_at(value, "Spendings") {
+            rename(spending, SPENDING);
+            if let Some(c) = spending.get_mut("Currency") {
+                rename(c, CURRENCY);
+            }
+        }
+    }
+
+    fn rename(value: &mut Value, canonical: &[&str]) {
+        let Some(obj) = value.as_object_mut() else {
+            return;
+        };
+        for want in canonical {
+            if obj.contains_key(*want) {
+                continue;
+            }
+            let found = obj.keys().find(|k| k.eq_ignore_ascii_case(want)).cloned();
+            if let Some(k) = found {
+                if let Some(v) = obj.remove(&k) {
+                    obj.insert((*want).to_owned(), v);
+                }
+            }
+        }
+    }
+
+    fn array_at<'a>(value: &'a mut Value, key: &str) -> impl Iterator<Item = &'a mut Value> {
+        value
+            .get_mut(key)
+            .and_then(|v| v.as_array_mut())
+            .map(|a| a.iter_mut())
+            .unwrap_or_default()
+    }
 
     #[derive(Debug, Deserialize, Serialize)]
     #[serde(rename_all = "PascalCase")]
@@ -256,8 +339,10 @@ pub mod wire {
         /// Tours stored before `Id` existed only carry `GUID`; the C# property maps one
         /// onto the other, so both spellings appear in real data and both must read.
         #[serde(default, rename = "Id")]
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub id: Option<String>,
         #[serde(default, rename = "GUID")]
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub guid: Option<String>,
         #[serde(default)]
         pub name: String,
@@ -267,8 +352,10 @@ pub mod wire {
         pub spendings: Vec<Spending>,
         /// Old tours have no currency list at all, hence `Option` and a default below.
         #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub currencies: Option<Vec<Currency>>,
         #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub tour_currency_id: Option<String>,
         /// Everything this struct did not name. See [`Extras`].
         #[serde(flatten)]
@@ -285,8 +372,10 @@ pub mod wire {
         #[serde(default)]
         pub weight: i32,
         #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub parent_id: Option<String>,
         #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub group_id: Option<String>,
         /// Everything this struct did not name. See [`Extras`].
         #[serde(flatten)]
@@ -305,6 +394,7 @@ pub mod wire {
         #[serde(default)]
         pub amount_in_cents: i64,
         #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub currency: Option<Currency>,
         #[serde(default)]
         pub from_guid: String,
@@ -448,6 +538,13 @@ pub mod wire {
 }
 
 // --- and back out again ----------------------------------------------------------------
+//
+// One rule worth stating before the code: **a field the source did not have is not written
+// back as null.** The C# model fills an absent field with its default, and some of those
+// defaults are generated rather than constant - `Person.GroupId` is a fresh Guid. Writing
+// an explicit null instead overwrites that default with nothing, and the settlement then
+// dies on `GroupId.StartsWith(...)`. Hence `skip_serializing_if` on every Option above:
+// absent stays absent.
 //
 // Written by hand rather than derived, because the shapes differ: one `Split` becomes three
 // separate booleans plus a list, and `Kind` becomes another three. Deriving cannot know
