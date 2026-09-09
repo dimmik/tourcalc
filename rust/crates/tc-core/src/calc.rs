@@ -320,6 +320,54 @@ pub fn suggest_settlement(tour: &Tour) -> Result<Vec<Transfer>, CalcError> {
     })
 }
 
+/// What the balances list shows: how much each person still has to hand over, or is still
+/// owed, once the suggested payments are made.
+///
+/// Not the raw balance from [`calculate`], and the difference is deliberate. Somebody who
+/// is paid for by another does not appear at all - their share has been rolled into whoever
+/// pays for them - and what is shown for everybody else is the net of the payments
+/// *between* people rather than their standing with the tour. That is why a payer whose
+/// children owe him reads "owes 38 457" and not the smaller figure left after they settle
+/// with him.
+///
+/// `transfers` is the settlement with the family payments taken out: those are shown
+/// separately and must not net off here.
+pub fn settlement_summary(tour: &Tour, transfers: &[&Transfer]) -> Vec<(PersonId, Cents)> {
+    /// Below this a balance is noise and the app does not show it. The reader's own
+    /// setting overrides it in the interface; this is the value the app ships with.
+    const MINIMUM_MEANINGFUL: i64 = 49;
+
+    let mut rows: Vec<(PersonId, Cents)> = tour
+        .persons
+        .iter()
+        .filter(|p| p.parent.is_none())
+        .map(|p| {
+            let sum = |pick: fn(&Transfer) -> &PersonId| -> i64 {
+                transfers
+                    .iter()
+                    .filter(|t| pick(t) == &p.id)
+                    .map(|t| tour.convert(t.amount, &t.currency).0)
+                    .sum()
+            };
+            (p.id.clone(), Cents(sum(|t| &t.from) - sum(|t| &t.to)))
+        })
+        .filter(|(_, amount)| amount.abs().0 > MINIMUM_MEANINGFUL)
+        .collect();
+
+    rows.sort_by_key(|(_, amount)| -amount.0);
+    rows
+}
+
+/// Splits a settlement into the payments inside families and the rest.
+///
+/// The interface shows them apart: a payment between a child and whoever pays for them is
+/// not something the group has to arrange.
+pub fn split_family(transfers: &[Transfer]) -> (Vec<&Transfer>, Vec<&Transfer>) {
+    transfers
+        .iter()
+        .partition(|t| t.description.starts_with("Family"))
+}
+
 /// Chooses who pays whom next, or `None` when nobody owes anybody.
 ///
 /// Deepest creditor and largest debtor, with two preferences on top - both inherited from

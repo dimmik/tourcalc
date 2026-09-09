@@ -239,3 +239,42 @@ fn settlement_totals_match_csharp() {
         assert_eq!(got, want, "[{name}] total moved");
     }
 }
+
+/// The balances list, as the interface shows it.
+///
+/// Different from the raw per-person debt, and worth its own check because the difference
+/// is easy to get wrong in exactly the way that looks plausible: children hidden, family
+/// payments left out of the netting. The numbers are the ones the C# client renders for
+/// this tour.
+#[test]
+fn balances_list_matches_the_app() {
+    let (_, tour, _) = cases()
+        .into_iter()
+        .find(|(name, _, _)| name == "zscph2y")
+        .expect("the Ural tour");
+
+    let transfers = suggest_settlement(&tour).expect("converges");
+    let (_family, between) = tc_core::split_family(&transfers);
+    let rows = tc_core::settlement_summary(&tour, &between);
+
+    let named: Vec<(String, i64)> = rows
+        .iter()
+        .map(|(id, amount)| {
+            let name = tour.person(id).map(|p| p.name.clone()).unwrap_or_default();
+            (name, amount.0)
+        })
+        .collect();
+
+    assert_eq!(
+        named,
+        vec![
+            ("Саша О.".to_owned(), 38_457),
+            ("Женя К.".to_owned(), 28_389),
+            ("Дима Т.".to_owned(), 3_403),
+            ("Длинное и весьма длинное такое вот имя".to_owned(), -916),
+            ("Андрей".to_owned(), -5_055),
+            ("Хомяк".to_owned(), -10_197),
+            ("Паша".to_owned(), -54_081),
+        ]
+    );
+}

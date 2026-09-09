@@ -194,19 +194,25 @@ impl Tour {
     /// 3. A spending in a currency the tour does not list is treated as being in the current
     ///    one, and passes through untouched.
     pub fn amount_in_current(&self, spending: &Spending) -> Cents {
+        self.convert(spending.amount, &spending.currency)
+    }
+
+    /// The same conversion for an amount that is not attached to a spending - a suggested
+    /// payment, say, which carries its own currency.
+    pub fn convert(&self, amount: Cents, from: &Currency) -> Cents {
         if self.currencies.len() <= 1 {
-            return spending.amount;
+            return amount;
         }
         let current = self.currency();
         let from = self
             .currencies
             .iter()
-            .find(|c| c.id == spending.currency.id)
+            .find(|c| c.id == from.id)
             .unwrap_or(current);
         if from.id == current.id {
-            return spending.amount;
+            return amount;
         }
-        crate::money::convert(spending.amount, from.rate, current.rate)
+        crate::money::convert(amount, from.rate, current.rate)
     }
 
     pub fn total_weight(&self) -> i64 {

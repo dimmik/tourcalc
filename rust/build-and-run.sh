@@ -4,11 +4,13 @@
 # together so the whole app can be clicked through.
 #
 #   ./rust/build-and-run.sh              build everything and run
-#   ./rust/build-and-run.sh --fast       skip publishing the client (reuse the last one)
+#   ./rust/build-and-run.sh --fast       skip rebuilding the front end (reuse the last one)
+#   ./rust/build-and-run.sh --rust-ui    serve the Rust client instead of the Blazor one
 #   ./rust/build-and-run.sh --port 5555  listen somewhere else
 #
-# The client is the one the C# server ships. That is the point: this server is meant to be
-# indistinguishable to it, so there is nothing Rust-specific to look at on the front end.
+# By default the front end is the one the C# server ships: this server is meant to be
+# indistinguishable to it, so there is nothing Rust-specific to look at. `--rust-ui` swaps
+# in the Rust client on the same port, so the two can be compared link for link.
 
 set -euo pipefail
 
@@ -17,9 +19,11 @@ ROOT="$PWD"
 
 PORT=5401
 PUBLISH=1
+RUST_UI=0
 for arg in "$@"; do
     case "$arg" in
         --fast) PUBLISH=0 ;;
+        --rust-ui) RUST_UI=1 ;;
         --port) ;;                       # value is read below
         --port=*) PORT="${arg#*=}" ;;
         ''|*[!0-9]*) ;;                  # not a number: ignore
@@ -52,7 +56,21 @@ done
 
 WWWROOT="$ROOT/rust/.run/wwwroot"
 
-# --- the client --------------------------------------------------------------------------
+# --- the front end -------------------------------------------------------------------------
+if [ "$RUST_UI" = 1 ]; then
+    WWWROOT="$ROOT/rust/crates/tc-web/dist"
+    if [ "$PUBLISH" = 1 ]; then
+        TRUNK=$(command -v trunk || true)
+        [ -z "$TRUNK" ] && [ -x "$HOME/.cargo/bin/trunk" ] && TRUNK="$HOME/.cargo/bin/trunk"
+        [ -z "$TRUNK" ] && die "trunk not found. Install with: cargo install trunk"
+        say "building the Rust client…"
+        ( cd "$ROOT/rust/crates/tc-web" && "$TRUNK" build --release ) \
+            || die "building the Rust client failed"
+    fi
+    [ -d "$WWWROOT" ] || die "no Rust client at $WWWROOT - run once without --fast"
+    PUBLISH=0   # nothing else to build
+fi
+
 if [ "$PUBLISH" = 1 ]; then
     [ -z "$DOTNET" ] && die "no working .NET SDK found - needed to publish the client. Pass --fast to reuse the last build."
     say "publishing the Blazor client (a minute or so)…"
@@ -84,7 +102,7 @@ if [ "$PUBLISH" = 1 ]; then
     cp -r "$OUT/wwwroot" "$WWWROOT"
 fi
 
-[ -d "$WWWROOT" ] || die "no client at $WWWROOT - run once without --fast"
+[ -d "$WWWROOT" ] || die "no front end at $WWWROOT - run once without --fast"
 
 # --- the server --------------------------------------------------------------------------
 say "building the server…"
@@ -131,7 +149,7 @@ echo
 echo "  A share link logs you in and opens the tour - no access code to type:"
 echo
 if [ -n "$LINKS" ]; then
-    printf '%s\n' "$LINKS" | head -4 | while IFS=$'\t' read -r url name; do
+    printf '%b\n' "$LINKS" | head -4 | while IFS=$'\t' read -r url name; do
         printf '    \033[1;36m%s\033[0m\n      %s\n' "$url" "$name"
     done
 else
@@ -141,8 +159,16 @@ echo
 echo "  Or open http://localhost:$PORT/ and type an access code. 'admin:master' logs in as"
 echo "  administrator and shows every tour."
 echo
-echo "  This server is read-only: adding and editing are phase 4. Everything else - the"
-echo "  tour list, balances, who pays whom, Full and Mini - is live."
+if [ "$RUST_UI" = 1 ]; then
+    printf "  Serving the \033[1mRust\033[0m client. It has the tour list and the Balance tab, and\n"
+    echo "  computes the balances in the browser with the same tc-core the server uses."
+    echo "  Run without --rust-ui for the Blazor one on the same links."
+else
+    printf "  Serving the \033[1mBlazor\033[0m client - the one the C# server ships, unchanged.\n"
+    echo "  Run with --rust-ui for the Rust one on the same links."
+fi
+echo
+echo "  This server is read-only: adding and editing are phase 4."
 echo
 say "Ctrl+C to stop"
 echo

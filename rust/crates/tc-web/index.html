@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tourcalc</title>
+    <!--
+        The app's own stylesheet, taken from the Blazor client unchanged. Three and a half
+        thousand lines of CSS that know nothing about which framework drew the markup - the
+        cheapest part of the port by a distance.
+    -->
+    <link data-trunk rel="css" href="../../../TCBlazor/Client/wwwroot/css/newui.css" />
+    <!--
+        wasm-opt needs to be told which wasm features the compiler used; without these it
+        refuses the output of a current rustc with "memory.copy operations require bulk
+        memory operations".
+    -->
+    <link data-trunk rel="rust" data-wasm-opt="z"
+          data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext" />
+</head>
+<body></body>
+</html>
