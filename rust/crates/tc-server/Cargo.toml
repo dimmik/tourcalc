@@ -51,7 +51,11 @@ tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 
 [features]
-default = []
+# Both on by default: a deployment stores its tours in MongoDB and notifies the people
+# watching them, so a build without either is the unusual one. They are still features
+# because they are what pulls a TLS stack - and with it C and assembly - into a workspace
+# that otherwise has none; `--no-default-features` gets that build back.
+default = ["mongo", "push"]
 # Storage in MongoDB. Costs the pure-Rust build - see the note by the dependency.
 mongo = ["dep:mongodb", "dep:bson", "dep:futures-util"]
 # Actually delivering push notifications. Without it they are stored, counted and logged.

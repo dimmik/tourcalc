@@ -6,12 +6,13 @@
 # minutes and most of an hour. Both are possible because every dependency is pure Rust -
 # there is no OpenSSL, no BouncyCastle, nothing that needs a C toolchain for the target.
 #
-# The server is linked against musl, statically, with rustc's own linker. That is not for
-# the smallness (though the result is 1.9 MB and the image has nothing else in it): it is
-# because cross-linking glibc needs the target's libc to link against, which means an apt
-# package per architecture and a linker to point cargo at. Static musl needs none of that -
-# rustc ships the crt objects and rust-lld links them - so the whole cross-compilation is
-# two environment variables and no toolchain at all.
+# The server is linked against musl, statically, so nothing needs a libc at runtime and the
+# image is a binary and its files and nothing else.
+#
+# It does need a C compiler at *build* time, which it did not when this file was first
+# written: the server now talks to MongoDB and to push services, both over TLS, and rustls
+# links `ring`, whose core is C and assembly. The host's own compiler does for x86_64;
+# aarch64 gets a musl cross-toolchain, downloaded and checked against its hash.
 
 # ---------------------------------------------------------------------------------------
 # The browser side.
@@ -53,10 +54,17 @@ FROM --platform=$BUILDPLATFORM rust:1-bookworm AS server
 ARG TARGETARCH
 WORKDIR /src
 
-# rustc links musl targets with its own `rust-lld` and its own bundled crt objects, so there
-# is nothing to install and nothing architecture-specific on the builder.
-ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld \
-    CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld
+# A version-pinned URL and a hash, because a compiler fetched over the network is part of
+# what ends up in the image: if that file ever changes, this build stops rather than quietly
+# using something nobody has tried.
+ARG MUSL_CROSS=https://more.musl.cc/11.2.1/x86_64-linux-musl/aarch64-linux-musl-cross.tgz
+ARG MUSL_CROSS_SHA256=ef7257105c568e0e52e7f0bbcdd3819d9372774252483618d5066e47252431e5
+
+ENV PATH=/opt/aarch64-linux-musl-cross/bin:$PATH \
+    CC_x86_64_unknown_linux_musl=gcc \
+    CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld \
+    CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc \
+    CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc
 
 RUN case "$TARGETARCH" in \
         amd64) TRIPLE=x86_64-unknown-linux-musl ;; \
@@ -64,21 +72,30 @@ RUN case "$TARGETARCH" in \
         *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
     esac \
  && echo "$TRIPLE" > /triple \
- && rustup target add "$TRIPLE"
+ && rustup target add "$TRIPLE" \
+ && if [ "$TARGETARCH" = "arm64" ]; then \
+        curl -fsSL "$MUSL_CROSS" -o /tmp/musl-cross.tgz \
+        && echo "$MUSL_CROSS_SHA256  /tmp/musl-cross.tgz" | sha256sum -c - \
+        && tar -xzf /tmp/musl-cross.tgz -C /opt \
+        && rm /tmp/musl-cross.tgz \
+        && aarch64-linux-musl-gcc --version | head -1; \
+    fi
 
 COPY rust/ ./rust/
 
 # `--locked` so the image is built from the versions in Cargo.lock and not from whatever has
-# been published since.
+# been published since. The default features are on - MongoDB and push notifications - which
+# is what a deployment runs with.
 RUN cd rust \
  && cargo build --release --locked -p tc-server --target "$(cat /triple)" \
  && cp "target/$(cat /triple)/release/tc-server" /tc-server \
  && ls -la /tc-server
 
 # ---------------------------------------------------------------------------------------
-# What actually ships. The binary is static, so the image needs no libc either: no shell, no
-# package manager, no runtime - a binary, the wasm client and a seed file, running as a user
-# that is not root.
+# What actually ships. The binary is static and carries the Mozilla root certificates inside
+# it (rustls uses webpki-roots), so the image needs no libc, no CA bundle, no shell and no
+# package manager: a binary, the wasm client and a seed file, running as a user that is not
+# root.
 # ---------------------------------------------------------------------------------------
 FROM gcr.io/distroless/static-debian12:nonroot
 

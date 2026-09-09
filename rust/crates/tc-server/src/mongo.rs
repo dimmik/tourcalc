@@ -46,19 +46,7 @@ impl MongoStore {
         database: &str,
         collection: &str,
     ) -> Result<MongoStore, String> {
-        let uri = if url.contains("://") {
-            // A whole connection string, taken as it is.
-            url.to_owned()
-        } else {
-            // The C# builds one from three settings, url-encoding the credentials.
-            let enc =
-                |s: &str| -> String { form_urlencoded::byte_serialize(s.as_bytes()).collect() };
-            format!(
-                "mongodb+srv://{}:{}@{url}?connect=replicaSet",
-                enc(username),
-                enc(password)
-            )
-        };
+        let uri = connection_string(url, username, password);
 
         let options = ClientOptions::parse(&uri)
             .await
@@ -222,6 +210,27 @@ impl TourStore for MongoStore {
         let total = mine.len();
         (mine.into_iter().skip(from).take(count).collect(), total)
     }
+}
+
+/// The URI to connect with, from the three settings the deployment already sets.
+///
+/// A whole connection string in `MongoDbUrl` is used as it is; a bare host is turned into
+/// the `mongodb+srv://` form the C# builds, with the credentials url-encoded.
+///
+/// **Without the C#'s `?connect=replicaSet`.** That option is the old .NET driver's way of
+/// being told the topology; this driver works it out, and rejects the option outright -
+/// "connect is an invalid option". Copying the C#'s string verbatim meant the server would
+/// not start against the deployment's own configuration, which is the sort of thing that is
+/// only found by trying it.
+pub fn connection_string(url: &str, username: &str, password: &str) -> String {
+    if url.contains("://") {
+        return url.to_owned();
+    }
+    let enc = |s: &str| -> String { form_urlencoded::byte_serialize(s.as_bytes()).collect() };
+    if username.is_empty() {
+        return format!("mongodb+srv://{url}");
+    }
+    format!("mongodb+srv://{}:{}@{url}", enc(username), enc(password))
 }
 
 // --- the shape on disk --------------------------------------------------------------------
@@ -393,6 +402,39 @@ fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The deployment's own settings make a string this driver accepts.
+    ///
+    /// Written from the configuration file the server actually runs with: a bare Atlas host,
+    /// a username, and a password that may be supplied by other means. The C#'s
+    /// `?connect=replicaSet` is deliberately absent - see [`connection_string`].
+    #[tokio::test]
+    async fn the_deployments_settings_make_a_string_the_driver_accepts() {
+        let uri = connection_string("cluster-name.example.mongodb.net", "mongo", "p@ss word");
+        assert_eq!(
+            uri, "mongodb+srv://mongo:p%40ss+word@cluster-name.example.mongodb.net",
+            "credentials are url-encoded, and no legacy options are added"
+        );
+
+        // Parsing an srv URI looks the host up, so a made-up one cannot get past DNS. What
+        // matters is *which* complaint comes back: about the name, not about an option.
+        let complaint = mongodb::options::ClientOptions::parse(&uri)
+            .await
+            .expect_err("no such cluster")
+            .to_string();
+        assert!(
+            !complaint.contains("invalid option"),
+            "the options are accepted; only the lookup fails: {complaint}"
+        );
+
+        // A whole connection string is taken as it is.
+        let plain = connection_string("mongodb://user:pass@localhost:27017", "ignored", "ignored");
+        assert!(mongodb::options::ClientOptions::parse(&plain).await.is_ok());
+
+        // And no credentials at all is a valid string too - a database that wants none.
+        let open = connection_string("localhost.example.net", "", "");
+        assert_eq!(open, "mongodb+srv://localhost.example.net");
+    }
 
     #[test]
     fn every_date_shape_the_app_has_written_is_read() {
