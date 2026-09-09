@@ -100,3 +100,40 @@ pub async fn tours() -> Result<Vec<Tour>, Failed> {
         .filter_map(|v| Tour::from_json(&v.to_string()).ok())
         .collect())
 }
+
+/// Sends the whole tour back.
+///
+/// The soft lock lives in the tour's own `StateGUID`, which travels with it: the server
+/// compares what arrives against what it holds and refuses a save built on a stale read.
+/// A 409 is therefore not a failure to report and forget - it means somebody else wrote
+/// while this screen was open, and the only honest answer is to reload and let the reader
+/// see what changed.
+pub async fn save_tour(tour: &Tour) -> Result<(), Failed> {
+    let body = tour
+        .to_json()
+        .map_err(|e| format!("could not write the tour: {e}"))?;
+
+    let mut req = Request::patch(&format!("/api/Tour/{}", tour.id));
+    if let Some(t) = token() {
+        req = req.header("Authorization", &format!("bearer {t}"));
+    }
+    let resp = req
+        .header("Content-Type", "application/json")
+        .body(body)
+        .map_err(|e| format!("could not build the request: {e}"))?
+        .send()
+        .await
+        .map_err(|e| format!("could not reach the server: {e}"))?;
+
+    match resp.status() {
+        200 => Ok(()),
+        409 => {
+            Err("Somebody else changed this tour while it was open. Reload and try again.".into())
+        }
+        404 => Err("This tour is gone, or the login no longer covers it.".into()),
+        s => {
+            let detail = resp.text().await.unwrap_or_default();
+            Err(format!("The server answered {s}. {detail}"))
+        }
+    }
+}

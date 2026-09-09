@@ -7,6 +7,7 @@
 
 pub mod auth;
 pub mod tour;
+pub mod write;
 
 use crate::state::Shared;
 use axum::extract::FromRequestParts;
@@ -22,7 +23,11 @@ pub fn routes(state: Shared) -> Router {
         .route("/api/Auth/token/{scope}/{key}/{*is_md5}", get(auth::token))
         .route("/api/Auth/whoami", get(auth::whoami))
         .route("/api/Tour/all/suggested", get(tour::all_suggested))
-        .route("/api/Tour/{id}", get(tour::one))
+        .route(
+            "/api/Tour/{id}",
+            get(tour::one).patch(write::update).delete(write::delete),
+        )
+        .route("/api/Tour/add/{code}", axum::routing::post(write::add))
         .route("/api/Tour/{id}/versions", get(tour::versions))
         .route("/api/Info/start", get(info_start))
         // The client fires these off and never reads the answer; without a route they would
@@ -39,6 +44,14 @@ async fn info_start(
         "StartupTime": started.to_string(),
         "WakeupTime": serde_json::Value::Null,
     }))
+}
+
+/// Formats a unix timestamp the way the stored `StateGUID` is written.
+pub fn stamp(secs: u64) -> String {
+    chrono_lite::Utc(secs)
+        .to_string()
+        .replace('T', " ")
+        .replace('Z', "")
 }
 
 /// A minimal ISO-8601 stamp, so that this crate does not pull in a date library to print
@@ -118,10 +131,15 @@ impl FromRequestParts<Shared> for Bearer {
     }
 }
 
-/// The handful of failures a read-only API can have.
+/// What can go wrong.
 pub enum ApiError {
     NotFound(String),
     NotAuthenticated(String),
+    Forbidden(String),
+    BadRequest(String),
+    /// Somebody else saved first. The client has to reload and redo, and telling it apart
+    /// from a plain failure is the whole point of the soft lock.
+    Conflict(String),
 }
 
 impl IntoResponse for ApiError {
@@ -129,6 +147,9 @@ impl IntoResponse for ApiError {
         let (code, message) = match self {
             ApiError::NotFound(m) => (StatusCode::NOT_FOUND, m),
             ApiError::NotAuthenticated(m) => (StatusCode::UNAUTHORIZED, m),
+            ApiError::Forbidden(m) => (StatusCode::FORBIDDEN, m),
+            ApiError::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
+            ApiError::Conflict(m) => (StatusCode::CONFLICT, m),
         };
         (code, message).into_response()
     }

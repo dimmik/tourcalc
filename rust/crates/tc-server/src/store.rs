@@ -31,6 +31,10 @@ pub trait TourStore: Send + Sync {
     fn get(&self, id: &TourId) -> Option<Arc<Tour>>;
     /// Every tour the given access codes may see, newest first.
     fn list(&self, allowed: &dyn Fn(&Tour) -> bool) -> Vec<Arc<Tour>>;
+    /// Writes a tour, adding it if its id is new.
+    fn store(&self, tour: Tour);
+    /// Removes a tour; `false` if there was none.
+    fn remove(&self, id: &TourId) -> bool;
 }
 
 /// Tours held in memory, seeded from a file at startup and never written back.
@@ -117,6 +121,24 @@ impl InMemoryStore {
 }
 
 impl TourStore for InMemoryStore {
+    fn store(&self, tour: Tour) {
+        let id = tour.id.clone();
+        let mut tours = self.tours.write().expect("store lock");
+        if tours.insert(id.clone(), Arc::new(tour)).is_none() {
+            self.order.write().expect("store lock").push(id);
+        }
+    }
+
+    fn remove(&self, id: &TourId) -> bool {
+        let mut tours = self.tours.write().expect("store lock");
+        if tours.remove(id).is_some() {
+            self.order.write().expect("store lock").retain(|i| i != id);
+            true
+        } else {
+            false
+        }
+    }
+
     fn get(&self, id: &TourId) -> Option<Arc<Tour>> {
         // `.cloned()` on an Option<&Arc<Tour>> clones the Arc - a counter bump - and not
         // the tour behind it. This is the line the C# spends a JSON round trip on.

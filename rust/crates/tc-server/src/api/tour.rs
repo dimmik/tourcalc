@@ -167,7 +167,7 @@ fn to_value(tour: &Tour) -> serde_json::Value {
 /// there. Looking only for the capitalised spelling made those tours invisible to everyone,
 /// which is the sort of thing that shows up as "two tours missing from the list" and not as
 /// an error anywhere.
-fn access_code_of(tour: &Tour) -> &str {
+pub fn access_code_of(tour: &Tour) -> &str {
     tour.extras
         .0
         .iter()

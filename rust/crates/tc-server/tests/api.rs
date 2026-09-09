@@ -161,3 +161,171 @@ async fn an_unknown_tour_is_not_found() {
     let (status, _) = get(&app, "/api/Tour/no-such-tour", Some(&token)).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+// --- writing ------------------------------------------------------------------------------
+
+async fn send(
+    app: &axum::Router,
+    method: &str,
+    uri: &str,
+    token: Option<&str>,
+    body: Option<serde_json::Value>,
+) -> (StatusCode, String) {
+    let mut req = Request::builder().method(method).uri(uri);
+    if let Some(t) = token {
+        req = req.header("authorization", format!("bearer {t}"));
+    }
+    let req = match body {
+        Some(v) => req
+            .header("content-type", "application/json")
+            .body(Body::from(v.to_string()))
+            .unwrap(),
+        None => req.body(Body::empty()).unwrap(),
+    };
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let status = resp.status();
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    (status, String::from_utf8_lossy(&bytes).into_owned())
+}
+
+async fn fetch_tour(app: &axum::Router, token: &str, id: &str) -> serde_json::Value {
+    let (status, body) = get(app, &format!("/api/Tour/{id}"), Some(token)).await;
+    assert_eq!(status, StatusCode::OK);
+    serde_json::from_str(&body).unwrap()
+}
+
+#[tokio::test]
+async fn a_change_is_stored_and_gets_a_new_state() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    let state_before = tour["StateGUID"].as_str().unwrap_or("").to_owned();
+    tour["Name"] = "renamed by a test".into();
+
+    let (status, body) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "zscph2y");
+
+    let after = fetch_tour(&app, &token, "zscph2y").await;
+    assert_eq!(after["Name"], "renamed by a test");
+    // The soft lock moves on, so the next save has to present the new one.
+    assert_ne!(after["StateGUID"].as_str().unwrap_or(""), state_before);
+}
+
+/// Saving over somebody else's change is refused rather than silently winning.
+#[tokio::test]
+async fn a_stale_save_is_a_conflict() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let first = fetch_tour(&app, &token, "zscph2y").await;
+    // Two editors read the same tour...
+    let mut second = first.clone();
+
+    let mut mine = first.clone();
+    mine["Name"] = "saved first".into();
+    let (status, _) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(mine)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // ...and the slower one is holding a state id that is no longer current.
+    second["Name"] = "saved second".into();
+    let (status, message) = send(
+        &app,
+        "PATCH",
+        "/api/Tour/zscph2y",
+        Some(&token),
+        Some(second),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(message.contains("newer version"), "{message}");
+
+    // And the first save is still what is stored.
+    let after = fetch_tour(&app, &token, "zscph2y").await;
+    assert_eq!(after["Name"], "saved first");
+}
+
+/// The body cannot move a tour into another pile, or rename its id.
+#[tokio::test]
+async fn the_body_is_not_trusted_for_id_or_access() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    tour["Id"] = "somewhere-else".into();
+    tour["GUID"] = "somewhere-else".into();
+    tour["AccessCodeMD5"] = "0000000000000000000000000000FFFF".into();
+
+    let (status, body) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "zscph2y");
+
+    let after = fetch_tour(&app, &token, "zscph2y").await;
+    assert_eq!(after["Id"], "zscph2y");
+    assert_eq!(after["AccessCodeMD5"], CODE);
+    // ...and nothing appeared under the id the body asked for.
+    let (status, _) = get(&app, "/api/Tour/somewhere-else", Some(&token)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_tour_of_another_code_cannot_be_written() {
+    let app = app();
+    let token = token_for_code(&app).await;
+    let tour = fetch_tour(&app, &token, "zscph2y").await;
+
+    // A token for a code that owns nothing here.
+    let (_, other) = get(&app, "/api/Auth/token/code/nobody/md5", None).await;
+    let (status, _) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&other), Some(tour)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_new_tour_joins_the_same_pile() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let body = serde_json::json!({ "Name": "A new trip", "Persons": [], "Spendings": [] });
+    let (status, id) = send(
+        &app,
+        "POST",
+        "/api/Tour/add/ignored",
+        Some(&token),
+        Some(body),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!id.is_empty());
+
+    let made = fetch_tour(&app, &token, &id).await;
+    assert_eq!(made["Name"], "A new trip");
+    // The access code is the caller's own, whatever the URL said.
+    assert_eq!(made["AccessCodeMD5"], CODE);
+    assert!(made["StateGUID"].as_str().is_some_and(|s| !s.is_empty()));
+}
+
+#[tokio::test]
+async fn a_tour_can_be_deleted_while_others_remain() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let (status, body) = send(&app, "DELETE", "/api/Tour/zscph2y", Some(&token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "zscph2y");
+
+    let (status, _) = get(&app, "/api/Tour/zscph2y", Some(&token)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// Restoring a version is a different operation; better refused than mistaken for an edit.
+#[tokio::test]
+async fn a_version_restore_is_refused_for_now() {
+    let app = app();
+    let token = token_for_code(&app).await;
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    tour["IsVersion"] = true.into();
+
+    let (status, _) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}

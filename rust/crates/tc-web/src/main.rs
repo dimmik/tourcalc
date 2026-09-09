@@ -5,6 +5,8 @@
 //! measured is what the browser has to download to get there, not a new design.
 
 mod api;
+mod dialogs;
+mod edit;
 mod list;
 mod tour;
 mod ui;
