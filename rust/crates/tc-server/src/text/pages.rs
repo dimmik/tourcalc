@@ -521,13 +521,14 @@ pub async fn mark_paid(
 /// that check and say so in a comment.
 async fn save(state: &Shared, previous: &Tour, mut next: Tour) -> Result<(), Box<Response>> {
     fields::set(&mut next, fields::STATE, api_write::new_state_guid().into());
+    let change = crate::versions::describe_change(previous, &next);
     let keep = state.versioning;
+    let comment = change.clone();
     let make_version = |was: &Tour| -> Option<Tour> {
         if !keep {
             return None;
         }
-        let comment = crate::versions::describe_change(was, &next)?;
-        Some(api_write::version_of(was, comment))
+        Some(api_write::version_of(was, comment.clone()?))
     };
 
     state

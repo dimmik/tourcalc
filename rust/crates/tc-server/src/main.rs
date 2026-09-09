@@ -74,7 +74,23 @@ async fn main() {
         }
     };
 
+    // Notifications: the real thing when there are keys to sign with, silence otherwise -
+    // which is what the C# does when the settings are missing.
+    let push: Box<dyn tc_server::push::Notifier> = match tc_server::push::WebPush::new(
+        &cfg.push_public_key,
+        &cfg.push_private_key,
+        &cfg.push_contact,
+    ) {
+        Some(real) => {
+            tracing::info!("push notifications are configured");
+            Box::new(real)
+        }
+        None => Box::new(tc_server::push::Silent),
+    };
+
     let state: state::Shared = Arc::new(state::AppState {
+        subscriptions: Box::new(tc_server::subscriptions::InMemorySubscriptions::default()),
+        push,
         store,
         signer,
         master_key: cfg.master_key.clone(),

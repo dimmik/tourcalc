@@ -37,6 +37,11 @@ pub struct Config {
     pub mongo_url: String,
     pub mongo_username: String,
     pub mongo_password: String,
+
+    /// The VAPID pair a browser needs to subscribe, and who to contact about this server.
+    pub push_public_key: String,
+    pub push_private_key: String,
+    pub push_contact: String,
 }
 
 impl Config {
@@ -69,6 +74,9 @@ impl Config {
             mongo_url: var("MongoDbUrl").unwrap_or_default(),
             mongo_username: var("MongoDbUsername").unwrap_or_default(),
             mongo_password: var("MongoDbPassword").unwrap_or_default(),
+            push_public_key: var("PushNotificationPublicKey").unwrap_or_default(),
+            push_private_key: var("PushNotificationPrivateKey").unwrap_or_default(),
+            push_contact: var("PushNotificationMailto").unwrap_or_default(),
         }
     }
 }

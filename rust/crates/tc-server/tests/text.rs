@@ -15,6 +15,8 @@ fn app() -> axum::Router {
     let store = tc_server::store::InMemoryStore::from_seed_file(&seed).expect("seed file");
     let state = std::sync::Arc::new(tc_server::state::AppState {
         store: Box::new(store),
+        subscriptions: Box::new(tc_server::subscriptions::InMemorySubscriptions::default()),
+        push: Box::new(tc_server::push::Silent),
         signer: tc_server::auth::Signer_::from_base64(DEV_KEY).unwrap(),
         master_key: "master".to_owned(),
         token_valid_minutes: 60,

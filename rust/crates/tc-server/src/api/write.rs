@@ -86,19 +86,23 @@ pub async fn update(
     let asked_comment = fields::str_of(&incoming, fields::INTERNAL_VERSION_COMMENT);
     fields::remove(&mut incoming, fields::INTERNAL_VERSION_COMMENT);
 
+    // What this save did, in words. One decision, used for three things: whether to keep a
+    // version at all, what to write on it, and what to tell the people subscribed.
+    let change = if asked_comment.is_empty() {
+        crate::versions::describe_change(&stored, &incoming)
+    } else {
+        Some(asked_comment.clone())
+    };
+
     let keep_versions = state.versioning;
+    let comment_for_version = change.clone();
     let make_version = |previous: &Tour| -> Option<Tour> {
         if !keep_versions {
             return None;
         }
         // A save that changed nothing anybody can name leaves no version. Without that,
         // every reopened tour and every re-saved form would add a line to the history.
-        let comment = if asked_comment.is_empty() {
-            crate::versions::describe_change(previous, &incoming)?
-        } else {
-            asked_comment.clone()
-        };
-        Some(version_of(previous, comment))
+        Some(version_of(previous, comment_for_version.clone()?))
     };
 
     // The check and the write are one step; see `TourStore::replace`.
@@ -112,7 +116,12 @@ pub async fn update(
         )
         .await
     {
-        Ok(()) => Ok(id),
+        Ok(()) => {
+            if let Some(what) = change {
+                state.announce(&id, format!("{} : {what}", incoming.name));
+            }
+            Ok(id)
+        }
         Err(crate::store::Stale(now)) => Err(ApiError::Conflict(format!(
             "You are trying to override newer version of tour ({now})"
         ))),

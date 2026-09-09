@@ -6,6 +6,7 @@
 //! and see whether it notices.
 
 pub mod auth;
+mod subscription;
 pub mod tour;
 pub mod write;
 
@@ -29,6 +30,19 @@ pub fn routes(state: Shared) -> Router {
         )
         .route("/api/Tour/add/{code}", axum::routing::post(write::add))
         .route("/api/Tour/{id}/versions", get(tour::versions))
+        .route("/api/Subscription/publickey", get(subscription::public_key))
+        .route(
+            "/api/Subscription/check/{tour}",
+            axum::routing::post(subscription::check),
+        )
+        .route(
+            "/api/Subscription/subscribe/{tour}",
+            axum::routing::post(subscription::subscribe),
+        )
+        .route(
+            "/api/Subscription/unsubscribe/{tour}",
+            axum::routing::post(subscription::unsubscribe),
+        )
         .route("/api/Info/start", get(info_start))
         .route("/api/Info/wakeup/{code}", get(info_wakeup))
         .route("/api/Auth/random/{length}", get(auth::random))

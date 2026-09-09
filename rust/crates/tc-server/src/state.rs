@@ -12,6 +12,9 @@ use std::sync::{Arc, RwLock};
 
 pub struct AppState {
     pub store: Box<dyn TourStore>,
+    /// Who has asked to be told when a tour changes, and what does the telling.
+    pub subscriptions: Box<dyn crate::subscriptions::SubscriptionStore>,
+    pub push: Box<dyn crate::push::Notifier>,
     pub signer: Signer_,
     pub master_key: String,
     pub token_valid_minutes: i64,
@@ -39,6 +42,23 @@ pub struct AppState {
 pub const WAKEUPS_TO_KEEP: usize = 15;
 
 impl AppState {
+    /// Tells whoever subscribed to this tour that it changed.
+    ///
+    /// Best-effort and out of the way of the save: the tour is already stored by the time
+    /// this runs, and a push service that is slow or down must not make somebody's edit
+    /// slow or failed.
+    pub fn announce(self: &Arc<Self>, tour_id: &str, message: String) {
+        let subscribers = self.subscriptions.for_tour(tour_id);
+        if subscribers.is_empty() {
+            return;
+        }
+        let state = Arc::clone(self);
+        let tour_id = tour_id.to_owned();
+        tokio::spawn(async move {
+            state.push.notify(subscribers, &tour_id, &message).await;
+        });
+    }
+
     /// Records a wake-up, dropping the oldest when the list is full.
     pub fn woke_up(&self) {
         let Ok(mut list) = self.wakeups.write() else {
