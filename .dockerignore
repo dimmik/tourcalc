@@ -7,3 +7,8 @@
 rust/target/
 rust/.run/
 rust/crates/*/dist/
+
+# Prose, which nothing in the image needs and which otherwise invalidates the layer that
+# compiles the server: `COPY rust/` would pick it up, and a typo in the write-up would cost
+# a full rebuild.
+rust/README.md
