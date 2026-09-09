@@ -1,0 +1,107 @@
+# The Rust port, as one image: the axum server with the Leptos client baked in.
+#
+# Nothing here is emulated. wasm is the same bytes whatever the machine runs, so the client
+# is built once on the build platform; the server is *cross-compiled* to the target
+# architecture rather than compiled under QEMU, which is the difference between a couple of
+# minutes and most of an hour. Both are possible because every dependency is pure Rust -
+# there is no OpenSSL, no BouncyCastle, nothing that needs a C toolchain for the target.
+
+# ---------------------------------------------------------------------------------------
+# The browser side.
+# ---------------------------------------------------------------------------------------
+FROM --platform=$BUILDPLATFORM rust:1-bookworm AS client
+
+# The exact version this was developed against. Trunk publishes built binaries, and taking
+# one is a minute rather than the several `cargo install trunk` spends compiling it.
+ARG TRUNK_VERSION=0.21.14
+
+WORKDIR /src
+
+RUN rustup target add wasm32-unknown-unknown \
+ && case "$(uname -m)" in \
+        x86_64)  TRUNK_ARCH=x86_64 ;; \
+        aarch64) TRUNK_ARCH=aarch64 ;; \
+        *) echo "no trunk build for $(uname -m)" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL "https://github.com/trunk-rs/trunk/releases/download/v${TRUNK_VERSION}/trunk-${TRUNK_ARCH}-unknown-linux-gnu.tar.gz" \
+    | tar -xz -C /usr/local/bin trunk \
+ && trunk --version
+
+# The client's index.html pulls the app's own stylesheet straight out of the Blazor client -
+# the 3 500 lines of CSS are shared, not copied - so that one file has to be here too.
+COPY rust/ ./rust/
+COPY TCBlazor/Client/wwwroot/css/newui.css ./TCBlazor/Client/wwwroot/css/newui.css
+
+WORKDIR /src/rust/crates/tc-web
+
+# Trunk fetches wasm-bindgen and wasm-opt itself, matching the versions the crates ask for.
+RUN trunk build --release \
+ && ls -la dist
+
+# ---------------------------------------------------------------------------------------
+# The server, cross-compiled.
+# ---------------------------------------------------------------------------------------
+FROM --platform=$BUILDPLATFORM rust:1-bookworm AS server
+
+ARG TARGETARCH
+WORKDIR /src
+
+# One linker per target. The gnu targets are used rather than musl because the runtime image
+# below is Debian-based anyway, and this way there is no second libc to reason about.
+RUN case "$TARGETARCH" in \
+        amd64) TRIPLE=x86_64-unknown-linux-gnu ;; \
+        arm64) TRIPLE=aarch64-unknown-linux-gnu ;; \
+        *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+ && echo "$TRIPLE" > /triple \
+ && rustup target add "$TRIPLE" \
+ && if [ "$TARGETARCH" = "arm64" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+
+COPY rust/ ./rust/
+
+# `--locked` so the image is built from the versions in Cargo.lock and not from whatever has
+# been published since.
+RUN cd rust \
+ && cargo build --release --locked -p tc-server --target "$(cat /triple)" \
+ && cp "target/$(cat /triple)/release/tc-server" /tc-server
+
+# ---------------------------------------------------------------------------------------
+# What actually ships. No shell, no package manager, no .NET runtime: a static-ish binary,
+# the wasm client, and a seed file.
+# ---------------------------------------------------------------------------------------
+FROM gcr.io/distroless/cc-debian12
+
+ARG BUILD_TYPE=na
+LABEL org.opencontainers.image.title="Tourcalc (Rust experiment)" \
+      org.opencontainers.image.description="The Rust port: axum server, Leptos client. Storage is in memory - see InMemoryFileName." \
+      io.containers.autoupdate=registry
+
+WORKDIR /app
+
+COPY --from=server /tc-server /app/tc-server
+COPY --from=client /src/rust/crates/tc-web/dist /app/wwwroot
+
+# The tours the server starts with. **This store lives in memory**: everything written to it
+# is lost when the container stops, and every start begins again from this file. That is the
+# state of the port - a database is phase 7 - so the image ships the repository's test tours
+# to be poked at rather than pretending to be a place to keep anything.
+COPY TCBlazor/Server/inmemory-tours.json /app/seed/inmemory-tours.json
+
+# Read by `config::from_env`, under the names the C# app already uses.
+#
+# A real deployment must pass its own `AuthPrivateECDSAKey` and `MasterKey`: the key the
+# server falls back to is the development one from appsettings.json, which is in the
+# repository and therefore known to everybody.
+ENV InMemoryFileName=/app/seed/inmemory-tours.json \
+    StaticFilesDir=/app/wwwroot \
+    Listen=0.0.0.0:8080 \
+    BUILD_TYPE=${BUILD_TYPE}
+
+EXPOSE 8080
+
+ENTRYPOINT ["/app/tc-server"]

@@ -1,0 +1,66 @@
+name: EXPERIMENTS Rust -- Create and publish a Docker image
+concurrency:
+  group: tourcalc-experiments-rust
+  cancel-in-progress: true
+
+on:
+  push:
+# run from any experiments branch
+    branches: ['experiments/**']
+# and by hand, from any branch
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Get current time
+        uses: josStorer/get-current-time@v2
+        id: current-time
+        with:
+          format: YYYYMMDD-HHmmss
+          utcOffset: "+03:00"
+
+      # No QEMU: the server is cross-compiled and the wasm is architecture-independent, so
+      # nothing in this build ever runs emulated. See the comments in tourcalc.rust.docker.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=$(echo ${GITHUB_REF#refs/heads/} | sed 's/\//\\\//g')" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: linux/amd64,linux/arm64 Build and push Docker image
+        uses: docker/build-push-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+          context: .
+          file: tourcalc.rust.docker
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:experiments-rust,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:experiments-rust-${{ steps.current-time.outputs.formattedTime }}
+          build-args: |
+             BUILD_TYPE=experimentsR (${{ steps.extract_branch.outputs.branch }})
+          # Rust compiles the world on a cold start; without this every push pays for it
+          # again. `mode=max` keeps the intermediate stages too, which is where the time is.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: io.containers.autoupdate=registry

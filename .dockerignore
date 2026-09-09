@@ -1,0 +1,9 @@
+# Build output, which is enormous and never belongs in a build context: `rust/target`
+# alone is several gigabytes, and Docker uploads the context before it reads the first
+# instruction.
+#
+# Deliberately short. The .NET and React images are built from this same context and have
+# worked for years without a list of exclusions; this adds only what the Rust work created.
+rust/target/
+rust/.run/
+rust/crates/*/dist/
