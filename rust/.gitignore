@@ -4,3 +4,5 @@ dist/
 # GoldenDump is run on demand, not part of the solution
 tools/GoldenDump/bin/
 tools/GoldenDump/obj/
+# what build-and-run.sh puts together to click through
+.run/
