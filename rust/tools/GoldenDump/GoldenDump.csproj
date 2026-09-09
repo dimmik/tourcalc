@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Takes the numbers the C# implementation produces and writes them down, so the Rust
+    port can be checked against the thing it replaces instead of against a transcription
+    of a screenshot. Run once per change to the fixtures; the output is committed.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <AssemblyName>GoldenDump</AssemblyName>
+    <RootNamespace>GoldenDump</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\TCalcCore\TCalcCore.csproj" />
+  </ItemGroup>
+
+</Project>

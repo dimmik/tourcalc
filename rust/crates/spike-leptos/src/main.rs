@@ -9,7 +9,7 @@ use leptos::prelude::*;
 use tc_core::{calculate, suggest_settlement, Options, PersonId, Tour};
 
 /// Baked into the binary at compile time, so the spike needs no server to run.
-const FIXTURE: &str = include_str!("../../../fixtures/ural-2021.json");
+const FIXTURE: &str = include_str!("../../../fixtures/zscph2y.tour.json");
 
 fn main() {
     console_error_panic_hook::set_once();

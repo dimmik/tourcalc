@@ -13,7 +13,10 @@ pub mod domain;
 pub mod ids;
 pub mod money;
 
-pub use calc::{calculate, suggest_settlement, Balances, Options, PersonBalance, Transfer};
+pub use calc::{
+    balances_after, calculate, suggest_settlement, Balances, CalcError, Options, PersonBalance,
+    Transfer,
+};
 pub use domain::{Currency, Kind, Person, Spending, Split, Tour};
 pub use ids::{CurrencyId, PersonId, SpendingId, TourId};
 pub use money::Cents;

@@ -1,3 +1,6 @@
 # build output: cargo's shared target dir and trunk's per-crate dist
 /target
 dist/
+# GoldenDump is run on demand, not part of the solution
+tools/GoldenDump/bin/
+tools/GoldenDump/obj/

@@ -1,0 +1,94 @@
+{
+  "tourId": "ot5sbhq",
+  "name": "тест мультив",
+  "currency": {
+    "id": "EUR",
+    "name": "EUR",
+    "rate": 100
+  },
+  "isMultiCurrency": true,
+  "persons": [
+    {
+      "guid": "k47ppfq",
+      "name": "а",
+      "weight": 100,
+      "spent": 0,
+      "received": 10000,
+      "debt": 10000
+    },
+    {
+      "guid": "smfp7fq",
+      "name": "б",
+      "weight": 100,
+      "spent": 0,
+      "received": 10000,
+      "debt": 10000
+    },
+    {
+      "guid": "2jkqhfy",
+      "name": "в",
+      "weight": 100,
+      "spent": 0,
+      "received": 10000,
+      "debt": 10000
+    },
+    {
+      "guid": "mrxq3fy",
+      "name": "_банк",
+      "weight": 0,
+      "spent": 30000,
+      "received": 0,
+      "debt": -30000
+    }
+  ],
+  "transfers": [
+    {
+      "from": "smfp7fq",
+      "fromName": "б",
+      "to": "2jkqhfy",
+      "toName": "в",
+      "amount": 1000,
+      "description": "Family 'б' -> 'в'"
+    },
+    {
+      "from": "2jkqhfy",
+      "fromName": "в",
+      "to": "mrxq3fy",
+      "toName": "_банк",
+      "amount": 2000,
+      "description": "X 'в' -> '_банк'"
+    },
+    {
+      "from": "k47ppfq",
+      "fromName": "а",
+      "to": "mrxq3fy",
+      "toName": "_банк",
+      "amount": 1000,
+      "description": "X 'а' -> '_банк'"
+    },
+    {
+      "from": "smfp7fq",
+      "fromName": "б",
+      "to": "2jkqhfy",
+      "toName": "в",
+      "amount": 9000,
+      "description": "Family 'б' -> 'в'"
+    },
+    {
+      "from": "2jkqhfy",
+      "fromName": "в",
+      "to": "mrxq3fy",
+      "toName": "_банк",
+      "amount": 18000,
+      "description": "X 'в' -> '_банк'"
+    },
+    {
+      "from": "k47ppfq",
+      "fromName": "а",
+      "to": "mrxq3fy",
+      "toName": "_банк",
+      "amount": 9000,
+      "description": "X 'а' -> '_банк'"
+    }
+  ]
+}

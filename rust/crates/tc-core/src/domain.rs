@@ -15,12 +15,27 @@ use crate::ids::{CurrencyId, PersonId, SpendingId, TourId};
 use crate::money::Cents;
 use serde::{Deserialize, Serialize};
 
+/// The fields of the stored JSON this crate does not model.
+///
+/// A tour written by the C# app carries more than the arithmetic needs - when it was
+/// created, its sync metadata, the cached per-person spending breakdowns. Dropping them on
+/// the way through would quietly damage everybody's data the first time this code writes a
+/// tour back, so they are carried along untouched instead: read in, written out, never
+/// looked at.
+///
+/// `#[serde(flatten)]` on the wire structs is what collects them: whatever a struct did not
+/// claim by name ends up here.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Extras(pub serde_json::Map<String, serde_json::Value>);
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Currency {
     pub id: CurrencyId,
     pub name: String,
     /// Rate against the tour's base, times 100 - as it is stored today.
     pub rate: i32,
+    pub extras: Extras,
 }
 
 impl Default for Currency {
@@ -29,6 +44,7 @@ impl Default for Currency {
             id: CurrencyId::new("coin"),
             name: "coin".to_owned(),
             rate: 100,
+            extras: Extras::default(),
         }
     }
 }
@@ -43,6 +59,30 @@ pub struct Person {
     /// In C# this is `string ParentId = null`, and every reader has to remember that null
     /// means something. `Option` says it in the type, and there is no null to forget about.
     pub parent: Option<PersonId>,
+    /// People who travel together and square up between themselves anyway.
+    ///
+    /// The settlement avoids proposing a payment inside a group when it can pay somebody
+    /// outside instead. C# gives every person a fresh random id here when the data has
+    /// none, so "no group" has to mean "in nobody else's group" - which is what `None`
+    /// means below, since two `None`s are never the same group.
+    pub group: Option<String>,
+    pub extras: Extras,
+}
+
+impl Person {
+    /// Whether two people count as travelling together.
+    pub fn same_group_as(&self, other: &Person) -> bool {
+        match (&self.group, &other.group) {
+            (Some(a), Some(b)) => a == b,
+            _ => false,
+        }
+    }
+
+    /// The settlement pays these creditors back first. Inherited from C#'s `_PGS_ = "r"`;
+    /// what the letter means is not recorded anywhere, and the data in hand does not use it.
+    pub fn is_preferred_creditor(&self) -> bool {
+        self.group.as_deref().is_some_and(|g| g.starts_with('r'))
+    }
 }
 
 /// How one spending is divided. Three shapes, and no fourth.
@@ -97,8 +137,20 @@ pub struct Spending {
     pub amount: Cents,
     pub currency: Currency,
     pub from: PersonId,
+    /// How the money is actually divided. This is what the arithmetic reads.
     pub split: Split,
+    /// What the form had selected before "everyone" was switched on.
+    ///
+    /// Dead weight as far as the sums go, and not dead at all to the person editing: switch
+    /// "everyone" back off and the old selection is still there. The stored data keeps it -
+    /// spendings in the fixtures carry `ToAll: true` together with a list of names and a
+    /// weighting flag - so this crate keeps it too, in its own field rather than smuggled
+    /// into `split`, which stays exactly three cases with no impossible fourth.
+    ///
+    /// Found by the round-trip test, not by reading the C# source.
+    pub remembered_split: Option<Split>,
     pub kind: Kind,
+    pub extras: Extras,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -109,6 +161,7 @@ pub struct Tour {
     pub spendings: Vec<Spending>,
     pub currencies: Vec<Currency>,
     pub current_currency: CurrencyId,
+    pub extras: Extras,
 }
 
 impl Tour {
@@ -130,6 +183,32 @@ impl Tour {
             .unwrap_or(&DEFAULT_CURRENCY)
     }
 
+    /// What a spending is worth in the currency the tour is being shown in.
+    ///
+    /// Three rules, all of them inherited rather than chosen, because the stored data was
+    /// written under them (`Spending.AmountInCurrentCurrency` in the C# source):
+    ///
+    /// 1. A tour with one currency or none converts nothing.
+    /// 2. The rate used is the tour's rate for that currency **id**, not the rate stored on
+    ///    the spending - those go stale, and the tour's list is the authority.
+    /// 3. A spending in a currency the tour does not list is treated as being in the current
+    ///    one, and passes through untouched.
+    pub fn amount_in_current(&self, spending: &Spending) -> Cents {
+        if self.currencies.len() <= 1 {
+            return spending.amount;
+        }
+        let current = self.currency();
+        let from = self
+            .currencies
+            .iter()
+            .find(|c| c.id == spending.currency.id)
+            .unwrap_or(current);
+        if from.id == current.id {
+            return spending.amount;
+        }
+        crate::money::convert(spending.amount, from.rate, current.rate)
+    }
+
     pub fn total_weight(&self) -> i64 {
         let sum: i64 = self.persons.iter().map(|p| p.weight as i64).sum();
         if sum == 0 {
@@ -142,6 +221,17 @@ impl Tour {
     pub fn from_json(s: &str) -> Result<Tour, serde_json::Error> {
         let w: wire::Tour = serde_json::from_str(s)?;
         Ok(w.into())
+    }
+
+    /// Writes the tour back in the shape the C# app reads.
+    ///
+    /// The point of the exercise is that this is not "our format": a tour written here has
+    /// to be readable by the running application, by the bot and by whatever is already in
+    /// somebody's browser. So it goes back out through the same `wire` types it came in
+    /// through, unmodelled fields and all.
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        let w: wire::Tour = self.into();
+        serde_json::to_string_pretty(&w)
     }
 }
 
@@ -163,8 +253,12 @@ pub mod wire {
     #[derive(Debug, Deserialize, Serialize)]
     #[serde(rename_all = "PascalCase")]
     pub struct Tour {
+        /// Tours stored before `Id` existed only carry `GUID`; the C# property maps one
+        /// onto the other, so both spellings appear in real data and both must read.
         #[serde(default, rename = "Id")]
-        pub id: String,
+        pub id: Option<String>,
+        #[serde(default, rename = "GUID")]
+        pub guid: Option<String>,
         #[serde(default)]
         pub name: String,
         #[serde(default)]
@@ -176,6 +270,9 @@ pub mod wire {
         pub currencies: Option<Vec<Currency>>,
         #[serde(default)]
         pub tour_currency_id: Option<String>,
+        /// Everything this struct did not name. See [`Extras`].
+        #[serde(flatten)]
+        pub rest: serde_json::Map<String, serde_json::Value>,
     }
 
     #[derive(Debug, Deserialize, Serialize)]
@@ -189,6 +286,11 @@ pub mod wire {
         pub weight: i32,
         #[serde(default)]
         pub parent_id: Option<String>,
+        #[serde(default)]
+        pub group_id: Option<String>,
+        /// Everything this struct did not name. See [`Extras`].
+        #[serde(flatten)]
+        pub rest: serde_json::Map<String, serde_json::Value>,
     }
 
     #[derive(Debug, Deserialize, Serialize)]
@@ -218,6 +320,9 @@ pub mod wire {
         pub is_dry_run: bool,
         #[serde(default)]
         pub include_dry_run_in_calc: bool,
+        /// Everything this struct did not name. See [`Extras`].
+        #[serde(flatten)]
+        pub rest: serde_json::Map<String, serde_json::Value>,
     }
 
     #[derive(Debug, Deserialize, Serialize)]
@@ -229,6 +334,9 @@ pub mod wire {
         pub name: String,
         #[serde(default = "hundred")]
         pub currency_rate: i32,
+        /// Everything this struct did not name. See [`Extras`].
+        #[serde(flatten)]
+        pub rest: serde_json::Map<String, serde_json::Value>,
     }
 
     fn coin() -> String {
@@ -247,6 +355,7 @@ pub mod wire {
                 id: CurrencyId::new(id),
                 name: c.name,
                 rate: c.currency_rate,
+                extras: Extras(c.rest),
             }
         }
     }
@@ -262,6 +371,8 @@ pub mod wire {
                     .parent_id
                     .filter(|s| !s.trim().is_empty())
                     .map(PersonId::new),
+                group: p.group_id,
+                extras: Extras(p.rest),
             }
         }
     }
@@ -269,15 +380,17 @@ pub mod wire {
     impl From<Spending> for super::Spending {
         fn from(s: Spending) -> super::Spending {
             // Here the four flags collapse into three cases, once, in one place.
-            let split = if s.to_all {
-                Split::Everyone
+            let to: Vec<PersonId> = s.to_guid.into_iter().map(PersonId::new).collect();
+            let chosen = if s.is_partial_weighted {
+                Split::ByWeight(to)
             } else {
-                let to: Vec<PersonId> = s.to_guid.into_iter().map(PersonId::new).collect();
-                if s.is_partial_weighted {
-                    Split::ByWeight(to)
-                } else {
-                    Split::Equally(to)
-                }
+                Split::Equally(to)
+            };
+            // "Everyone" wins over the selection; the selection is kept aside.
+            let (split, remembered_split) = if s.to_all {
+                (Split::Everyone, Some(chosen))
+            } else {
+                (chosen, None)
             };
             let kind = if s.planned {
                 Kind::Planned
@@ -296,7 +409,9 @@ pub mod wire {
                 currency: s.currency.map(Into::into).unwrap_or_default(),
                 from: PersonId::new(s.from_guid),
                 split,
+                remembered_split,
                 kind,
+                extras: Extras(s.rest),
             }
         }
     }
@@ -320,13 +435,105 @@ pub mod wire {
                 .filter(|id| currencies.iter().any(|c| &c.id == id))
                 .unwrap_or_else(|| currencies[0].id.clone());
             super::Tour {
-                id: TourId::new(t.id),
+                id: TourId::new(t.id.or(t.guid).unwrap_or_default()),
                 name: t.name,
                 persons: t.persons.into_iter().map(Into::into).collect(),
                 spendings: t.spendings.into_iter().map(Into::into).collect(),
                 currencies,
                 current_currency: current,
+                extras: Extras(t.rest),
             }
+        }
+    }
+}
+
+// --- and back out again ----------------------------------------------------------------
+//
+// Written by hand rather than derived, because the shapes differ: one `Split` becomes three
+// separate booleans plus a list, and `Kind` becomes another three. Deriving cannot know
+// that, and a round trip through the wrong shape would be read by the C# app as a different
+// spending.
+
+impl From<&Currency> for wire::Currency {
+    fn from(c: &Currency) -> wire::Currency {
+        wire::Currency {
+            id: Some(c.id.as_str().to_owned()),
+            name: c.name.clone(),
+            currency_rate: c.rate,
+            rest: c.extras.0.clone(),
+        }
+    }
+}
+
+impl From<&Person> for wire::Person {
+    fn from(p: &Person) -> wire::Person {
+        wire::Person {
+            guid: p.id.as_str().to_owned(),
+            name: p.name.clone(),
+            weight: p.weight,
+            // "Pays for themselves" is written as null, which is what the C# model holds
+            // by default. The stored data also contains "" for the same thing - both come
+            // back as `None`, because C# tests this with IsNullOrWhiteSpace - and writing
+            // one where the other stood changes nothing that anything reads.
+            parent_id: p.parent.as_ref().map(|id| id.as_str().to_owned()),
+            group_id: p.group.clone(),
+            rest: p.extras.0.clone(),
+        }
+    }
+}
+
+impl From<&Spending> for wire::Spending {
+    fn from(s: &Spending) -> wire::Spending {
+        // On the wire the selection is written whether or not it is in force, so that
+        // switching "everyone" off in the app finds it again.
+        let selection = match &s.split {
+            Split::Everyone => s.remembered_split.as_ref(),
+            other => Some(other),
+        };
+        let (to_guid, partial) = match selection {
+            Some(Split::ByWeight(to)) => {
+                (to.iter().map(|id| id.as_str().to_owned()).collect(), true)
+            }
+            Some(Split::Equally(to)) => {
+                (to.iter().map(|id| id.as_str().to_owned()).collect(), false)
+            }
+            Some(Split::Everyone) | None => (Vec::new(), false),
+        };
+        let to_all = matches!(s.split, Split::Everyone);
+        let (planned, dry_run, counted) = match s.kind {
+            Kind::Real => (false, false, false),
+            Kind::Draft { counted } => (false, true, counted),
+            Kind::Planned => (true, false, false),
+        };
+        wire::Spending {
+            guid: s.id.as_str().to_owned(),
+            description: s.description.clone(),
+            kind_name: s.category.clone(),
+            amount_in_cents: s.amount.0,
+            currency: Some((&s.currency).into()),
+            from_guid: s.from.as_str().to_owned(),
+            to_guid,
+            to_all,
+            is_partial_weighted: partial,
+            planned,
+            is_dry_run: dry_run,
+            include_dry_run_in_calc: counted,
+            rest: s.extras.0.clone(),
+        }
+    }
+}
+
+impl From<&Tour> for wire::Tour {
+    fn from(t: &Tour) -> wire::Tour {
+        wire::Tour {
+            id: Some(t.id.as_str().to_owned()),
+            guid: Some(t.id.as_str().to_owned()),
+            name: t.name.clone(),
+            persons: t.persons.iter().map(Into::into).collect(),
+            spendings: t.spendings.iter().map(Into::into).collect(),
+            currencies: Some(t.currencies.iter().map(Into::into).collect()),
+            tour_currency_id: Some(t.current_currency.as_str().to_owned()),
+            rest: t.extras.0.clone(),
         }
     }
 }

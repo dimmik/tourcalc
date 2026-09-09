@@ -1,0 +1,54 @@
+{
+  "tourId": "ltwdula",
+  "name": "TEST for issue repro InMem",
+  "currency": {
+    "id": "coin",
+    "name": "coin",
+    "rate": 100
+  },
+  "isMultiCurrency": false,
+  "persons": [
+    {
+      "guid": "bsbpymi",
+      "name": "первый",
+      "weight": 100,
+      "spent": 100,
+      "received": 67,
+      "debt": -33
+    },
+    {
+      "guid": "543awmq",
+      "name": "зависимый",
+      "weight": 100,
+      "spent": 0,
+      "received": 66,
+      "debt": 66
+    },
+    {
+      "guid": "uxzvcmq",
+      "name": "третий",
+      "weight": 100,
+      "spent": 100,
+      "received": 67,
+      "debt": -33
+    }
+  ],
+  "transfers": [
+    {
+      "from": "543awmq",
+      "fromName": "зависимый",
+      "to": "bsbpymi",
+      "toName": "первый",
+      "amount": 66,
+      "description": "Family 'зависимый' -> 'первый'"
+    },
+    {
+      "from": "bsbpymi",
+      "fromName": "первый",
+      "to": "uxzvcmq",
+      "toName": "третий",
+      "amount": 33,
+      "description": "X 'первый' -> 'третий'"
+    }
+  ]
+}

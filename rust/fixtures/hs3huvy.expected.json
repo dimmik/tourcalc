@@ -1,0 +1,182 @@
+{
+  "tourId": "hs3huvy",
+  "name": "Поход Урал Август 2021",
+  "currency": {
+    "id": "coin",
+    "name": "coin",
+    "rate": 100
+  },
+  "isMultiCurrency": false,
+  "persons": [
+    {
+      "guid": "se6i4vy",
+      "name": "Дима А.",
+      "weight": 100,
+      "spent": 41972,
+      "received": 41053,
+      "debt": -919
+    },
+    {
+      "guid": "zax4awa",
+      "name": "Дима Т.",
+      "weight": 100,
+      "spent": 37650,
+      "received": 41053,
+      "debt": 3403
+    },
+    {
+      "guid": "rxyncwa",
+      "name": "Хомяк",
+      "weight": 100,
+      "spent": 52350,
+      "received": 42153,
+      "debt": -10197
+    },
+    {
+      "guid": "2arnuwa",
+      "name": "Женя К.",
+      "weight": 100,
+      "spent": 12714,
+      "received": 41106,
+      "debt": 28392
+    },
+    {
+      "guid": "dzl6gwa",
+      "name": "Саша О.",
+      "weight": 100,
+      "spent": 90580,
+      "received": 90582,
+      "debt": 2
+    },
+    {
+      "guid": "d5zo2wa",
+      "name": "Валечка",
+      "weight": 100,
+      "spent": 40536,
+      "received": 40536,
+      "debt": 0
+    },
+    {
+      "guid": "kwl66wa",
+      "name": "Андрей",
+      "weight": 100,
+      "spent": 46108,
+      "received": 41053,
+      "debt": -5055
+    },
+    {
+      "guid": "budymwi",
+      "name": "Паша",
+      "weight": 100,
+      "spent": 95904,
+      "received": 80278,
+      "debt": -15626
+    },
+    {
+      "guid": "hy76nhq",
+      "name": "Олежка",
+      "weight": 60,
+      "spent": 23300,
+      "received": 23300,
+      "debt": 0
+    },
+    {
+      "guid": "couqlhy",
+      "name": "Игоряша",
+      "weight": 30,
+      "spent": 11650,
+      "received": 11650,
+      "debt": 0
+    }
+  ],
+  "transfers": [
+    {
+      "from": "2arnuwa",
+      "fromName": "Женя К.",
+      "to": "budymwi",
+      "toName": "Паша",
+      "amount": 15628,
+      "description": "X 'Женя К.' -> 'Паша'"
+    },
+    {
+      "from": "2arnuwa",
+      "fromName": "Женя К.",
+      "to": "rxyncwa",
+      "toName": "Хомяк",
+      "amount": 10199,
+      "description": "X 'Женя К.' -> 'Хомяк'"
+    },
+    {
+      "from": "zax4awa",
+      "fromName": "Дима Т.",
+      "to": "kwl66wa",
+      "toName": "Андрей",
+      "amount": 3401,
+      "description": "X 'Дима Т.' -> 'Андрей'"
+    },
+    {
+      "from": "2arnuwa",
+      "fromName": "Женя К.",
+      "to": "kwl66wa",
+      "toName": "Андрей",
+      "amount": 1656,
+      "description": "X 'Женя К.' -> 'Андрей'"
+    },
+    {
+      "from": "2arnuwa",
+      "fromName": "Женя К.",
+      "to": "se6i4vy",
+      "toName": "Дима А.",
+      "amount": 904,
+      "description": "X 'Женя К.' -> 'Дима А.'"
+    },
+    {
+      "from": "zax4awa",
+      "fromName": "Дима Т.",
+      "to": "se6i4vy",
+      "toName": "Дима А.",
+      "amount": 2,
+      "description": "X 'Дима Т.' -> 'Дима А.'"
+    },
+    {
+      "from": "rxyncwa",
+      "fromName": "Хомяк",
+      "to": "se6i4vy",
+      "toName": "Дима А.",
+      "amount": 2,
+      "description": "X 'Хомяк' -> 'Дима А.'"
+    },
+    {
+      "from": "2arnuwa",
+      "fromName": "Женя К.",
+      "to": "se6i4vy",
+      "toName": "Дима А.",
+      "amount": 2,
+      "description": "X 'Женя К.' -> 'Дима А.'"
+    },
+    {
+      "from": "dzl6gwa",
+      "fromName": "Саша О.",
+      "to": "se6i4vy",
+      "toName": "Дима А.",
+      "amount": 2,
+      "description": "X 'Саша О.' -> 'Дима А.'"
+    },
+    {
+      "from": "kwl66wa",
+      "fromName": "Андрей",
+      "to": "se6i4vy",
+      "toName": "Дима А.",
+      "amount": 2,
+      "description": "X 'Андрей' -> 'Дима А.'"
+    },
+    {
+      "from": "budymwi",
+      "fromName": "Паша",
+      "to": "se6i4vy",
+      "toName": "Дима А.",
+      "amount": 2,
+      "description": "X 'Паша' -> 'Дима А.'"
+    }
+  ]
+}

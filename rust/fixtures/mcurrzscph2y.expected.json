@@ -1,0 +1,166 @@
+{
+  "tourId": "mcurrzscph2y",
+  "name": "Test Multicurrency",
+  "currency": {
+    "id": "RUB",
+    "name": "RUB",
+    "rate": 180
+  },
+  "isMultiCurrency": true,
+  "persons": [
+    {
+      "guid": "se6i4vy",
+      "name": "Длинное и весьма длинное такое вот имя",
+      "weight": 100,
+      "spent": 41972,
+      "received": 41412,
+      "debt": -560
+    },
+    {
+      "guid": "zax4awa",
+      "name": "Дима Т.",
+      "weight": 100,
+      "spent": 38437,
+      "received": 41412,
+      "debt": 2975
+    },
+    {
+      "guid": "rxyncwa",
+      "name": "Хомяк",
+      "weight": 100,
+      "spent": 52350,
+      "received": 42512,
+      "debt": -9838
+    },
+    {
+      "guid": "2arnuwa",
+      "name": "Женя К.",
+      "weight": 100,
+      "spent": 12714,
+      "received": 41462,
+      "debt": 28748
+    },
+    {
+      "guid": "dzl6gwa",
+      "name": "Саша О.",
+      "weight": 100,
+      "spent": 52125,
+      "received": 66262,
+      "debt": 14137
+    },
+    {
+      "guid": "d5zo2wa",
+      "name": "Валечка",
+      "weight": 100,
+      "spent": 27507,
+      "received": 40895,
+      "debt": 13388
+    },
+    {
+      "guid": "kwl66wa",
+      "name": "Андрей",
+      "weight": 100,
+      "spent": 48512,
+      "received": 41412,
+      "debt": -7100
+    },
+    {
+      "guid": "budymwi",
+      "name": "Паша",
+      "weight": 100,
+      "spent": 95904,
+      "received": 42181,
+      "debt": -53723
+    },
+    {
+      "guid": "hy76nhq",
+      "name": "Олежка",
+      "weight": 60,
+      "spent": 23300,
+      "received": 23515,
+      "debt": 215
+    },
+    {
+      "guid": "couqlhy",
+      "name": "Игоряша",
+      "weight": 30,
+      "spent": 0,
+      "received": 11758,
+      "debt": 11758
+    }
+  ],
+  "transfers": [
+    {
+      "from": "d5zo2wa",
+      "fromName": "Валечка",
+      "to": "dzl6gwa",
+      "toName": "Саша О.",
+      "amount": 13388,
+      "description": "Family 'Валечка' -> 'Саша О.'"
+    },
+    {
+      "from": "hy76nhq",
+      "fromName": "Олежка",
+      "to": "dzl6gwa",
+      "toName": "Саша О.",
+      "amount": 215,
+      "description": "Family 'Олежка' -> 'Саша О.'"
+    },
+    {
+      "from": "couqlhy",
+      "fromName": "Игоряша",
+      "to": "dzl6gwa",
+      "toName": "Саша О.",
+      "amount": 11758,
+      "description": "Family 'Игоряша' -> 'Саша О.'"
+    },
+    {
+      "from": "dzl6gwa",
+      "fromName": "Саша О.",
+      "to": "budymwi",
+      "toName": "Паша",
+      "amount": 39498,
+      "description": "X 'Саша О.' -> 'Паша'"
+    },
+    {
+      "from": "2arnuwa",
+      "fromName": "Женя К.",
+      "to": "budymwi",
+      "toName": "Паша",
+      "amount": 14224,
+      "description": "X 'Женя К.' -> 'Паша'"
+    },
+    {
+      "from": "2arnuwa",
+      "fromName": "Женя К.",
+      "to": "rxyncwa",
+      "toName": "Хомяк",
+      "amount": 9838,
+      "description": "X 'Женя К.' -> 'Хомяк'"
+    },
+    {
+      "from": "2arnuwa",
+      "fromName": "Женя К.",
+      "to": "kwl66wa",
+      "toName": "Андрей",
+      "amount": 4686,
+      "description": "X 'Женя К.' -> 'Андрей'"
+    },
+    {
+      "from": "zax4awa",
+      "fromName": "Дима Т.",
+      "to": "kwl66wa",
+      "toName": "Андрей",
+      "amount": 2414,
+      "description": "X 'Дима Т.' -> 'Андрей'"
+    },
+    {
+      "from": "zax4awa",
+      "fromName": "Дима Т.",
+      "to": "se6i4vy",
+      "toName": "Длинное и весьма длинное такое вот имя",
+      "amount": 560,
+      "description": "X 'Дима Т.' -> 'Длинное и весьма длинное такое вот имя'"
+    }
+  ]
+}

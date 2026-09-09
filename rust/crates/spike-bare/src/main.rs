@@ -1,6 +1,6 @@
 use tc_core::{calculate, suggest_settlement, Options, PersonId, Tour};
 
-const FIXTURE: &str = include_str!("../../../fixtures/ural-2021.json");
+const FIXTURE: &str = include_str!("../../../fixtures/zscph2y.tour.json");
 
 fn main() {
     let tour = Tour::from_json(FIXTURE).expect("fixture parses");
