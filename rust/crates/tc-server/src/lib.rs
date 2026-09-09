@@ -7,6 +7,8 @@ pub mod api;
 pub mod auth;
 pub mod config;
 pub mod fields;
+#[cfg(feature = "mongo")]
+pub mod mongo;
 pub mod state;
 pub mod store;
 pub mod text;

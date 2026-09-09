@@ -31,6 +31,12 @@ pub struct Config {
     /// Which user agents are sent to the text pages, and whether to send them at all.
     pub text_browser_redirect: bool,
     pub text_browser_agents: String,
+
+    /// "InMemory" or "MongoDb", as the C# spells them.
+    pub storage_type: String,
+    pub mongo_url: String,
+    pub mongo_username: String,
+    pub mongo_password: String,
 }
 
 impl Config {
@@ -59,6 +65,10 @@ impl Config {
             text_browser_redirect: flag("TextBrowserRedirectEnabled", true),
             text_browser_agents: var("TextBrowserAgents")
                 .unwrap_or_else(|| "lynx;w3m;links".to_owned()),
+            storage_type: var("StorageType").unwrap_or_else(|| "InMemory".to_owned()),
+            mongo_url: var("MongoDbUrl").unwrap_or_default(),
+            mongo_username: var("MongoDbUsername").unwrap_or_default(),
+            mongo_password: var("MongoDbPassword").unwrap_or_default(),
         }
     }
 }

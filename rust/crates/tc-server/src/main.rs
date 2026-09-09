@@ -29,19 +29,53 @@ async fn main() {
         }
     };
 
-    let store = match store::InMemoryStore::from_seed_file(std::path::Path::new(&cfg.seed_file)) {
-        Ok(s) => {
-            tracing::info!("{} tours from {}", s.len(), cfg.seed_file);
-            s
+    // Which store, by the same setting the C# reads.
+    let store: Box<dyn store::TourStore> = if cfg.storage_type.eq_ignore_ascii_case("MongoDb") {
+        #[cfg(feature = "mongo")]
+        {
+            match tc_server::mongo::MongoStore::connect(
+                &cfg.mongo_url,
+                &cfg.mongo_username,
+                &cfg.mongo_password,
+            )
+            .await
+            {
+                Ok(store) => {
+                    tracing::info!("storing tours in MongoDB");
+                    Box::new(store)
+                }
+                Err(e) => {
+                    tracing::error!("{e}");
+                    std::process::exit(1);
+                }
+            }
         }
-        Err(e) => {
-            tracing::error!("could not read the seed file: {e}");
+        // Refusing plainly beats starting up and quietly keeping everything in memory: a
+        // deployment that asked for a database and got a server that forgets everything on
+        // restart would find out at the worst moment.
+        #[cfg(not(feature = "mongo"))]
+        {
+            tracing::error!(
+                "StorageType is MongoDb, but this build has no database: rebuild with \
+                 --features mongo"
+            );
             std::process::exit(1);
+        }
+    } else {
+        match store::InMemoryStore::from_seed_file(std::path::Path::new(&cfg.seed_file)) {
+            Ok(s) => {
+                tracing::info!("{} tours from {}", s.len(), cfg.seed_file);
+                Box::new(s)
+            }
+            Err(e) => {
+                tracing::error!("could not read the seed file: {e}");
+                std::process::exit(1);
+            }
         }
     };
 
     let state: state::Shared = Arc::new(state::AppState {
-        store: Box::new(store),
+        store,
         signer,
         master_key: cfg.master_key.clone(),
         token_valid_minutes: cfg.token_valid_minutes,

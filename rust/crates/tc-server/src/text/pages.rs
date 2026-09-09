@@ -96,10 +96,11 @@ impl Loaded {
 ///
 /// The error is boxed because it is a whole HTTP response - much bigger than the tour it
 /// stands in for, and every successful call would otherwise carry that size about with it.
-fn load(state: &Shared, auth: &AuthData, id: &str) -> Result<Loaded, Box<Response>> {
+async fn load(state: &Shared, auth: &AuthData, id: &str) -> Result<Loaded, Box<Response>> {
     let tour = state
         .store
         .get(&TourId::new(id.to_owned()))
+        .await
         .filter(|t| auth.may_see(&fields::access_code(t)))
         .ok_or_else(|| {
             Box::new(not_found(
@@ -280,7 +281,8 @@ pub async fn index(State(state): State<Shared>, Reader(auth): Reader) -> Respons
 
     let tours = state
         .store
-        .list(&|t: &Tour| auth.may_see(&fields::access_code(t)));
+        .list(&|t: &Tour| auth.may_see(&fields::access_code(t)))
+        .await;
 
     let body = if tours.is_empty() {
         "<h1>Tours</h1><p>No tours are visible with this access code.</p>".to_owned()
@@ -376,7 +378,7 @@ pub async fn tour(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };
@@ -461,7 +463,7 @@ pub async fn mark_paid(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };
@@ -502,7 +504,7 @@ pub async fn mark_paid(
     next.spendings.retain(|s| s.kind != Kind::Planned);
     next.spendings.push(payment);
 
-    match save(&state, &loaded.tour, next) {
+    match save(&state, &loaded.tour, next).await {
         Ok(()) => Redirect::to(&format!(
             "/t/{id}?recorded={}",
             form_urlencoded::byte_serialize(note.as_bytes()).collect::<String>()
@@ -517,7 +519,7 @@ pub async fn mark_paid(
 /// Goes through the same [`crate::store::TourStore::replace`] the API uses, so a text post
 /// and an app tab cannot overwrite each other unnoticed - the C#'s text pages save without
 /// that check and say so in a comment.
-fn save(state: &Shared, previous: &Tour, mut next: Tour) -> Result<(), Box<Response>> {
+async fn save(state: &Shared, previous: &Tour, mut next: Tour) -> Result<(), Box<Response>> {
     fields::set(&mut next, fields::STATE, api_write::new_state_guid().into());
     let keep = state.versioning;
     let make_version = |was: &Tour| -> Option<Tour> {
@@ -536,6 +538,7 @@ fn save(state: &Shared, previous: &Tour, mut next: Tour) -> Result<(), Box<Respo
             next.clone(),
             &make_version,
         )
+        .await
         .map_err(|_| {
             Box::new(
                 (
@@ -562,7 +565,7 @@ pub async fn people(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}/people"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };
@@ -652,7 +655,7 @@ pub async fn person_form(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}/people/edit"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };
@@ -751,7 +754,7 @@ pub async fn person_save(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}/people"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };
@@ -802,7 +805,7 @@ pub async fn person_save(
         }),
     }
 
-    match save(&state, &loaded.tour, next) {
+    match save(&state, &loaded.tour, next).await {
         Ok(()) => Redirect::to(&format!("/t/{id}/people")).into_response(),
         Err(response) => *response,
     }
@@ -816,7 +819,7 @@ pub async fn person_delete(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}/people"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };
@@ -824,7 +827,7 @@ pub async fn person_delete(
     // The same rules the app applies: what they paid for goes, and nobody is left pointing
     // at somebody who is no longer there.
     let next = crate::text::pages::without_person(&loaded.tour, &PersonId::new(person));
-    match save(&state, &loaded.tour, next) {
+    match save(&state, &loaded.tour, next).await {
         Ok(()) => Redirect::to(&format!("/t/{id}/people")).into_response(),
         Err(response) => *response,
     }
@@ -870,7 +873,7 @@ pub async fn spend(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}/spend"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };
@@ -977,7 +980,7 @@ pub async fn spending_form(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}/spend/edit"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };
@@ -1125,7 +1128,7 @@ pub async fn spending_save(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}/spend"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };
@@ -1191,7 +1194,7 @@ pub async fn spending_save(
         }),
     }
 
-    match save(&state, &loaded.tour, next) {
+    match save(&state, &loaded.tour, next).await {
         Ok(()) => Redirect::to(&format!("/t/{id}/spend")).into_response(),
         Err(response) => *response,
     }
@@ -1205,7 +1208,7 @@ pub async fn spending_delete(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}/spend"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };
@@ -1214,7 +1217,7 @@ pub async fn spending_delete(
     next.spendings
         .retain(|s| s.id.as_str() != spending && s.kind != Kind::Planned);
 
-    match save(&state, &loaded.tour, next) {
+    match save(&state, &loaded.tour, next).await {
         Ok(()) => Redirect::to(&format!("/t/{id}/spend")).into_response(),
         Err(response) => *response,
     }
@@ -1230,7 +1233,7 @@ pub async fn stats(
     if auth.kind == "None" {
         return to_login(&format!("/t/{id}/stats"));
     }
-    let loaded = match load(&state, &auth, &id) {
+    let loaded = match load(&state, &auth, &id).await {
         Ok(l) => l,
         Err(response) => return *response,
     };

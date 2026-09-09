@@ -36,6 +36,7 @@ pub async fn update(
     let stored = state
         .store
         .get(&tour_id)
+        .await
         .filter(|t| auth.may_see(&fields::access_code(t)))
         .ok_or_else(|| ApiError::NotFound(format!("no tour with id {id}")))?;
 
@@ -101,12 +102,16 @@ pub async fn update(
     };
 
     // The check and the write are one step; see `TourStore::replace`.
-    match state.store.replace(
-        &tour_id,
-        &fields::str_of(&stored, fields::STATE),
-        incoming.clone(),
-        &make_version,
-    ) {
+    match state
+        .store
+        .replace(
+            &tour_id,
+            &fields::str_of(&stored, fields::STATE),
+            incoming.clone(),
+            &make_version,
+        )
+        .await
+    {
         Ok(()) => Ok(id),
         Err(crate::store::Stale(now)) => Err(ApiError::Conflict(format!(
             "You are trying to override newer version of tour ({now})"
@@ -145,7 +150,8 @@ pub async fn add(
     // has something in it. Otherwise a stray code would quietly become a new account.
     let mine: Vec<_> = state
         .store
-        .list(&|t: &Tour| auth.may_see(&fields::access_code(t)));
+        .list(&|t: &Tour| auth.may_see(&fields::access_code(t)))
+        .await;
     if !auth.is_master {
         if mine.is_empty() {
             return Err(ApiError::Forbidden(
@@ -185,7 +191,7 @@ pub async fn add(
     fields::remove(&mut tour, fields::IS_VERSION);
     fields::remove(&mut tour, fields::VERSION_FOR);
 
-    state.store.store(tour);
+    state.store.store(tour).await;
     Ok(id)
 }
 
@@ -200,7 +206,8 @@ pub async fn delete(
     if !auth.is_master {
         let mine = state
             .store
-            .list(&|t: &Tour| auth.may_see(&fields::access_code(t)));
+            .list(&|t: &Tour| auth.may_see(&fields::access_code(t)))
+            .await;
         if mine.len() <= 1 {
             return Err(ApiError::Forbidden(
                 "Only admin can delete last tour for a code".into(),
@@ -212,15 +219,16 @@ pub async fn delete(
     state
         .store
         .get(&tour_id)
+        .await
         .filter(|t| auth.may_see(&fields::access_code(t)))
         .ok_or_else(|| ApiError::NotFound(format!("no tour with id {id}")))?;
 
     // The versions go with it: they are that tour's history and belong to nobody else.
-    let (versions, _) = state.store.versions(&tour_id, 0, usize::MAX);
+    let (versions, _) = state.store.versions(&tour_id, 0, usize::MAX).await;
     for v in versions {
-        state.store.remove(&v.id);
+        state.store.remove(&v.id).await;
     }
-    state.store.remove(&tour_id);
+    state.store.remove(&tour_id).await;
     Ok(id)
 }
 

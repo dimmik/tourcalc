@@ -46,6 +46,7 @@ pub async fn one(
     let tour = state
         .store
         .get(&TourId::new(id.clone()))
+        .await
         // A tour the bearer may not see is reported as missing rather than as forbidden:
         // saying "it exists but not for you" would leak which ids are real.
         .filter(|t| auth.may_see(access_code_of(t)))
@@ -70,13 +71,16 @@ pub async fn all_suggested(
         None
     };
 
-    let visible = state.store.list(&|t: &Tour| {
-        let code = access_code_of(t);
-        match &wanted_code {
-            Some(c) => code == c,
-            None => auth.may_see(code),
-        }
-    });
+    let visible = state
+        .store
+        .list(&|t: &Tour| {
+            let code = access_code_of(t);
+            match &wanted_code {
+                Some(c) => code == c,
+                None => auth.may_see(code),
+            }
+        })
+        .await;
 
     let total = visible.len();
     let page: Vec<serde_json::Value> = visible
@@ -139,10 +143,14 @@ pub async fn versions(
     state
         .store
         .get(&tour_id)
+        .await
         .filter(|t| auth.may_see(access_code_of(t)))
         .ok_or_else(|| ApiError::NotFound(format!("no tour with id {id}")))?;
 
-    let (page, total) = state.store.versions(&tour_id, paging.from, paging.count);
+    let (page, total) = state
+        .store
+        .versions(&tour_id, paging.from, paging.count)
+        .await;
 
     let tours: Vec<serde_json::Value> = page
         .iter()

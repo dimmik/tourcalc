@@ -22,9 +22,28 @@ base64 = "0.22"
 # The text pages: reading posted forms, and putting a code into a URL.
 form_urlencoded = "1"
 
+# The store is behind a trait and the driver is asynchronous, so the trait has to be too.
+# `dyn TourStore` is what the server holds, and a plain `async fn` in a trait is not yet
+# usable through `dyn` - this crate does the boxing that makes it work.
+async-trait = "0.1"
+
+# MongoDB, and it is optional on purpose. The driver refuses to build without a TLS backend
+# ("At least one of the features 'rustls-tls', 'rustls-tls-aws-lc' or 'openssl-tls' must be
+# enabled"), and every one of those brings C or assembly with it - which is exactly what
+# this build's cross-compilation is free of. So the default build has no database and the
+# image stays as it is; `--features mongo` turns it on for whoever needs it.
+mongodb = { version = "3", optional = true }
+bson = { version = "2", optional = true }
+futures-util = { version = "0.3", optional = true, default-features = false }
+
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
+
+[features]
+default = []
+# Storage in MongoDB. Costs the pure-Rust build - see the note by the dependency.
+mongo = ["dep:mongodb", "dep:bson", "dep:futures-util"]
