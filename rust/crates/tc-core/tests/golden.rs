@@ -278,3 +278,24 @@ fn balances_list_matches_the_app() {
         ]
     );
 }
+
+/// Spendings carry a date, and it is readable without a date library.
+#[test]
+fn spendings_have_a_day() {
+    let (_, tour, _) = cases()
+        .into_iter()
+        .find(|(name, _, _)| name == "zscph2y")
+        .expect("the Ural tour");
+
+    let days: Vec<&str> = tour.spendings.iter().filter_map(|s| s.day()).collect();
+    assert_eq!(days.len(), tour.spendings.len(), "every spending has a day");
+    assert!(days
+        .iter()
+        .all(|d| d.len() == 10 && d.as_bytes()[4] == b'-'));
+
+    // ISO stamps sort as text, which is the whole reason the interface can group and order
+    // by them without parsing anything.
+    let mut sorted = days.clone();
+    sorted.sort();
+    assert_eq!(sorted.first(), Some(&"2021-06-10"));
+}

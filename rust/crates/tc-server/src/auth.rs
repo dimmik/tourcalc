@@ -205,14 +205,38 @@ mod tests {
         assert_eq!(s.verify(&token).unwrap(), auth);
     }
 
+    /// Editing the claims invalidates the token - which is the only reason a token is
+    /// worth anything.
+    ///
+    /// The tampering is done to the payload rather than to the signature on purpose. An
+    /// earlier version changed the signature's last base64url character, and that test
+    /// failed about one run in five: the last character of an unpadded base64 string
+    /// carries only two significant bits, so replacing it often decodes to the very same
+    /// bytes. A flaky test is worse than no test, and the bug was in the test.
     #[test]
-    fn a_tampered_token_does_not() {
+    fn a_token_with_edited_claims_does_not() {
         let s = Signer_::from_base64(DEV_KEY).unwrap();
         let token = s.issue("code", &AuthData::for_code_md5("ABC"), 60);
-        let mut bad = token.clone();
-        bad.pop();
-        bad.push('A');
-        assert!(s.verify(&bad).is_err());
+
+        let mut parts: Vec<&str> = token.split('.').collect();
+        let payload = B64.decode(parts[1]).unwrap();
+        let text = String::from_utf8(payload).unwrap().replace("ABC", "XYZ");
+        let forged = B64.encode(text);
+        parts[1] = &forged;
+
+        assert_eq!(
+            s.verify(&parts.join(".")),
+            Err("signature does not match".to_owned())
+        );
+    }
+
+    /// A token signed with somebody else's key is not ours.
+    #[test]
+    fn a_token_from_another_key_does_not() {
+        let ours = Signer_::from_base64(DEV_KEY).unwrap();
+        let theirs = Signer_::from_base64("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbY=").unwrap();
+        let token = theirs.issue("code", &AuthData::for_code_md5("ABC"), 60);
+        assert!(ours.verify(&token).is_err());
     }
 
     #[test]

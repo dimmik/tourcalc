@@ -153,6 +153,37 @@ pub struct Spending {
     pub extras: Extras,
 }
 
+impl Spending {
+    /// When it happened, as the stored ISO stamp - "2021-08-18T12:38:04.123Z".
+    ///
+    /// Not modelled as a date, and deliberately so: nothing here does arithmetic on time.
+    /// The interface groups by day and sorts by it, and an ISO stamp sorts correctly as
+    /// text, so a date library would buy nothing and cost a dependency in the browser.
+    ///
+    /// `SpendingDate` is what the app writes when somebody picks a date; older spendings
+    /// only have `DateCreated`, which is what the C# getter falls back to.
+    pub fn when(&self) -> Option<&str> {
+        for key in ["SpendingDate", "DateCreated"] {
+            let found = self
+                .extras
+                .0
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case(key))
+                .and_then(|(_, v)| v.as_str())
+                .filter(|s| !s.is_empty());
+            if found.is_some() {
+                return found;
+            }
+        }
+        None
+    }
+
+    /// The day it happened, as "2021-08-18": the first ten characters of the stamp.
+    pub fn day(&self) -> Option<&str> {
+        self.when().filter(|s| s.len() >= 10).map(|s| &s[..10])
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tour {
     pub id: TourId,

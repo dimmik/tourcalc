@@ -33,6 +33,18 @@ pub fn set_token(token: &str) {
     }
 }
 
+/// Whether anybody is signed in on this device.
+pub fn signed_in() -> bool {
+    token().is_some()
+}
+
+/// Forgets the token. Nothing on the server to tell: it never knew.
+pub fn log_out() {
+    if let Some(s) = storage() {
+        let _ = s.remove_item(TOKEN_KEY);
+    }
+}
+
 /// What went wrong, in the words the screen will show.
 pub type Failed = String;
 
@@ -55,6 +67,49 @@ impl std::fmt::Display for SaveError {
             SaveError::Other(e) => f.write_str(e),
         }
     }
+}
+
+/// Exchanges a code somebody typed for a token.
+///
+/// `scope` is "code" for an access code and "admin" for the master key - the same two the
+/// C# server accepts, because it is the same endpoint.
+pub async fn log_in(scope: &str, key: &str) -> Result<(), Failed> {
+    let url = format!("/api/Auth/token/{scope}/{}", urlencode(key));
+    let resp = Request::get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("could not reach the server: {e}"))?;
+    match resp.status() {
+        200 => {
+            let token = resp
+                .text()
+                .await
+                .map_err(|e| format!("could not read the token: {e}"))?;
+            set_token(token.trim());
+            Ok(())
+        }
+        401 => Err(if scope == "admin" {
+            "That is not the master key.".to_owned()
+        } else {
+            "That code was not accepted.".to_owned()
+        }),
+        s => Err(format!("The server answered {s}")),
+    }
+}
+
+/// Percent-encodes what has to survive being a path segment.
+///
+/// Codes are typed by people and can hold anything; a slash would otherwise become part of
+/// the route and the server would see a different request entirely.
+fn urlencode(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (b as char).to_string()
+            }
+            other => format!("%{other:02X}"),
+        })
+        .collect()
 }
 
 /// Exchanges an access code - already hashed, as it comes in a share link - for a token.
@@ -165,5 +220,61 @@ pub async fn save_tour(tour: &Tour) -> Result<(), SaveError> {
                 "The server answered {s}. {detail}"
             )))
         }
+    }
+}
+
+/// Starts a new tour and answers with its id.
+///
+/// `code` is only listened to for an administrator; everybody else's tour joins the code
+/// they are signed in with, whatever they typed. The server decides that, not this.
+pub async fn create_tour(name: &str, code: &str) -> Result<String, Failed> {
+    let body = serde_json::json!({
+        "Name": name,
+        "Persons": [],
+        "Spendings": [],
+    });
+
+    let mut req = Request::post(&format!(
+        "/api/Tour/add/{}",
+        if code.is_empty() { "-" } else { code }
+    ));
+    if let Some(t) = token() {
+        req = req.header("Authorization", &format!("bearer {t}"));
+    }
+    let resp = req
+        .header("Content-Type", "application/json")
+        .body(body.to_string())
+        .map_err(|e| format!("could not build the request: {e}"))?
+        .send()
+        .await
+        .map_err(|e| format!("could not reach the server: {e}"))?;
+
+    match resp.status() {
+        200 => resp
+            .text()
+            .await
+            .map(|s| s.trim().to_owned())
+            .map_err(|e| format!("could not read the answer: {e}")),
+        403 => Err("Only an administrator can start the first tour under a code.".into()),
+        s => Err(format!("The server answered {s}")),
+    }
+}
+
+/// Removes a tour altogether.
+pub async fn delete_tour(id: &str) -> Result<(), Failed> {
+    let mut req = Request::delete(&format!("/api/Tour/{id}"));
+    if let Some(t) = token() {
+        req = req.header("Authorization", &format!("bearer {t}"));
+    }
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| format!("could not reach the server: {e}"))?;
+    match resp.status() {
+        200 => Ok(()),
+        403 => Err(
+            "The last tour under an access code can only be deleted by an administrator.".into(),
+        ),
+        s => Err(format!("The server answered {s}")),
     }
 }

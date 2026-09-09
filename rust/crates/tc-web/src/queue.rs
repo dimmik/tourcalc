@@ -29,6 +29,10 @@ pub enum Operation {
     RemoveSpending(SpendingId),
     PutPerson(PersonDraft),
     RemovePerson(PersonId),
+    Rename(String),
+    /// Which of the tour's currencies the amounts are shown in. A property of the tour and
+    /// not of the reader, as it has always been - everybody sees the same figures.
+    SetCurrency(String),
 }
 
 impl Operation {
@@ -39,6 +43,18 @@ impl Operation {
             Operation::RemoveSpending(id) => edit::remove_spending(tour, id),
             Operation::PutPerson(d) => edit::put_person(tour, d),
             Operation::RemovePerson(id) => edit::remove_person(tour, id),
+            Operation::Rename(name) => {
+                let mut next = tour.clone();
+                next.name = name.clone();
+                next
+            }
+            Operation::SetCurrency(id) => {
+                let mut next = tour.clone();
+                if next.currencies.iter().any(|c| c.id.as_str() == id) {
+                    next.current_currency = tc_core::CurrencyId::new(id.clone());
+                }
+                next
+            }
         }
     }
 
@@ -55,6 +71,8 @@ impl Operation {
             Operation::RemoveSpending(_) => "an expense removed".into(),
             Operation::PutPerson(d) => short(&d.name),
             Operation::RemovePerson(_) => "somebody removed".into(),
+            Operation::Rename(name) => format!("renamed to “{}”", short(name)),
+            Operation::SetCurrency(id) => format!("amounts in {id}"),
         }
     }
 }

@@ -8,6 +8,7 @@ mod api;
 mod dialogs;
 mod edit;
 mod list;
+mod login;
 mod queue;
 mod sync;
 mod tour;
@@ -61,17 +62,28 @@ fn go(route_to: &str, set_route: WriteSignal<Route>) {
 #[component]
 fn App() -> impl IntoView {
     let (route, set_route) = signal(current_route());
+    // Whether anybody is signed in on this device. A signal rather than a check in the
+    // view, so that signing in or out redraws without a reload.
+    let signed_in = RwSignal::new(api::signed_in());
 
     // A share link is not a screen: it exchanges the code for a token and then goes where
     // it was pointing. Done once, when that is the route we arrived on.
     if let Route::Goto(code, id) = route.get_untracked() {
         spawn_local(async move {
             match api::log_in_with_md5(&code).await {
-                Ok(()) => go(&format!("/tour/{id}"), set_route),
+                Ok(()) => {
+                    signed_in.set(true);
+                    go(&format!("/tour/{id}"), set_route)
+                }
                 Err(_) => go("/", set_route),
             }
         });
     }
+
+    let signed_in_now = Callback::new(move |_: ()| {
+        signed_in.set(true);
+        go("/", set_route);
+    });
 
     view! {
         <div class="tcn-shell">
@@ -80,21 +92,39 @@ fn App() -> impl IntoView {
                 <a class="tcn-topbar-title" href="/">"Tourcalc"</a>
                 <div class="tcn-topbar-actions">
                     <span class="tcn-chip" title="This interface is written in Rust">"rust"</span>
+                    <Show when=move || signed_in.get()>
+                        <button type="button" class="tcn-iconbtn" title="Log out" aria-label="Log out"
+                                on:click=move |_| {
+                                    api::log_out();
+                                    signed_in.set(false);
+                                    go("/", set_route);
+                                }>
+                            "⎋"
+                        </button>
+                    </Show>
                 </div>
             </header>
             <main class="tcn-main">
-                {move || match route.get() {
-                    Route::List => view! { <list::TourListPage /> }.into_any(),
-                    Route::Tour(id) => view! { <tour::TourPage id=id /> }.into_any(),
-                    Route::Goto(_, _) => {
+                {move || match (signed_in.get(), route.get()) {
+                    // Nothing is readable without a code, so the sign-in screen stands in
+                    // front of every route except the share link, which signs in by itself.
+                    (false, Route::Goto(_, _)) => {
                         view! { <div class="tcn-loading">"Signing in…"</div> }.into_any()
                     }
-                    Route::Unknown(path) => view! {
-                        <div class="tcn-section">
-                            <div class="tcn-errors">"Nothing here: " {path}</div>
-                            <a class="tcn-btn" href="/">"Go to my tours"</a>
-                        </div>
-                    }.into_any(),
+                    (false, _) => view! { <login::SignIn on_done=signed_in_now /> }.into_any(),
+                    (true, route) => match route {
+                        Route::List => view! { <list::TourListPage /> }.into_any(),
+                        Route::Tour(id) => view! { <tour::TourPage id=id /> }.into_any(),
+                        Route::Goto(_, _) => {
+                            view! { <div class="tcn-loading">"Signing in…"</div> }.into_any()
+                        }
+                        Route::Unknown(path) => view! {
+                            <div class="tcn-section">
+                                <div class="tcn-errors">"Nothing here: " {path}</div>
+                                <a class="tcn-btn" href="/">"Go to my tours"</a>
+                            </div>
+                        }.into_any(),
+                    },
                 }}
             </main>
         </div>

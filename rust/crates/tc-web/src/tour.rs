@@ -37,6 +37,7 @@ enum Tab {
     Balance,
     People,
     Expenses,
+    Stats,
 }
 
 /// Which dialog is open, if any.
@@ -44,6 +45,128 @@ enum Tab {
 enum Dialog {
     Spending(SpendingDraft),
     Person(PersonDraft),
+    /// Renaming the tour: one field, so it carries just the name.
+    Rename(String),
+}
+
+/// The link that signs somebody in and opens this tour.
+///
+/// It carries the hashed access code, which is what makes it work at all: whoever opens it
+/// gets a token for that code and sees the tour without being told anything else. That also
+/// means it is the whole of the security here - a link is an invitation.
+#[component]
+fn ShareLink(tour: Tour) -> impl IntoView {
+    let code = tour
+        .extras
+        .0
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("AccessCodeMD5"))
+        .and_then(|(_, v)| v.as_str())
+        .unwrap_or("")
+        .to_owned();
+    let said = RwSignal::new(false);
+
+    let href = format!("/goto/{}/{}", code, tour.id);
+
+    view! {
+        <button type="button" class="tcn-hero-link"
+                title="Copy a link that opens this tour"
+                on:click=move |_| {
+                    let full = web_sys::window()
+                        .and_then(|w| w.location().origin().ok())
+                        .map(|o| format!("{o}{href}"))
+                        .unwrap_or_else(|| href.clone());
+                    copy_to_clipboard(&full);
+                    said.set(true);
+                }>
+            {move || if said.get() { "link copied" } else { "share link" }}
+        </button>
+    }
+}
+
+/// Puts text on the clipboard.
+///
+/// Reached through `js_sys` rather than `web_sys`: the clipboard sits on `Navigator`, which
+/// would mean turning on another web-sys feature for one call, and this crate is measured
+/// by what it weighs.
+fn copy_to_clipboard(text: &str) {
+    use wasm_bindgen::JsCast as _;
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let navigator = js_sys::Reflect::get(&window, &"navigator".into()).ok();
+    let clipboard = navigator
+        .and_then(|n| js_sys::Reflect::get(&n, &"clipboard".into()).ok())
+        .filter(|c| !c.is_undefined());
+    let Some(clipboard) = clipboard else { return };
+    let write = js_sys::Reflect::get(&clipboard, &"writeText".into())
+        .ok()
+        .and_then(|f| f.dyn_into::<js_sys::Function>().ok());
+    if let Some(write) = write {
+        let _ = write.call1(&clipboard, &text.into());
+    }
+}
+
+/// Which currency the amounts are shown in.
+///
+/// Only the tour's own list, and only when there is more than one: changing it is a change
+/// to the tour, so it goes through the queue like any other edit and everyone sees it.
+#[component]
+fn CurrencyPicker(tour: Tour, apply: Callback<Operation>) -> impl IntoView {
+    let current = tour.current_currency.as_str().to_owned();
+    view! {
+        <span>"·"</span>
+        <span>"show in "</span>
+        <select class="tcn-input" style="width:auto;padding:2px 6px"
+                on:change=move |ev| apply.run(Operation::SetCurrency(event_target_value(&ev)))>
+            {tour
+                .currencies
+                .iter()
+                .map(|c| {
+                    let id = c.id.as_str().to_owned();
+                    let selected = id == current;
+                    view! { <option value=id selected=selected>{c.name.clone()}</option> }
+                })
+                .collect_view()}
+        </select>
+    }
+}
+
+/// Renaming the tour.
+#[component]
+fn RenameDialog(name: String, on_close: Callback<()>, apply: Callback<Operation>) -> impl IntoView {
+    let text = RwSignal::new(name);
+    view! {
+        <div class="tcn-modal" on:click=move |_| on_close.run(())>
+            <div class="tcn-modal-card" on:click=|ev| ev.stop_propagation()>
+                <div class="tcn-modal-head">
+                    <div class="tcn-modal-title">"Rename the tour"</div>
+                    <button type="button" class="tcn-modal-x"
+                            on:click=move |_| on_close.run(())>"✕"</button>
+                </div>
+                <div class="tcn-modal-body">
+                    <div class="tcn-field">
+                        <input class="tcn-input" type="text"
+                               prop:value=move || text.get()
+                               on:input=move |ev| text.set(event_target_value(&ev)) />
+                    </div>
+                </div>
+                <div class="tcn-modal-foot">
+                    <button type="button" class="tcn-btn"
+                            on:click=move |_| on_close.run(())>"Cancel"</button>
+                    <button type="button" class="tcn-btn tcn-btn-primary"
+                            on:click=move |_| {
+                                let t = text.get().trim().to_owned();
+                                if !t.is_empty() {
+                                    apply.run(Operation::Rename(t));
+                                }
+                            }>
+                        "Save"
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
 }
 
 /// Says whether anything is still waiting to reach the server.
@@ -230,6 +353,12 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
     let unit_metrics = unit.clone();
     let unit_balance = unit.clone();
     let unit_expenses = unit.clone();
+    let tour_for_share = tour.clone();
+    let tour_for_rename = tour.clone();
+    let tour_for_currency = tour.clone();
+    let unit_stats = unit.clone();
+    let real_for_stats = real.clone();
+    let tour_for_stats = tour.clone();
     let tour_for_balance = tour.clone();
     let tour_for_people = tour.clone();
     let tour_for_expenses = tour.clone();
@@ -241,7 +370,20 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
             <div class="tcn-hero-top">
                 <div class="tcn-hero-name">{title}</div>
             </div>
-            <div class="tcn-hero-sub"><span>"from server"</span></div>
+            <div class="tcn-hero-sub">
+                <ShareLink tour=tour_for_share.clone() />
+                <span>"·"</span>
+                <button type="button" class="tcn-hero-link"
+                        on:click={
+                            let t = tour_for_rename.clone();
+                            move |_| dialog.set(Some(Dialog::Rename(t.name.clone())))
+                        }>
+                    "rename"
+                </button>
+                {(tour_for_currency.currencies.len() > 1).then(|| view! {
+                    <CurrencyPicker tour=tour_for_currency.clone() apply=apply />
+                })}
+            </div>
             <div class="tcn-hero-metrics">
                 <Metric label="Total spent" value=money(total_spent) unit=unit_metrics.clone() />
                 <Metric label="People" value=people.to_string() unit=String::new() />
@@ -253,9 +395,10 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
         <SyncLine status=status reload=reload tour_id=tour_id.clone() />
 
         <div class="tcn-section" style="padding-bottom:0">
-            <TabButton tab=tab mine=Tab::Balance label="Balance" count=between.len() />
-            <TabButton tab=tab mine=Tab::People label="People" count=people />
-            <TabButton tab=tab mine=Tab::Expenses label="Expenses" count=expenses />
+            <TabButton tab=tab mine=Tab::Balance label="Balance" count=Some(between.len()) />
+            <TabButton tab=tab mine=Tab::People label="People" count=Some(people) />
+            <TabButton tab=tab mine=Tab::Expenses label="Expenses" count=Some(expenses) />
+            <TabButton tab=tab mine=Tab::Stats label="Stats" count=None />
         </div>
 
         <Show when=move || tab.get() == Tab::Balance>
@@ -270,6 +413,11 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
         <Show when=move || tab.get() == Tab::Expenses>
             <ExpensesTab tour=tour_for_expenses.clone() spendings=real.clone()
                          unit=unit_expenses.clone() dialog=dialog delete=delete />
+        </Show>
+
+        <Show when=move || tab.get() == Tab::Stats>
+            <StatsTab tour=tour_for_stats.clone() spendings=real_for_stats.clone()
+                      unit=unit_stats.clone() />
         </Show>
 
         <button type="button" class="tcn-btn tcn-btn-primary tcn-fab"
@@ -288,6 +436,9 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
                 }.into_any(),
                 Dialog::Person(draft) => view! {
                     <PersonDialog tour=tour draft=draft on_close=close on_apply=apply />
+                }.into_any(),
+                Dialog::Rename(name) => view! {
+                    <RenameDialog name=name on_close=close apply=apply />
                 }.into_any(),
             })
         }}
@@ -362,6 +513,22 @@ fn ExpensesTab(
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
 ) -> impl IntoView {
+    let search = RwSignal::new(String::new());
+    let by_amount = RwSignal::new(false);
+    let newest_first = RwSignal::new(true);
+    let chosen: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
+
+    let categories = {
+        let mut cs: Vec<String> = spendings
+            .iter()
+            .map(|s| s.category.trim().to_owned())
+            .filter(|c| !c.is_empty())
+            .collect();
+        cs.sort();
+        cs.dedup();
+        cs
+    };
+
     let name_of_id = {
         let tour = tour.clone();
         move |id: &PersonId| name_of(tour.person(id))
@@ -369,62 +536,412 @@ fn ExpensesTab(
 
     view! {
         <div class="tcn-section">
-            <div class="tcn-section-title">
-                "Expenses " <span class="tcn-count">{spendings.len()}</span>
+            <div class="tcn-toolbar">
+                <div class="tcn-search">
+                    <span class="tcn-search-icon">"🔎"</span>
+                    <input type="text" placeholder="Search by description, payer or category"
+                           prop:value=move || search.get()
+                           on:input=move |ev| search.set(event_target_value(&ev)) />
+                    <Show when=move || !search.get().is_empty()>
+                        <button type="button" class="tcn-search-clear" title="Clear"
+                                on:click=move |_| search.set(String::new())>"✕"</button>
+                    </Show>
+                </div>
+                <button type="button" class="tcn-btn tcn-btn-sm"
+                        class:tcn-btn-primary=move || !by_amount.get()
+                        on:click=move |_| {
+                            if by_amount.get() { by_amount.set(false) } else { newest_first.update(|d| *d = !*d) }
+                        }>
+                    "Date " {move || if by_amount.get() { "" } else if newest_first.get() { "↓" } else { "↑" }}
+                </button>
+                <button type="button" class="tcn-btn tcn-btn-sm"
+                        class:tcn-btn-primary=move || by_amount.get()
+                        on:click=move |_| {
+                            if by_amount.get() { newest_first.update(|d| *d = !*d) } else { by_amount.set(true) }
+                        }>
+                    "Amount " {move || if by_amount.get() { if newest_first.get() { "↓" } else { "↑" } } else { "" }}
+                </button>
             </div>
-            <div class="tcn-list">
-                {spendings
+
+            {(!categories.is_empty()).then(|| view! {
+                <div class="tcn-chips" style="margin-bottom: 10px;">
+                    {categories
+                        .iter()
+                        .map(|c| {
+                            let c = c.clone();
+                            let mine = c.clone();
+                            view! {
+                                <span class="tcn-chip tcn-filter-chip"
+                                      class:is-on=move || chosen.get().contains(&mine)
+                                      on:click={
+                                          let c = c.clone();
+                                          move |_| chosen.update(|list| {
+                                              if let Some(i) = list.iter().position(|x| x == &c) {
+                                                  list.remove(i);
+                                              } else {
+                                                  list.push(c.clone());
+                                              }
+                                          })
+                                      }>
+                                    {c.clone()}
+                                </span>
+                            }
+                        })
+                        .collect_view()}
+                    <Show when=move || !chosen.get().is_empty()>
+                        <span class="tcn-chip tcn-filter-chip"
+                              on:click=move |_| chosen.set(Vec::new())>"clear ×"</span>
+                    </Show>
+                </div>
+            })}
+
+            {move || {
+                let needle = search.get().trim().to_lowercase();
+                let cats = chosen.get();
+                let mut shown: Vec<Spending> = spendings
                     .iter()
-                    .rev()
-                    .map(|s| {
-                        let who = name_of_id(&s.from);
-                        let shown = tour.amount_in_current(s);
-                        let unit = unit.clone();
-                        let for_edit = s.clone();
-                        let for_delete = s.clone();
-                        let description = if s.description.trim().is_empty() {
-                            "(no description)".to_owned()
-                        } else {
-                            s.description.clone()
-                        };
-                        let category = s.category.trim().to_owned();
-                        let everyone = matches!(s.split, Split::Everyone);
-                        view! {
-                            <div class="tcn-settle">
-                                <div class="tcn-settle-flow">
-                                    <Avatar name=who.clone() />
-                                    <span class="tcn-settle-who">
-                                        {description}
-                                        <small class="tcn-hint">
-                                            " · " {who.clone()}
-                                            {(!category.is_empty()).then(|| format!(" · {category}"))}
-                                            {everyone.then(|| " · everyone".to_owned())}
-                                        </small>
-                                    </span>
-                                </div>
-                                <div class="tcn-settle-amount">
-                                    {money(shown)}
-                                    {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
-                                    <button type="button" class="tcn-btn tcn-btn-sm" style="margin-left:10px"
-                                            on:click=move |_| dialog.set(Some(
-                                                Dialog::Spending(SpendingDraft::of(&for_edit))))>
-                                        "Edit"
-                                    </button>
-                                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
-                                            on:click={
-                                                let s = for_delete.clone();
-                                                move |_| delete.run(Removal::Spending(s.clone()))
-                                            }>
-                                        "✕"
-                                    </button>
-                                </div>
-                            </div>
-                        }
+                    .filter(|s| cats.is_empty() || cats.iter().any(|c| c == s.category.trim()))
+                    .filter(|s| {
+                        needle.is_empty()
+                            || s.description.to_lowercase().contains(&needle)
+                            || s.category.to_lowercase().contains(&needle)
+                            || name_of_id(&s.from).to_lowercase().contains(&needle)
                     })
-                    .collect_view()}
+                    .cloned()
+                    .collect();
+
+                if by_amount.get() {
+                    shown.sort_by_key(|s| tour.amount_in_current(s).0);
+                } else {
+                    // ISO stamps sort as text - see `Spending::when`.
+                    shown.sort_by(|a, b| a.when().unwrap_or("").cmp(b.when().unwrap_or("")));
+                }
+                if newest_first.get() {
+                    shown.reverse();
+                }
+
+                // What the header counts and what this list counts have to agree, and the
+                // difference is worth naming rather than hiding: a payback has no category
+                // and is not spending, however much money moved.
+                let counted: Cents = shown
+                    .iter()
+                    .filter(|s| !s.category.trim().is_empty())
+                    .map(|s| tour.amount_in_current(s))
+                    .sum();
+                let uncounted: Cents = shown
+                    .iter()
+                    .filter(|s| s.category.trim().is_empty())
+                    .map(|s| tour.amount_in_current(s))
+                    .sum();
+
+                if shown.is_empty() {
+                    return view! {
+                        <div class="tcn-empty">
+                            <span class="tcn-empty-icon">"🔍"</span>
+                            <div class="tcn-empty-title">"Nothing matches the filter"</div>
+                        </div>
+                    }.into_any();
+                }
+
+                // Grouped by day when in date order; a list sorted by amount has no days.
+                let mut groups: Vec<(String, Vec<Spending>)> = Vec::new();
+                if by_amount.get() {
+                    groups.push((String::new(), shown.clone()));
+                } else {
+                    for s in &shown {
+                        let day = s.day().unwrap_or("").to_owned();
+                        match groups.last_mut() {
+                            Some((d, list)) if *d == day => list.push(s.clone()),
+                            _ => groups.push((day, vec![s.clone()])),
+                        }
+                    }
+                }
+
+                let unit_here = unit.clone();
+                let unit_days = unit.clone();
+                let tour_here = tour.clone();
+                view! {
+                    <div class="tcn-summary">
+                        <span><b>{shown.len()}</b>" expenses"</span>
+                        <span>"spent " <b>{money(counted)}</b>" " {unit_here.clone()}</span>
+                        {(!uncounted.is_zero()).then(|| view! {
+                            <span class="tcn-hint" title="Paybacks and transfers: money moved, but nobody spent it">
+                                "+ " {money(uncounted)} " uncounted"
+                            </span>
+                        })}
+                    </div>
+
+                    {groups
+                        .into_iter()
+                        .map(|(day, list)| {
+                            let day_total: Cents = list
+                                .iter()
+                                .filter(|s| !s.category.trim().is_empty())
+                                .map(|s| tour_here.amount_in_current(s))
+                                .sum();
+                            let unit = unit_days.clone();
+                            let tour = tour_here.clone();
+                            view! {
+                                <div class="tcn-daygroup">
+                                    {(!day.is_empty()).then(|| view! {
+                                        <div class="tcn-dayhead">
+                                            <span>{pretty_day(&day)}</span>
+                                            <span class="tcn-daysum">
+                                                {money(day_total)}
+                                                {(!unit.is_empty()).then(|| view! { "\u{a0}" {unit.clone()} })}
+                                            </span>
+                                        </div>
+                                    })}
+                                    <div class="tcn-list">
+                                        {list
+                                            .iter()
+                                            .map(|s| view! {
+                                                <ExpenseRow spending=s.clone() tour=tour.clone()
+                                                            unit=unit.clone() dialog=dialog delete=delete />
+                                            })
+                                            .collect_view()}
+                                    </div>
+                                </div>
+                            }
+                        })
+                        .collect_view()}
+                }.into_any()
+            }}
+        </div>
+    }
+}
+
+/// "2021-08-18" as "18.08.2021", which is how the app writes dates.
+fn pretty_day(iso: &str) -> String {
+    match (iso.get(0..4), iso.get(5..7), iso.get(8..10)) {
+        (Some(y), Some(m), Some(d)) => format!("{d}.{m}.{y}"),
+        _ => iso.to_owned(),
+    }
+}
+
+#[component]
+fn ExpenseRow(
+    spending: Spending,
+    tour: Tour,
+    unit: String,
+    dialog: RwSignal<Option<Dialog>>,
+    delete: Callback<Removal>,
+) -> impl IntoView {
+    let who = name_of(tour.person(&spending.from));
+    let shown = tour.amount_in_current(&spending);
+    let original = (spending.currency.id != tour.currency().id && tour.currencies.len() > 1)
+        .then(|| format!("{} {}", money(spending.amount), spending.currency.name));
+    let for_edit = spending.clone();
+    let for_delete = spending.clone();
+    let description = if spending.description.trim().is_empty() {
+        "(no description)".to_owned()
+    } else {
+        spending.description.clone()
+    };
+    let category = spending.category.trim().to_owned();
+    let to_whom = match &spending.split {
+        Split::Everyone => "everyone".to_owned(),
+        Split::Equally(to) | Split::ByWeight(to) => to
+            .iter()
+            .map(|id| name_of(tour.person(id)))
+            .collect::<Vec<_>>()
+            .join(", "),
+    };
+
+    view! {
+        <div class="tcn-settle">
+            <div class="tcn-settle-flow">
+                <Avatar name=who.clone() />
+                <span class="tcn-settle-who">
+                    {description}
+                    <small class="tcn-hint">
+                        " · " {who.clone()}
+                        {(!category.is_empty()).then(|| format!(" · {category}"))}
+                        " · for " {to_whom}
+                    </small>
+                </span>
+            </div>
+            <div class="tcn-settle-amount">
+                {money(shown)}
+                {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                {original.map(|o| view! { <small class="tcn-hint">" (" {o} ")"</small> })}
+                <button type="button" class="tcn-btn tcn-btn-sm" style="margin-left:10px"
+                        on:click=move |_| dialog.set(Some(
+                            Dialog::Spending(SpendingDraft::of(&for_edit))))>
+                    "Edit"
+                </button>
+                <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
+                        on:click={
+                            let s = for_delete.clone();
+                            move |_| delete.run(Removal::Spending(s.clone()))
+                        }>
+                    "✕"
+                </button>
             </div>
         </div>
     }
+}
+
+/// Where the money went: by category or by person, with the per-person and per-day figures
+/// the app shows.
+///
+/// No pie chart. The C# version draws one; it is the part of that screen that carries the
+/// least and would cost the most here, so the numbers are drawn as bars instead - same
+/// information, no library.
+#[component]
+fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView {
+    let by_category = RwSignal::new(true);
+    let days = RwSignal::new(days_of(&spendings).to_string());
+
+    // Only what counts as spending: a payback moves money without anybody spending it.
+    let counted: Vec<&Spending> = spendings
+        .iter()
+        .filter(|s| !s.category.trim().is_empty())
+        .collect();
+
+    let total: Cents = counted.iter().map(|s| tour.amount_in_current(s)).sum();
+
+    // "Per person" means per whole share, so a child counted at half does not read as a
+    // person here - which is why it is weights and not heads.
+    let total_weight: i64 = tour.persons.iter().map(|p| p.weight as i64).sum();
+    let whole_share = 100i64;
+    let per_share = if total_weight > 0 {
+        Cents(total.0 * whole_share / total_weight)
+    } else {
+        Cents::ZERO
+    };
+
+    let tour_for_rows = tour.clone();
+    let counted_owned: Vec<Spending> = counted.into_iter().cloned().collect();
+
+    view! {
+        <div class="tcn-section">
+            <div class="tcn-toolbar">
+                <span class="tcn-chip tcn-filter-chip" class:is-on=move || by_category.get()
+                      on:click=move |_| by_category.set(true)>"By category"</span>
+                <span class="tcn-chip tcn-filter-chip" class:is-on=move || !by_category.get()
+                      on:click=move |_| by_category.set(false)>"By person"</span>
+            </div>
+
+            {
+                let unit = unit.clone();
+                move || {
+                    let d = days.get().trim().parse::<i64>().unwrap_or(1).max(1);
+                    let unit = unit.clone();
+                    view! {
+                        <div class="tcn-statgrid">
+                            <div class="tcn-statcard">
+                                <div class="tcn-statcard-label">"Total"</div>
+                                <div class="tcn-statcard-value">
+                                    {money(total)} <small>"\u{a0}" {unit.clone()}</small>
+                                </div>
+                            </div>
+                            <div class="tcn-statcard">
+                                <div class="tcn-statcard-label">"Per person (100 w)"</div>
+                                <div class="tcn-statcard-value">
+                                    {money(per_share)} <small>"\u{a0}" {unit.clone()}</small>
+                                </div>
+                            </div>
+                            <div class="tcn-statcard">
+                                <div class="tcn-statcard-label">"Per person per day"</div>
+                                <div class="tcn-statcard-value">
+                                    {money(Cents(per_share.0 / d))} <small>"\u{a0}" {unit.clone()}</small>
+                                </div>
+                                <div class="tcn-statcard-extra">
+                                    "over "
+                                    <input class="tcn-input tcn-daysinput" type="number" min="1"
+                                           prop:value=move || days.get()
+                                           on:input=move |ev| days.set(event_target_value(&ev)) />
+                                    " days"
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+            }
+
+            {move || {
+                let rows = if by_category.get() {
+                    group_by(&counted_owned, &tour_for_rows, |s, _| {
+                        s.category.trim().to_owned()
+                    })
+                } else {
+                    group_by(&counted_owned, &tour_for_rows, |s, t| {
+                        name_of(t.person(&s.from))
+                    })
+                };
+                let biggest = rows.iter().map(|(_, c)| c.0).max().unwrap_or(1).max(1);
+                let unit = unit.clone();
+                view! {
+                    <div class="tcn-section-title" style="margin-top:14px">
+                        {move || if by_category.get() { "By category" } else { "By person" }}
+                    </div>
+                    <div class="tcn-card" style="padding: 12px;">
+                        {rows
+                            .into_iter()
+                            .map(|(label, amount)| {
+                                let share = if total.0 > 0 { amount.0 * 100 / total.0 } else { 0 };
+                                let width = amount.0 * 100 / biggest;
+                                let unit = unit.clone();
+                                view! {
+                                    <div style="margin-bottom: 12px;">
+                                        <div class="tcn-bal-row">
+                                            <span class="tcn-bal-name">{label}</span>
+                                            <span class="tcn-hint">{share}"%"</span>
+                                            <span class="tcn-bal-amount">
+                                                {money(amount)}
+                                                {(!unit.is_empty())
+                                                    .then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                                            </span>
+                                        </div>
+                                        // A plain proportion bar. `tcn-balancebar` is the
+                                        // two-sided one - money owed to the left of a
+                                        // middle line, owed to you on the right - and a
+                                        // share of a total has no such middle, so borrowing
+                                        // it drew every category as a dot.
+                                        <div style="height:6px;border-radius:999px;background:var(--tcn-surface-2);overflow:hidden">
+                                            <div style=format!(
+                                                "height:100%;width:{width}%;border-radius:999px;background:var(--tcn-primary)")>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            })
+                            .collect_view()}
+                    </div>
+                }
+            }}
+        </div>
+    }
+}
+
+/// Adds the spendings up under whatever key the caller picks, largest first.
+fn group_by(
+    spendings: &[Spending],
+    tour: &Tour,
+    key: impl Fn(&Spending, &Tour) -> String,
+) -> Vec<(String, Cents)> {
+    let mut rows: Vec<(String, Cents)> = Vec::new();
+    for s in spendings {
+        let k = key(s, tour);
+        let amount = tour.amount_in_current(s);
+        match rows.iter_mut().find(|(label, _)| label == &k) {
+            Some((_, sum)) => *sum += amount,
+            None => rows.push((k, amount)),
+        }
+    }
+    rows.sort_by_key(|(_, amount)| -amount.0);
+    rows
+}
+
+/// How many days the tour covers, from the first spending to the last.
+fn days_of(spendings: &[Spending]) -> i64 {
+    let mut days: Vec<&str> = spendings.iter().filter_map(|s| s.day()).collect();
+    days.sort();
+    days.dedup();
+    // Distinct days with something on them, which is closer to "how long were we there"
+    // than counting the calendar between the first and the last.
+    days.len().max(1) as i64
 }
 
 #[component]
@@ -562,14 +1079,22 @@ fn transfer_rows(
 }
 
 #[component]
-fn TabButton(tab: RwSignal<Tab>, mine: Tab, label: &'static str, count: usize) -> impl IntoView {
+fn TabButton(
+    tab: RwSignal<Tab>,
+    mine: Tab,
+    label: &'static str,
+    /// Absent where a number would mean nothing - "Stats 0" says only that nobody thought
+    /// about it.
+    count: Option<usize>,
+) -> impl IntoView {
     view! {
         <button type="button"
                 class="tcn-btn"
                 class:tcn-btn-primary=move || tab.get() == mine
                 style="margin-right:6px"
                 on:click=move |_| tab.set(mine)>
-            {label} " " <span class="tcn-count">{count}</span>
+            {label}
+            {count.map(|c| view! { " " <span class="tcn-count">{c}</span> })}
         </button>
     }
 }
