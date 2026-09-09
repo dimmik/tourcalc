@@ -20,8 +20,7 @@ pub fn describe_change(old: &Tour, new: &Tour) -> Option<String> {
         let gone = old
             .persons
             .iter()
-            .filter(|p| !new.persons.iter().any(|q| q.id == p.id))
-            .next_back();
+            .rfind(|p| !new.persons.iter().any(|q| q.id == p.id));
         return Some(format!("P '{}' deleted", gone.map_or("--", |p| &p.name)));
     }
     // Somebody was added: the C# names the last of the new list, which is where an addition
@@ -51,8 +50,7 @@ pub fn describe_change(old: &Tour, new: &Tour) -> Option<String> {
     if old_real.len() > new_real.len() {
         let gone = old_real
             .iter()
-            .filter(|s| !new_real.iter().any(|t| t.id == s.id))
-            .next_back()
+            .rfind(|s| !new_real.iter().any(|t| t.id == s.id))
             .copied();
         return Some(format!(
             "S '{}{}' deleted",
