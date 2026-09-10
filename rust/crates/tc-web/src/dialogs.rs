@@ -626,12 +626,10 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
             .to_owned();
         let tour_name = tour_name.clone();
         Callback::new(move |version: Tour| {
-            let question = format!(
-                "Restore this version? The tour stays as it is — the version is added as a \
-                 separate copy."
-            );
+            let question = "Restore this version? The tour stays as it is — the version is \
+                 added as a separate copy.";
             let agreed = web_sys::window()
-                .and_then(|w| w.confirm_with_message(&question).ok())
+                .and_then(|w| w.confirm_with_message(question).ok())
                 .unwrap_or(false);
             if !agreed {
                 return;

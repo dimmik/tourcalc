@@ -198,7 +198,7 @@ fn base64url(text: &str) -> Result<Vec<u8>, String> {
             other => other,
         })
         .collect();
-    while cleaned.len() % 4 != 0 {
+    while !cleaned.len().is_multiple_of(4) {
         cleaned.push('=');
     }
     let window = web_sys::window().ok_or("no window")?;
