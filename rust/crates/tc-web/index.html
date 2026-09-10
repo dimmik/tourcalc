@@ -61,51 +61,85 @@
         }
 
         /*
-            On a narrow screen the bar's buttons take all of it and the tour's name is
-            squeezed to nothing - literally nothing: a title box zero pixels wide. The app
-            has the same crush and shows three or four letters; that is not better, it is
-            just less obviously broken.
+            On a narrow screen the bar's controls take the whole width and the tour's name
+            is squeezed to nothing - literally nothing: a title box zero pixels wide.
 
-            So the name gets a line of its own under the controls. Same elements in the same
-            order, one row instead of none, and the name is readable - which is the only
-            reason it is up there once the hero has scrolled away.
+            Giving the name its own row worked and looked like what it was: a bar of buttons
+            with a caption stuck under it. So the controls go behind one button instead, and
+            the bar stays a single line: what you are looking at, and a way to everything
+            else. Which is also the honest order - the name is the thing you need to see
+            every time, and the interface switch is not.
+
+            The same markup either way. The row of controls becomes the panel: nothing is
+            duplicated, nothing can drift between the two.
         */
-        @media (max-width: 520px) {
-            .tcn-topbar {
-                height: auto;
-                flex-wrap: wrap;
-                padding: 6px 12px 8px;
-                row-gap: 2px;
-            }
-
-            /*
-                Always its own row here, rather than only when it does not fit. Measured
-                first: at 412 pixels the buttons and the brand already take 340 of them, so
-                "only when it has to" is "always" on a phone, and a bar whose height depends
-                on the length of a tour's name jumps as you move between screens. The one
-                clever version of this - a `min-content` floor so a short name stays beside
-                the buttons - does not work at all: the title is `white-space: nowrap`, so
-                its min-content width is the whole string, and a long name pushed itself
-                straight out of the bar.
-            */
-            .tcn-topbar-title {
-                order: 3;
-                flex: 1 0 100%;
-                font-size: 15px;
-            }
+        .tcw-menu-btn {
+            display: none;
         }
 
-        /* Narrower still, and the row of controls itself stops fitting: the chip that says
-           which build this is goes first, being the one thing on the bar that is not a
-           control. The help page says it in full. */
-        @media (max-width: 400px) {
-            /* Three classes deep on purpose: the app's stylesheet lays out that row with
-               `.tcn-topbar-actions > span:not(:empty)`, which outranks a single class, and
-               a plain `.tcw-buildchip { display: none }` did nothing at all. */
-            .tcn-topbar .tcn-topbar-actions > .tcw-buildchip {
+        @media (max-width: 560px) {
+            .tcw-menu-btn {
+                display: inline-flex;
+            }
+
+            .tcn-topbar .tcn-topbar-actions {
                 display: none;
+                position: absolute;
+                top: 48px;
+                right: 8px;
+                z-index: 50;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                min-width: 190px;
+                padding: 10px;
+                border-radius: 14px;
+                /* The same colour as the bar it hangs from: the buttons inside it are white
+                   on translucent white, and on a pale panel they would be invisible. */
+                background: var(--tcn-primary-dark, var(--tcn-primary));
+                box-shadow: 0 12px 30px rgba(15, 23, 42, .35);
+            }
+
+            .tcn-topbar .tcn-topbar-actions.tcw-open {
+                display: flex;
+            }
+
+            /* In a menu an icon on its own is a riddle. The labels are already there, in the
+               aria-label every one of these carries for a screen reader. */
+            .tcn-topbar-actions.tcw-open .tcn-iconbtn {
+                width: auto;
+                justify-content: flex-start;
+                gap: 10px;
+                padding: 8px 10px;
+                font-size: 14px;
+            }
+
+            .tcn-topbar-actions.tcw-open .tcn-iconbtn::after {
+                content: attr(aria-label);
+            }
+
+            .tcn-topbar-actions.tcw-open .tcn-uiswitch {
+                justify-content: center;
+            }
+
+            /* The chip is a label, not a control: in a menu of things you can press it
+               should not look like one more of them. */
+            .tcn-topbar-actions.tcw-open .tcw-buildchip {
+                align-self: flex-start;
+                background: none;
+                border: none;
+                padding: 0 10px;
+                opacity: .75;
+                font-size: 12px;
+            }
+
+            .tcw-menu-backdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 45;
             }
         }
+
     </style>
 </head>
 <body>

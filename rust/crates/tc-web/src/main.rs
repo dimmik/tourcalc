@@ -197,6 +197,10 @@ fn App() -> impl IntoView {
     let (route, set_route) = signal(current_route());
     intercept_links(set_route);
 
+    // Whether the narrow-screen menu is open. On a wide screen there is no menu: the same
+    // controls are simply a row, and this signal never does anything.
+    let menu = RwSignal::new(false);
+
     let title = PageTitle(RwSignal::new(None));
     provide_context(title);
     // Leaving a tour puts the app's own name back, whoever set it.
@@ -237,7 +241,19 @@ fn App() -> impl IntoView {
                    title=move || title.0.get().map(|(name, _)| name).unwrap_or_default()>
                     {move || title.0.get().map(|(name, _)| name).unwrap_or("Tourcalc".to_owned())}
                 </a>
-                <div class="tcn-topbar-actions">
+                // Only on a narrow screen, where the controls become the panel below.
+                <button type="button" class="tcn-iconbtn tcw-menu-btn" title="Menu"
+                        aria-label="Menu" aria-expanded=move || menu.get().to_string()
+                        on:click=move |_| menu.update(|m| *m = !*m)>
+                    <icon::Icon name="more" />
+                </button>
+                <Show when=move || menu.get()>
+                    // A tap anywhere else puts it away, which is what a menu is expected to
+                    // do and what nothing else here would have done.
+                    <div class="tcw-menu-backdrop" on:click=move |_| menu.set(false)></div>
+                </Show>
+                <div class="tcn-topbar-actions" class:tcw-open=move || menu.get()
+                     on:click=move |_| menu.set(false)>
                     <span class="tcn-chip tcw-buildchip"
                           title="This interface is written in Rust">"rust"</span>
                     <mode::ModeSwitch mode=mode />
