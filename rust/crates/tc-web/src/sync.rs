@@ -20,6 +20,10 @@ pub enum Status {
     Synced,
     /// Nothing to send, and nothing was tried.
     Idle,
+    /// What is on screen is this device's copy, and the server is being asked right now.
+    /// True for a moment on every tour that has been opened here before - which is the
+    /// point: the screen is drawn from what we have instead of waiting for the answer.
+    Checking,
     /// This many edits are still waiting, because there is no network.
     Waiting(usize),
     /// Something went wrong that waiting will not fix.

@@ -117,6 +117,9 @@ fn tour_key(tour: &str) -> String {
     format!("__tcw_tour_{tour}")
 }
 
+/// One key for the whole list, not one per tour: it is a screen, not a set of documents.
+const LIST_KEY: &str = "__tcw_tourlist";
+
 /// What is still waiting to be sent for this tour.
 pub fn pending(tour: &str) -> Vec<Operation> {
     storage()
@@ -151,6 +154,42 @@ pub fn cache(tour: &Tour) {
         return;
     };
     let _ = s.set_item(&tour_key(tour.id.as_str()), &text);
+}
+
+/// The tour list as the server last sent it, so the list opens on what it showed last time
+/// instead of on nothing. It carries no spendings and is never edited here - only the
+/// tours themselves are - so unlike a tour it needs no queue replayed over it.
+pub fn cached_list() -> Option<Vec<Tour>> {
+    let text = storage()?.get_item(LIST_KEY).ok().flatten()?;
+    let items: Vec<serde_json::Value> = serde_json::from_str(&text).ok()?;
+    Some(
+        items
+            .iter()
+            .filter_map(|v| Tour::from_json(&v.to_string()).ok())
+            .collect(),
+    )
+}
+
+pub fn cache_list(tours: &[Tour]) {
+    let Some(s) = storage() else { return };
+    let items: Vec<serde_json::Value> = tours
+        .iter()
+        .filter_map(|t| t.to_json().ok())
+        .filter_map(|text| serde_json::from_str(&text).ok())
+        .collect();
+    if let Ok(text) = serde_json::to_string(&items) {
+        let _ = s.set_item(LIST_KEY, &text);
+    }
+}
+
+/// Drops the remembered list. Called on the way out: the next person to sign in on this
+/// device may hold a different access code, and the list is the one thing here that says
+/// which tours exist. A cached tour needs its id to be asked for; a cached list hands the
+/// ids over.
+pub fn forget_list() {
+    if let Some(s) = storage() {
+        let _ = s.remove_item(LIST_KEY);
+    }
 }
 
 /// The tour as the reader should see it: what the server last said, plus everything that

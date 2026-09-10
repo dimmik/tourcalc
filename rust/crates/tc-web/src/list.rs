@@ -23,12 +23,28 @@ pub fn TourListPage() -> impl IntoView {
     let trouble = RwSignal::new(String::new());
     let busy = RwSignal::new(false);
 
+    // The list this device saw last, drawn before the server is asked. Coming back from a
+    // tour is the commonest move in the app, and it should not be a blank screen for the
+    // length of a request to show the same seven names again.
+    if let Some(known) = crate::queue::cached_list() {
+        set_state.set(Load::Ready(known));
+    }
+
     let load = Callback::new(move |_: ()| {
         spawn_local(async move {
-            set_state.set(match api::tours().await {
-                Ok(ts) => Load::Ready(ts),
-                Err(e) => Load::Failed(e),
-            });
+            match api::tours().await {
+                Ok(ts) => {
+                    crate::queue::cache_list(&ts);
+                    set_state.set(Load::Ready(ts));
+                }
+                // A failure with something already on screen keeps it: an old list is more
+                // use than an error page, and the tours in it still open.
+                Err(e) => {
+                    if !matches!(state.get_untracked(), Load::Ready(_)) {
+                        set_state.set(Load::Failed(e));
+                    }
+                }
+            }
         });
     });
     load.run(());

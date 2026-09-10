@@ -67,6 +67,7 @@ fn Freshness(reload: Callback<()>, status: RwSignal<Status>) -> impl IntoView {
             {move || match status.get() {
                 Status::Synced => "✓ from the server".to_owned(),
                 Status::Idle => "from the server".to_owned(),
+                Status::Checking => "local copy — asking the server…".to_owned(),
                 Status::Waiting(0) => "⚠ local copy — the server did not answer".to_owned(),
                 Status::Waiting(n) => format!("⚠ local copy — {n} waiting to be sent"),
                 Status::Failed(_) => "✕ the server did not answer".to_owned(),
@@ -170,7 +171,7 @@ fn CurrencyPicker(tour: Tour, apply: Callback<Operation>) -> impl IntoView {
 fn SyncLine(status: RwSignal<Status>, reload: Callback<()>, tour_id: String) -> impl IntoView {
     view! {
         {move || match status.get() {
-            Status::Idle | Status::Synced => ().into_any(),
+            Status::Idle | Status::Synced | Status::Checking => ().into_any(),
             Status::Waiting(n) => {
                 // Naming the edits rather than counting them: "2 changes waiting" invites
                 // the question this can answer directly.
@@ -218,6 +219,16 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     let (state, set_state) = signal(Load::Loading);
     let status = RwSignal::new(Status::Idle);
 
+    // A tour opened on this device before is drawn from what we have, at once, and the
+    // server is asked in the background - the way the app itself does it. Waiting for the
+    // answer first is a blank screen for as long as the network takes, to show numbers that
+    // are almost always the ones already in hand. What arrives replaces it, and the line
+    // under the title says which of the two is on screen.
+    if let Some(known) = queue::cached(&id) {
+        set_state.set(Load::Ready(queue::with_pending(&known)));
+        status.set(Status::Checking);
+    }
+
     // Arriving is the same operation as saving: drain whatever is queued, then show what
     // the server has with anything still waiting applied on top. So a reload after an
     // offline edit finishes the job by itself.
@@ -225,6 +236,11 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         let id = id.clone();
         move |_: ()| {
             let id = id.clone();
+            // Refreshing by hand says so too, rather than leaving "from the server" up
+            // while the server is being asked again.
+            if matches!(state.get_untracked(), Load::Ready(_)) {
+                status.set(Status::Checking);
+            }
             spawn_local(async move {
                 let (tour, st) = sync::push(&id).await;
                 status.set(st);

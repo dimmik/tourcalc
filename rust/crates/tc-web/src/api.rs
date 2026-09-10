@@ -43,6 +43,7 @@ pub fn log_out() {
     if let Some(s) = storage() {
         let _ = s.remove_item(TOKEN_KEY);
     }
+    crate::queue::forget_list();
 }
 
 /// What went wrong, in the words the screen will show.

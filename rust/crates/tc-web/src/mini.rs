@@ -161,6 +161,7 @@ pub fn MiniTour(
                 <span class="tcm-hint">
                     {move || match status.get() {
                         Status::Synced | Status::Idle => "from the server".to_owned(),
+                        Status::Checking => "local copy, asking…".to_owned(),
                         Status::Waiting(0) => "local copy".to_owned(),
                         Status::Waiting(n) => format!("{n} waiting to be sent"),
                         Status::Failed(_) => "server did not answer".to_owned(),
