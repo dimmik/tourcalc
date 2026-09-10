@@ -11,8 +11,11 @@
 #
 # It does need a C compiler at *build* time, which it did not when this file was first
 # written: the server now talks to MongoDB and to push services, both over TLS, and rustls
-# links `ring`, whose core is C and assembly. The host's own compiler does for x86_64;
-# aarch64 gets a musl cross-toolchain, downloaded and checked against its hash.
+# links `ring`, whose core is C and assembly.
+#
+# Both compilers come from Debian. An earlier version fetched a musl cross-toolchain from
+# musl.cc, which works from a desk and did not work from a GitHub runner - that host is one
+# person's server and does not answer everybody. A build should not depend on it.
 
 # ---------------------------------------------------------------------------------------
 # The browser side.
@@ -54,32 +57,29 @@ FROM --platform=$BUILDPLATFORM rust:1-bookworm AS server
 ARG TARGETARCH
 WORKDIR /src
 
-# A version-pinned URL and a hash, because a compiler fetched over the network is part of
-# what ends up in the image: if that file ever changes, this build stops rather than quietly
-# using something nobody has tried.
-ARG MUSL_CROSS=https://more.musl.cc/11.2.1/x86_64-linux-musl/aarch64-linux-musl-cross.tgz
-ARG MUSL_CROSS_SHA256=ef7257105c568e0e52e7f0bbcdd3819d9372774252483618d5066e47252431e5
-
-ENV PATH=/opt/aarch64-linux-musl-cross/bin:$PATH \
-    CC_x86_64_unknown_linux_musl=gcc \
+# What compiles ring's C, per architecture:
+#
+# * x86_64 - `musl-gcc`, the real thing for the target.
+# * aarch64 - the gnu cross-compiler, because Debian ships no aarch64 musl one. It is the C
+#   *compiler* only: ring's C uses nothing of libc beyond memcpy and memset, the headers it
+#   includes are architecture-correct, and the final link is done by rustc's own `rust-lld`
+#   against the musl crt objects rustc ships. Mixing the two that far is ordinary; mixing
+#   them further would not be.
+ENV CC_x86_64_unknown_linux_musl=musl-gcc \
     CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld \
-    CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc \
-    CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc
+    CC_aarch64_unknown_linux_musl=aarch64-linux-gnu-gcc \
+    CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld
 
 RUN case "$TARGETARCH" in \
-        amd64) TRIPLE=x86_64-unknown-linux-musl ;; \
-        arm64) TRIPLE=aarch64-unknown-linux-musl ;; \
+        amd64) TRIPLE=x86_64-unknown-linux-musl; PACKAGE=musl-tools ;; \
+        arm64) TRIPLE=aarch64-unknown-linux-musl; PACKAGE=gcc-aarch64-linux-gnu ;; \
         *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
     esac \
  && echo "$TRIPLE" > /triple \
  && rustup target add "$TRIPLE" \
- && if [ "$TARGETARCH" = "arm64" ]; then \
-        curl -fsSL "$MUSL_CROSS" -o /tmp/musl-cross.tgz \
-        && echo "$MUSL_CROSS_SHA256  /tmp/musl-cross.tgz" | sha256sum -c - \
-        && tar -xzf /tmp/musl-cross.tgz -C /opt \
-        && rm /tmp/musl-cross.tgz \
-        && aarch64-linux-musl-gcc --version | head -1; \
-    fi
+ && apt-get update \
+ && apt-get install -y --no-install-recommends "$PACKAGE" \
+ && rm -rf /var/lib/apt/lists/*
 
 COPY rust/ ./rust/
 
