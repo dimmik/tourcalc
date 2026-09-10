@@ -52,21 +52,29 @@ pub fn remember(mode: UiMode) {
 /// The switch, small enough to sit in a header.
 #[component]
 pub fn ModeSwitch(mode: RwSignal<UiMode>) -> impl IntoView {
+    // The app's control: both interfaces named, the one you are in lit up. A single link
+    // that said "mini" left it ambiguous whether that was where you were or where it would
+    // take you - and it is the sort of thing a reader should not have to test.
+    let pick = move |what: UiMode| {
+        move |_| {
+            remember(what);
+            mode.set(what);
+        }
+    };
     view! {
-        <button type="button" class="tcn-hero-link"
-                title="Switch between the roomy interface and the one-line one"
-                on:click=move |_| {
-                    let next = match mode.get() {
-                        UiMode::Full => UiMode::Mini,
-                        UiMode::Mini => UiMode::Full,
-                    };
-                    remember(next);
-                    mode.set(next);
-                }>
-            {move || match mode.get() {
-                UiMode::Full => "mini",
-                UiMode::Mini => "full",
-            }}
-        </button>
+        <span class="tcn-uiswitch" title="Switch the interface">
+            <button type="button" class="tcn-uiswitch-opt"
+                    class:is-active=move || mode.get() == UiMode::Full
+                    title="Full interface - the roomy view"
+                    on:click=pick(UiMode::Full)>
+                "Full"
+            </button>
+            <button type="button" class="tcn-uiswitch-opt"
+                    class:is-active=move || mode.get() == UiMode::Mini
+                    title="Mini interface - one line per thing, for a small screen or a slow device"
+                    on:click=pick(UiMode::Mini)>
+                "Mini"
+            </button>
+        </span>
     }
 }

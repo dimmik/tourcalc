@@ -218,6 +218,15 @@ pub fn PieChart(data: Vec<(String, Cents)>, unit: String) -> impl IntoView {
                         })
                         .collect_view()
                 }}
+                // What the slices add up to. The app prints it under the legend, and a
+                // reader checking a percentage against a number needs the base.
+                <div style="display:flex; align-items:center; gap:6px; padding:4px 0 0;
+                            border-top:1px solid var(--tcn-border); margin-top:4px">
+                    <span>"Total"</span>
+                    <span style="margin-left:auto; white-space:nowrap">
+                        <b>{move || money(Cents(slices_now.get().iter().map(|s| s.amount.0).sum()))}</b>
+                    </span>
+                </div>
                 <Show when=move || has_subs>
                     <span class="tcn-hero-link" style="cursor:pointer"
                           on:click=move |_| detailed.update(|d| *d = !*d)>

@@ -179,6 +179,26 @@ pub fn PeopleTab(
                         on:click=move |_| dialog.set(Some(Dialog::Person(PersonDraft::new())))>
                     "+ Add person"
                 </button>
+                <Show when=move || { searchable }>
+                    <div class="tcn-search">
+                        <span class="tcn-search-icon">"🔎"</span>
+                        <input type="text" placeholder="Find a person"
+                               prop:value=move || search.get()
+                               on:input=move |ev| search.set(event_target_value(&ev)) />
+                        <Show when=move || !search.get().is_empty()>
+                            <button type="button" class="tcn-search-clear" title="Clear"
+                                    on:click=move |_| search.set(String::new())>"✕"</button>
+                        </Show>
+                    </div>
+                </Show>
+                <Show when=move || { count > 1 }>
+                    <button type="button" class="tcn-btn tcn-btn-sm"
+                            class:tcn-btn-primary=move || compact.get()
+                            title="One line per person — tap a line to open their numbers"
+                            on:click=move |_| compact.update(|c| *c = !*c)>
+                        "Compact"
+                    </button>
+                </Show>
                 <Show when=move || { count > 1 }>
                     <button type="button" class="tcn-btn tcn-btn-sm"
                             on:click={
@@ -198,14 +218,6 @@ pub fn PeopleTab(
                         {move || if open.get().is_empty() { "Expand all" } else { "Collapse all" }}
                     </button>
                 </Show>
-                <Show when=move || { count > 1 }>
-                    <button type="button" class="tcn-btn tcn-btn-sm"
-                            class:tcn-btn-primary=move || compact.get()
-                            title="One line per person — tap a line to open their numbers"
-                            on:click=move |_| compact.update(|c| *c = !*c)>
-                        "Compact"
-                    </button>
-                </Show>
                 <span class="tcn-chip">{count} " people"</span>
                 <span class="tcn-chip">
                     "total weight "
@@ -218,18 +230,7 @@ pub fn PeopleTab(
                 </span>
             </div>
 
-            <Show when=move || { searchable }>
-                <div class="tcn-search">
-                    <span class="tcn-search-icon">"🔎"</span>
-                    <input type="text" placeholder="Find a person"
-                           prop:value=move || search.get()
-                           on:input=move |ev| search.set(event_target_value(&ev)) />
-                    <Show when=move || !search.get().is_empty()>
-                        <button type="button" class="tcn-search-clear" title="Clear"
-                                on:click=move |_| search.set(String::new())>"✕"</button>
-                    </Show>
-                </div>
-            </Show>
+
 
             <Show when=move || { count > 0 }>
                 <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
@@ -452,6 +453,8 @@ fn PersonBlock(
     let balances_for_why = balances.clone();
     let transfers_for_why = transfers.clone();
     let for_spend = person.clone();
+    // The compact row has its own 💸, so it needs its own copies to hand to the dialog.
+    let for_compact_spend = person.clone();
     let for_stats = person.clone();
     let toggle_row = toggle.clone();
     let words_row = words.clone();
@@ -459,6 +462,7 @@ fn PersonBlock(
     let colour_row = colour.clone();
     let letters_row = letters.clone();
     let tour_for_spend = tour.clone();
+    let tour_for_compact_spend = tour.clone();
 
     view! {
         <div class="tcn-person" class:is-child=move || is_child
@@ -564,6 +568,21 @@ fn PersonBlock(
                         <span class="tcn-person-caret">
                             {move || if is_open.get() { view!{<Icon name="chevron-down"/>} } else { view!{<Icon name="chevron-right"/>} }}
                         </span>
+                    </button>
+                    <button type="button"
+                            class="tcn-btn tcn-btn-sm tcn-btn-primary tcn-person-spend"
+                            title=format!("Record an expense paid by {}", person.name)
+                            aria-label=format!("Record an expense paid by {}", person.name)
+                            on:click={
+                                let tour = tour_for_compact_spend.clone();
+                                let who = for_compact_spend.clone();
+                                move |_| {
+                                    let mut draft = crate::edit::SpendingDraft::new(&tour);
+                                    draft.from = who.id.clone();
+                                    dialog.set(Some(Dialog::Spending(draft)));
+                                }
+                            }>
+                        "💸"
                     </button>
                 </div>
             </Show>

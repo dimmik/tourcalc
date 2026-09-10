@@ -117,6 +117,10 @@ fn tour_key(tour: &str) -> String {
     format!("__tcw_tour_{tour}")
 }
 
+fn stamp_key(tour: &str) -> String {
+    format!("__tcw_tour_at_{tour}")
+}
+
 /// One key for the whole list, not one per tour: it is a screen, not a set of documents.
 const LIST_KEY: &str = "__tcw_tourlist";
 
@@ -154,6 +158,23 @@ pub fn cache(tour: &Tour) {
         return;
     };
     let _ = s.set_item(&tour_key(tour.id.as_str()), &text);
+    // When, as well as what. The line under the tour name says "from server · 3 min ago",
+    // and without this the age of a copy stored days ago would have to be guessed at.
+    let _ = s.set_item(&stamp_key(tour.id.as_str()), &now_millis().to_string());
+}
+
+/// When this device's copy was stored, in milliseconds since the epoch.
+pub fn cached_at(tour: &str) -> Option<f64> {
+    storage()?
+        .get_item(&stamp_key(tour))
+        .ok()
+        .flatten()?
+        .parse()
+        .ok()
+}
+
+pub fn now_millis() -> f64 {
+    js_sys::Date::now()
 }
 
 /// The tour list as the server last sent it, so the list opens on what it showed last time

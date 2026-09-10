@@ -175,6 +175,12 @@ fn intercept_links(set_route: WriteSignal<Route>) {
     }
 }
 
+/// What the bar at the top calls this screen: the tour's name while a tour is open, and the
+/// app's own name everywhere else. The app does the same, and on a phone that line is the
+/// only place the tour is named once the hero has scrolled away.
+#[derive(Clone, Copy)]
+pub struct PageTitle(pub RwSignal<Option<(String, String)>>);
+
 #[component]
 fn App() -> impl IntoView {
     // Which interface, shared by every screen: the switch is in the header and both the list
@@ -190,6 +196,15 @@ fn App() -> impl IntoView {
 
     let (route, set_route) = signal(current_route());
     intercept_links(set_route);
+
+    let title = PageTitle(RwSignal::new(None));
+    provide_context(title);
+    // Leaving a tour puts the app's own name back, whoever set it.
+    Effect::new(move |_| {
+        if !matches!(route.get(), Route::Tour(_, _)) {
+            title.0.set(None);
+        }
+    });
     // Whether anybody is signed in on this device. A signal rather than a check in the
     // view, so that signing in or out redraws without a reload.
     let signed_in = RwSignal::new(api::signed_in());
@@ -217,7 +232,11 @@ fn App() -> impl IntoView {
         <div class="tcn-shell">
             <header class="tcn-topbar">
                 <a class="tcn-brand" href="/" title="Tour list">"🧭"</a>
-                <a class="tcn-topbar-title" href="/">"Tourcalc"</a>
+                <a class="tcn-topbar-title"
+                   href=move || title.0.get().map(|(_, href)| href).unwrap_or("/".to_owned())
+                   title=move || title.0.get().map(|(name, _)| name).unwrap_or_default()>
+                    {move || title.0.get().map(|(name, _)| name).unwrap_or("Tourcalc".to_owned())}
+                </a>
                 <div class="tcn-topbar-actions">
                     <span class="tcn-chip" title="This interface is written in Rust">"rust"</span>
                     <mode::ModeSwitch mode=mode />
