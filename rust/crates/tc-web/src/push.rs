@@ -22,13 +22,17 @@ enum Bell {
     Impossible,
     Off,
     On,
+    /// Finding out what is true - the state the button starts in, before the browser and the
+    /// server have been asked.
+    Checking,
+    /// Turning it on or off right now.
     Working,
     Refused,
 }
 
 #[component]
 pub fn PushBell(tour_id: String) -> impl IntoView {
-    let state = RwSignal::new(Bell::Working);
+    let state = RwSignal::new(Bell::Checking);
     let id = tour_id.clone();
 
     // What is true when the page opens: does this browser support it, and is this device
@@ -74,19 +78,25 @@ pub fn PushBell(tour_id: String) -> impl IntoView {
 
     view! {
         <Show when=move || state.get() != Bell::Impossible>
-            <button type="button" class="tcn-hero-link tcn-bell"
-                    prop:disabled=move || state.get() == Bell::Working
+            // The app's own pill, and its own two faces: an outline while it is off, solid
+            // white once you are subscribed. It was carrying `tcn-hero-link` as well, which
+            // is the underlined-link style, and that is what it looked like - a link, not a
+            // button you had switched on.
+            <button type="button" class="tcn-bell"
+                    class:is-on=move || state.get() == Bell::On
+                    prop:disabled=move || matches!(state.get(), Bell::Working | Bell::Checking)
                     title=move || match state.get() {
-                        Bell::On => "You are notified when someone changes this tour",
+                        Bell::On => "You get a push when someone changes this tour. Click to stop.",
                         Bell::Refused => "The browser or the notification service said no — click to try again",
-                        _ => "Get a push when someone changes this tour",
+                        _ => "Get a push when someone changes this tour.",
                     }
                     on:click=toggle>
                 {move || match state.get() {
                     Bell::On => "🔔 notified",
-                    Bell::Working => "🔔 …",
+                    Bell::Checking => "⏳ checking…",
+                    Bell::Working => "⏳ …",
                     Bell::Refused => "🔕 not allowed",
-                    _ => "🔔 notify me",
+                    _ => "🔕 notify me",
                 }}
             </button>
         </Show>
