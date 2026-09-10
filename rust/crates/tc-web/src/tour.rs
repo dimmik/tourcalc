@@ -394,10 +394,18 @@ fn TourView(
     let tour_for_fab = tour.clone();
     let tour_for_dialog = tour.clone();
     let tour_for_versions = tour.clone();
+    let tour_for_explain = tour.clone();
+    let tour_for_explain2 = tour.clone();
+    let tour_for_explain3 = tour.clone();
+    let tour_for_explain4 = tour.clone();
     let tour_for_currencies = tour.clone();
     let tour_id_for_bell = tour_id.clone();
     let fin = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
     let arch = tc_core::extras::bool_of(&tour.extras, tc_core::extras::ARCHIVED);
+
+    // One explanation open at a time, wherever it was asked for.
+    let explaining: crate::explain::Open = RwSignal::new(None);
+    provide_context(explaining);
 
     let mode = use_context::<RwSignal<crate::mode::UiMode>>()
         .unwrap_or_else(|| RwSignal::new(crate::mode::UiMode::Full));
@@ -465,12 +473,31 @@ fn TourView(
                 })}
             </div>
             <div class="tcn-hero-metrics">
-                <Metric label="Total spent" value=money(total_spent) unit=unit_metrics.clone() />
-                <Metric label="People" value=people.to_string() unit=String::new() />
-                <Metric label="Expenses" value=expenses.to_string() unit=String::new() />
-                <Metric label="Left to settle" value=money(left_to_settle) unit=unit_metrics.clone() />
+                <Metric label="Total spent" value=money(total_spent) unit=unit_metrics.clone()
+                        what={
+                            let t = tour_for_explain.clone();
+                            Callback::new(move |()| crate::explain::total_spent(&t))
+                        } />
+                <Metric label="People" value=people.to_string() unit=String::new()
+                        what={
+                            let t = tour_for_explain2.clone();
+                            Callback::new(move |()| crate::explain::people(&t))
+                        } />
+                <Metric label="Expenses" value=expenses.to_string() unit=String::new()
+                        what={
+                            let t = tour_for_explain3.clone();
+                            Callback::new(move |()| crate::explain::expenses(&t))
+                        } />
+                <Metric label="Left to settle" value=money(left_to_settle) unit=unit_metrics.clone()
+                        what={
+                            let t = tour_for_explain4.clone();
+                            let between = between.clone();
+                            Callback::new(move |()| crate::explain::left_to_settle(&t, &between))
+                        } />
             </div>
         </div>
+
+        <crate::explain::ExplainSheet open=explaining />
 
         <SyncLine status=status reload=reload tour_id=tour_id.clone() />
 
@@ -689,13 +716,34 @@ fn ExpensesTab(
                 let unit_here = unit.clone();
                 let unit_days = unit.clone();
                 let tour_here = tour.clone();
+                let tour_for_sums = tour.clone();
+                let tour_for_uncounted = tour.clone();
+                let tour_for_days = tour.clone();
+                let shown_for_sums: Vec<Spending> = shown.iter().map(|s| (*s).clone()).collect();
+                let shown_for_uncounted = shown_for_sums.clone();
                 view! {
                     <div class="tcn-summary">
                         <span><b>{shown.len()}</b>" expenses"</span>
-                        <span>"spent " <b>{money(counted)}</b>" " {unit_here.clone()}</span>
+                        <span>
+                            "spent "
+                            <crate::explain::Explain what={
+                                let tour = tour_for_sums.clone();
+                                let rows = shown_for_sums.clone();
+                                Callback::new(move |()| crate::explain::shown_total(&tour, &rows))
+                            }>
+                                <b>{money(counted)}</b>" " {unit_here.clone()}
+                            </crate::explain::Explain>
+                        </span>
                         {(!uncounted.is_zero()).then(|| view! {
-                            <span class="tcn-hint" title="Paybacks and transfers: money moved, but nobody spent it">
-                                "+ " {money(uncounted)} " uncounted"
+                            <span class="tcn-hint">
+                                "+ "
+                                <crate::explain::Explain what={
+                                    let tour = tour_for_uncounted.clone();
+                                    let rows = shown_for_uncounted.clone();
+                                    Callback::new(move |()| crate::explain::uncounted(&tour, &rows))
+                                }>
+                                    {money(uncounted)} " uncounted"
+                                </crate::explain::Explain>
                             </span>
                         })}
                     </div>
@@ -709,15 +757,27 @@ fn ExpensesTab(
                                 .map(|s| tour_here.amount_in_current(s))
                                 .sum();
                             let unit = unit_days.clone();
+                            let unit_head = unit_days.clone();
                             let tour = tour_here.clone();
+                            let tour_for_days = tour_for_days.clone();
                             view! {
                                 <div class="tcn-daygroup">
                                     {(!day.is_empty()).then(|| view! {
                                         <div class="tcn-dayhead">
                                             <span>{pretty_day(&day)}</span>
                                             <span class="tcn-daysum">
-                                                {money(day_total)}
-                                                {(!unit.is_empty()).then(|| view! { "\u{a0}" {unit.clone()} })}
+                                                <crate::explain::Explain what={
+                                                    let tour = tour_for_days.clone();
+                                                    let label = pretty_day(&day);
+                                                    let rows = list.clone();
+                                                    Callback::new(move |()| {
+                                                        crate::explain::day(&tour, &label, &rows)
+                                                    })
+                                                }>
+                                                    {money(day_total)}
+                                                    {(!unit_head.is_empty())
+                                                        .then(|| view! { "\u{a0}" {unit_head.clone()} })}
+                                                </crate::explain::Explain>
                                             </span>
                                         </div>
                                     })}
@@ -762,6 +822,8 @@ fn ExpenseRow(
         .then(|| format!("{} {}", money(spending.amount), spending.currency.name));
     let for_edit = spending.clone();
     let for_delete = spending.clone();
+    let for_why = spending.clone();
+    let tour_for_why = tour.clone();
     // A payment the app recorded reads as a payment; anything a person typed is theirs.
     let description = match crate::ui::as_service_transfer(&spending.description) {
         Some((from, to)) => format!("{from} → {to}"),
@@ -801,8 +863,14 @@ fn ExpenseRow(
                 </span>
             </div>
             <div class="tcn-settle-amount">
-                {money(shown)}
-                {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                <crate::explain::Explain what={
+                    let tour = tour_for_why.clone();
+                    let s = for_why.clone();
+                    Callback::new(move |()| crate::explain::spending(&tour, &s))
+                }>
+                    {money(shown)}
+                    {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                </crate::explain::Explain>
                 {original.map(|o| view! { <small class="tcn-hint">" (" {o} ")"</small> })}
                 <button type="button" class="tcn-btn tcn-btn-sm" style="margin-left:10px"
                         on:click=move |_| dialog.set(Some(
@@ -1012,6 +1080,9 @@ fn BalanceTab(
     // The whole settlement, dust and all: `settlement_summary` applies the app's own
     // rule for what counts and what is too small to mention.
     let rows = settlement_summary(&tour, &all_for_summary);
+    let balances_for_bal = tc_core::calculate(&tour, tc_core::Options::default());
+    let tour_for_bal = tour.clone();
+    let all_for_bal = all_for_summary.clone();
     let has_real = tour.spendings.iter().any(|s| s.kind == Kind::Real);
     let names_for_rows = name_by.clone();
 
@@ -1043,7 +1114,7 @@ fn BalanceTab(
                             "Nothing here is paid yet — these are the payments that would square everyone up."
                         </div>
                         <div class="tcn-list">
-                            {transfer_rows(&between, &name_by, &unit, Some(apply))}
+                            {transfer_rows(&tour, &between, &name_by, &unit, Some(apply))}
                         </div>
                     }.into_any()
                 }
@@ -1058,7 +1129,7 @@ fn BalanceTab(
                     </div>
                     // No button here: a payment between a child and whoever pays for them is
                     // family business, and the app does not offer to record it either.
-                    <div class="tcn-list">{transfer_rows(&family, &name_by, &unit, None)}</div>
+                    <div class="tcn-list">{transfer_rows(&tour, &family, &name_by, &unit, None)}</div>
                 })
             }
 
@@ -1082,9 +1153,20 @@ fn BalanceTab(
                                             <Avatar name=who.clone() />
                                             <span class="tcn-bal-name">{who.clone()}</span>
                                             <span class=if owes { "tcn-bal-amount tcn-neg" } else { "tcn-bal-amount tcn-pos" }>
-                                                {if owes { "owes " } else { "gets " }}
-                                                {money(shown)}
-                                                {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                                                <crate::explain::Explain what={
+                                                    let t = tour_for_bal.clone();
+                                                    let id = who_id.clone();
+                                                    let b = balances_for_bal.clone();
+                                                    let all = all_for_bal.clone();
+                                                    Callback::new(move |()| match t.person(&id) {
+                                                        Some(p) => crate::explain::person_balance(&t, p, &b, &all),
+                                                        None => crate::explain::Explanation::new("Balance"),
+                                                    })
+                                                }>
+                                                    {if owes { "owes " } else { "gets " }}
+                                                    {money(shown)}
+                                                    {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                                                </crate::explain::Explain>
                                             </span>
                                         </div>
                                         <div class="tcn-balancebar">
@@ -1108,6 +1190,7 @@ fn BalanceTab(
 }
 
 fn transfer_rows(
+    tour: &Tour,
     list: &[Transfer],
     name_by: &impl Fn(&PersonId) -> String,
     unit: &str,
@@ -1115,8 +1198,11 @@ fn transfer_rows(
     // themselves and are shown without the button, as in the app.
     paid: Option<Callback<Operation>>,
 ) -> impl IntoView {
+    let balances = tc_core::calculate(tour, tc_core::Options::default());
     list.iter()
         .map(|t| {
+            let tour_for_why = tour.clone();
+            let balances = balances.clone();
             let from = name_by(&t.from);
             let to = name_by(&t.to);
             let unit = unit.to_owned();
@@ -1131,8 +1217,15 @@ fn transfer_rows(
                         <span class="tcn-settle-who">{to.clone()}</span>
                     </div>
                     <div class="tcn-settle-amount">
-                        {money(t.amount)}
-                        {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                        <crate::explain::Explain what={
+                            let tour = tour_for_why.clone();
+                            let t = recording.clone();
+                            let balances = balances.clone();
+                            Callback::new(move |()| crate::explain::transfer(&tour, &t, &balances))
+                        }>
+                            {money(recording.amount)}
+                            {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                        </crate::explain::Explain>
                     </div>
                     {paid.map(|apply| {
                         let from = from.clone();
@@ -1192,13 +1285,21 @@ fn TabButton(
 }
 
 #[component]
-fn Metric(label: &'static str, value: String, unit: String) -> impl IntoView {
+fn Metric(
+    label: &'static str,
+    value: String,
+    unit: String,
+    /// Tapping the figure opens the working behind it.
+    what: Callback<(), crate::explain::Explanation>,
+) -> impl IntoView {
     view! {
         <div class="tcn-metric">
             <div class="tcn-metric-label">{label}</div>
             <div class="tcn-metric-value">
-                {value}
-                {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                <crate::explain::Explain what=what>
+                    {value}
+                    {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                </crate::explain::Explain>
             </div>
         </div>
     }

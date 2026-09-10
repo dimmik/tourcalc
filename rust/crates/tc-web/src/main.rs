@@ -7,6 +7,7 @@
 mod api;
 mod dialogs;
 mod edit;
+mod explain;
 mod help;
 mod icon;
 mod list;

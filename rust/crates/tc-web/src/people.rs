@@ -168,6 +168,7 @@ pub fn PeopleTab(
         .collect();
 
     let tour_for_sheet = tour.clone();
+    let tour_for_weight = tour.clone();
     let transfers_for_sheet = transfers.clone();
     let unit_for_sheet = unit.clone();
 
@@ -206,7 +207,15 @@ pub fn PeopleTab(
                     </button>
                 </Show>
                 <span class="tcn-chip">{count} " people"</span>
-                <span class="tcn-chip">"total weight " {tour.total_weight()}</span>
+                <span class="tcn-chip">
+                    "total weight "
+                    <crate::explain::Explain what={
+                        let t = tour_for_weight.clone();
+                        Callback::new(move |()| crate::explain::total_weight(&t))
+                    }>
+                        {tour.total_weight()}
+                    </crate::explain::Explain>
+                </span>
             </div>
 
             <Show when=move || { searchable }>
@@ -434,6 +443,12 @@ fn PersonBlock(
 
     let for_edit = person.clone();
     let for_delete = person.clone();
+    let person_for_why = person.clone();
+    let person_for_pweight = person.clone();
+    let tour_for_why = tour.clone();
+    let tour_for_pweight = tour.clone();
+    let balances_for_why = balances.clone();
+    let transfers_for_why = transfers.clone();
     let for_spend = person.clone();
     let for_stats = person.clone();
     let toggle_row = toggle.clone();
@@ -469,7 +484,18 @@ fn PersonBlock(
                               <div class="tcn-person-id">
                                   <div class="tcn-person-name">{name}</div>
                                   <div class="tcn-person-meta" on:click=|ev| ev.stop_propagation()>
-                                      <span>"weight " <b>{weight}</b></span>
+                                      <span>
+                                          "weight "
+                                          <crate::explain::Explain what={
+                                              let t = tour_for_pweight.clone();
+                                              let who = person_for_pweight.clone();
+                                              Callback::new(move |()| {
+                                                  crate::explain::person_weight(&t, &who)
+                                              })
+                                          }>
+                                              <b>{weight}</b>
+                                          </crate::explain::Explain>
+                                      </span>
                                       {paid_by.map(|n| view! { <span>"paid by " <b>{n}</b></span> })}
                                       {(covers > 0).then(|| view! {
                                           <span>"pays for " <b>{covers}</b></span>
@@ -480,7 +506,17 @@ fn PersonBlock(
                                   </div>
                               </div>
                               <div class="tcn-person-owe" on:click=|ev| ev.stop_propagation()>
-                                  <span class=format!("tcn-chip {chip_class}")>{words}</span>
+                                  <crate::explain::Explain what={
+                                      let t = tour_for_why.clone();
+                                      let who = person_for_why.clone();
+                                      let b = balances_for_why.clone();
+                                      let all = transfers_for_why.clone();
+                                      Callback::new(move |()| {
+                                          crate::explain::person_balance(&t, &who, &b, &all)
+                                      })
+                                  }>
+                                      <span class=format!("tcn-chip {chip_class}")>{words}</span>
+                                  </crate::explain::Explain>
                                   {split_family.then(|| view! {
                                       <span class="tcn-person-own"
                                             title="Their own debt, before the people they pay for">
