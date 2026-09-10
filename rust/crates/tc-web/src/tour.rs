@@ -35,7 +35,7 @@ pub enum Load<T> {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-enum Tab {
+pub enum Tab {
     Balance,
     People,
     Expenses,
@@ -218,6 +218,10 @@ pub enum Removal {
 pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     let (state, set_state) = signal(Load::Loading);
     let status = RwSignal::new(Status::Idle);
+    // Which tab is open lives here, above the screen that is rebuilt whenever the tour is
+    // reloaded - which happens after every edit. Kept inside, it meant that saving an
+    // expense answered by throwing the reader back to Balance.
+    let tab = RwSignal::new(tab_of(landing));
 
     // A tour opened on this device before is drawn from what we have, at once, and the
     // server is asked in the background - the way the app itself does it. Waiting for the
@@ -267,7 +271,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                 </div>
             }.into_any(),
             Load::Ready(tour) => view! {
-                <TourView tour=tour reload=load status=status landing=landing />
+                <TourView tour=tour reload=load status=status landing=landing tab=tab />
             }.into_any(),
         }}
     }
@@ -280,18 +284,14 @@ fn TourView(
     status: RwSignal<Status>,
     /// Which tab the address asked for, and whether it asked for the expense dialog too.
     landing: crate::Landing,
+    /// Which tab is open. Owned by the page above, so that it survives a redraw.
+    tab: RwSignal<Tab>,
 ) -> impl IntoView {
     // Every avatar on this screen can now tell one Дима from another.
     provide_context(crate::ui::Peers(
         tour.persons.iter().map(|p| p.name.clone()).collect(),
     ));
 
-    let tab = RwSignal::new(match landing {
-        crate::Landing::People => Tab::People,
-        crate::Landing::Expenses | crate::Landing::AddSpending => Tab::Expenses,
-        crate::Landing::Stats => Tab::Stats,
-        crate::Landing::Balance => Tab::Balance,
-    });
     let dialog: RwSignal<Option<Dialog>> = RwSignal::new(None);
     let tour_id = tour.id.as_str().to_owned();
 
@@ -436,8 +436,8 @@ fn TourView(
     // row belongs to the surface being left.
     if mode.get_untracked() == crate::mode::UiMode::Mini {
         return view! {
-            <crate::mini::MiniTour tour=mini_tour reload=reload status=status
-                                   apply=apply dialog=dialog delete=delete landing=landing />
+            <crate::mini::MiniTour tour=mini_tour reload=reload status=status tab=tab
+                                   apply=apply dialog=dialog delete=delete />
             <crate::mini::MiniDialogs tour=mini_dialog_tour dialog=dialog
                                       close=close apply=apply />
         }
@@ -1005,7 +1005,16 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView
                 };
                 let biggest = rows.iter().map(|(_, c)| c.0).max().unwrap_or(1).max(1);
                 let unit = unit.clone();
+                let for_pie = rows.clone();
+                let pie_unit = unit.clone();
                 view! {
+                    // The same numbers as the list below it, drawn as the app draws them.
+                    // A proportion is what the eye reads first and the list is what answers
+                    // "how much exactly", so both, in that order.
+                    {(!for_pie.is_empty())
+                        .then(|| view! {
+                            <crate::pie::PieChart data=for_pie unit=pie_unit />
+                        })}
                     <div class="tcn-section-title" style="margin-top:14px">
                         {move || if by_category.get() { "By category" } else { "By person" }}
                     </div>
@@ -1045,6 +1054,16 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView
                 }
             }}
         </div>
+    }
+}
+
+/// Which tab an address asks for.
+pub fn tab_of(landing: crate::Landing) -> Tab {
+    match landing {
+        crate::Landing::People => Tab::People,
+        crate::Landing::Expenses | crate::Landing::AddSpending => Tab::Expenses,
+        crate::Landing::Stats => Tab::Stats,
+        crate::Landing::Balance => Tab::Balance,
     }
 }
 
@@ -1139,13 +1158,29 @@ fn BalanceTab(
             {
                 let unit = unit.clone();
                 let name_by = name_by.clone();
-                (!family.is_empty()).then(|| view! {
+                // Folded away to start with, as in the app. Who inside a family owes whom is
+                // the household's own arithmetic; the list people came for is the one above.
+                let open = RwSignal::new(false);
+                (!family.is_empty()).then(move || view! {
                     <div class="tcn-section-title" style="margin-top:18px">
-                        "Inside families " <span class="tcn-count">{family.len()}</span>
+                        <span class="tcn-btn tcn-btn-ghost tcn-btn-sm"
+                              on:click=move |_| open.update(|o| *o = !*o)>
+                            {move || if open.get() {
+                                view! { <crate::icon::Icon name="chevron-down" /> }
+                            } else {
+                                view! { <crate::icon::Icon name="chevron-right" /> }
+                            }}
+                            " Inside families"
+                        </span>
+                        <span class="tcn-count">{family.len()}</span>
                     </div>
-                    // No button here: a payment between a child and whoever pays for them is
-                    // family business, and the app does not offer to record it either.
-                    <div class="tcn-list">{transfer_rows(&tour, &family, &name_by, &unit, None)}</div>
+                    // No button on the rows: a payment between a child and whoever pays for
+                    // them is family business, and the app does not offer to record it either.
+                    <Show when=move || open.get()>
+                        <div class="tcn-list">
+                            {transfer_rows(&tour, &family, &name_by, &unit, None)}
+                        </div>
+                    </Show>
                 })
             }
 

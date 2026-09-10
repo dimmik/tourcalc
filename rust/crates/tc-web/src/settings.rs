@@ -72,6 +72,22 @@ pub fn remember(settings: &Settings) {
 /// The settings every screen reads, and the one place they are written.
 pub type Shared = RwSignal<Settings>;
 
+/// The multiplier the pie chart's colours are generated with. Not a setting this client
+/// offers - but it is one the app offers, it is carried through in `rest` like every other,
+/// and reading it is what makes a tour the same colours in both clients.
+pub fn piechart_magic() -> f64 {
+    let stored = use_context::<Shared>()
+        .map(|s| s.get_untracked())
+        .unwrap_or_else(stored);
+    stored
+        .rest
+        .get("Magic_Piechart_Color_Scheme_Number")
+        .and_then(|v| v.as_i64())
+        .filter(|n| *n > 0)
+        .unwrap_or(1630) as f64
+        / 1000.0
+}
+
 /// What this reader calls too small to bother with, in the currency the tour is shown in.
 ///
 /// A tracked read: called from inside the closures that draw the balances, so changing the

@@ -15,21 +15,13 @@ use crate::edit::{PersonDraft, SpendingDraft};
 use crate::icon::Icon;
 use crate::queue::Operation;
 use crate::sync::Status;
-use crate::tour::{Dialog, Removal};
+use crate::tour::{Dialog, Removal, Tab};
 use crate::ui::{money, name_of};
 use leptos::prelude::*;
 use tc_core::{
     calculate, settlement_summary, split_family, suggest_settlement, will_pay, Cents, Kind,
     Options, Person, PersonId, Spending, Split, Tour, Transfer,
 };
-
-#[derive(Clone, Copy, PartialEq)]
-enum Tab {
-    Balance,
-    People,
-    Expenses,
-    Stats,
-}
 
 /// Sorting the expense list. The same two the roomy list offers.
 #[derive(Clone, Copy, PartialEq)]
@@ -46,14 +38,10 @@ pub fn MiniTour(
     apply: Callback<Operation>,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
-    landing: crate::Landing,
+    /// Owned by the page, so an edit does not send the reader back to the first tab - and
+    /// so that switching between the two interfaces leaves the reader on the same tab.
+    tab: RwSignal<Tab>,
 ) -> impl IntoView {
-    let tab = RwSignal::new(match landing {
-        crate::Landing::People => Tab::People,
-        crate::Landing::Expenses | crate::Landing::AddSpending => Tab::Expenses,
-        crate::Landing::Stats => Tab::Stats,
-        crate::Landing::Balance => Tab::Balance,
-    });
     let show_family = RwSignal::new(false);
 
     let transfers = suggest_settlement(&tour).unwrap_or_default();
