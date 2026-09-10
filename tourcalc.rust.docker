@@ -38,10 +38,12 @@ RUN rustup target add wasm32-unknown-unknown \
     | tar -xz -C /usr/local/bin trunk \
  && trunk --version
 
-# The client's index.html pulls the app's own stylesheet straight out of the Blazor client -
-# the 3 500 lines of CSS are shared, not copied - so that one file has to be here too.
+# The client's index.html pulls the app's own stylesheets straight out of the Blazor client -
+# they are shared, not copied - so they have to be here too. The whole directory rather than
+# the files by name: naming them meant that adding the small interface's stylesheet built
+# perfectly here and failed in CI, where nothing else in the tree exists.
 COPY rust/ ./rust/
-COPY TCBlazor/Client/wwwroot/css/newui.css ./TCBlazor/Client/wwwroot/css/newui.css
+COPY TCBlazor/Client/wwwroot/css/ ./TCBlazor/Client/wwwroot/css/
 
 WORKDIR /src/rust/crates/tc-web
 
