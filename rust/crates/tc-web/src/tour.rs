@@ -399,10 +399,31 @@ fn TourView(
     let fin = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
     let arch = tc_core::extras::bool_of(&tour.extras, tc_core::extras::ARCHIVED);
 
+    let mode = use_context::<RwSignal<crate::mode::UiMode>>()
+        .unwrap_or_else(|| RwSignal::new(crate::mode::UiMode::Full));
+
+    // The small interface is the same tour drawn as rows. Everything above it - the sync,
+    // the queue, the dialogs - is shared, so this is a choice of surface and not of app.
+    let mini_tour = tour.clone();
+    let mini_dialog_tour = tour.clone();
+
+    // Read once, not tracked: the page is rebuilt when the switch moves (see `main`), which
+    // is what a change of interface should do anyway - every open dialog and every folded
+    // row belongs to the surface being left.
+    if mode.get_untracked() == crate::mode::UiMode::Mini {
+        return view! {
+            <crate::mini::MiniTour tour=mini_tour reload=reload status=status
+                                   apply=apply dialog=dialog delete=delete landing=landing />
+            <crate::mini::MiniDialogs tour=mini_dialog_tour dialog=dialog
+                                      close=close apply=apply />
+        }
+        .into_any();
+    }
+
     view! {
         <div class="tcn-hero">
             <div class="tcn-hero-top">
-                <div class="tcn-hero-name">{title}</div>
+                <div class="tcn-hero-name">{title.clone()}</div>
             </div>
             <div class="tcn-hero-sub">
                 <ShareLink tour=tour_for_share.clone() />
@@ -510,6 +531,7 @@ fn TourView(
             })
         }}
     }
+    .into_any()
 }
 
 #[component]
@@ -740,10 +762,11 @@ fn ExpenseRow(
         .then(|| format!("{} {}", money(spending.amount), spending.currency.name));
     let for_edit = spending.clone();
     let for_delete = spending.clone();
-    let description = if spending.description.trim().is_empty() {
-        "(no description)".to_owned()
-    } else {
-        spending.description.clone()
+    // A payment the app recorded reads as a payment; anything a person typed is theirs.
+    let description = match crate::ui::as_service_transfer(&spending.description) {
+        Some((from, to)) => format!("{from} → {to}"),
+        None if spending.description.trim().is_empty() => "(no description)".to_owned(),
+        None => spending.description.clone(),
     };
     let category = spending.category.trim().to_owned();
     // A colour somebody chose marks the row out. What the app writes itself when a payment

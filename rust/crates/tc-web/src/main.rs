@@ -10,6 +10,8 @@ mod edit;
 mod icon;
 mod list;
 mod login;
+mod mini;
+mod mode;
 mod people;
 mod push;
 mod queue;
@@ -82,6 +84,11 @@ fn go(route_to: &str, set_route: WriteSignal<Route>) {
 
 #[component]
 fn App() -> impl IntoView {
+    // Which interface, shared by every screen: the switch is in the header and both the list
+    // and the tour read it.
+    let mode = RwSignal::new(mode::stored());
+    provide_context(mode);
+
     let (route, set_route) = signal(current_route());
     // Whether anybody is signed in on this device. A signal rather than a check in the
     // view, so that signing in or out redraws without a reload.
@@ -113,6 +120,7 @@ fn App() -> impl IntoView {
                 <a class="tcn-topbar-title" href="/">"Tourcalc"</a>
                 <div class="tcn-topbar-actions">
                     <span class="tcn-chip" title="This interface is written in Rust">"rust"</span>
+                    <mode::ModeSwitch mode=mode />
                     <Show when=move || signed_in.get()>
                         <button type="button" class="tcn-iconbtn" title="Log out" aria-label="Log out"
                                 on:click=move |_| {
@@ -120,7 +128,7 @@ fn App() -> impl IntoView {
                                     signed_in.set(false);
                                     go("/", set_route);
                                 }>
-                            "⎋"
+                            <icon::Icon name="logout" />
                         </button>
                     </Show>
                 </div>
@@ -135,7 +143,15 @@ fn App() -> impl IntoView {
                     (false, _) => view! { <login::SignIn on_done=signed_in_now /> }.into_any(),
                     (true, route) => match route {
                         Route::List => view! { <list::TourListPage /> }.into_any(),
-                        Route::Tour(id, landing) => view! { <tour::TourPage id=id landing=landing /> }.into_any(),
+                        Route::Tour(id, landing) => view! {
+                            // Reading `mode` here is what rebuilds the page when the
+                            // interface is switched: the tour draws itself one way or the
+                            // other and nothing in it has to be reactive about which.
+                            {move || {
+                                let _ = mode.get();
+                                view! { <tour::TourPage id=id.clone() landing=landing /> }
+                            }}
+                        }.into_any(),
                         Route::Goto(_, _) => {
                             view! { <div class="tcn-loading">"Signing in…"</div> }.into_any()
                         }

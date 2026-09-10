@@ -33,7 +33,10 @@ pub fn TourListPage() -> impl IntoView {
     });
     load.run(());
 
-    let create = move |_| {
+    let mode = use_context::<RwSignal<crate::mode::UiMode>>()
+        .unwrap_or_else(|| RwSignal::new(crate::mode::UiMode::Full));
+
+    let create = Callback::new(move |()| {
         let name = new_name.get().trim().to_owned();
         if name.is_empty() {
             return;
@@ -88,7 +91,7 @@ pub fn TourListPage() -> impl IntoView {
             }
             busy.set(false);
         });
-    };
+    });
 
     // Clones a tour, with or without what was spent on it. The second is what a group
     // going on the same trip again wants: the same people, the same weights, the same
@@ -178,7 +181,13 @@ pub fn TourListPage() -> impl IntoView {
         });
     });
 
+    // The small interface carries its own bar and its own create form, so the roomy ones
+    // are not drawn at all - which is a thing a screenshot catches and a driver does not:
+    // the rows were right and the page had two of everything above them.
+    let full = move || mode.get() == crate::mode::UiMode::Full;
+
     view! {
+        <Show when=full>
         <div class="tcn-section">
             <div class="tcn-toolbar">
                 <div class="tcn-search">
@@ -229,16 +238,21 @@ pub fn TourListPage() -> impl IntoView {
                         </div>
                     </div>
                     <button type="button" class="tcn-btn tcn-btn-primary"
-                            prop:disabled=move || busy.get() on:click=create>
+                            prop:disabled=move || busy.get() on:click=move |_| create.run(())>
                         "Create tour"
                     </button>
                 </div>
             </Show>
 
-            <Show when=move || !trouble.get().is_empty()>
-                <div class="tcn-errors">{move || trouble.get()}</div>
-            </Show>
         </div>
+        </Show>
+
+        // Whatever went wrong is worth saying in either interface.
+        <Show when=move || !trouble.get().is_empty()>
+            <div class="tcn-section" style="padding-bottom:0">
+                <div class="tcn-errors">{move || trouble.get()}</div>
+            </div>
+        </Show>
 
         {move || match state.get() {
             Load::Loading => {
@@ -251,6 +265,13 @@ pub fn TourListPage() -> impl IntoView {
                         "Opening a tour link signs you in - ask whoever shared the tour to send it again."
                     </p>
                 </div>
+            }.into_any(),
+            Load::Ready(tours) if mode.get() == crate::mode::UiMode::Mini => view! {
+                <crate::mini::MiniList tours=tours search=search show_archived=show_archived
+                                       adding=adding new_name=new_name new_code=new_code
+                                       new_json=new_json busy=busy
+                                       create=create
+                                       remove=remove clone_it=clone copy_json=copy_json />
             }.into_any(),
             Load::Ready(tours) => {
                 let needle = search.get().trim().to_lowercase();

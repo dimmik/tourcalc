@@ -126,6 +126,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_generated_payment_reads_as_one() {
+        assert_eq!(
+            as_service_transfer("X 'Женя К.' -> 'Паша'"),
+            Some(("Женя К.".to_owned(), "Паша".to_owned()))
+        );
+        assert_eq!(
+            as_service_transfer("Family 'Олежка' -> 'Саша О.'"),
+            Some(("Олежка".to_owned(), "Саша О.".to_owned()))
+        );
+        // Anything a person typed is left exactly as they typed it.
+        assert_eq!(as_service_transfer("Ужин в 'Прадо' -> вкусно"), None);
+        assert_eq!(as_service_transfer("X 'a' -> 'b' and then some"), None);
+        assert_eq!(as_service_transfer("такси"), None);
+    }
+
+    #[test]
     fn only_a_chosen_colour_marks_a_row() {
         assert!(is_marked("#ffd54f"));
         assert!(is_marked("#fd5"));
@@ -281,4 +297,25 @@ fn from_hsl(h: f64, s: f64, l: f64) -> String {
     let m = l - c / 2.0;
     let byte = |v: f64| ((v * 255.0).round().clamp(0.0, 255.0)) as u8;
     format!("#{:02x}{:02x}{:02x}", byte(r + m), byte(g + m), byte(b + m))
+}
+
+/// A description the calculator wrote for itself, split into who and whom.
+///
+/// `X 'Женя К.' -> 'Паша'` and `Family 'Олежка' -> 'Саша О.'` are what a recorded payment
+/// carries. Generated rows sit alongside the ones people typed, so the quotes and the arrow
+/// are shown as a payment rather than as a description - without ever rewriting anything a
+/// human wrote.
+///
+/// Done by hand rather than with a regular expression: the shape is fixed, and a regex crate
+/// is 300 KB of wasm for one pattern.
+pub fn as_service_transfer(description: &str) -> Option<(String, String)> {
+    let rest = description
+        .strip_prefix("X '")
+        .or_else(|| description.strip_prefix("Family '"))?;
+    let (from, rest) = rest.split_once("' -> '")?;
+    let to = rest.strip_suffix('\'')?;
+    if from.is_empty() || to.is_empty() {
+        return None;
+    }
+    Some((from.to_owned(), to.to_owned()))
 }
