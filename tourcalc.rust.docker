@@ -60,25 +60,28 @@ WORKDIR /src
 # What compiles ring's C, per architecture:
 #
 # * x86_64 - `musl-gcc`, the real thing for the target.
-# * aarch64 - the gnu cross-compiler, because Debian ships no aarch64 musl one. It is the C
-#   *compiler* only: ring's C uses nothing of libc beyond memcpy and memset, the headers it
-#   includes are architecture-correct, and the final link is done by rustc's own `rust-lld`
-#   against the musl crt objects rustc ships. Mixing the two that far is ordinary; mixing
-#   them further would not be.
+# * aarch64 - the gnu cross-compiler, because Debian ships no aarch64 musl one, *with the
+#   target's libc headers*. `gcc-aarch64-linux-gnu` on its own does not bring them, and
+#   `--no-install-recommends` keeps it that way - so the compiler reached for the host's
+#   /usr/include instead and died on `bits/libc-header-start.h`, which is x86_64 glibc's
+#   idea of stdint.h. It is the C *compiler* only: ring's C uses nothing of libc beyond
+#   memcpy and memset, and the final link is done by rustc's own `rust-lld` against the musl
+#   crt objects rustc ships. Mixing the two that far is ordinary; mixing them further is not.
 ENV CC_x86_64_unknown_linux_musl=musl-gcc \
     CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld \
     CC_aarch64_unknown_linux_musl=aarch64-linux-gnu-gcc \
     CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld
 
 RUN case "$TARGETARCH" in \
-        amd64) TRIPLE=x86_64-unknown-linux-musl; PACKAGE=musl-tools ;; \
-        arm64) TRIPLE=aarch64-unknown-linux-musl; PACKAGE=gcc-aarch64-linux-gnu ;; \
+        amd64) TRIPLE=x86_64-unknown-linux-musl; PACKAGES="musl-tools" ;; \
+        arm64) TRIPLE=aarch64-unknown-linux-musl; \
+               PACKAGES="gcc-aarch64-linux-gnu libc6-dev-arm64-cross" ;; \
         *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
     esac \
  && echo "$TRIPLE" > /triple \
  && rustup target add "$TRIPLE" \
  && apt-get update \
- && apt-get install -y --no-install-recommends "$PACKAGE" \
+ && apt-get install -y --no-install-recommends $PACKAGES \
  && rm -rf /var/lib/apt/lists/*
 
 COPY rust/ ./rust/
