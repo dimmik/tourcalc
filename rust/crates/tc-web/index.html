@@ -51,11 +51,24 @@
     -->
     <style>
         /*
-            The browser's default 8px body margin, never reset here. It inset the whole app,
-            and it made the sticky top bar look broken on a phone: stuck to the top, but 8px
-            short of both edges, so the page scrolled past it down either side. The app's own
-            page resets this; ours did not.
+            The base the app's stylesheet is written against and never states, because in the
+            other client Bootstrap states it: `newui.css` is loaded there after
+            bootstrap.min.css, which resets both of these. Here nothing did.
+
+            Both were real bugs on a phone, and neither was visible on a desktop:
+
+            * the 8px body margin inset the whole app, so the sticky top bar stopped short of
+              both edges and the page scrolled past it down either side;
+            * without border-box, the search field - `width: 100%` plus 62px of padding, as
+              the stylesheet writes it - came out 305 pixels wide inside a 243 pixel box, and
+              pushed the whole page sideways. The Compact button went with it, off the edge.
         */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
         }
