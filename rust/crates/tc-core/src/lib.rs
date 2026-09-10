@@ -18,6 +18,6 @@ pub use calc::{
     suggest_settlement, will_pay, Balances, Breakdown, CalcError, Line, Options, PersonBalance,
     Transfer, MINIMUM_MEANINGFUL,
 };
-pub use domain::{Currency, Kind, Person, Spending, Split, Tour};
+pub use domain::{extras, Currency, Extras, Kind, Person, Spending, Split, Tour};
 pub use ids::{CurrencyId, PersonId, SpendingId, TourId};
 pub use money::Cents;

@@ -9,9 +9,10 @@
 //! this itself, and so the alternative is two implementations of the same money that must
 //! agree forever.
 
-use crate::dialogs::{PersonDialog, SpendingDialog};
+use crate::dialogs::{CurrenciesDialog, PersonDialog, SpendingDialog, TourDialog, VersionsDialog};
 use crate::edit::{PersonDraft, SpendingDraft};
 use crate::people::PeopleTab;
+use crate::push::PushBell;
 use crate::queue::{self, Operation};
 use crate::sync::{self, Status};
 use crate::ui::{avatar_colour, initials, money, name_of};
@@ -46,8 +47,36 @@ enum Tab {
 pub enum Dialog {
     Spending(SpendingDraft),
     Person(PersonDraft),
-    /// Renaming the tour: one field, so it carries just the name.
-    Rename(String),
+    /// The tour's own properties: name, length, archived, settling up.
+    Tour(crate::edit::TourDraft),
+    /// The currencies and their rates.
+    Currencies,
+    /// What this tour used to be, and putting one of those back.
+    Versions,
+}
+
+/// How old what is on screen is, and a way to ask for newer.
+///
+/// The app answers the question a reader has when the numbers look wrong - "am I looking at
+/// something stale?" - and it is worth answering out loud, because this client will happily
+/// show a tour it stored days ago when there is no network.
+#[component]
+fn Freshness(reload: Callback<()>, status: RwSignal<Status>) -> impl IntoView {
+    view! {
+        <span class="tcn-refresh-note">
+            {move || match status.get() {
+                Status::Synced => "✓ from the server".to_owned(),
+                Status::Idle => "from the server".to_owned(),
+                Status::Waiting(0) => "⚠ local copy — the server did not answer".to_owned(),
+                Status::Waiting(n) => format!("⚠ local copy — {n} waiting to be sent"),
+                Status::Failed(_) => "✕ the server did not answer".to_owned(),
+            }}
+        </span>
+        <button type="button" class="tcn-hero-link" title="Ask the server for the latest"
+                on:click=move |_| reload.run(())>
+            "↻ refresh"
+        </button>
+    }
 }
 
 /// The link that signs somebody in and opens this tour.
@@ -130,43 +159,6 @@ fn CurrencyPicker(tour: Tour, apply: Callback<Operation>) -> impl IntoView {
                 })
                 .collect_view()}
         </select>
-    }
-}
-
-/// Renaming the tour.
-#[component]
-fn RenameDialog(name: String, on_close: Callback<()>, apply: Callback<Operation>) -> impl IntoView {
-    let text = RwSignal::new(name);
-    view! {
-        <div class="tcn-modal" on:click=move |_| on_close.run(())>
-            <div class="tcn-modal-card" on:click=|ev| ev.stop_propagation()>
-                <div class="tcn-modal-head">
-                    <div class="tcn-modal-title">"Rename the tour"</div>
-                    <button type="button" class="tcn-modal-x"
-                            on:click=move |_| on_close.run(())>"✕"</button>
-                </div>
-                <div class="tcn-modal-body">
-                    <div class="tcn-field">
-                        <input class="tcn-input" type="text"
-                               prop:value=move || text.get()
-                               on:input=move |ev| text.set(event_target_value(&ev)) />
-                    </div>
-                </div>
-                <div class="tcn-modal-foot">
-                    <button type="button" class="tcn-btn"
-                            on:click=move |_| on_close.run(())>"Cancel"</button>
-                    <button type="button" class="tcn-btn tcn-btn-primary"
-                            on:click=move |_| {
-                                let t = text.get().trim().to_owned();
-                                if !t.is_empty() {
-                                    apply.run(Operation::Rename(t));
-                                }
-                            }>
-                        "Save"
-                    </button>
-                </div>
-            </div>
-        </div>
     }
 }
 
@@ -383,6 +375,11 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
     let tour_for_expenses = tour.clone();
     let tour_for_fab = tour.clone();
     let tour_for_dialog = tour.clone();
+    let tour_for_versions = tour.clone();
+    let tour_for_currencies = tour.clone();
+    let tour_id_for_bell = tour_id.clone();
+    let fin = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
+    let arch = tc_core::extras::bool_of(&tour.extras, tc_core::extras::ARCHIVED);
 
     view! {
         <div class="tcn-hero">
@@ -395,12 +392,37 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
                 <button type="button" class="tcn-hero-link"
                         on:click={
                             let t = tour_for_rename.clone();
-                            move |_| dialog.set(Some(Dialog::Rename(t.name.clone())))
+                            move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::of(&t))))
                         }>
-                    "rename"
+                    "edit"
+                </button>
+                <span>"·"</span>
+                <button type="button" class="tcn-hero-link"
+                        on:click=move |_| dialog.set(Some(Dialog::Versions))>
+                    "versions"
+                </button>
+                <span>"·"</span>
+                <button type="button" class="tcn-hero-link"
+                        on:click=move |_| dialog.set(Some(Dialog::Currencies))>
+                    "currencies"
                 </button>
                 {(tour_for_currency.currencies.len() > 1).then(|| view! {
                     <CurrencyPicker tour=tour_for_currency.clone() apply=apply />
+                })}
+                <PushBell tour_id=tour_id_for_bell.clone() />
+            </div>
+            <div class="tcn-hero-sub">
+                <Freshness reload=reload status=status />
+                {(fin || arch).then(|| view! {
+                    <span>
+                        {fin.then(|| view! {
+                            <span class="tcn-chip tcn-chip-amber"
+                                  title="Everyone sees the payments to make">"settling up"</span>
+                        })}
+                        {arch.then(|| view! {
+                            <span class="tcn-chip" title="Hidden from the default list">"archived"</span>
+                        })}
+                    </span>
                 })}
             </div>
             <div class="tcn-hero-metrics">
@@ -421,8 +443,8 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
         </div>
 
         <Show when=move || tab.get() == Tab::Balance>
-            <BalanceTab tour=tour_for_balance.clone() all_for_summary=all_for_balance.clone()
-                        between=between.clone()
+            <BalanceTab tour=tour_for_balance.clone() apply=apply
+                        all_for_summary=all_for_balance.clone() between=between.clone()
                         family=family.clone() unit=unit_balance.clone() />
         </Show>
 
@@ -458,8 +480,14 @@ fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl 
                 Dialog::Person(draft) => view! {
                     <PersonDialog tour=tour draft=draft on_close=close on_apply=apply />
                 }.into_any(),
-                Dialog::Rename(name) => view! {
-                    <RenameDialog name=name on_close=close apply=apply />
+                Dialog::Tour(draft) => view! {
+                    <TourDialog draft=draft on_close=close on_apply=apply />
+                }.into_any(),
+                Dialog::Currencies => view! {
+                    <CurrenciesDialog tour=tour_for_currencies.clone() on_close=close on_apply=apply />
+                }.into_any(),
+                Dialog::Versions => view! {
+                    <VersionsDialog tour=tour_for_versions.clone() on_close=close />
                 }.into_any(),
             })
         }}
@@ -752,7 +780,17 @@ fn ExpenseRow(
 #[component]
 fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView {
     let by_category = RwSignal::new(true);
-    let days = RwSignal::new(days_of(&spendings).to_string());
+    // The tour's own length, which the tour dialog sets - not the span of the expenses.
+    // They are different questions: a trip is eight days whether or not anybody spent
+    // anything on the middle three. The box stays editable, because trying another number
+    // is the point of the per-day figure. Falling back to the span keeps an old tour that
+    // never had a length from dividing by nothing.
+    let days = RwSignal::new(
+        tc_core::extras::int_of(&tour.extras, tc_core::extras::DURATION)
+            .filter(|d| *d > 0)
+            .unwrap_or_else(|| days_of(&spendings))
+            .to_string(),
+    );
 
     // Only what counts as spending: a payback moves money without anybody spending it.
     let counted: Vec<&Spending> = spendings
@@ -908,6 +946,8 @@ fn days_of(spendings: &[Spending]) -> i64 {
 #[component]
 fn BalanceTab(
     tour: Tour,
+    /// Recording one of these as paid is an edit like any other.
+    apply: Callback<Operation>,
     /// Every suggested payment, including the ones too small to show: the summary needs to
     /// see them to decide who has anything left to pay.
     all_for_summary: Vec<Transfer>,
@@ -953,7 +993,7 @@ fn BalanceTab(
                             "Nothing here is paid yet — these are the payments that would square everyone up."
                         </div>
                         <div class="tcn-list">
-                            {transfer_rows(&between, &name_by, &unit)}
+                            {transfer_rows(&between, &name_by, &unit, Some(apply))}
                         </div>
                     }.into_any()
                 }
@@ -966,7 +1006,9 @@ fn BalanceTab(
                     <div class="tcn-section-title" style="margin-top:18px">
                         "Inside families " <span class="tcn-count">{family.len()}</span>
                     </div>
-                    <div class="tcn-list">{transfer_rows(&family, &name_by, &unit)}</div>
+                    // No button here: a payment between a child and whoever pays for them is
+                    // family business, and the app does not offer to record it either.
+                    <div class="tcn-list">{transfer_rows(&family, &name_by, &unit, None)}</div>
                 })
             }
 
@@ -1019,12 +1061,16 @@ fn transfer_rows(
     list: &[Transfer],
     name_by: &impl Fn(&PersonId) -> String,
     unit: &str,
+    // Where "this has happened" goes, if the row may say so. Family payments settle
+    // themselves and are shown without the button, as in the app.
+    paid: Option<Callback<Operation>>,
 ) -> impl IntoView {
     list.iter()
         .map(|t| {
             let from = name_by(&t.from);
             let to = name_by(&t.to);
             let unit = unit.to_owned();
+            let recording = t.clone();
             view! {
                 <div class="tcn-settle">
                     <div class="tcn-settle-flow">
@@ -1038,6 +1084,36 @@ fn transfer_rows(
                         {money(t.amount)}
                         {(!unit.is_empty()).then(|| view! { <small>"\u{a0}" {unit}</small> })}
                     </div>
+                    {paid.map(|apply| {
+                        let from = from.clone();
+                        let to = to.clone();
+                        let amount = money(recording.amount);
+                        view! {
+                            <button type="button" class="tcn-btn tcn-btn-sm"
+                                    title="Record that this money has changed hands"
+                                    on:click=move |_| {
+                                        // Recording a payment is not undoable in one click -
+                                        // it becomes an ordinary entry in the list - so it
+                                        // asks first, naming what it is about to write down.
+                                        let question = format!(
+                                            "Record that {from} paid {to} {amount}?"
+                                        );
+                                        let agreed = web_sys::window()
+                                            .and_then(|w| w.confirm_with_message(&question).ok())
+                                            .unwrap_or(false);
+                                        if !agreed {
+                                            return;
+                                        }
+                                        let mut draft = crate::edit::PaymentDraft::of(&recording);
+                                        // The id is settled here, so replaying the queued
+                                        // operation twice records one payment.
+                                        draft.id = Some(tc_core::SpendingId::new(crate::edit::new_id()));
+                                        apply.run(Operation::RecordPayment(draft));
+                                    }>
+                                "Mark paid"
+                            </button>
+                        }
+                    })}
                 </div>
             }
         })

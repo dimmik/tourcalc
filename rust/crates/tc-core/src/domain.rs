@@ -671,3 +671,82 @@ impl From<&Tour> for wire::Tour {
         }
     }
 }
+
+/// The fields that ride through [`Extras`] rather than being modelled here.
+///
+/// `IsArchived`, `StateGUID`, `DateVersioned` and the rest are about storage, access and
+/// presentation - not about who owes whom - so the types above do not name them. They still
+/// have to be read and written, by the server and by the client, and doing that in two
+/// places is how two spellings of the same field appear.
+///
+/// Every read is case-insensitive, and that is not fussiness: three of the eight tours in
+/// the seed file spell every field in camelCase. Looking only for the capitalised spelling
+/// made those tours invisible to everybody, which showed up as "two tours missing from the
+/// list" and as an error nowhere.
+pub mod extras {
+    use super::Extras;
+
+    pub const STATE: &str = "StateGUID";
+    pub const ACCESS_CODE: &str = "AccessCodeMD5";
+    pub const IS_VERSION: &str = "IsVersion";
+    pub const VERSION_FOR: &str = "VersionFor_Id";
+    pub const VERSIONED_AT: &str = "DateVersioned";
+    pub const VERSION_COMMENT: &str = "VersionComment";
+    /// Asked for by whoever is saving; the comment to put on the version this save creates.
+    pub const INTERNAL_VERSION_COMMENT: &str = "InternalVersionComment";
+    pub const CREATED_AT: &str = "DateCreated";
+    pub const ARCHIVED: &str = "IsArchived";
+    pub const FINALIZING: &str = "IsFinalizing";
+    /// How many days the tour is reckoned to last, for the per-day figures.
+    pub const DURATION: &str = "Duration";
+
+    pub fn str_of(extras: &Extras, key: &str) -> String {
+        extras
+            .0
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(key))
+            .and_then(|(_, v)| v.as_str())
+            .unwrap_or("")
+            .to_owned()
+    }
+
+    pub fn bool_of(extras: &Extras, key: &str) -> bool {
+        extras
+            .0
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(key))
+            .and_then(|(_, v)| v.as_bool())
+            .unwrap_or(false)
+    }
+
+    pub fn int_of(extras: &Extras, key: &str) -> Option<i64> {
+        extras
+            .0
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(key))
+            .and_then(|(_, v)| v.as_i64())
+    }
+
+    pub fn set(extras: &mut Extras, key: &str, value: serde_json::Value) {
+        // Replace whatever spelling is already there, so a camelCase tour does not end up
+        // with both `isArchived` and `IsArchived`.
+        let existing: Option<String> = extras
+            .0
+            .keys()
+            .find(|k| k.eq_ignore_ascii_case(key))
+            .cloned();
+        let key = existing.unwrap_or_else(|| key.to_owned());
+        extras.0.insert(key, value);
+    }
+
+    pub fn remove(extras: &mut Extras, key: &str) {
+        let existing: Option<String> = extras
+            .0
+            .keys()
+            .find(|k| k.eq_ignore_ascii_case(key))
+            .cloned();
+        if let Some(k) = existing {
+            extras.0.remove(&k);
+        }
+    }
+}

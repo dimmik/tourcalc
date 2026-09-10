@@ -14,7 +14,7 @@
 //! * the tour on screen is never a guess. It is the last one from the server with the
 //!   pending operations applied - the same computation the sync will do.
 
-use crate::edit::{self, PersonDraft, SpendingDraft};
+use crate::edit::{self, CurrencyDraft, PaymentDraft, PersonDraft, SpendingDraft, TourDraft};
 use serde::{Deserialize, Serialize};
 use tc_core::{PersonId, SpendingId, Tour};
 
@@ -33,6 +33,16 @@ pub enum Operation {
     /// Which of the tour's currencies the amounts are shown in. A property of the tour and
     /// not of the reader, as it has always been - everybody sees the same figures.
     SetCurrency(String),
+    /// The tour's own properties: its name, its length, whether it is archived or being
+    /// settled up.
+    EditTour(TourDraft),
+    /// The currencies themselves, and which of them the totals are worked out in.
+    SetCurrencies {
+        kept: Vec<CurrencyDraft>,
+        main: String,
+    },
+    /// One of the suggested payments, recorded as having happened.
+    RecordPayment(PaymentDraft),
 }
 
 impl Operation {
@@ -55,6 +65,9 @@ impl Operation {
                 }
                 next
             }
+            Operation::EditTour(draft) => edit::put_tour(tour, draft),
+            Operation::SetCurrencies { kept, main } => edit::put_currencies(tour, kept, main),
+            Operation::RecordPayment(draft) => edit::record_payment(tour, draft),
         }
     }
 
@@ -73,6 +86,9 @@ impl Operation {
             Operation::RemovePerson(_) => "somebody removed".into(),
             Operation::Rename(name) => format!("renamed to “{}”", short(name)),
             Operation::SetCurrency(id) => format!("amounts in {id}"),
+            Operation::EditTour(d) => format!("the tour: {}", short(&d.name)),
+            Operation::SetCurrencies { .. } => "the currencies".into(),
+            Operation::RecordPayment(d) => format!("paid: {}", short(&d.description)),
         }
     }
 }

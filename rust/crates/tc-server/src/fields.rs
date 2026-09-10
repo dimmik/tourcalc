@@ -11,61 +11,27 @@
 
 use tc_core::Tour;
 
-pub const STATE: &str = "StateGUID";
-pub const ACCESS_CODE: &str = "AccessCodeMD5";
-pub const IS_VERSION: &str = "IsVersion";
-pub const VERSION_FOR: &str = "VersionFor_Id";
-pub const VERSIONED_AT: &str = "DateVersioned";
-pub const VERSION_COMMENT: &str = "VersionComment";
-/// Set by a client asking for a particular comment on the version this save creates. The C#
-/// uses it for "Tour Restored to ..."; it is never stored on the tour itself.
-pub const INTERNAL_VERSION_COMMENT: &str = "InternalVersionComment";
-pub const CREATED_AT: &str = "DateCreated";
-pub const ARCHIVED: &str = "IsArchived";
-pub const FINALIZING: &str = "IsFinalizing";
+// The names and the reading live in `tc_core::extras`, because the browser client needs
+// exactly the same ones and two copies of "how is IsArchived spelled" is one too many.
+pub use tc_core::extras::{
+    ACCESS_CODE, ARCHIVED, CREATED_AT, FINALIZING, INTERNAL_VERSION_COMMENT, IS_VERSION, STATE,
+    VERSIONED_AT, VERSION_COMMENT, VERSION_FOR,
+};
 
 pub fn str_of(tour: &Tour, key: &str) -> String {
-    tour.extras
-        .0
-        .iter()
-        .find(|(k, _)| k.eq_ignore_ascii_case(key))
-        .and_then(|(_, v)| v.as_str())
-        .unwrap_or("")
-        .to_owned()
+    tc_core::extras::str_of(&tour.extras, key)
 }
 
 pub fn bool_of(tour: &Tour, key: &str) -> bool {
-    tour.extras
-        .0
-        .iter()
-        .find(|(k, _)| k.eq_ignore_ascii_case(key))
-        .and_then(|(_, v)| v.as_bool())
-        .unwrap_or(false)
+    tc_core::extras::bool_of(&tour.extras, key)
 }
 
 pub fn set(tour: &mut Tour, key: &str, value: serde_json::Value) {
-    // Replace whatever spelling is already there, so a camelCase tour does not end up with
-    // both `stateGUID` and `StateGUID`.
-    let existing: Option<String> = tour
-        .extras
-        .0
-        .keys()
-        .find(|k| k.eq_ignore_ascii_case(key))
-        .cloned();
-    let key = existing.unwrap_or_else(|| key.to_owned());
-    tour.extras.0.insert(key, value);
+    tc_core::extras::set(&mut tour.extras, key, value)
 }
 
 pub fn remove(tour: &mut Tour, key: &str) {
-    let existing: Option<String> = tour
-        .extras
-        .0
-        .keys()
-        .find(|k| k.eq_ignore_ascii_case(key))
-        .cloned();
-    if let Some(k) = existing {
-        tour.extras.0.remove(&k);
-    }
+    tc_core::extras::remove(&mut tour.extras, key)
 }
 
 /// Whether this record is a kept copy of an earlier state rather than a tour in its own

@@ -10,6 +10,7 @@ mod edit;
 mod list;
 mod login;
 mod people;
+mod push;
 mod queue;
 mod sync;
 mod tour;

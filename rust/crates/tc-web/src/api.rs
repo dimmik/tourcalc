@@ -228,12 +228,33 @@ pub async fn save_tour(tour: &Tour) -> Result<(), SaveError> {
 /// `code` is only listened to for an administrator; everybody else's tour joins the code
 /// they are signed in with, whatever they typed. The server decides that, not this.
 pub async fn create_tour(name: &str, code: &str) -> Result<String, Failed> {
-    let body = serde_json::json!({
-        "Name": name,
-        "Persons": [],
-        "Spendings": [],
-    });
+    add_tour(
+        serde_json::json!({ "Name": name, "Persons": [], "Spendings": [] }),
+        code,
+    )
+    .await
+}
 
+/// The versions of a tour: what it used to be, newest first.
+///
+/// Without their contents - the server strips those, because the list shows a date and a
+/// line saying what changed. Restoring one asks for it by its own id.
+pub async fn versions(id: &str) -> Result<Vec<Tour>, Failed> {
+    let body = get(&format!("/api/Tour/{id}/versions")).await?;
+    let value: serde_json::Value =
+        serde_json::from_str(&body).map_err(|e| format!("could not read the versions: {e}"))?;
+    let items = value
+        .get("Tours")
+        .and_then(|t| t.as_array())
+        .ok_or("the versions came back in an unexpected shape")?;
+    Ok(items
+        .iter()
+        .filter_map(|v| Tour::from_json(&v.to_string()).ok())
+        .collect())
+}
+
+/// Adds a whole tour, as JSON. What restoring a version and cloning both do.
+pub async fn add_tour(body: serde_json::Value, code: &str) -> Result<String, Failed> {
     let mut req = Request::post(&format!(
         "/api/Tour/add/{}",
         if code.is_empty() { "-" } else { code }
@@ -275,6 +296,70 @@ pub async fn delete_tour(id: &str) -> Result<(), Failed> {
         403 => Err(
             "The last tour under an access code can only be deleted by an administrator.".into(),
         ),
+        s => Err(format!("The server answered {s}")),
+    }
+}
+
+// --- push notifications -------------------------------------------------------------------
+
+/// What a browser hands over when it subscribes: an endpoint at a push service and the two
+/// keys a message for it has to be encrypted with. The server's field names.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct PushSubscription {
+    #[serde(rename = "Url")]
+    pub url: String,
+    #[serde(rename = "P256dh")]
+    pub p256dh: String,
+    #[serde(rename = "Auth")]
+    pub auth: String,
+}
+
+/// The server's VAPID public key. Public, and meant to be: a browser needs it to subscribe.
+pub async fn push_public_key() -> Result<String, Failed> {
+    get("/api/Subscription/publickey")
+        .await
+        .map(|s| s.trim().to_owned())
+}
+
+pub async fn push_check(tour: &str, sub: &PushSubscription) -> Result<bool, Failed> {
+    let body = post_subscription("check", tour, sub).await?;
+    Ok(body.trim() == "true")
+}
+
+pub async fn push_subscribe(tour: &str, sub: &PushSubscription) -> Result<(), Failed> {
+    post_subscription("subscribe", tour, sub).await.map(|_| ())
+}
+
+pub async fn push_unsubscribe(tour: &str, sub: &PushSubscription) -> Result<(), Failed> {
+    post_subscription("unsubscribe", tour, sub)
+        .await
+        .map(|_| ())
+}
+
+async fn post_subscription(
+    what: &str,
+    tour: &str,
+    sub: &PushSubscription,
+) -> Result<String, Failed> {
+    let body = serde_json::to_string(sub).map_err(|e| format!("could not write it down: {e}"))?;
+
+    let mut req = Request::post(&format!("/api/Subscription/{what}/{tour}"));
+    if let Some(t) = token() {
+        req = req.header("Authorization", &format!("bearer {t}"));
+    }
+    let resp = req
+        .header("Content-Type", "application/json")
+        .body(body)
+        .map_err(|e| format!("could not build the request: {e}"))?
+        .send()
+        .await
+        .map_err(|e| format!("could not reach the server: {e}"))?;
+
+    match resp.status() {
+        200 => resp
+            .text()
+            .await
+            .map_err(|e| format!("could not read the answer: {e}")),
         s => Err(format!("The server answered {s}")),
     }
 }
