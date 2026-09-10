@@ -260,7 +260,7 @@ fn CurrencyPicker(tour: Tour, apply: Callback<Operation>) -> impl IntoView {
 /// Quiet when there is nothing to say: an app that announces "saved" after every keystroke
 /// teaches people to ignore it, and then it cannot tell them the one thing that matters.
 #[component]
-fn SyncLine(status: RwSignal<Status>, reload: Callback<()>, tour_id: String) -> impl IntoView {
+fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -> impl IntoView {
     view! {
         {move || match status.get() {
             Status::Idle | Status::Synced | Status::Checking => ().into_any(),
@@ -289,7 +289,7 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<()>, tour_id: String) -> 
                     <div class="tcn-errors">
                         {why}
                         <button type="button" class="tcn-btn tcn-btn-sm" style="margin-left:10px"
-                                on:click=move |_| reload.run(())>
+                                on:click=move |_| reload.run(true)>
                             "Try again"
                         </button>
                     </div>
@@ -356,14 +356,20 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     // Arriving is the same operation as saving: drain whatever is queued, then show what
     // the server has with anything still waiting applied on top. So a reload after an
     // offline edit finishes the job by itself.
+    // `true` means a reader pressed refresh. Arriving on the tour and saving an edit reload
+    // it too, and neither of those should announce itself: the spinner and the green "✓
+    // server has nothing newer" are an answer to a question, and nobody asked one. The app
+    // draws the same line and sets that state only from its refresh button.
     let load = Callback::new({
         let id = id.clone();
-        move |_: ()| {
+        move |asked: bool| {
             if refresh.busy.get_untracked() {
                 return;
             }
             let id = id.clone();
-            refresh.busy.set(true);
+            if asked {
+                refresh.busy.set(true);
+            }
             refresh.outcome.set(Outcome::None);
             // What is on screen now, to tell "nothing has changed" from "here is the change".
             let before = match state.get_untracked() {
@@ -384,18 +390,23 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                         refresh.fresh.set(true);
                         refresh.stored_at.set(queue::now_millis());
                     }
-                    let outcome = if !answered {
-                        Outcome::Failed
-                    } else if fingerprint(t) == before {
-                        Outcome::UpToDate
-                    } else {
-                        Outcome::Updated
-                    };
-                    refresh.outcome.set(outcome);
-                    // Anything from the server clears the warning, whoever asked for it.
+                    if asked {
+                        refresh.outcome.set(if !answered {
+                            Outcome::Failed
+                        } else if fingerprint(t) == before {
+                            Outcome::UpToDate
+                        } else {
+                            Outcome::Updated
+                        });
+                    }
+                    // The warning is not a verdict on one press: it says the copy on screen
+                    // is this device's, and it goes as soon as anything arrives from the
+                    // server, whoever asked for it.
                     refresh.stale.set(!answered);
                 } else {
-                    refresh.outcome.set(Outcome::Failed);
+                    if asked {
+                        refresh.outcome.set(Outcome::Failed);
+                    }
                     refresh.stale.set(true);
                 }
 
@@ -414,7 +425,11 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                 // A local server answers in milliseconds; hold the spinner long enough to
                 // be seen, or a refresh looks like a button that does nothing.
                 let elapsed = queue::now_millis() - started;
-                let hold = (450.0 - elapsed).max(0.0) as u64;
+                let hold = if asked {
+                    (450.0 - elapsed).max(0.0) as u64
+                } else {
+                    0
+                };
                 leptos::prelude::set_timeout(
                     move || refresh.busy.set(false),
                     std::time::Duration::from_millis(hold),
@@ -435,7 +450,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
             });
         }
     });
-    load.run(());
+    load.run(false);
 
     view! {
         {move || match state.get() {
@@ -457,7 +472,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
 #[component]
 fn TourView(
     tour: Tour,
-    reload: Callback<()>,
+    reload: Callback<bool>,
     status: RwSignal<Status>,
     /// Which tab the address asked for, and whether it asked for the expense dialog too.
     landing: crate::Landing,
@@ -491,7 +506,7 @@ fn TourView(
             spawn_local(async move {
                 let (_, st) = sync::record(&tour_id, op).await;
                 status.set(st);
-                reload.run(());
+                reload.run(false);
             });
         })
     };
@@ -640,7 +655,7 @@ fn TourView(
                 <button type="button" class="tcn-iconbtn" title="Reload from the server"
                         aria-label="Reload from the server"
                         prop:disabled=move || refresh.busy.get()
-                        on:click=move |_| reload.run(())>
+                        on:click=move |_| reload.run(true)>
                     <span class:tcn-spin=move || refresh.busy.get()>
                         <crate::icon::Icon name="refresh" />
                     </span>

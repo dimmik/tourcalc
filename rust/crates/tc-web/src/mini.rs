@@ -33,7 +33,7 @@ enum Sort {
 #[component]
 pub fn MiniTour(
     tour: Tour,
-    reload: Callback<()>,
+    reload: Callback<bool>,
     status: RwSignal<Status>,
     apply: Callback<Operation>,
     dialog: RwSignal<Option<Dialog>>,
@@ -115,7 +115,7 @@ pub fn MiniTour(
                     "+ spend"
                 </button>
                 <button type="button" class="tcm-btn" title="Reload from the server"
-                        on:click=move |_| reload.run(())>
+                        on:click=move |_| reload.run(true)>
                     <Icon name="refresh" />
                 </button>
             </div>
