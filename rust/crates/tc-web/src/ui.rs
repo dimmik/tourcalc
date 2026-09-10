@@ -153,6 +153,21 @@ mod tests {
     }
 
     #[test]
+    fn a_mark_paints_and_does_not_only_declare() {
+        // The bug this holds: the two custom properties were set, the class was added, and
+        // the row stayed white, because the stylesheet paints `.tcn-sp.tcn-sp-marked` and
+        // these rows are not `.tcn-sp`.
+        let style = mark_style("#ffd54f");
+        assert!(style.contains("--tcn-mark-bg:"), "{style}");
+        assert!(
+            style.contains("background:#"),
+            "a mark that only declares a colour is not a mark: {style}"
+        );
+        assert!(style.contains("border-color:#"), "{style}");
+        assert_eq!(mark_style("lightgreen"), "", "not a colour, not a mark");
+    }
+
+    #[test]
     fn a_colour_keeps_its_hue_and_loses_its_lightness() {
         let style = mark_style("#ffd54f");
         assert!(style.contains("--tcn-mark-line:#"), "{style}");
@@ -217,11 +232,19 @@ pub fn is_marked(colour: &str) -> bool {
     parse_hex(colour).is_some()
 }
 
-/// The inline custom properties a marked row is drawn with.
+/// The inline style a marked row is drawn with.
 ///
 /// The chosen hue is kept but its lightness is not: a colour picked to be recognisable is
 /// not one that reads as text on a white row. Ported from the C# so the same colour marks
 /// the same way in both interfaces.
+///
+/// It paints as well as declaring. The stylesheet's rule is `.tcn-sp.tcn-sp-marked`, and the
+/// expense rows here are `.tcn-settle` - so setting the two custom properties and the class
+/// left the row exactly as pale as before, which is what a spending with a colour on it
+/// looked like: not coloured at all. The properties stay for anything that does match that
+/// rule; the paint is spelled out so it does not depend on a class combination in a
+/// stylesheet this client only borrows. Found in a screenshot, after a DOM check had said
+/// the mark was there - the attribute was, the colour was not.
 pub fn mark_style(colour: &str) -> String {
     let Some(rgb) = parse_hex(colour) else {
         return String::new();
@@ -240,7 +263,10 @@ pub fn mark_style(colour: &str) -> String {
     } else {
         from_hsl(h, s.clamp(0.25, 0.80), 0.945)
     };
-    format!("--tcn-mark-line:{line};--tcn-mark-bg:{bg};")
+    format!(
+        "--tcn-mark-line:{line};--tcn-mark-bg:{bg};\
+         background:{bg};border-color:{line};"
+    )
 }
 
 pub fn parse_hex(colour: &str) -> Option<(u8, u8, u8)> {
