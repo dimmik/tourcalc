@@ -1234,9 +1234,11 @@ fn ExpenseRow(
 #[component]
 fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView {
     let by_category = RwSignal::new(true);
-    // Which category the totals are about. "" is all of them, and it is what the app calls
-    // "everything".
-    let selected = RwSignal::new(String::new());
+    // What the reader has chosen on the ring - a category, a head of several, or a person -
+    // and which of them we are inside, if any. Both live here rather than in the chart: the
+    // totals below are the other half of the same question.
+    let chosen = RwSignal::new(String::new());
+    let drill: RwSignal<Option<String>> = RwSignal::new(None);
     // The tour's own length, which the tour dialog sets - not the span of the expenses.
     // They are different questions: a trip is eight days whether or not anybody spent
     // anything on the middle three. Four is the app's fallback for a tour that never had
@@ -1270,38 +1272,6 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView
     let by_cat = group_by(&counted, &tour, |s, _| s.category.trim().to_owned());
     let by_person = group_by(&counted, &tour, |s, t| name_of(t.person(&s.from)));
 
-    // How much weight the money in a category was split across, averaged over its expenses.
-    // "Per person" for a category that only three people shared is not the same figure as
-    // for one the whole tour did.
-    let weight_of = |s: &Spending| -> i64 {
-        match &s.split {
-            Split::Everyone => tour.persons.iter().map(|p| p.weight as i64).sum(),
-            Split::Equally(to) | Split::ByWeight(to) => to
-                .iter()
-                .filter_map(|id| tour.person(id))
-                .map(|p| p.weight as i64)
-                .sum(),
-        }
-    };
-    let weight_by_cat: Vec<(String, i64)> = by_cat
-        .iter()
-        .map(|(name, _)| {
-            let of_this: Vec<i64> = counted
-                .iter()
-                .filter(|s| s.category.trim() == name)
-                .map(weight_of)
-                .collect();
-            let average = if of_this.is_empty() {
-                0
-            } else {
-                // Rounded, as the C# rounds: the average of two people at 100 and one at 50
-                // is a weight, not a fraction of one.
-                (of_this.iter().sum::<i64>() as f64 / of_this.len() as f64).round() as i64
-            };
-            (name.clone(), average)
-        })
-        .collect();
-
     // A "full share" person: a parent if there are children, otherwise the lightest weight
     // anybody carries. What "per person" is per.
     let adult = tour
@@ -1320,35 +1290,58 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView
         })
         .unwrap_or(100);
 
-    let mut category_names: Vec<String> = by_cat.iter().map(|(name, _)| name.clone()).collect();
-    category_names.sort();
-
     // Memos rather than closures: they are read from a dozen places in the view, and a
     // closure read twice is a closure moved twice.
-    let spent_by_cat = by_cat.clone();
-    let cat_total = Memo::new(move |_| {
-        let sel = selected.get();
-        if sel.is_empty() {
-            total
+    // What the cards are about. A category, or all of them - and in the by-person view
+    // always all of them: "per person" of what one person paid is not a number anybody
+    // wants, and the title below says which it is rather than leaving it to be guessed.
+    let filter = Memo::new(move |_| {
+        if by_category.get() {
+            chosen.get()
         } else {
-            spent_by_cat
-                .iter()
-                .find(|(name, _)| *name == sel)
-                .map(|(_, c)| *c)
-                .unwrap_or(Cents::ZERO)
+            String::new()
         }
     });
+
+    let for_total = counted.clone();
+    let tour_for_total = tour.clone();
+    let cat_total = Memo::new(move |_| {
+        let chosen = filter.get();
+        Cents(
+            for_total
+                .iter()
+                .filter(|s| crate::chart::matches(&chosen, &s.category))
+                .map(|s| tour_for_total.amount_in_current(s).0)
+                .sum(),
+        )
+    });
+
+    let for_weight = counted.clone();
+    let tour_for_weight = tour.clone();
     let per_person = Memo::new(move |_| {
-        let sel = selected.get();
-        let weight = if sel.is_empty() {
+        let chosen = filter.get();
+        // The weight the money was split across, averaged over the expenses it covers.
+        // "Per person" for something only three people shared is not the figure it is for
+        // something the whole tour did.
+        let weights: Vec<i64> = for_weight
+            .iter()
+            .filter(|s| crate::chart::matches(&chosen, &s.category))
+            .map(|s| match &s.split {
+                Split::Everyone => tour_for_weight.persons.iter().map(|p| p.weight as i64).sum(),
+                Split::Equally(to) | Split::ByWeight(to) => to
+                    .iter()
+                    .filter_map(|id| tour_for_weight.person(id))
+                    .map(|p| p.weight as i64)
+                    .sum(),
+            })
+            .collect();
+        // With nothing chosen the answer is the tour's own weight, not the average of how
+        // its expenses happened to be split - that is the app's rule, and taking the average
+        // here put "per person" out by a tenth without anything on screen looking wrong.
+        let weight = if chosen.is_empty() || weights.is_empty() {
             total_weight
         } else {
-            weight_by_cat
-                .iter()
-                .find(|(name, _)| *name == sel)
-                .map(|(_, w)| *w)
-                .filter(|w| *w != 0)
-                .unwrap_or(total_weight)
+            (weights.iter().sum::<i64>() as f64 / weights.len() as f64).round() as i64
         };
         let weight = if weight == 0 { 100 } else { weight };
         Cents(cat_total.get().0 * adult / weight)
@@ -1385,13 +1378,71 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView
         }
     };
 
-    let slices = move || {
-        if by_category.get() {
-            by_cat.clone()
-        } else {
-            by_person.clone()
+    // What the ring shows: the categories folded by head, or the people - and, once the
+    // reader has gone into one, what is inside that one. Inside a category, rows are named
+    // by their tail: the crumb above already says "Food".
+    let for_rows = counted.clone();
+    let tour_for_rows2 = tour.clone();
+    let cats = by_cat.clone();
+    let people = by_person.clone();
+    let rows = move || {
+        let inside = drill.get();
+        match (by_category.get(), inside) {
+            (true, None) => crate::chart::by_head(&cats),
+            (true, Some(head)) => cats
+                .iter()
+                .filter(|(name, _)| crate::chart::head_of(name) == head)
+                .map(|(name, amount)| crate::chart::Row {
+                    key: name.clone(),
+                    label: name
+                        .split(crate::chart::SUBCAT)
+                        .skip(1)
+                        .collect::<Vec<_>>()
+                        .join("/")
+                        .trim()
+                        .to_owned(),
+                    amount: *amount,
+                    children: false,
+                })
+                .collect(),
+            (false, None) => people
+                .iter()
+                .map(|(who, amount)| {
+                    // A chevron only where there is something to see: somebody who spent on
+                    // one thing has no breakdown worth opening.
+                    let theirs = categories_of(&for_rows, &tour_for_rows2, who);
+                    crate::chart::Row {
+                        key: who.clone(),
+                        label: who.clone(),
+                        amount: *amount,
+                        children: theirs.len() > 1,
+                    }
+                })
+                .collect(),
+            (false, Some(who)) => categories_of(&for_rows, &tour_for_rows2, &who)
+                .into_iter()
+                // Their categories as they are, not folded by head: what one person's money
+                // went on is the question, and folding "Food / lunch" and "Food / dinner"
+                // back into "Food" is how it stops being answered. One level, too - the
+                // crumb says whose money this is, and a second would need a second crumb to
+                // climb back out of.
+                .map(|(name, amount)| crate::chart::Row {
+                    key: name.clone(),
+                    label: name,
+                    amount,
+                    children: false,
+                })
+                .collect(),
         }
     };
+    let leave = Callback::new(move |()| {
+        drill.set(None);
+        chosen.set(String::new());
+    });
+    let enter = Callback::new(move |key: String| {
+        drill.set(Some(key));
+        chosen.set(String::new());
+    });
     let nothing = counted.is_empty();
     let unit_for_pie = unit.clone();
     let unit_for_cards = unit.clone();
@@ -1400,10 +1451,21 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView
     view! {
         <div class="tcn-section">
             <div class="tcn-toolbar">
+                // Changing what the ring is about starts from the top of it. Otherwise
+                // switching while inside "Food" asked the other view for the inside of a
+                // person by that name, and drew an empty circle.
                 <span class="tcn-chip tcn-filter-chip" class:is-on=move || by_category.get()
-                      on:click=move |_| by_category.set(true)>"By category"</span>
+                      on:click=move |_| {
+                          by_category.set(true);
+                          drill.set(None);
+                          chosen.set(String::new());
+                      }>"By category"</span>
                 <span class="tcn-chip tcn-filter-chip" class:is-on=move || !by_category.get()
-                      on:click=move |_| by_category.set(false)>"By person"</span>
+                      on:click=move |_| {
+                          by_category.set(false);
+                          drill.set(None);
+                          chosen.set(String::new());
+                      }>"By person"</span>
             </div>
 
             {if nothing {
@@ -1417,37 +1479,22 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView
             } else {
                 view! {
                     {move || view! {
-                        <crate::pie::PieChart data=slices() unit=unit_for_pie.clone() />
+                        <crate::chart::Composition rows=rows() unit=unit_for_pie.clone()
+                                                   chosen=chosen crumb=drill.get()
+                                                   into=enter out=leave />
                     }}
 
-                    <div class="tcn-section-title" style="margin-top:14px">"Totals"</div>
-
-                    {(category_names.len() > 1).then(|| {
-                        let names = category_names.clone();
-                        view! {
-                            <div class="tcn-chips" style="margin-bottom:10px">
-                                <span class="tcn-chip tcn-filter-chip"
-                                      class:is-on=move || selected.get().is_empty()
-                                      on:click=move |_| selected.set(String::new())>
-                                    "everything"
-                                </span>
-                                {names
-                                    .into_iter()
-                                    .map(|name| {
-                                        let mine = name.clone();
-                                        let picked = name.clone();
-                                        view! {
-                                            <span class="tcn-chip tcn-filter-chip"
-                                                  class:is-on=move || selected.get() == mine
-                                                  on:click=move |_| selected.set(picked.clone())>
-                                                {name.clone()}
-                                            </span>
-                                        }
-                                    })
-                                    .collect_view()}
-                            </div>
-                        }
-                    })}
+                    <div class="tcn-section-title" style="margin-top:14px">
+                        "Totals · "
+                        {move || {
+                            let what = filter.get();
+                            if what.is_empty() {
+                                "everything".to_owned()
+                            } else {
+                                what
+                            }
+                        }}
+                    </div>
 
                     <div class="tcn-statgrid">
                         <div class="tcn-statcard">
@@ -1547,6 +1594,16 @@ pub fn tab_of(landing: crate::Landing) -> Tab {
         crate::Landing::Stats => Tab::Stats,
         crate::Landing::Balance => Tab::Balance,
     }
+}
+
+/// What one person's money went on, as categories and amounts.
+fn categories_of(counted: &[Spending], tour: &Tour, who: &str) -> Vec<(String, Cents)> {
+    let theirs: Vec<Spending> = counted
+        .iter()
+        .filter(|s| name_of(tour.person(&s.from)) == who)
+        .cloned()
+        .collect();
+    group_by(&theirs, tour, |s, _| s.category.trim().to_owned())
 }
 
 /// Adds the spendings up under whatever key the caller picks, largest first.

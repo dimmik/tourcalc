@@ -16,7 +16,7 @@ mod login;
 mod mini;
 mod mode;
 mod people;
-mod pie;
+mod chart;
 mod push;
 mod settings;
 mod settings_page;
