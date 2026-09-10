@@ -43,6 +43,70 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/icon-180.png" />
+
+    <!--
+        This client's own rules. Everything else is the app's stylesheet, taken unchanged -
+        which is why these are here and not in it: they are about this build, and editing a
+        file two clients share to fix one of them is how the two drift apart.
+    -->
+    <style>
+        /*
+            The browser's default 8px body margin, never reset here. It inset the whole app,
+            and it made the sticky top bar look broken on a phone: stuck to the top, but 8px
+            short of both edges, so the page scrolled past it down either side. The app's own
+            page resets this; ours did not.
+        */
+        body {
+            margin: 0;
+        }
+
+        /*
+            On a narrow screen the bar's buttons take all of it and the tour's name is
+            squeezed to nothing - literally nothing: a title box zero pixels wide. The app
+            has the same crush and shows three or four letters; that is not better, it is
+            just less obviously broken.
+
+            So the name gets a line of its own under the controls. Same elements in the same
+            order, one row instead of none, and the name is readable - which is the only
+            reason it is up there once the hero has scrolled away.
+        */
+        @media (max-width: 520px) {
+            .tcn-topbar {
+                height: auto;
+                flex-wrap: wrap;
+                padding: 6px 12px 8px;
+                row-gap: 2px;
+            }
+
+            /*
+                Always its own row here, rather than only when it does not fit. Measured
+                first: at 412 pixels the buttons and the brand already take 340 of them, so
+                "only when it has to" is "always" on a phone, and a bar whose height depends
+                on the length of a tour's name jumps as you move between screens. The one
+                clever version of this - a `min-content` floor so a short name stays beside
+                the buttons - does not work at all: the title is `white-space: nowrap`, so
+                its min-content width is the whole string, and a long name pushed itself
+                straight out of the bar.
+            */
+            .tcn-topbar-title {
+                order: 3;
+                flex: 1 0 100%;
+                font-size: 15px;
+            }
+        }
+
+        /* Narrower still, and the row of controls itself stops fitting: the chip that says
+           which build this is goes first, being the one thing on the bar that is not a
+           control. The help page says it in full. */
+        @media (max-width: 400px) {
+            /* Three classes deep on purpose: the app's stylesheet lays out that row with
+               `.tcn-topbar-actions > span:not(:empty)`, which outranks a single class, and
+               a plain `.tcw-buildchip { display: none }` did nothing at all. */
+            .tcn-topbar .tcn-topbar-actions > .tcw-buildchip {
+                display: none;
+            }
+        }
+    </style>
 </head>
 <body>
     <script>

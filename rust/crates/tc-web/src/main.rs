@@ -238,7 +238,8 @@ fn App() -> impl IntoView {
                     {move || title.0.get().map(|(name, _)| name).unwrap_or("Tourcalc".to_owned())}
                 </a>
                 <div class="tcn-topbar-actions">
-                    <span class="tcn-chip" title="This interface is written in Rust">"rust"</span>
+                    <span class="tcn-chip tcw-buildchip"
+                          title="This interface is written in Rust">"rust"</span>
                     <mode::ModeSwitch mode=mode />
                     <a class="tcn-iconbtn" href="/help" title="What everything here means"
                        aria-label="Help">
