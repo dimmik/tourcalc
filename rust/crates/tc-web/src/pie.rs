@@ -227,11 +227,18 @@ pub fn PieChart(data: Vec<(String, Cents)>, unit: String) -> impl IntoView {
                         <b>{move || money(Cents(slices_now.get().iter().map(|s| s.amount.0).sum()))}</b>
                     </span>
                 </div>
+                // `tcn-hero-link` is white text: it belongs on the purple hero, and on this
+                // white card it was white on white. Findable only by accident, which is how
+                // it was found.
                 <Show when=move || has_subs>
-                    <span class="tcn-hero-link" style="cursor:pointer"
-                          on:click=move |_| detailed.update(|d| *d = !*d)>
-                        {move || if detailed.get() { "Hide details" } else { "Show details" }}
-                    </span>
+                    <button type="button" class="tcn-linkbtn" style="margin-top:6px"
+                            on:click=move |_| detailed.update(|d| *d = !*d)>
+                        {move || if detailed.get() {
+                            "▾ hide the subcategories"
+                        } else {
+                            "▸ show the subcategories"
+                        }}
+                    </button>
                 </Show>
             </div>
         </div>
