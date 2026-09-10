@@ -198,7 +198,13 @@ pub fn AboutBuild() -> impl IntoView {
                         <div class="tcn-setname">"In this browser"</div>
                         <div class="tcn-setdesc">
                             {move || match running.get() {
-                                Some(name) => format!("client {}", short(&name)),
+                                // Named as what it is. Both this and the commit below are
+                                // seven or eight hex characters, and "client bc0e7da" invites
+                                // exactly one question: why is that not the commit I pushed?
+                                Some(name) => format!(
+                                    "client file {} — a hash of the compiled client, not a commit",
+                                    short(&name)
+                                ),
                                 None => "not known — this page was not built by trunk".to_owned(),
                             }}
                         </div>
@@ -223,7 +229,7 @@ pub fn AboutBuild() -> impl IntoView {
                         }.into_any();
                     };
                     let stale = is_stale(&s, &running.get_untracked());
-                    let started = crate::explain::pretty_stamp(&s.started);
+                    let started = crate::ui::local_stamp_of(&s.started);
                     view! {
                         <div class="tcn-setrow">
                             <div class="tcn-settext">
@@ -231,11 +237,11 @@ pub fn AboutBuild() -> impl IntoView {
                                 <div class="tcn-setdesc">
                                     {match stale {
                                         Some(true) => format!(
-                                            "client {} — newer than the one this browser is \
-                                             running, so this browser is holding an old copy",
+                                            "client file {} — newer than the one this browser \
+                                             is running, so this browser is holding an old copy",
                                             short(&s.client)),
                                         Some(false) => format!(
-                                            "client {} — the same one, so this browser is \
+                                            "client file {} — the same one, so this browser is \
                                              current", short(&s.client)),
                                         None => "the client it serves is not known".to_owned(),
                                     }}
@@ -265,8 +271,9 @@ pub fn AboutBuild() -> impl IntoView {
                                 <div class="tcn-setname">"Running since"</div>
                                 <div class="tcn-setdesc">
                                     {started}
-                                    " — a new image that nothing restarted is still the old
-                                     server, and this is the line that says so."
+                                    " — when this container last started. If the build above
+                                     is not the one you pushed, nothing here has been
+                                     restarted with it yet."
                                 </div>
                             </div>
                         </div>

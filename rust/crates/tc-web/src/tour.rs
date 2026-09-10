@@ -112,16 +112,8 @@ fn ago(stored_at: f64) -> String {
     } else if seconds < 86_400.0 {
         format!("{} h ago", (seconds / 3600.0) as i64)
     } else {
-        crate::explain::pretty_stamp(&stamp_of(stored_at))
+        crate::ui::local_stamp(stored_at)
     }
-}
-
-/// An ISO stamp for a moment in milliseconds, so the one date formatter can be reused.
-fn stamp_of(millis: f64) -> String {
-    js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(millis))
-        .to_iso_string()
-        .as_string()
-        .unwrap_or_default()
 }
 
 /// "from server · 3 min ago", and what to say instead when the server did not answer.
@@ -165,7 +157,7 @@ fn Freshness(refresh: Refresh) -> impl IntoView {
 
     view! {
         <span title=move || {
-            let when = crate::explain::pretty_stamp(&stamp_of(refresh.stored_at.get()));
+            let when = crate::ui::local_stamp(refresh.stored_at.get());
             if refresh.stale.get() {
                 format!("The server could not be reached. This is the copy stored on this \
                          device at {when}.")

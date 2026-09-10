@@ -70,8 +70,9 @@ pub fn routes(state: Shared) -> Router {
 /// * *Is my browser holding an old copy?* - `client` is the file name of the wasm this
 ///   server serves, hash and all. A browser compares it with the one it loaded.
 /// * *Is the running server the build I pushed?* - `build` and `commit`.
-/// * *Did the deploy happen at all?* - `started`. A new image that nothing restarted is
-///   still the old server, and this is the field that says so.
+/// * *Did the deploy happen at all?* - `build` and `commit` name the image that is actually
+///   running; `started` says when it last came up. An image that was built and never started
+///   is not running anywhere, and those two together are what shows it.
 ///
 /// No authentication: it names a build, and the build is named in an HTTP header on every
 /// response already.

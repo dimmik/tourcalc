@@ -269,6 +269,33 @@ pub fn mark_style(colour: &str) -> String {
     )
 }
 
+/// A moment in time, written in the reader's own clock: "10.09.2026 21:52".
+///
+/// Not the same job as [`crate::explain::pretty_stamp`], which slices an ISO string and
+/// leaves it alone - right for a spending, whose stamp is the wall clock of whoever entered
+/// it, and wrong for an instant. The server says when it started in UTC, and slicing that
+/// showed a reader in Belgrade a time two hours behind their own watch.
+pub fn local_stamp(millis: f64) -> String {
+    let d = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(millis));
+    format!(
+        "{:02}.{:02}.{} {:02}:{:02}",
+        d.get_date(),
+        d.get_month() + 1,
+        d.get_full_year(),
+        d.get_hours(),
+        d.get_minutes()
+    )
+}
+
+/// The same, from the ISO stamp a server sends.
+pub fn local_stamp_of(iso: &str) -> String {
+    let millis = js_sys::Date::parse(iso);
+    if millis.is_nan() {
+        return iso.to_owned();
+    }
+    local_stamp(millis)
+}
+
 pub fn parse_hex(colour: &str) -> Option<(u8, u8, u8)> {
     let c = colour.trim().strip_prefix('#')?;
     let c: String = match c.len() {
