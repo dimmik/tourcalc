@@ -7,6 +7,7 @@
 mod api;
 mod dialogs;
 mod edit;
+mod help;
 mod icon;
 mod list;
 mod login;
@@ -35,6 +36,8 @@ fn main() {
 #[derive(Clone, Debug, PartialEq)]
 enum Route {
     List,
+    /// What everything on screen means.
+    Help,
     /// A tour, and which of its tabs the address asks for. The app's own deep links -
     /// /tour/x/persons and /tour/x/spendings - land on the matching tab, and
     /// /tour/x/spending/add opens the tour with the expense dialog already up.
@@ -62,6 +65,7 @@ fn current_route() -> Route {
     let parts: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
     match parts.as_slice() {
         [] | ["tourlist"] => Route::List,
+        ["help"] => Route::Help,
         ["tour", id] => Route::Tour((*id).to_owned(), Landing::Balance),
         ["tour", id, "persons"] => Route::Tour((*id).to_owned(), Landing::People),
         ["tour", id, "spendings"] => Route::Tour((*id).to_owned(), Landing::Expenses),
@@ -121,6 +125,10 @@ fn App() -> impl IntoView {
                 <div class="tcn-topbar-actions">
                     <span class="tcn-chip" title="This interface is written in Rust">"rust"</span>
                     <mode::ModeSwitch mode=mode />
+                    <a class="tcn-iconbtn" href="/help" title="What everything here means"
+                       aria-label="Help">
+                        <icon::Icon name="help" />
+                    </a>
                     <Show when=move || signed_in.get()>
                         <button type="button" class="tcn-iconbtn" title="Log out" aria-label="Log out"
                                 on:click=move |_| {
@@ -140,6 +148,9 @@ fn App() -> impl IntoView {
                     (false, Route::Goto(_, _)) => {
                         view! { <div class="tcn-loading">"Signing in…"</div> }.into_any()
                     }
+                    // Help is readable without a code: somebody who has just been handed a
+                    // link and does not know what any of this is starts here.
+                    (_, Route::Help) => view! { <help::HelpPage /> }.into_any(),
                     (false, _) => view! { <login::SignIn on_done=signed_in_now /> }.into_any(),
                     (true, route) => match route {
                         Route::List => view! { <list::TourListPage /> }.into_any(),
@@ -155,6 +166,7 @@ fn App() -> impl IntoView {
                         Route::Goto(_, _) => {
                             view! { <div class="tcn-loading">"Signing in…"</div> }.into_any()
                         }
+                        Route::Help => ().into_any(),
                         Route::Unknown(path) => view! {
                             <div class="tcn-section">
                                 <div class="tcn-errors">"Nothing here: " {path}</div>
