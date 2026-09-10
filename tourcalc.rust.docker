@@ -105,6 +105,12 @@ RUN cd rust \
 FROM gcr.io/distroless/static-debian12:nonroot
 
 ARG BUILD_TYPE=na
+# Which build this is and what it was built from. Only in the final stage, so stamping a
+# build costs nothing: the client and the server are not recompiled for a new label. What
+# identifies the *client* is the hash in its file name, which the server reads from the page
+# it serves - see `client_asset` in the server's main.rs.
+ARG BUILD_ID=dev
+ARG BUILD_COMMIT=
 LABEL org.opencontainers.image.title="Tourcalc (Rust experiment)" \
       org.opencontainers.image.description="The Rust port: axum server, Leptos client. Storage is in memory - see InMemoryFileName." \
       io.containers.autoupdate=registry
@@ -128,7 +134,9 @@ COPY TCBlazor/Server/inmemory-tours.json /app/seed/inmemory-tours.json
 ENV InMemoryFileName=/app/seed/inmemory-tours.json \
     StaticFilesDir=/app/wwwroot \
     Listen=0.0.0.0:8080 \
-    BUILD_TYPE=${BUILD_TYPE}
+    BUILD_TYPE=${BUILD_TYPE} \
+    BUILD_ID=${BUILD_ID} \
+    BUILD_COMMIT=${BUILD_COMMIT}
 
 EXPOSE 8080
 

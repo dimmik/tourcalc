@@ -44,6 +44,7 @@ pub fn routes(state: Shared) -> Router {
             axum::routing::post(subscription::unsubscribe),
         )
         .route("/api/Info/start", get(info_start))
+        .route("/api/Info/version", get(info_version))
         .route("/api/Info/wakeup/{code}", get(info_wakeup))
         .route("/api/Auth/random/{length}", get(auth::random))
         .route("/api/Log/headers", get(log_headers))
@@ -60,6 +61,30 @@ pub fn routes(state: Shared) -> Router {
         // parameter and a parameter to a wildcard, so the real routes still win.
         .route("/api/{*rest}", any(|| async { StatusCode::NOT_FOUND }))
         .with_state(state)
+}
+
+/// `GET /api/Info/version` - which build is running, and which client it is handing out.
+///
+/// Three questions, and they are not the same one:
+///
+/// * *Is my browser holding an old copy?* - `client` is the file name of the wasm this
+///   server serves, hash and all. A browser compares it with the one it loaded.
+/// * *Is the running server the build I pushed?* - `build` and `commit`.
+/// * *Did the deploy happen at all?* - `started`. A new image that nothing restarted is
+///   still the old server, and this is the field that says so.
+///
+/// No authentication: it names a build, and the build is named in an HTTP header on every
+/// response already.
+async fn info_version(
+    axum::extract::State(state): axum::extract::State<Shared>,
+) -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({
+        "build": state.build_id,
+        "buildType": state.build_type,
+        "commit": state.build_commit,
+        "client": state.client_asset,
+        "started": chrono_lite::Utc::from(state.started).to_string(),
+    }))
 }
 
 /// `GET /api/Info/start` - when the server came up, and when it was last woken.

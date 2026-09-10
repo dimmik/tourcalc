@@ -27,6 +27,10 @@ fn state_with(push: Box<dyn tc_server::push::Notifier>) -> tc_server::state::Sha
         wakeup_code: "secCode".into(),
         wakeup_pre_delay_min: 0,
         wakeup_post_delay_min: 0,
+        build_type: "test".to_owned(),
+        build_id: "test".to_owned(),
+        build_commit: String::new(),
+        client_asset: None,
         wakeups: Default::default(),
     })
 }

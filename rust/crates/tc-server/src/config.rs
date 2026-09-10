@@ -23,6 +23,13 @@ pub struct Config {
     pub version_editable: bool,
     /// The word this build calls itself, echoed in `X-Tourcalc-Version`.
     pub build_type: String,
+    /// Which build this is, as the pipeline stamped it - the same string as the image's
+    /// dated tag - and the commit it was built from. Labels, both of them, and the ones a
+    /// person needs when the answer to "is my browser current?" is yes and the screen is
+    /// still wrong: they say whether what is running is what was pushed, or whether the
+    /// deploy never happened.
+    pub build_id: String,
+    pub build_commit: String,
     /// The secret in the wake-up URL. Not authentication - it is one string in a path, and
     /// it only guards an endpoint that does nothing but wait.
     pub wakeup_code: String,
@@ -64,6 +71,8 @@ impl Config {
             versioning: flag("TourVersioning", true),
             version_editable: flag("TourVersionEditable", false),
             build_type: var("BUILD_TYPE").unwrap_or_else(|| "na".to_owned()),
+            build_id: var("BUILD_ID").unwrap_or_else(|| "dev".to_owned()),
+            build_commit: var("BUILD_COMMIT").unwrap_or_default(),
             wakeup_code: var("WakeupCode").unwrap_or_else(|| "secCode".to_owned()),
             wakeup_pre_delay_min: number("WaketimePreDelayInMin", 1) as u64,
             wakeup_post_delay_min: number("WaketimePostDelayInMin", 1) as u64,

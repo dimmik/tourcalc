@@ -156,6 +156,12 @@ async fn get(url: &str) -> Result<String, Failed> {
     }
 }
 
+/// Which build the server is, and which client it hands out. Raw text: the caller parses
+/// it, and a version check that fails to parse should not be a broken screen.
+pub async fn info_version() -> Result<String, Failed> {
+    get("/api/Info/version").await
+}
+
 /// One tour, in full.
 pub async fn tour(id: &str) -> Result<Tour, Failed> {
     let body = get(&format!("/api/Tour/{id}")).await?;

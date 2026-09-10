@@ -23,6 +23,7 @@ mod queue;
 mod sync;
 mod tour;
 mod ui;
+mod version;
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -238,6 +239,7 @@ fn App() -> impl IntoView {
                     </Show>
                 </div>
             </header>
+            <version::UpdateBar />
             <main class="tcn-main">
                 {move || match (signed_in.get(), route.get()) {
                     // Nothing is readable without a code, so the sign-in screen stands in

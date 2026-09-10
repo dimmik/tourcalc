@@ -756,7 +756,7 @@ pub fn uncounted(tour: &Tour, rows: &[Spending]) -> Explanation {
 }
 
 /// `23.08.2021 15:04` from whatever shape the timestamp was stored in.
-fn pretty_stamp(when: &str) -> String {
+pub fn pretty_stamp(when: &str) -> String {
     let day: Vec<&str> = when.get(..10).unwrap_or_default().split('-').collect();
     let time = when.get(11..16).unwrap_or_default();
     match day.as_slice() {

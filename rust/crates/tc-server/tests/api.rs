@@ -36,6 +36,10 @@ fn app_with(tweak: impl FnOnce(&mut tc_server::state::AppState)) -> axum::Router
         wakeup_code: "secCode".into(),
         wakeup_pre_delay_min: 0,
         wakeup_post_delay_min: 0,
+        build_type: "test".to_owned(),
+        build_id: "test".to_owned(),
+        build_commit: String::new(),
+        client_asset: None,
         wakeups: Default::default(),
     };
     let mut state = state;
@@ -637,4 +641,28 @@ async fn a_code_can_be_limited_to_so_many_tours() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
+}
+
+/// The three questions a person has when the screen looks wrong, and the one endpoint that
+/// answers them: which client this server hands out, which build it is, and since when it
+/// has been running. No token: it names a build, and every response names it in a header
+/// already.
+#[tokio::test]
+async fn the_server_says_which_build_it_is_and_which_client_it_serves() {
+    let app = app_with(|state| {
+        state.build_id = "20260910-150000".to_owned();
+        state.build_commit = "7dfb7d3a91".to_owned();
+        state.client_asset = Some("tc-web-b77d06b34d9563dc_bg.wasm".to_owned());
+    });
+
+    let (status, body) = get(&app, "/api/Info/version", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let v: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(v["build"], "20260910-150000");
+    assert_eq!(v["commit"], "7dfb7d3a91");
+    assert_eq!(v["client"], "tc-web-b77d06b34d9563dc_bg.wasm");
+    assert!(
+        v["started"].as_str().is_some_and(|s| s.ends_with('Z')),
+        "the start time is there, and it is a time: {v}"
+    );
 }

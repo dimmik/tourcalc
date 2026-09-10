@@ -10,6 +10,13 @@ use std::sync::Arc;
 use tc_server::{api, auth, config, state, store};
 use tower_http::services::{ServeDir, ServeFile};
 
+/// The wasm file index.html names, hash and all - the one identifier of a client build that
+/// cannot drift, because the hash is of the contents.
+fn client_asset(static_dir: Option<&str>) -> Option<String> {
+    let page = std::fs::read_to_string(std::path::Path::new(static_dir?).join("index.html")).ok()?;
+    Some(tc_server::wasm_named_in(&page)?.to_owned())
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
@@ -102,6 +109,13 @@ async fn main() {
         wakeup_code: cfg.wakeup_code.clone(),
         wakeup_pre_delay_min: cfg.wakeup_pre_delay_min,
         wakeup_post_delay_min: cfg.wakeup_post_delay_min,
+        build_type: cfg.build_type.clone(),
+        build_id: cfg.build_id.clone(),
+        build_commit: cfg.build_commit.clone(),
+        // Which client this server hands out, read from the page it hands out. Once, at
+        // startup: the files under a running container do not change, and a browser asking
+        // "am I current?" should not cost a disk read.
+        client_asset: client_asset(cfg.static_dir.as_deref()),
         wakeups: Default::default(),
     });
 

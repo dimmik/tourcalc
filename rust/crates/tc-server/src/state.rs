@@ -32,6 +32,15 @@ pub struct AppState {
     pub wakeup_pre_delay_min: u64,
     pub wakeup_post_delay_min: u64,
 
+    /// What this deployment calls itself, and the client it is serving: the file name of
+    /// the wasm named by index.html. The name carries a hash of the contents, so it is the
+    /// one identifier that cannot be out of step with what is actually there - and it is
+    /// what a browser compares its own against to know whether it is holding an old copy.
+    pub build_type: String,
+    pub build_id: String,
+    pub build_commit: String,
+    pub client_asset: Option<String>,
+
     /// When the server was last woken, newest last. The C# keeps the same short list and
     /// shows it on the startup-info page.
     pub wakeups: RwLock<Vec<std::time::SystemTime>>,

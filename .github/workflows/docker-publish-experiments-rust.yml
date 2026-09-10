@@ -59,6 +59,8 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:experiments-rust,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:experiments-rust-${{ steps.current-time.outputs.formattedTime }}
           build-args: |
              BUILD_TYPE=experimentsR (${{ steps.extract_branch.outputs.branch }})
+             BUILD_ID=${{ steps.current-time.outputs.formattedTime }}
+             BUILD_COMMIT=${{ github.sha }}
           # Rust compiles the world on a cold start; without this every push pays for it
           # again. `mode=max` keeps the intermediate stages too, which is where the time is.
           cache-from: type=gha

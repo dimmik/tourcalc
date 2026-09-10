@@ -15,5 +15,8 @@ use leptos::prelude::*;
 pub fn HelpPage() -> impl IntoView {
     view! {
         <div class="tcn-main" inner_html=include_str!("help.html")></div>
+        // Where the app kept its build date. The question it was there to answer is asked
+        // properly here instead - see `crate::version`.
+        <crate::version::AboutBuild />
     }
 }
