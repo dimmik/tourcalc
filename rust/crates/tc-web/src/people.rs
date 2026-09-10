@@ -20,7 +20,7 @@ use crate::ui::{avatar_colour, initials, money, name_of};
 use leptos::prelude::*;
 use tc_core::{
     breakdown, calculate, settlement_for, will_pay, Cents, Options, Person, PersonId, Tour,
-    Transfer, MINIMUM_MEANINGFUL,
+    Transfer,
 };
 
 /// A person who settles up, and everyone settled for through them.
@@ -125,9 +125,9 @@ fn balance_words(amount: Cents) -> String {
     }
 }
 
-/// Amounts below the meaningful threshold are rounding noise, and are shown as nothing.
-fn meaningful(amount: Cents) -> Cents {
-    if amount.abs().0 > MINIMUM_MEANINGFUL {
+/// Amounts below what this reader calls meaningful are rounding noise, shown as nothing.
+fn meaningful(amount: Cents, too_small: Cents) -> Cents {
+    if amount.abs() > too_small {
         amount
     } else {
         Cents::ZERO
@@ -385,11 +385,13 @@ fn PersonBlock(
     let id = person.id.as_str().to_owned();
     let is_child = person.parent.is_some();
     let balances = calculate(&tour, Options::default());
+    let too_small = crate::settings::threshold(&tour);
     let debt = meaningful(
         balances
             .get(&person.id)
             .map(|b| b.debt())
             .unwrap_or_default(),
+        too_small,
     );
 
     // What actually changes hands. For somebody who pays for others it carries their
@@ -397,12 +399,12 @@ fn PersonBlock(
     // Zero, not the threshold: the headline says whether there is anything at all to
     // do, and a two-cent payment counts as something to do - it is `meaningful` just
     // below that then reports it as "settled".
-    let will_pay = meaningful(will_pay(&tour, &transfers, &person.id, Cents::ZERO));
+    let will_pay = meaningful(will_pay(&tour, &transfers, &person.id, Cents::ZERO), too_small);
 
     // Somebody who is paid for hands nothing over themselves; showing them as "settled"
     // while they plainly owe something was confusing, so they show their own debt.
     let shown = if is_child { debt } else { will_pay };
-    let split_family = !is_child && (will_pay - debt).abs().0 > MINIMUM_MEANINGFUL;
+    let split_family = !is_child && (will_pay - debt).abs() > too_small;
 
     // `Copy`, and so usable from every closure in the view without a clone each.
     let is_open = Memo::new({
@@ -681,7 +683,7 @@ fn BreakdownSheet(
         Which::Balance => {
             // The itemised view ignores dust, which can flip somebody the card calls
             // "settled" into somebody collecting five thousand. Both are the app's.
-            let owed = will_pay(&tour, &transfers, &person.id, Cents(MINIMUM_MEANINGFUL));
+            let owed = will_pay(&tour, &transfers, &person.id, crate::settings::threshold(&tour));
             format!(
                 "{} will {} {} {}",
                 person.name,
@@ -802,7 +804,8 @@ fn Lines(
 fn SettleRows(tour: Tour, person: Person, transfers: Vec<Transfer>, unit: String) -> impl IntoView {
     // The same call decides the direction and the rows, so the summary above them and the
     // list below can never say different things.
-    let (paying, rows) = settlement_for(&tour, &transfers, &person.id, Cents(MINIMUM_MEANINGFUL));
+    let (paying, rows) =
+        settlement_for(&tour, &transfers, &person.id, crate::settings::threshold(&tour));
     let total: Cents = rows
         .iter()
         .map(|t| tour.convert(t.amount, &t.currency))

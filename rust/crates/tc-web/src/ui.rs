@@ -243,7 +243,7 @@ pub fn mark_style(colour: &str) -> String {
     format!("--tcn-mark-line:{line};--tcn-mark-bg:{bg};")
 }
 
-fn parse_hex(colour: &str) -> Option<(u8, u8, u8)> {
+pub fn parse_hex(colour: &str) -> Option<(u8, u8, u8)> {
     let c = colour.trim().strip_prefix('#')?;
     let c: String = match c.len() {
         // #abc is #aabbcc
@@ -258,7 +258,7 @@ fn parse_hex(colour: &str) -> Option<(u8, u8, u8)> {
     ))
 }
 
-fn to_hsl((r, g, b): (u8, u8, u8)) -> (f64, f64, f64) {
+pub fn to_hsl((r, g, b): (u8, u8, u8)) -> (f64, f64, f64) {
     let (r, g, b) = (r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0);
     let max = r.max(g).max(b);
     let min = r.min(g).min(b);
@@ -282,7 +282,7 @@ fn to_hsl((r, g, b): (u8, u8, u8)) -> (f64, f64, f64) {
     (h * 60.0, s, l)
 }
 
-fn from_hsl(h: f64, s: f64, l: f64) -> String {
+pub fn from_hsl(h: f64, s: f64, l: f64) -> String {
     let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
     let hp = (((h % 360.0) + 360.0) % 360.0) / 60.0;
     let x = c * (1.0 - (hp % 2.0 - 1.0).abs());

@@ -20,7 +20,7 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 use tc_core::{
     settlement_summary, split_family, suggest_settlement, Cents, Kind, Person, PersonId, Spending,
-    Split, Tour, Transfer, MINIMUM_MEANINGFUL,
+    Split, Tour, Transfer,
 };
 
 /// A screen that is waiting, has something, or has failed.
@@ -313,7 +313,7 @@ fn TourView(
         // given the settlement entire, because "has this person anything at all to pay"
         // is a question about the dust too.
         let worth_showing =
-            |t: &&Transfer| tour.convert(t.amount, &t.currency).abs().0 > MINIMUM_MEANINGFUL;
+            |t: &&Transfer| tour.convert(t.amount, &t.currency).abs() > crate::settings::threshold(&tour);
         (
             f.into_iter().filter(worth_showing).cloned().collect(),
             b.into_iter().filter(worth_showing).cloned().collect(),
@@ -1079,7 +1079,7 @@ fn BalanceTab(
     };
     // The whole settlement, dust and all: `settlement_summary` applies the app's own
     // rule for what counts and what is too small to mention.
-    let rows = settlement_summary(&tour, &all_for_summary);
+    let rows = settlement_summary(&tour, &all_for_summary, crate::settings::threshold(&tour));
     let balances_for_bal = tc_core::calculate(&tour, tc_core::Options::default());
     let tour_for_bal = tour.clone();
     let all_for_bal = all_for_summary.clone();

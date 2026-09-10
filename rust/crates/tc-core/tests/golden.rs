@@ -254,7 +254,7 @@ fn balances_list_matches_the_app() {
         .expect("the Ural tour");
 
     let transfers = suggest_settlement(&tour).expect("converges");
-    let rows = tc_core::settlement_summary(&tour, &transfers);
+    let rows = tc_core::settlement_summary(&tour, &transfers, tour.min_meaningful(tc_core::MINIMUM_MEANINGFUL));
 
     let named: Vec<(String, i64)> = rows
         .iter()
@@ -376,7 +376,7 @@ fn dust_does_not_turn_a_creditor_into_a_line_item() {
         .expect("the unfinished Ural tour");
 
     let transfers = suggest_settlement(&tour).expect("converges");
-    let named: Vec<(String, i64)> = tc_core::settlement_summary(&tour, &transfers)
+    let named: Vec<(String, i64)> = tc_core::settlement_summary(&tour, &transfers, tour.min_meaningful(tc_core::MINIMUM_MEANINGFUL))
         .iter()
         .map(|(id, amount)| {
             (
@@ -395,4 +395,59 @@ fn dust_does_not_turn_a_creditor_into_a_line_item() {
         ],
         "three people owed money are settled: their whole obligation is two cents"
     );
+}
+
+/// What counts as noise does not change when the reader switches currency.
+///
+/// A threshold is a number of coins, and coins are not the same size in every currency. The
+/// app scales it by the cheapest currency's rate over the current one, so "ignore under 49"
+/// means the same amount of money whichever currency the tour is being read in - rather than
+/// meaning half a euro on one screen and a third of a dinar on the next.
+#[test]
+fn the_threshold_follows_the_currency() {
+    let (_, tour, _) = cases()
+        .into_iter()
+        .find(|(name, _, _)| name == "mcurrzscph2y")
+        .expect("the multi-currency tour");
+
+    assert!(tour.currencies.len() > 1, "this fixture has several");
+
+    let cheapest = tour.currencies.iter().map(|c| c.rate).min().unwrap();
+    let dearest = tour.currencies.iter().map(|c| c.rate).max().unwrap();
+    assert_ne!(cheapest, dearest, "and they are worth different amounts");
+
+    // Read in the cheapest currency, the threshold is the setting itself.
+    let in_cheap = tour
+        .currencies
+        .iter()
+        .find(|c| c.rate == cheapest)
+        .map(|c| {
+            let mut t = tour.clone();
+            t.current_currency = c.id.clone();
+            t.min_meaningful(49)
+        })
+        .unwrap();
+    assert_eq!(in_cheap.0, 49);
+
+    // Read in a dearer one, the same money is fewer of its coins.
+    let in_dear = tour
+        .currencies
+        .iter()
+        .find(|c| c.rate == dearest)
+        .map(|c| {
+            let mut t = tour.clone();
+            t.current_currency = c.id.clone();
+            t.min_meaningful(49)
+        })
+        .unwrap();
+    assert!(in_dear.0 < 49, "{} is not fewer than 49", in_dear.0);
+    assert_eq!(in_dear.0, 49 * cheapest as i64 / dearest as i64);
+
+    // A tour with one currency has nothing to scale by.
+    let (_, single, _) = cases()
+        .into_iter()
+        .find(|(name, _, _)| name == "zscph2y")
+        .expect("the single-currency tour");
+    assert_eq!(single.min_meaningful(49).0, 49);
+    assert_eq!(single.min_meaningful(0).0, 0);
 }

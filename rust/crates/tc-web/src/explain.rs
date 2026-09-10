@@ -239,7 +239,7 @@ pub fn entries(n: usize) -> String {
 // the same kind of thing - the working behind a figure - and because reading them in a row
 // is how you notice two of them disagreeing.
 
-use tc_core::{Kind, Person, PersonId, Spending, Split, Tour, Transfer, MINIMUM_MEANINGFUL};
+use tc_core::{Kind, Person, PersonId, Spending, Split, Tour, Transfer};
 
 fn unit_of(tour: &Tour) -> String {
     if tour.currencies.len() > 1 {
@@ -437,7 +437,7 @@ pub fn left_to_settle(tour: &Tour, between: &[Transfer]) -> Explanation {
             } else {
                 format!("{} payments", between.len())
             },
-            with_unit(Cents(MINIMUM_MEANINGFUL), tour),
+            with_unit(crate::settings::threshold(tour), tour),
         ))
 }
 
@@ -529,10 +529,11 @@ pub fn person_balance(
     }
     facts.push(Fact::money("Hands over at settle-up", family).strong());
 
-    let mut note = if own.abs().0 <= MINIMUM_MEANINGFUL {
+    let too_small = crate::settings::threshold(tour);
+    let mut note = if own.abs() <= too_small {
         format!(
             "Anything under {} counts as settled, so this shows as square.",
-            with_unit(Cents(MINIMUM_MEANINGFUL), tour)
+            with_unit(too_small, tour)
         )
     } else if own.0 > 0 {
         format!(
@@ -545,7 +546,7 @@ pub fn person_balance(
             person.name
         )
     };
-    if (family - own).abs().0 > MINIMUM_MEANINGFUL {
+    if (family - own).abs() > too_small {
         note.push_str(&format!(
             " {} of that is {}'s own; the rest belongs to the people they pay for, and is \
              settled through them.",

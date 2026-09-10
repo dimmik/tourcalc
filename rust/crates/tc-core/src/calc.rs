@@ -35,11 +35,16 @@ use crate::money::Cents;
 /// because the two implementations have to agree to the cent.
 const MAGNITUDE: i128 = 10_000_000;
 
-/// Below this, in cents, a debt is not worth mentioning.
+/// Below this, in cents, a debt is not worth mentioning - unless the reader says otherwise.
 ///
 /// Half a unit of currency: the difference between "settled" and "owes 0.31" is noise the
-/// arithmetic produced, not money anybody is going to hand over. The interface hides
-/// amounts under it and the settlement stops chasing them.
+/// arithmetic produced, not money anybody is going to hand over. The interface hides amounts
+/// under it and the settlement stops chasing them.
+///
+/// It is the *default*, not the rule. The app lets a reader raise it - somebody settling a
+/// month in one currency does not care about the last five units either - so everything that
+/// filters by it takes the figure as an argument, and this is what they pass when nobody has
+/// said anything.
 pub const MINIMUM_MEANINGFUL: i64 = 49;
 
 /// What one person ended up with.
@@ -463,7 +468,13 @@ fn describe(s: &Spending) -> String {
 ///
 /// `transfers` is the settlement with the family payments taken out: those are shown
 /// separately and must not net off here.
-pub fn settlement_summary(tour: &Tour, transfers: &[Transfer]) -> Vec<(PersonId, Cents)> {
+pub fn settlement_summary(
+    tour: &Tour,
+    transfers: &[Transfer],
+    // What is too small to be worth a line. `MINIMUM_MEANINGFUL` unless a reader has
+    // changed it.
+    ignore_below: Cents,
+) -> Vec<(PersonId, Cents)> {
     let mut rows: Vec<(PersonId, Cents)> = tour
         .persons
         .iter()
@@ -471,7 +482,7 @@ pub fn settlement_summary(tour: &Tour, transfers: &[Transfer]) -> Vec<(PersonId,
         // shown inside that person's family, not as a line of their own.
         .filter(|p| p.parent.is_none())
         .map(|p| (p.id.clone(), will_pay(tour, transfers, &p.id, Cents::ZERO)))
-        .filter(|(_, amount)| amount.abs().0 > MINIMUM_MEANINGFUL)
+        .filter(|(_, amount)| amount.abs() > ignore_below)
         .collect();
 
     rows.sort_by_key(|(_, amount)| -amount.0);

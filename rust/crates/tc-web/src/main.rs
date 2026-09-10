@@ -4,6 +4,7 @@
 //! its stylesheet unchanged. If the two look alike, that is the point - what is being
 //! measured is what the browser has to download to get there, not a new design.
 
+mod accent;
 mod api;
 mod dialogs;
 mod edit;
@@ -16,6 +17,8 @@ mod mini;
 mod mode;
 mod people;
 mod push;
+mod settings;
+mod settings_page;
 mod queue;
 mod sync;
 mod tour;
@@ -39,6 +42,8 @@ enum Route {
     List,
     /// What everything on screen means.
     Help,
+    /// The two settings this client has.
+    Settings,
     /// A tour, and which of its tabs the address asks for. The app's own deep links -
     /// /tour/x/persons and /tour/x/spendings - land on the matching tab, and
     /// /tour/x/spending/add opens the tour with the expense dialog already up.
@@ -67,6 +72,7 @@ fn current_route() -> Route {
     match parts.as_slice() {
         [] | ["tourlist"] => Route::List,
         ["help"] => Route::Help,
+        ["settings"] => Route::Settings,
         ["tour", id] => Route::Tour((*id).to_owned(), Landing::Balance),
         ["tour", id, "persons"] => Route::Tour((*id).to_owned(), Landing::People),
         ["tour", id, "spendings"] => Route::Tour((*id).to_owned(), Landing::Expenses),
@@ -93,6 +99,12 @@ fn App() -> impl IntoView {
     // and the tour read it.
     let mode = RwSignal::new(mode::stored());
     provide_context(mode);
+
+    // What this browser is set to, and the colour it is painted in. Applied before anything
+    // is drawn, so the page does not flash the default first.
+    let settings: settings::Shared = RwSignal::new(settings::stored());
+    accent::apply(&settings.get_untracked().accent);
+    provide_context(settings);
 
     let (route, set_route) = signal(current_route());
     // Whether anybody is signed in on this device. A signal rather than a check in the
@@ -129,6 +141,9 @@ fn App() -> impl IntoView {
                     <a class="tcn-iconbtn" href="/help" title="What everything here means"
                        aria-label="Help">
                         <icon::Icon name="help" />
+                    </a>
+                    <a class="tcn-iconbtn" href="/settings" title="Settings" aria-label="Settings">
+                        <icon::Icon name="settings" />
                     </a>
                     <Show when=move || signed_in.get()>
                         <button type="button" class="tcn-iconbtn" title="Log out" aria-label="Log out"
@@ -168,6 +183,9 @@ fn App() -> impl IntoView {
                             view! { <div class="tcn-loading">"Signing in…"</div> }.into_any()
                         }
                         Route::Help => ().into_any(),
+                        Route::Settings => view! {
+                            <settings_page::SettingsPage settings=settings />
+                        }.into_any(),
                         Route::Unknown(path) => view! {
                             <div class="tcn-section">
                                 <div class="tcn-errors">"Nothing here: " {path}</div>

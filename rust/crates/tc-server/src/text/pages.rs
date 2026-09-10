@@ -84,8 +84,12 @@ impl Loaded {
 
     /// What the balances table shows: people who settle up for themselves, and what each
     /// of them hands over.
+    ///
+    /// The threshold is the default one: the browser client keeps its own in local storage,
+    /// and a text browser has none to read.
     fn balances(&self) -> Vec<(&Person, Cents)> {
-        settlement_summary(&self.tour, &self.all_transfers)
+        let too_small = self.tour.min_meaningful(tc_core::MINIMUM_MEANINGFUL);
+        settlement_summary(&self.tour, &self.all_transfers, too_small)
             .into_iter()
             .filter_map(|(id, amount)| self.tour.person(&id).map(|p| (p, amount)))
             .collect()

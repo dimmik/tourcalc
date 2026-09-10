@@ -20,7 +20,7 @@ use crate::ui::{money, name_of};
 use leptos::prelude::*;
 use tc_core::{
     calculate, settlement_summary, split_family, suggest_settlement, will_pay, Cents, Kind,
-    Options, Person, PersonId, Spending, Split, Tour, Transfer, MINIMUM_MEANINGFUL,
+    Options, Person, PersonId, Spending, Split, Tour, Transfer,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -57,8 +57,8 @@ pub fn MiniTour(
     let show_family = RwSignal::new(false);
 
     let transfers = suggest_settlement(&tour).unwrap_or_default();
-    let worth_showing =
-        |t: &&Transfer| tour.convert(t.amount, &t.currency).abs().0 > MINIMUM_MEANINGFUL;
+    let too_small = crate::settings::threshold(&tour);
+    let worth_showing = |t: &&Transfer| tour.convert(t.amount, &t.currency).abs() > too_small;
     let (family, between): (Vec<Transfer>, Vec<Transfer>) = {
         let (f, b) = split_family(&transfers);
         (
@@ -236,7 +236,7 @@ fn MiniBalance(
         let tour = tour.clone();
         move |id: &PersonId| name_of(tour.person(id))
     };
-    let balances = settlement_summary(&tour, &all_transfers);
+    let balances = settlement_summary(&tour, &all_transfers, crate::settings::threshold(&tour));
     let has_real = tour.spendings.iter().any(|s| s.kind == Kind::Real);
     let empty = between.is_empty();
     let family_count = family.len();
@@ -480,8 +480,9 @@ fn MiniPerson(
 ) -> impl IntoView {
     let id = person.id.as_str().to_owned();
     let is_child = person.parent.is_some();
+    let too_small = crate::settings::threshold(&tour);
     let hush = |amount: Cents| {
-        if amount.abs().0 > MINIMUM_MEANINGFUL {
+        if amount.abs() > too_small {
             amount
         } else {
             Cents::ZERO
@@ -522,7 +523,7 @@ fn MiniPerson(
     let tour_for_spend = tour.clone();
     let name = person.name.clone();
     let weight = person.weight;
-    let shows_family = covers > 0 && (settle - own).abs().0 > MINIMUM_MEANINGFUL;
+    let shows_family = covers > 0 && (settle - own).abs() > too_small;
 
     view! {
         <div class="tcm-item" class:is-child=move || is_child class:is-fam=move || is_child

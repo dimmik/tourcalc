@@ -246,6 +246,29 @@ impl Tour {
         crate::money::convert(amount, from.rate, current.rate)
     }
 
+    /// The "too small to bother with" figure, in the currency the tour is being read in.
+    ///
+    /// A threshold is a number of coins, and coins are not the same size in every currency:
+    /// 49 of them is half a euro and a third of a dinar. On a multi-currency tour the app
+    /// scales it by the cheapest currency's rate over the current one, so that what counts
+    /// as noise does not change when the reader switches what they are looking at.
+    pub fn min_meaningful(&self, setting: i64) -> Cents {
+        if self.currencies.len() < 2 {
+            return Cents(setting);
+        }
+        let current = self.currency().rate as f64;
+        let cheapest = self
+            .currencies
+            .iter()
+            .map(|c| c.rate)
+            .min()
+            .unwrap_or(self.currency().rate) as f64;
+        if current <= 0.0 {
+            return Cents(setting);
+        }
+        Cents((setting as f64 * cheapest / current).floor() as i64)
+    }
+
     pub fn total_weight(&self) -> i64 {
         let sum: i64 = self.persons.iter().map(|p| p.weight as i64).sum();
         if sum == 0 {
