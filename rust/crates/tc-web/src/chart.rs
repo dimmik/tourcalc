@@ -202,9 +202,16 @@ pub fn Composition(
     let slices = StoredValue::new(slices(&rows, magic));
     let total = Cents(rows.iter().map(|r| r.amount.0).sum());
 
-    // The geometry. r and the stroke are in the viewBox's own units, so the ring scales
-    // with the box and nothing here has to know how many pixels it ends up as.
-    const R: f64 = 54.0;
+    // The geometry, in the viewBox's own units, so the ring scales with the box and nothing
+    // here has to know how many pixels it ends up as.
+    //
+    // The radius leaves room for the stroke: a stroke straddles the path, so the ring
+    // reaches r + half of it, and the chosen slice is drawn thicker still. At r = 54 that
+    // came to 67 against a half-box of 60, and the viewport cut the circle into a square -
+    // visible immediately in a picture, and not at all in the numbers.
+    const R: f64 = 44.0;
+    const STROKE: f64 = 20.0;
+    const CHOSEN_STROKE: f64 = 26.0;
     const CIRCUMFERENCE: f64 = 2.0 * std::f64::consts::PI * R;
 
     let unit_centre = unit.clone();
@@ -257,7 +264,11 @@ pub fn Composition(
                                                     // The chosen one steps forward. Nothing
                                                     // moves, so nothing is measured wrongly
                                                     // because of it.
-                                                    if chosen.get() == mine { "26" } else { "20" }
+                                                    if chosen.get() == mine {
+                                                        CHOSEN_STROKE.to_string()
+                                                    } else {
+                                                        STROKE.to_string()
+                                                    }
                                                 }
                                                 stroke-dasharray=format!(
                                                     "{length:.3} {:.3}", CIRCUMFERENCE - length)
@@ -459,6 +470,18 @@ mod tests {
         assert!(
             !matches("Taxi / airport", "Taxi / home"),
             "a full name is itself, not its head"
+        );
+    }
+
+    #[test]
+    fn the_ring_fits_inside_its_box() {
+        // A stroke straddles the path, so the ring reaches r + half of it - and the chosen
+        // slice is drawn thicker. Exceed the half-box and the viewport clips the circle into
+        // a square, which is what it did at r = 54.
+        const HALF_BOX: f64 = 60.0;
+        assert!(
+            44.0 + 26.0 / 2.0 <= HALF_BOX,
+            "the widest stroke has to stay inside the viewBox"
         );
     }
 
