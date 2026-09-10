@@ -13,6 +13,7 @@
 use crate::api;
 use crate::edit::{self, PersonDraft, SpendingDraft};
 use crate::edit::{CurrencyDraft, TourDraft};
+use crate::icon::Icon;
 use crate::queue::Operation;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -35,7 +36,7 @@ fn Modal(
                 <div class="tcn-modal-head">
                     <div class="tcn-modal-title">{title}</div>
                     <button type="button" class="tcn-modal-x" on:click=move |_| on_close.run(())>
-                        "✕"
+                        <Icon name="close" />
                     </button>
                 </div>
                 <div class="tcn-modal-body">{children()}</div>

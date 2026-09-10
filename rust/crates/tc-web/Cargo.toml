@@ -16,6 +16,8 @@ web-sys = { version = "0.3", features = [
     # Push notifications: the browser's own subscription machinery.
     "ServiceWorker", "ServiceWorkerContainer", "ServiceWorkerRegistration",
     "PushManager", "PushSubscription", "PushSubscriptionOptionsInit", "PushSubscriptionJson",
+    # Copying a tour to the clipboard, with the old textarea trick as the fallback.
+    "Clipboard", "Document", "HtmlDocument", "HtmlTextAreaElement", "Element",
 ] }
 console_error_panic_hook = "0.1"
 serde = { version = "1", features = ["derive"] }

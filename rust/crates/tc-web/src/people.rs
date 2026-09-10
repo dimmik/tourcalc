@@ -14,6 +14,7 @@
 //! that does not add up to the number above it is worse than none.
 
 use crate::edit::PersonDraft;
+use crate::icon::Icon;
 use crate::tour::{Dialog, Removal};
 use crate::ui::{avatar_colour, initials, money, name_of};
 use leptos::prelude::*;
@@ -149,9 +150,17 @@ pub fn PeopleTab(
     let open: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
     let kids_open: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
     let sheet: RwSignal<Option<(Which, Person)>> = RwSignal::new(None);
+    // One line per person, whether or not they are opened out. For a long list on a small
+    // screen, where the roomy card is three people to a screenful.
+    let compact = RwSignal::new(false);
+    let search = RwSignal::new(String::new());
 
     let fams = families(&tour);
     let count = tour.persons.len();
+    // Under this many, the list fits on a screen anyway and a search box is clutter.
+    const SEARCH_FROM: usize = 8;
+    let searchable = count >= SEARCH_FROM;
+    let tour_for_search = tour.clone();
     let everyone: Vec<String> = tour
         .persons
         .iter()
@@ -188,9 +197,30 @@ pub fn PeopleTab(
                         {move || if open.get().is_empty() { "Expand all" } else { "Collapse all" }}
                     </button>
                 </Show>
+                <Show when=move || { count > 1 }>
+                    <button type="button" class="tcn-btn tcn-btn-sm"
+                            class:tcn-btn-primary=move || compact.get()
+                            title="One line per person — tap a line to open their numbers"
+                            on:click=move |_| compact.update(|c| *c = !*c)>
+                        "Compact"
+                    </button>
+                </Show>
                 <span class="tcn-chip">{count} " people"</span>
                 <span class="tcn-chip">"total weight " {tour.total_weight()}</span>
             </div>
+
+            <Show when=move || { searchable }>
+                <div class="tcn-search">
+                    <span class="tcn-search-icon">"🔎"</span>
+                    <input type="text" placeholder="Find a person"
+                           prop:value=move || search.get()
+                           on:input=move |ev| search.set(event_target_value(&ev)) />
+                    <Show when=move || !search.get().is_empty()>
+                        <button type="button" class="tcn-search-clear" title="Clear"
+                                on:click=move |_| search.set(String::new())>"✕"</button>
+                    </Show>
+                </div>
+            </Show>
 
             <Show when=move || { count > 0 }>
                 <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
@@ -214,15 +244,31 @@ pub fn PeopleTab(
         } else {
             view! {
                 <div class="tcn-section">
-                    <div class="tcn-list tcn-people-list">
-                        {fams
-                            .into_iter()
-                            .map(|fam| view! {
-                                <FamilyBlock tour=tour.clone() fam=fam transfers=transfers.clone()
-                                             open=open kids_open=kids_open sheet=sheet
-                                             dialog=dialog delete=delete />
-                            })
-                            .collect_view()}
+                    <div class="tcn-list tcn-people-list" class:is-compact=move || compact.get()>
+                        {move || {
+                            let needle = search.get().trim().to_lowercase();
+                            let shown = matching(&tour_for_search, &fams, &needle);
+                            if shown.is_empty() {
+                                return view! {
+                                    <div class="tcn-empty">
+                                        <div class="tcn-empty-title">
+                                            "Nobody here is called “" {search.get()} "”"
+                                        </div>
+                                        <div>"Try a shorter piece of the name."</div>
+                                    </div>
+                                }.into_any();
+                            }
+                            shown
+                                .into_iter()
+                                .map(|fam| view! {
+                                    <FamilyBlock tour=tour_for_search.clone() fam=fam
+                                                 transfers=transfers.clone() open=open
+                                                 kids_open=kids_open sheet=sheet compact=compact
+                                                 dialog=dialog delete=delete />
+                                })
+                                .collect_view()
+                                .into_any()
+                        }}
                     </div>
                 </div>
             }.into_any()
@@ -244,6 +290,7 @@ fn FamilyBlock(
     open: RwSignal<Vec<String>>,
     kids_open: RwSignal<Vec<String>>,
     sheet: RwSignal<Option<(Which, Person)>>,
+    compact: RwSignal<bool>,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
 ) -> impl IntoView {
@@ -284,12 +331,12 @@ fn FamilyBlock(
              class:is-open=move || { covers > 0 && showing.get() }>
             <PersonBlock tour=tour.clone() person=fam.head.clone() covers=covers
                          family_weight=fam.weight transfers=transfers.clone()
-                         open=open sheet=sheet dialog=dialog delete=delete />
+                         open=open sheet=sheet compact=compact dialog=dialog delete=delete />
 
             <Show when=move || { covers > 0 }>
                 <button type="button" class="tcn-familybar" aria-expanded=move || showing.get().to_string()
                         on:click=toggle_kids.clone()>
-                    <span>{move || if showing.get() { "⌄" } else { "›" }}</span>
+                    <span>{move || if showing.get() { view!{<Icon name="chevron-down"/>} } else { view!{<Icon name="chevron-right"/>} }}</span>
                     <span class="tcn-familybar-names">{names.clone()}</span>
                     <span class="tcn-familybar-note">"paid for by " {head_name.clone()}</span>
                 </button>
@@ -302,7 +349,8 @@ fn FamilyBlock(
                         .map(|kid| view! {
                             <PersonBlock tour=tour.clone() person=kid.clone() covers=0
                                          family_weight=0 transfers=transfers.clone()
-                                         open=open sheet=sheet dialog=dialog delete=delete />
+                                         open=open sheet=sheet compact=compact
+                                         dialog=dialog delete=delete />
                         })
                         .collect_view()}
                 </div>
@@ -321,6 +369,7 @@ fn PersonBlock(
     transfers: Vec<Transfer>,
     open: RwSignal<Vec<String>>,
     sheet: RwSignal<Option<(Which, Person)>>,
+    compact: RwSignal<bool>,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
 ) -> impl IntoView {
@@ -396,8 +445,10 @@ fn PersonBlock(
 
     view! {
         <div class="tcn-person" class:is-child=move || is_child
-             class:is-compact=move || !is_open.get()>
-            <Show when=move || !is_open.get()
+             class:is-compact=move || !is_open.get() || compact.get()>
+            // Compact draws the dense row even when the person is opened out: their numbers
+            // appear below it, which is the whole of what opening does in that mode.
+            <Show when=move || !is_open.get() || compact.get()
                   fallback=move || {
                       // The roomy head is the handle: clicking it folds the card back down.
                       // It cannot be a <button> - the figures inside it are buttons
@@ -439,7 +490,7 @@ fn PersonBlock(
                               </div>
                               <button type="button" class="tcn-person-fold" title="Collapse"
                                       on:click=move |ev| { ev.stop_propagation(); fold(ev); }>
-                                  "⌄"
+                                  <Icon name="chevron-down" />
                               </button>
                           </div>
                       }
@@ -473,7 +524,7 @@ fn PersonBlock(
                         </span>
                         <span class=format!("tcn-chip {chip_class}")>{words_row.clone()}</span>
                         <span class="tcn-person-caret">
-                            {move || if is_open.get() { "⌄" } else { "›" }}
+                            {move || if is_open.get() { view!{<Icon name="chevron-down"/>} } else { view!{<Icon name="chevron-right"/>} }}
                         </span>
                     </button>
                 </div>
@@ -617,7 +668,7 @@ fn BreakdownSheet(
                     </span>
                     <div class="tcn-sheet-title">{title}</div>
                     <button type="button" class="tcn-sheet-x" title="Close"
-                            on:click=move |_| close.run(())>"✕"</button>
+                            on:click=move |_| close.run(())><Icon name="close" /></button>
                 </div>
 
                 <div class="tcn-sheet-body">
@@ -774,4 +825,39 @@ fn SettleRows(tour: Tour, person: Person, transfers: Vec<Transfer>, unit: String
             }.into_any()
         }}
     }
+}
+
+/// The families to draw for a search.
+///
+/// A family whose payer matches is shown whole - looking for "Саша" and being handed Саша
+/// without the three people he pays for would be a strange answer. A family the payer does
+/// not match keeps only the members who do.
+fn matching(tour: &Tour, families: &[Family], needle: &str) -> Vec<Family> {
+    if needle.is_empty() {
+        return families.to_vec();
+    }
+    let hit = |p: &Person| -> bool {
+        p.name.to_lowercase().contains(needle)
+            // And by the name of whoever pays for them: you look for the family, not for
+            // the child you had forgotten was part of it.
+            || p.parent
+                .as_ref()
+                .and_then(|id| tour.person(id))
+                .is_some_and(|payer| payer.name.to_lowercase().contains(needle))
+    };
+
+    families
+        .iter()
+        .filter_map(|fam| {
+            if hit(&fam.head) {
+                return Some(fam.clone());
+            }
+            let kids: Vec<Person> = fam.kids.iter().filter(|k| hit(k)).cloned().collect();
+            (!kids.is_empty()).then(|| Family {
+                head: fam.head.clone(),
+                kids,
+                weight: fam.weight,
+            })
+        })
+        .collect()
 }

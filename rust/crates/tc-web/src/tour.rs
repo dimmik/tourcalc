@@ -214,7 +214,7 @@ pub enum Removal {
 }
 
 #[component]
-pub fn TourPage(id: String) -> impl IntoView {
+pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     let (state, set_state) = signal(Load::Loading);
     let status = RwSignal::new(Status::Idle);
 
@@ -251,22 +251,40 @@ pub fn TourPage(id: String) -> impl IntoView {
                 </div>
             }.into_any(),
             Load::Ready(tour) => view! {
-                <TourView tour=tour reload=load status=status />
+                <TourView tour=tour reload=load status=status landing=landing />
             }.into_any(),
         }}
     }
 }
 
 #[component]
-fn TourView(tour: Tour, reload: Callback<()>, status: RwSignal<Status>) -> impl IntoView {
+fn TourView(
+    tour: Tour,
+    reload: Callback<()>,
+    status: RwSignal<Status>,
+    /// Which tab the address asked for, and whether it asked for the expense dialog too.
+    landing: crate::Landing,
+) -> impl IntoView {
     // Every avatar on this screen can now tell one Дима from another.
     provide_context(crate::ui::Peers(
         tour.persons.iter().map(|p| p.name.clone()).collect(),
     ));
 
-    let tab = RwSignal::new(Tab::Balance);
+    let tab = RwSignal::new(match landing {
+        crate::Landing::People => Tab::People,
+        crate::Landing::Expenses | crate::Landing::AddSpending => Tab::Expenses,
+        crate::Landing::Stats => Tab::Stats,
+        crate::Landing::Balance => Tab::Balance,
+    });
     let dialog: RwSignal<Option<Dialog>> = RwSignal::new(None);
     let tour_id = tour.id.as_str().to_owned();
+
+    // A link straight to "record an expense" opens with the dialog already up: that is what
+    // the app's own /tour/x/spending/add does, and it is how the button on a phone's home
+    // screen gets somebody to a keypad in one tap.
+    if landing == crate::Landing::AddSpending {
+        dialog.set(Some(Dialog::Spending(SpendingDraft::new(&tour))));
+    }
 
     // Every edit takes the same road: write it down, try to send it, redraw from whatever
     // came back. Nothing here waits for the network to decide what to show.
@@ -728,6 +746,11 @@ fn ExpenseRow(
         spending.description.clone()
     };
     let category = spending.category.trim().to_owned();
+    // A colour somebody chose marks the row out. What the app writes itself when a payment
+    // is recorded - "lightgreen", "lightgray" - is not a choice and does not light up.
+    let colour = tc_core::extras::str_of(&spending.extras, crate::edit::COLOUR);
+    let marked = crate::ui::is_marked(&colour);
+    let mark_style = crate::ui::mark_style(&colour);
     let to_whom = match &spending.split {
         Split::Everyone => "everyone".to_owned(),
         Split::Equally(to) | Split::ByWeight(to) => to
@@ -737,11 +760,15 @@ fn ExpenseRow(
             .join(", "),
     };
 
+    let alone =
+        matches!(&spending.split, Split::Equally(to) | Split::ByWeight(to) if to.len() == 1);
+
     view! {
-        <div class="tcn-settle">
+        <div class="tcn-settle" class:tcn-sp-marked=move || marked style=mark_style>
             <div class="tcn-settle-flow">
                 <Avatar name=who.clone() />
-                <span class="tcn-settle-who">
+                <span class="tcn-settle-who"
+                      title=if alone { "Charged to one person only." } else { "" }>
                     {description}
                     <small class="tcn-hint">
                         " · " {who.clone()}

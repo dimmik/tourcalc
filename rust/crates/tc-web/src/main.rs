@@ -7,6 +7,7 @@
 mod api;
 mod dialogs;
 mod edit;
+mod icon;
 mod list;
 mod login;
 mod people;
@@ -32,10 +33,24 @@ fn main() {
 #[derive(Clone, Debug, PartialEq)]
 enum Route {
     List,
-    Tour(String),
+    /// A tour, and which of its tabs the address asks for. The app's own deep links -
+    /// /tour/x/persons and /tour/x/spendings - land on the matching tab, and
+    /// /tour/x/spending/add opens the tour with the expense dialog already up.
+    Tour(String, Landing),
     /// A share link: an access code and the tour it opens.
     Goto(String, String),
     Unknown(String),
+}
+
+/// Where in a tour a link points.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Landing {
+    Balance,
+    People,
+    Expenses,
+    Stats,
+    /// Straight into "record an expense", which is what the app's own add link does.
+    AddSpending,
 }
 
 fn current_route() -> Route {
@@ -45,7 +60,11 @@ fn current_route() -> Route {
     let parts: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
     match parts.as_slice() {
         [] | ["tourlist"] => Route::List,
-        ["tour", id] => Route::Tour((*id).to_owned()),
+        ["tour", id] => Route::Tour((*id).to_owned(), Landing::Balance),
+        ["tour", id, "persons"] => Route::Tour((*id).to_owned(), Landing::People),
+        ["tour", id, "spendings"] => Route::Tour((*id).to_owned(), Landing::Expenses),
+        ["tour", id, "stats"] => Route::Tour((*id).to_owned(), Landing::Stats),
+        ["tour", id, "spending", "add"] => Route::Tour((*id).to_owned(), Landing::AddSpending),
         ["goto", code, id] => Route::Goto((*code).to_owned(), (*id).to_owned()),
         _ => Route::Unknown(path),
     }
@@ -116,7 +135,7 @@ fn App() -> impl IntoView {
                     (false, _) => view! { <login::SignIn on_done=signed_in_now /> }.into_any(),
                     (true, route) => match route {
                         Route::List => view! { <list::TourListPage /> }.into_any(),
-                        Route::Tour(id) => view! { <tour::TourPage id=id /> }.into_any(),
+                        Route::Tour(id, landing) => view! { <tour::TourPage id=id landing=landing /> }.into_any(),
                         Route::Goto(_, _) => {
                             view! { <div class="tcn-loading">"Signing in…"</div> }.into_any()
                         }

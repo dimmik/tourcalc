@@ -126,6 +126,39 @@ mod tests {
     use super::*;
 
     #[test]
+    fn only_a_chosen_colour_marks_a_row() {
+        assert!(is_marked("#ffd54f"));
+        assert!(is_marked("#fd5"));
+        // What the app writes when a payment is recorded: not a mark.
+        assert!(!is_marked("lightgreen"));
+        assert!(!is_marked("lightgray"));
+        assert!(!is_marked(""));
+        assert!(!is_marked("#12345"));
+    }
+
+    #[test]
+    fn a_colour_keeps_its_hue_and_loses_its_lightness() {
+        let style = mark_style("#ffd54f");
+        assert!(style.contains("--tcn-mark-line:#"), "{style}");
+        assert!(style.contains("--tcn-mark-bg:#"), "{style}");
+        // The background is the pale one and the line the dark one - that is the whole
+        // point of computing two.
+        let line = style.split("--tcn-mark-line:").nth(1).unwrap()[..7].to_owned();
+        let bg = style.split("--tcn-mark-bg:").nth(1).unwrap()[..7].to_owned();
+        let lightness = |hex: &str| {
+            let rgb = parse_hex(hex).unwrap();
+            to_hsl(rgb).2
+        };
+        assert!(lightness(&bg) > lightness(&line), "{line} vs {bg}");
+    }
+
+    #[test]
+    fn grey_becomes_a_neutral_outline_and_not_a_dusty_pink() {
+        let style = mark_style("#808080");
+        assert!(style.contains("--tcn-mark-line:#525252"), "{style}");
+    }
+
+    #[test]
     fn initials_are_two_letters() {
         assert_eq!(initials("Андрей"), "АН");
         assert_eq!(initials("bob"), "BO");
@@ -157,4 +190,95 @@ mod tests {
             "linear-gradient(135deg, hsl(17 62% 52%), hsl(45 66% 42%))"
         );
     }
+}
+
+/// Whether a spending's colour was chosen by a person.
+///
+/// Only a `#hex` counts. "lightgreen" and "lightgray" are written by the app itself when a
+/// payment is marked paid, and a row that lit up for that would be telling the reader
+/// something nobody meant.
+pub fn is_marked(colour: &str) -> bool {
+    parse_hex(colour).is_some()
+}
+
+/// The inline custom properties a marked row is drawn with.
+///
+/// The chosen hue is kept but its lightness is not: a colour picked to be recognisable is
+/// not one that reads as text on a white row. Ported from the C# so the same colour marks
+/// the same way in both interfaces.
+pub fn mark_style(colour: &str) -> String {
+    let Some(rgb) = parse_hex(colour) else {
+        return String::new();
+    };
+    let (h, s, _) = to_hsl(rgb);
+    // Black, white and grey carry no hue to keep; they become a heavy neutral outline
+    // rather than the dusty pink that clamping a hue-less colour would produce.
+    let flat = s < 0.05;
+    let line = if flat {
+        from_hsl(0.0, 0.0, 0.32)
+    } else {
+        from_hsl(h, s.clamp(0.30, 0.85), 0.40)
+    };
+    let bg = if flat {
+        from_hsl(0.0, 0.0, 0.93)
+    } else {
+        from_hsl(h, s.clamp(0.25, 0.80), 0.945)
+    };
+    format!("--tcn-mark-line:{line};--tcn-mark-bg:{bg};")
+}
+
+fn parse_hex(colour: &str) -> Option<(u8, u8, u8)> {
+    let c = colour.trim().strip_prefix('#')?;
+    let c: String = match c.len() {
+        // #abc is #aabbcc
+        3 => c.chars().flat_map(|ch| [ch, ch]).collect(),
+        6 => c.to_owned(),
+        _ => return None,
+    };
+    Some((
+        u8::from_str_radix(&c[0..2], 16).ok()?,
+        u8::from_str_radix(&c[2..4], 16).ok()?,
+        u8::from_str_radix(&c[4..6], 16).ok()?,
+    ))
+}
+
+fn to_hsl((r, g, b): (u8, u8, u8)) -> (f64, f64, f64) {
+    let (r, g, b) = (r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0);
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let l = (max + min) / 2.0;
+    if (max - min).abs() < 1e-9 {
+        return (0.0, 0.0, l);
+    }
+    let d = max - min;
+    let s = if l > 0.5 {
+        d / (2.0 - max - min)
+    } else {
+        d / (max + min)
+    };
+    let h = if max == r {
+        (g - b) / d + if g < b { 6.0 } else { 0.0 }
+    } else if max == g {
+        (b - r) / d + 2.0
+    } else {
+        (r - g) / d + 4.0
+    };
+    (h * 60.0, s, l)
+}
+
+fn from_hsl(h: f64, s: f64, l: f64) -> String {
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let hp = (((h % 360.0) + 360.0) % 360.0) / 60.0;
+    let x = c * (1.0 - (hp % 2.0 - 1.0).abs());
+    let (r, g, b) = match hp as i32 {
+        0 => (c, x, 0.0),
+        1 => (x, c, 0.0),
+        2 => (0.0, c, x),
+        3 => (0.0, x, c),
+        4 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    let m = l - c / 2.0;
+    let byte = |v: f64| ((v * 255.0).round().clamp(0.0, 255.0)) as u8;
+    format!("#{:02x}{:02x}{:02x}", byte(r + m), byte(g + m), byte(b + m))
 }

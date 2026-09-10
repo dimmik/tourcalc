@@ -181,6 +181,8 @@ mod tests {
             from: t.persons[0].id.clone(),
             everyone: true,
             to: Vec::new(),
+            date: "2021-08-14".into(),
+            colour: String::new(),
         })
     }
 

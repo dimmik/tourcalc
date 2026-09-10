@@ -223,18 +223,6 @@ pub async fn save_tour(tour: &Tour) -> Result<(), SaveError> {
     }
 }
 
-/// Starts a new tour and answers with its id.
-///
-/// `code` is only listened to for an administrator; everybody else's tour joins the code
-/// they are signed in with, whatever they typed. The server decides that, not this.
-pub async fn create_tour(name: &str, code: &str) -> Result<String, Failed> {
-    add_tour(
-        serde_json::json!({ "Name": name, "Persons": [], "Spendings": [] }),
-        code,
-    )
-    .await
-}
-
 /// The versions of a tour: what it used to be, newest first.
 ///
 /// Without their contents - the server strips those, because the list shows a date and a
