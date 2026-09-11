@@ -372,6 +372,10 @@ fn Row(
     let for_clone_bare = tour.clone();
     let for_json = tour.clone();
     let archived = tc_core::extras::bool_of(&tour.extras, tc_core::extras::ARCHIVED);
+    // Which tours are being settled up is the thing you look for in a list of them: it says
+    // which one is asking for something to be done. The app marks it here, the small
+    // interface marks it, and this list did not.
+    let settling = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
 
     view! {
         <div class="tcn-tour" class:is-archived=move || archived>
@@ -379,7 +383,15 @@ fn Row(
             <div class="tcn-tour-meta">
                 <span>{people} " people"</span>
                 <span>"·"</span>
-                {archived.then(|| view! { <span class="tcn-chip">"archived"</span> })}
+                {settling.then(|| view! {
+                    <span class="tcn-chip tcn-chip-amber"
+                          title="Everyone can see what to pay whom">
+                        "settling up"
+                    </span>
+                })}
+                {archived.then(|| view! {
+                    <span class="tcn-chip" title="Hidden from the default list">"archived"</span>
+                })}
                 <span title="Everything spent on this tour">
                     {money(Cents(spent))}
                     {(!currency.is_empty()).then(|| view! { "\u{a0}" {currency} })}
