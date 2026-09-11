@@ -37,7 +37,6 @@ const CHOSEN_R: f64 = 42.0;
 const CHOSEN_STROKE: f64 = 22.0;
 /// The white hair between the things inside a chosen category, in hundredths of a degree.
 const GAP: i64 = 90;
-const CIRCUMFERENCE: f64 = 2.0 * std::f64::consts::PI * R;
 
 /// The app's seed, from `CSG`.
 const SEED: (u8, u8, u8) = (0x35, 0x66, 0xee);
@@ -221,11 +220,19 @@ pub fn slices(rows: &[Row], magic: f64) -> Vec<Slice> {
         .collect()
 }
 
-/// Where a wedge starts and how long it is, on a circle of this circumference.
+/// Where a wedge starts and how long it is, **on a circle of this radius**.
 ///
 /// SVG rather than the `conic-gradient` the app uses, for one reason: a gradient has no
 /// parts, and these have to be pressable. A dashed circle has one element per wedge.
-pub fn arc(hundredths: i64, before: i64, circumference: f64) -> (f64, f64) {
+///
+/// It takes the radius and not the circumference on purpose. The chosen band is drawn two
+/// units further out than the plain ring, and dashes are measured along the circle they are
+/// on - so a length worked out for the inner circle comes out five per cent short on the
+/// outer one. Which is what happened: every subcategory was drawn a little short and a
+/// little early, and by the end of the parent's arc the drift was twelve degrees, riding
+/// over the category next door.
+pub fn arc(hundredths: i64, before: i64, radius: f64) -> (f64, f64) {
+    let circumference = 2.0 * std::f64::consts::PI * radius;
     let length = hundredths as f64 / 36000.0 * circumference;
     let offset = before as f64 / 36000.0 * circumference;
     (length, offset)
@@ -293,14 +300,14 @@ pub fn Composition(
                                 if mine && s.row.has_inside() {
                                     arcs.extend(inside_arcs(&s, start, chosen));
                                 } else {
-                                    let (length, offset) = arc(s.hundredths, start, CIRCUMFERENCE);
+                                    let (length, offset) = arc(s.hundredths, start, R);
                                     let key = s.row.key.clone();
                                     arcs.push(
                                         view! {
                                             <circle cx="60" cy="60" r=R fill="none"
                                                     stroke=s.colour.clone()
                                                     stroke-width=STROKE
-                                                    stroke-dasharray=dashes(length)
+                                                    stroke-dasharray=dashes(length, R)
                                                     stroke-dashoffset=format!("{:.3}", -offset)
                                                     transform="rotate(-90 60 60)"
                                                     opacity=if faded { ".3" } else { "1" }
@@ -483,8 +490,9 @@ fn pick(chosen: RwSignal<String>, key: &str) {
     })
 }
 
-fn dashes(length: f64) -> String {
-    format!("{length:.3} {:.3}", CIRCUMFERENCE - length)
+fn dashes(length: f64, radius: f64) -> String {
+    let circumference = 2.0 * std::f64::consts::PI * radius;
+    format!("{length:.3} {:.3}", circumference - length)
 }
 
 fn arc_title(row: &Row, hundredths: i64) -> String {
@@ -518,11 +526,11 @@ fn inside_arcs(slice: &Slice, start: i64, chosen: RwSignal<String>) -> Vec<AnyVi
         } else {
             slice.hundredths / n as i64
         };
-        let (length, offset) = arc(span, at, CIRCUMFERENCE);
+        let (length, offset) = arc(span, at, CHOSEN_R);
         // A hair of white, and only where there is room for one: on a slice of two degrees a
         // gap is the whole slice.
         let drawn = if span > GAP * 2 {
-            arc(span - GAP, at, CIRCUMFERENCE).0
+            arc(span - GAP, at, CHOSEN_R).0
         } else {
             length
         };
@@ -532,7 +540,7 @@ fn inside_arcs(slice: &Slice, start: i64, chosen: RwSignal<String>) -> Vec<AnyVi
             view! {
                 <circle cx="60" cy="60" r=CHOSEN_R fill="none" stroke=colour
                         stroke-width=CHOSEN_STROKE
-                        stroke-dasharray=dashes(drawn)
+                        stroke-dasharray=dashes(drawn, CHOSEN_R)
                         stroke-dashoffset=format!("{:.3}", -offset)
                         transform="rotate(-90 60 60)"
                         style="cursor:pointer"
@@ -764,10 +772,28 @@ mod tests {
     #[test]
     fn the_wedges_are_laid_end_to_end() {
         // Each arc starts where the last one stopped, and the last one closes the circle.
-        let c = 100.0;
-        let (first_len, first_off) = arc(9000, 0, c);
-        let (second_len, second_off) = arc(27000, 9000, c);
-        assert_eq!((first_len, first_off), (25.0, 0.0));
-        assert_eq!((second_len, second_off), (75.0, 25.0));
+        let quarter = 2.0 * std::f64::consts::PI * 40.0 / 4.0;
+        let (first_len, first_off) = arc(9000, 0, 40.0);
+        let (second_len, second_off) = arc(27000, 9000, 40.0);
+        assert!((first_len - quarter).abs() < 0.001);
+        assert_eq!(first_off, 0.0);
+        assert!((second_len - quarter * 3.0).abs() < 0.001);
+        assert!((second_off - quarter).abs() < 0.001);
+    }
+
+    #[test]
+    fn a_wedge_is_measured_on_the_circle_it_is_drawn_on() {
+        // The chosen band sits further out than the plain ring, and a dash is measured along
+        // its own circle. Working its lengths out on the inner one drew every subcategory
+        // short and early - twelve degrees of drift by the end of the parent's arc, over the
+        // top of the category next door.
+        let (whole_inner, _) = arc(36000, 0, R);
+        let (whole_outer, _) = arc(36000, 0, CHOSEN_R);
+        assert!((whole_inner - 2.0 * std::f64::consts::PI * R).abs() < 0.001);
+        assert!((whole_outer - 2.0 * std::f64::consts::PI * CHOSEN_R).abs() < 0.001);
+        assert!(
+            whole_outer > whole_inner,
+            "the outer circle is longer, which is the whole point"
+        );
     }
 }
