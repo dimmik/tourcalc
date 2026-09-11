@@ -1392,30 +1392,31 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView
             (true, Some(head)) => cats
                 .iter()
                 .filter(|(name, _)| crate::chart::head_of(name) == head)
-                .map(|(name, amount)| crate::chart::Row {
-                    key: name.clone(),
-                    label: name
-                        .split(crate::chart::SUBCAT)
-                        .skip(1)
-                        .collect::<Vec<_>>()
-                        .join("/")
-                        .trim()
-                        .to_owned(),
-                    amount: *amount,
-                    children: false,
+                .map(|(name, amount)| {
+                    crate::chart::Row::leaf(
+                        name.clone(),
+                        crate::chart::tail_of(name),
+                        *amount,
+                    )
                 })
                 .collect(),
             (false, None) => people
                 .iter()
                 .map(|(who, amount)| {
-                    // A chevron only where there is something to see: somebody who spent on
-                    // one thing has no breakdown worth opening.
-                    let theirs = categories_of(&for_rows, &tour_for_rows2, who);
+                    // What one person's money went on, carried with them: choosing them
+                    // divides their arc into it, and the chevron gives it the whole circle.
+                    let theirs: Vec<crate::chart::Row> =
+                        categories_of(&for_rows, &tour_for_rows2, who)
+                            .into_iter()
+                            .map(|(name, amount)| {
+                                crate::chart::Row::leaf(name.clone(), name, amount)
+                            })
+                            .collect();
                     crate::chart::Row {
                         key: who.clone(),
                         label: who.clone(),
                         amount: *amount,
-                        children: theirs.len() > 1,
+                        inside: if theirs.len() > 1 { theirs } else { Vec::new() },
                     }
                 })
                 .collect(),
@@ -1426,12 +1427,7 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView
                 // back into "Food" is how it stops being answered. One level, too - the
                 // crumb says whose money this is, and a second would need a second crumb to
                 // climb back out of.
-                .map(|(name, amount)| crate::chart::Row {
-                    key: name.clone(),
-                    label: name,
-                    amount,
-                    children: false,
-                })
+                .map(|(name, amount)| crate::chart::Row::leaf(name.clone(), name, amount))
                 .collect(),
         }
     };

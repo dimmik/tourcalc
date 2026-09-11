@@ -23,6 +23,22 @@ use crate::ui::money;
 use leptos::prelude::*;
 use tc_core::Cents;
 
+/// The geometry, in the viewBox's own units, so the ring scales with the box and nothing
+/// here has to know how many pixels it ends up as.
+///
+/// The radius leaves room for the stroke: a stroke straddles the path, so the ring reaches
+/// r + half of it, and the chosen band is both thicker and pushed out. At r = 54 with a
+/// 20-wide stroke that came to 67 against a half-box of 60, and the viewport cut the circle
+/// into a square - plain in a picture, invisible in the numbers.
+const R: f64 = 40.0;
+const STROKE: f64 = 18.0;
+/// The chosen category steps forward, and is drawn wider so the things inside it have room.
+const CHOSEN_R: f64 = 42.0;
+const CHOSEN_STROKE: f64 = 22.0;
+/// The white hair between the things inside a chosen category, in hundredths of a degree.
+const GAP: i64 = 90;
+const CIRCUMFERENCE: f64 = 2.0 * std::f64::consts::PI * R;
+
 /// The app's seed, from `CSG`.
 const SEED: (u8, u8, u8) = (0x35, 0x66, 0xee);
 
@@ -57,8 +73,23 @@ pub struct Row {
     pub key: String,
     pub label: String,
     pub amount: Cents,
-    /// Whether pressing the chevron leads anywhere.
-    pub children: bool,
+    /// What is inside it, largest first. Empty for a row that is only itself.
+    pub inside: Vec<Row>,
+}
+
+impl Row {
+    pub fn leaf(key: String, label: String, amount: Cents) -> Row {
+        Row {
+            key,
+            label,
+            amount,
+            inside: Vec::new(),
+        }
+    }
+
+    pub fn has_inside(&self) -> bool {
+        !self.inside.is_empty()
+    }
 }
 
 /// One wedge: its row, how much of the circle it takes in hundredths of a degree, and the
@@ -68,6 +99,15 @@ pub struct Slice {
     pub row: Row,
     pub hundredths: i64,
     pub colour: String,
+}
+
+/// What is left after the head: "lunch" out of "Food / lunch", and the whole of a name with
+/// no head to speak of.
+pub fn tail_of(name: &str) -> String {
+    match name.split_once(SUBCAT) {
+        Some((_, tail)) => tail.trim().to_owned(),
+        None => name.trim().to_owned(),
+    }
 }
 
 /// The head of a name: "Food" out of "Food / lunch", and "Taxi" out of "Taxi".
@@ -103,18 +143,25 @@ pub fn by_head(data: &[(String, Cents)]) -> Vec<Row> {
         .map(|(head, items)| {
             let amount = Cents(items.iter().map(|(_, c)| c.0).sum());
             match items.as_slice() {
-                [only] => Row {
-                    key: only.0.trim().to_owned(),
-                    label: only.0.trim().to_owned(),
-                    amount,
-                    children: false,
-                },
-                _ => Row {
-                    key: head.clone(),
-                    label: head,
-                    amount,
-                    children: true,
-                },
+                [only] => Row::leaf(only.0.trim().to_owned(), only.0.trim().to_owned(), amount),
+                _ => {
+                    // The children are carried, not just counted: choosing the head divides
+                    // its arc into them, and they are named by their tail - the head is
+                    // already the row they sit under.
+                    let mut inside: Vec<Row> = items
+                        .iter()
+                        .map(|(name, amount)| {
+                            Row::leaf(name.trim().to_owned(), tail_of(name), *amount)
+                        })
+                        .collect();
+                    inside.sort_by_key(|r| -r.amount.0);
+                    Row {
+                        key: head.clone(),
+                        label: head,
+                        amount,
+                        inside,
+                    }
+                }
             }
         })
         .collect();
@@ -202,18 +249,6 @@ pub fn Composition(
     let slices = StoredValue::new(slices(&rows, magic));
     let total = Cents(rows.iter().map(|r| r.amount.0).sum());
 
-    // The geometry, in the viewBox's own units, so the ring scales with the box and nothing
-    // here has to know how many pixels it ends up as.
-    //
-    // The radius leaves room for the stroke: a stroke straddles the path, so the ring
-    // reaches r + half of it, and the chosen slice is drawn thicker still. At r = 54 that
-    // came to 67 against a half-box of 60, and the viewport cut the circle into a square -
-    // visible immediately in a picture, and not at all in the numbers.
-    const R: f64 = 44.0;
-    const STROKE: f64 = 20.0;
-    const CHOSEN_STROKE: f64 = 26.0;
-    const CIRCUMFERENCE: f64 = 2.0 * std::f64::consts::PI * R;
-
     let unit_centre = unit.clone();
     let unit_rows = unit.clone();
 
@@ -239,66 +274,53 @@ pub fn Composition(
             })}
 
             <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap">
-                <div style="position:relative; flex:0 0 auto; width:150px; height:150px">
+                <div class="tcw-ring" style="position:relative; flex:0 0 auto">
                     <svg viewBox="0 0 120 120" style="width:100%; height:100%; display:block"
                          role="img" aria-label="What the money went on">
-                        {
+                        // The whole ring is redrawn when the choice changes, because the
+                        // choice changes what the ring is made of: the chosen category is
+                        // not one arc any more but one arc per thing inside it.
+                        {move || {
+                            let picked = chosen.get();
                             let mut before = 0i64;
-                            slices.get_value()
-                                .into_iter()
-                                .map(|s| {
-                                    let (length, offset) = arc(s.hundredths, before, CIRCUMFERENCE);
-                                    before += s.hundredths;
+                            let mut arcs: Vec<AnyView> = Vec::new();
+                            for s in slices.get_value() {
+                                let start = before;
+                                before += s.hundredths;
+                                let mine = picked == s.row.key;
+                                let faded = !picked.is_empty() && !mine;
+
+                                if mine && s.row.has_inside() {
+                                    arcs.extend(inside_arcs(&s, start, chosen));
+                                } else {
+                                    let (length, offset) = arc(s.hundredths, start, CIRCUMFERENCE);
                                     let key = s.row.key.clone();
-                                    let picked = key.clone();
-                                    let mine = key.clone();
-                                    let label = format!(
-                                        "{}, {:.1}%",
-                                        s.row.label,
-                                        s.hundredths as f64 * 100.0 / 36000.0
+                                    arcs.push(
+                                        view! {
+                                            <circle cx="60" cy="60" r=R fill="none"
+                                                    stroke=s.colour.clone()
+                                                    stroke-width=STROKE
+                                                    stroke-dasharray=dashes(length)
+                                                    stroke-dashoffset=format!("{:.3}", -offset)
+                                                    transform="rotate(-90 60 60)"
+                                                    opacity=if faded { ".3" } else { "1" }
+                                                    style="cursor:pointer; transition:opacity .12s ease"
+                                                    on:click=move |_| pick(chosen, &key)>
+                                                <title>{arc_title(&s.row, s.hundredths)}</title>
+                                            </circle>
+                                        }
+                                        .into_any(),
                                     );
-                                    view! {
-                                        <circle cx="60" cy="60" r=R fill="none"
-                                                stroke=s.colour.clone()
-                                                stroke-width=move || {
-                                                    // The chosen one steps forward. Nothing
-                                                    // moves, so nothing is measured wrongly
-                                                    // because of it.
-                                                    if chosen.get() == mine {
-                                                        CHOSEN_STROKE.to_string()
-                                                    } else {
-                                                        STROKE.to_string()
-                                                    }
-                                                }
-                                                stroke-dasharray=format!(
-                                                    "{length:.3} {:.3}", CIRCUMFERENCE - length)
-                                                stroke-dashoffset=format!("{:.3}", -offset)
-                                                transform="rotate(-90 60 60)"
-                                                opacity=move || {
-                                                    let c = chosen.get();
-                                                    if c.is_empty() || c == key { "1" } else { ".3" }
-                                                }
-                                                style="cursor:pointer; transition:stroke-width .12s ease, opacity .12s ease"
-                                                aria-label=label
-                                                on:click=move |_| {
-                                                    chosen.update(|c| {
-                                                        if *c == picked {
-                                                            c.clear()
-                                                        } else {
-                                                            *c = picked.clone()
-                                                        }
-                                                    })
-                                                } />
-                                    }
-                                })
-                                .collect_view()
-                        }
+                                }
+                            }
+                            arcs
+                        }}
                     </svg>
                     // The hole does the work the "Total" line used to do, and says what the
                     // chosen slice is worth when there is one.
                     <div style="position:absolute; inset:0; display:flex; flex-direction:column;
                                 align-items:center; justify-content:center; text-align:center;
-                                pointer-events:none; padding:0 22px">
+                                pointer-events:none; padding:0 24px">
                         <div style="font-size:15px; font-weight:700; line-height:1.15">
                             {move || match chosen_amount() {
                                 Some((_, amount, _)) => money(amount),
@@ -329,6 +351,11 @@ pub fn Composition(
                             let unit = unit_rows.clone();
                             let colour = s.colour.clone();
                             let bar = s.colour.clone();
+                            let shown = s.row.label.clone();
+                            let children = s.row.inside.clone();
+                            let parent_colour = s.colour.clone();
+                            let open = key.clone();
+                            let unit_children = unit_rows.clone();
                             view! {
                                 <div style="display:flex; align-items:center; gap:4px">
                                     <button type="button" class="tcn-compo-row"
@@ -344,11 +371,7 @@ pub fn Composition(
                                                 } else {
                                                     "transparent"
                                                 })
-                                            on:click=move |_| {
-                                                chosen.update(|c| {
-                                                    if *c == picked { c.clear() } else { *c = picked.clone() }
-                                                })
-                                            }>
+                                            on:click=move |_| pick(chosen, &picked)>
                                         <span style=format!(
                                             "flex:0 0 auto; width:10px; height:10px; \
                                              border-radius:3px; background:{colour}")></span>
@@ -356,7 +379,7 @@ pub fn Composition(
                                             <span style="display:block; overflow:hidden;
                                                          text-overflow:ellipsis; white-space:nowrap;
                                                          font-weight:600; font-size:13px">
-                                                {s.row.label.clone()}
+                                                {shown}
                                             </span>
                                             // The proportion, drawn. On a phone the ring is
                                             // small and the list is what actually gets read.
@@ -379,16 +402,66 @@ pub fn Composition(
                                             </span>
                                         </span>
                                     </button>
-                                    {s.row.children.then(|| view! {
+                                    {s.row.has_inside().then(|| view! {
                                         <button type="button" class="tcn-btn tcn-btn-sm"
                                                 style="flex:0 0 auto; padding:4px 7px"
-                                                title=format!("What is inside {}", s.row.label)
-                                                aria-label=format!("What is inside {}", s.row.label)
+                                                title=format!("Show only {}", s.row.label)
+                                                aria-label=format!("Show only {}", s.row.label)
                                                 on:click=move |_| into.run(inside.clone())>
                                             <crate::icon::Icon name="chevron-right" />
                                         </button>
                                     })}
                                 </div>
+
+                                // What is inside it, once it is chosen: the same division the
+                                // ring has just made, in words. The ring shows the shape of
+                                // it; this says which is which.
+                                {move || {
+                                    if chosen.get() != open || children.is_empty() {
+                                        return ().into_any();
+                                    }
+                                    let whole: i64 = children.iter().map(|c| c.amount.0.abs()).sum();
+                                    let unit = unit_children.clone();
+                                    let parent = parent_colour.clone();
+                                    let n = children.len();
+                                    children
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(i, child)| {
+                                            let share = if whole == 0 {
+                                                0.0
+                                            } else {
+                                                child.amount.0.abs() as f64 * 100.0 / whole as f64
+                                            };
+                                            let unit = unit.clone();
+                                            view! {
+                                                <div style="display:flex; align-items:center;
+                                                            gap:7px; padding:3px 7px 3px 24px">
+                                                    <span style=format!(
+                                                        "flex:0 0 auto; width:8px; height:8px; \
+                                                         border-radius:2px; background:{}",
+                                                        shade(&parent, i, n))></span>
+                                                    <span style="flex:1 1 auto; min-width:0;
+                                                                 overflow:hidden;
+                                                                 text-overflow:ellipsis;
+                                                                 white-space:nowrap; font-size:12px">
+                                                        {child.label.clone()}
+                                                    </span>
+                                                    <span style="flex:0 0 auto; font-size:12px">
+                                                        {money(child.amount)}
+                                                        {(!unit.is_empty())
+                                                            .then(|| view! { <small>"\u{a0}" {unit}</small> })}
+                                                    </span>
+                                                    <span class="tcn-hint"
+                                                          style="margin:0; font-size:11px; flex:0 0 auto">
+                                                        {format!("{share:.0}%")}
+                                                    </span>
+                                                </div>
+                                            }
+                                        })
+                                        .collect_view()
+                                        .into_any()
+                                }}
                             }
                         })
                         .collect_view()}
@@ -396,6 +469,152 @@ pub fn Composition(
             </div>
         </div>
     }
+}
+
+/// Choosing, and un-choosing by choosing again.
+fn pick(chosen: RwSignal<String>, key: &str) {
+    let key = key.to_owned();
+    chosen.update(|c| {
+        if *c == key {
+            c.clear()
+        } else {
+            *c = key
+        }
+    })
+}
+
+fn dashes(length: f64) -> String {
+    format!("{length:.3} {:.3}", CIRCUMFERENCE - length)
+}
+
+fn arc_title(row: &Row, hundredths: i64) -> String {
+    format!(
+        "{}, {:.1}%",
+        row.label,
+        hundredths as f64 * 100.0 / 36000.0
+    )
+}
+
+/// The chosen category, drawn as the things inside it.
+///
+/// They take the arc their parent had, split in its proportions, in shades of its colour and
+/// with a hair of white between them. The ring still adds up to the whole tour - which is the
+/// difference between this and going inside, where the children get the whole circle.
+fn inside_arcs(slice: &Slice, start: i64, chosen: RwSignal<String>) -> Vec<AnyView> {
+    let children = &slice.row.inside;
+    let whole: i64 = children.iter().map(|c| c.amount.0.abs()).sum();
+    let n = children.len();
+    let mut at = start;
+    let mut left = slice.hundredths;
+    let mut out: Vec<AnyView> = Vec::new();
+
+    for (i, child) in children.iter().enumerate() {
+        // The last one takes what is left, so the parent's arc is covered exactly however
+        // the division rounded.
+        let span = if i + 1 == n {
+            left
+        } else if whole > 0 {
+            (child.amount.0.abs() as f64 / whole as f64 * slice.hundredths as f64) as i64
+        } else {
+            slice.hundredths / n as i64
+        };
+        let (length, offset) = arc(span, at, CIRCUMFERENCE);
+        // A hair of white, and only where there is room for one: on a slice of two degrees a
+        // gap is the whole slice.
+        let drawn = if span > GAP * 2 {
+            arc(span - GAP, at, CIRCUMFERENCE).0
+        } else {
+            length
+        };
+        let colour = shade(&slice.colour, i, n);
+        let key = slice.row.key.clone();
+        out.push(
+            view! {
+                <circle cx="60" cy="60" r=CHOSEN_R fill="none" stroke=colour
+                        stroke-width=CHOSEN_STROKE
+                        stroke-dasharray=dashes(drawn)
+                        stroke-dashoffset=format!("{:.3}", -offset)
+                        transform="rotate(-90 60 60)"
+                        style="cursor:pointer"
+                        on:click=move |_| pick(chosen, &key)>
+                    <title>{arc_title(child, span)}</title>
+                </circle>
+            }
+            .into_any(),
+        );
+
+        // Its name along the band, where the band is long enough to hold it.
+        if worth_labelling(span, &child.label) {
+            let id = format!("tcw-arc-{}-{i}", slice.row.key.replace(' ', "-"));
+            let href = format!("#{id}");
+            out.push(
+                view! {
+                    <defs>
+                        <path id=id fill="none"
+                              d=label_path(at, span - GAP, CHOSEN_R) />
+                    </defs>
+                    <text font-size="6.5" font-weight="600" fill="#fff"
+                          style="pointer-events:none; letter-spacing:.2px">
+                        <textPath href=href startOffset="50%" text-anchor="middle"
+                                  dominant-baseline="middle">
+                            {child.label.clone()}
+                        </textPath>
+                    </text>
+                }
+                .into_any(),
+            );
+        }
+        at += span;
+        left -= span;
+    }
+    out
+}
+
+/// The path a label runs along: the middle of the band, between the two angles a wedge
+/// covers.
+///
+/// Written so the text comes out the right way up. Following the arc in the direction of
+/// travel puts the letters outside-up on the top of the circle and upside-down at the
+/// bottom, so a wedge whose middle is in the bottom half gets its path drawn backwards.
+pub fn label_path(start: i64, span: i64, r: f64) -> String {
+    let point = |hundredths: i64| {
+        let a = (hundredths as f64 / 100.0 - 90.0).to_radians();
+        (60.0 + r * a.cos(), 60.0 + r * a.sin())
+    };
+    let (x0, y0) = point(start);
+    let (x1, y1) = point(start + span);
+    let large = if span > 18000 { 1 } else { 0 };
+    let middle = (start + span / 2) % 36000;
+    if (9000..27000).contains(&middle) {
+        // Bottom half: the same arc, walked the other way.
+        format!("M {x1:.2} {y1:.2} A {r} {r} 0 {large} 0 {x0:.2} {y0:.2}")
+    } else {
+        format!("M {x0:.2} {y0:.2} A {r} {r} 0 {large} 1 {x1:.2} {y1:.2}")
+    }
+}
+
+/// Whether a wedge is worth writing on: long enough for the word to fit along it, and a word
+/// short enough to try. Everything else is named in the list beside the ring, which is where
+/// names belong.
+pub fn worth_labelling(span: i64, label: &str) -> bool {
+    span >= 4200 && label.chars().count() <= 11
+}
+
+/// A child's colour: the parent's, lighter or darker by where it sits in the family.
+///
+/// The hue is kept, so the whole family still reads as one block of the ring - which is the
+/// point of dividing it in place rather than replacing it.
+pub fn shade(parent: &str, i: usize, n: usize) -> String {
+    let Some(rgb) = crate::ui::parse_hex(parent) else {
+        return parent.to_owned();
+    };
+    if n < 2 {
+        return parent.to_owned();
+    }
+    let (h, s, l) = crate::ui::to_hsl(rgb);
+    let step = 0.34 / (n - 1) as f64;
+    let lightness = (l - 0.17 + step * i as f64).clamp(0.22, 0.82);
+    crate::ui::from_hsl(h, s, lightness)
 }
 
 #[cfg(test)]
@@ -451,11 +670,16 @@ mod tests {
         let top = by_head(&data);
         assert_eq!(top[0].key, "Food");
         assert_eq!(top[0].amount, Cents(300));
-        assert!(top[0].children, "there is something to go into");
+        assert!(top[0].has_inside(), "there is something to go into");
+        assert_eq!(
+            top[0].inside.iter().map(|r| r.label.as_str()).collect::<Vec<_>>(),
+            vec!["dinner", "lunch"],
+            "carried with it, largest first, named by their tails"
+        );
         // One child and no siblings keeps its own name: calling it "Taxi" would say there is
         // more under it than there is - and there is nothing to open.
         assert_eq!(top[1].key, "Taxi / airport");
-        assert!(!top[1].children);
+        assert!(!top[1].has_inside());
     }
 
     #[test]
@@ -475,13 +699,65 @@ mod tests {
 
     #[test]
     fn the_ring_fits_inside_its_box() {
-        // A stroke straddles the path, so the ring reaches r + half of it - and the chosen
-        // slice is drawn thicker. Exceed the half-box and the viewport clips the circle into
-        // a square, which is what it did at r = 54.
+        // A stroke straddles the path, so a band reaches its radius plus half its width -
+        // and the chosen one is both wider and pushed out. Exceed the half-box and the
+        // viewport clips the circle into a square, which is what it did at r = 54.
         const HALF_BOX: f64 = 60.0;
+        assert!(R + STROKE / 2.0 <= HALF_BOX, "the plain ring");
         assert!(
-            44.0 + 26.0 / 2.0 <= HALF_BOX,
-            "the widest stroke has to stay inside the viewBox"
+            CHOSEN_R + CHOSEN_STROKE / 2.0 <= HALF_BOX,
+            "and the chosen band, which is the one that overflowed"
+        );
+    }
+
+    #[test]
+    fn a_family_keeps_its_hue() {
+        // Dividing a category in place only works if the pieces still read as that
+        // category: same hue, different lightness.
+        let kids: Vec<String> = (0..4).map(|i| shade("#3566EE", i, 4)).collect();
+        let hue = |c: &str| crate::ui::to_hsl(crate::ui::parse_hex(c).unwrap()).0.round();
+        assert!(
+            kids.iter().all(|c| hue(c) == hue("#3566EE")),
+            "the hue is the family name: {kids:?}"
+        );
+        assert_eq!(
+            kids.len(),
+            kids.iter().collect::<std::collections::HashSet<_>>().len(),
+            "and they still have to be told apart: {kids:?}"
+        );
+        // On its own there is nothing to spread, and nothing to change.
+        assert_eq!(shade("#3566EE", 0, 1), "#3566EE");
+    }
+
+    #[test]
+    fn a_label_is_written_the_right_way_up() {
+        // Following the arc in the direction of travel reads correctly on the top of the
+        // circle and upside-down at the bottom, so the bottom half is walked backwards. The
+        // sweep flag is what says which way round it went.
+        let top = label_path(0, 6000, 42.0);
+        let bottom = label_path(15000, 6000, 42.0);
+        assert!(top.contains(" 1 "), "top half runs with the arc: {top}");
+        assert!(bottom.contains(" 0 "), "bottom half runs against it: {bottom}");
+        // Half a circle or more needs the large-arc flag, or SVG draws the short way round.
+        // Taken over the top, where the direction is the plain one - a wide wedge low down
+        // is walked backwards like any other, and would say "1 0".
+        let wide_over_the_top = label_path(27000, 20000, 42.0);
+        assert!(
+            wide_over_the_top.contains(" 1 1 "),
+            "large arc, drawn forwards: {wide_over_the_top}"
+        );
+        assert!(label_path(0, 20000, 42.0).contains(" 1 0 "), "and backwards low down");
+    }
+
+    #[test]
+    fn only_a_wedge_with_room_gets_a_name_on_it() {
+        // A name on a sliver is a name on top of its neighbours. Everything is in the list
+        // beside the ring either way.
+        assert!(worth_labelling(9000, "готовка"));
+        assert!(!worth_labelling(600, "готовка"), "two degrees of arc");
+        assert!(
+            !worth_labelling(18000, "a category with a very long name"),
+            "half the circle is still not enough for that"
         );
     }
 

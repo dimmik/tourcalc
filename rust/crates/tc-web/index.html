@@ -90,6 +90,20 @@
             display: none;
         }
 
+        /* The ring on the statistics tab. Bigger where there is room: beside a list on a
+           wide screen it can afford to be, and on a phone it is sharing the width. */
+        .tcw-ring {
+            width: 150px;
+            height: 150px;
+        }
+
+        @media (min-width: 560px) {
+            .tcw-ring {
+                width: 190px;
+                height: 190px;
+            }
+        }
+
         @media (max-width: 560px) {
             .tcw-menu-btn {
                 display: inline-flex;
