@@ -56,9 +56,21 @@ pub fn SpendingDialog(
     /// the page writes that down and gets it to the server when it can.
     on_apply: Callback<Operation>,
 ) -> impl IntoView {
-    let people = tour.persons.clone();
-    let known_categories = edit::categories(&tour);
+    // In the app's order: a family stays together, and children sit under whoever pays for
+    // them.
+    let people_paid = edit::sorted_people(&tour);
+    let people_split = people_paid.clone();
+    let headcount = tour.persons.len();
+    let currencies = tour.currencies.clone();
     let editing = draft.id.is_some();
+    // The categories this tour already uses, plus the one the app always offers.
+    let known_categories = {
+        let mut list = edit::categories(&tour);
+        if !list.iter().any(|c| c == "Common") {
+            list.push("Common".to_owned());
+        }
+        list
+    };
 
     // One signal per field. Each is `Copy`, so the handlers below can each take their own
     // without any of them owning the form.
@@ -78,7 +90,24 @@ pub fn SpendingDialog(
         draft.date.clone()
     });
     let colour = RwSignal::new(draft.colour.clone());
+    let currency = RwSignal::new(draft.currency_id.clone());
     let error = RwSignal::new(String::new());
+    // A new expense opens in the category last used, and says so: it is a guess, and one
+    // that is wrong often enough that it has to look different from a choice.
+    let guessed = RwSignal::new(!editing && !draft.category.trim().is_empty());
+    let more = RwSignal::new(false);
+    let adding = RwSignal::new(false);
+    let fresh_category = RwSignal::new(String::new());
+    let add_category = move |()| {
+        let name = fresh_category.get().trim().to_owned();
+        if name.is_empty() {
+            return;
+        }
+        category.set(name);
+        guessed.set(false);
+        fresh_category.set(String::new());
+        adding.set(false);
+    };
 
     let base = draft.clone();
     let submit = move |_| {
@@ -91,6 +120,7 @@ pub fn SpendingDialog(
         d.to = to.get();
         d.date = date.get();
         d.colour = colour.get();
+        d.currency_id = currency.get();
 
         if let Some(why) = d.problem() {
             error.set(why.to_owned());
@@ -124,24 +154,41 @@ pub fn SpendingDialog(
 
     view! {
         <Modal title=title.to_owned() on_close=on_close footer=footer>
-            <div class="tcn-field">
+            <div class="tcn-amount">
                 <div class="tcn-label">"Amount"</div>
-                <input class="tcn-input" type="number" inputmode="numeric" placeholder="0"
-                       prop:value=move || amount.get()
-                       on:input=move |ev| amount.set(event_target_value(&ev)) />
-            </div>
-
-            <div class="tcn-field">
-                <div class="tcn-label">"Date"</div>
-                // A date input rather than free text: every browser that runs this has one,
-                // and it spells the day out in whatever order the reader's locale uses while
-                // handing back the same YYYY-MM-DD the data is stored in.
-                <input class="tcn-input" type="date"
-                       prop:value=move || date.get()
-                       on:input=move |ev| date.set(event_target_value(&ev)) />
-                <div class="tcn-hint">
-                    "Only the day changes; an expense keeps its place among the ones entered
-                     the same day."
+                <div class="tcn-amount-row">
+                    <input class="tcn-amount-input" type="number" inputmode="decimal" placeholder="0"
+                           prop:value=move || amount.get()
+                           on:input=move |ev| amount.set(event_target_value(&ev)) />
+                    // Which currency this one is in. On a tour with one it is a label, not a
+                    // question - and without it an expense paid in marks went into the books
+                    // as dinars, which no arithmetic downstream can undo.
+                    {if currencies.len() > 1 {
+                        view! {
+                            <select class="tcn-amount-curr"
+                                    on:change=move |ev| currency.set(event_target_value(&ev))>
+                                {currencies
+                                    .iter()
+                                    .map(|c| {
+                                        let id = c.id.as_str().to_owned();
+                                        let mine = id.clone();
+                                        view! {
+                                            <option value=id
+                                                    selected=move || currency.get() == mine>
+                                                {c.name.clone()}
+                                            </option>
+                                        }
+                                    })
+                                    .collect_view()}
+                            </select>
+                        }.into_any()
+                    } else {
+                        view! {
+                            <span class="tcn-amount-curr is-static">
+                                {currencies.first().map(|c| c.name.clone()).unwrap_or_default()}
+                            </span>
+                        }.into_any()
+                    }}
                 </div>
             </div>
 
@@ -153,95 +200,230 @@ pub fn SpendingDialog(
             </div>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Category"</div>
-                <input class="tcn-input" type="text" list="tcw-categories"
-                       prop:value=move || category.get()
-                       on:input=move |ev| category.set(event_target_value(&ev)) />
-                <datalist id="tcw-categories">
-                    {known_categories
-                        .iter()
-                        .map(|c| view! { <option value=c.clone()></option> })
-                        .collect_view()}
-                </datalist>
-            </div>
-
-            <div class="tcn-field">
                 <div class="tcn-label">"Paid by"</div>
-                <select class="tcn-input" on:change=move |ev| from.set(event_target_value(&ev))>
-                    {people
+                <div class="tcn-pchips">
+                    {people_paid
                         .iter()
                         .map(|p| {
                             let id = p.id.as_str().to_owned();
+                            let mine = id.clone();
+                            let child = p.parent.is_some();
                             view! {
-                                <option value=id.clone() selected=move || from.get() == id>
-                                    {p.name.clone()}
-                                </option>
+                                <button type="button" class="tcn-pchip"
+                                        class:is-on=move || from.get() == mine
+                                        on:click=move |_| from.set(id.clone())>
+                                    <crate::tour::Avatar name=p.name.clone() />
+                                    <span class="tcn-pchip-name">
+                                        {if child { "⤷ " } else { "" }}
+                                        {p.name.clone()}
+                                    </span>
+                                </button>
                             }
                         })
                         .collect_view()}
-                </select>
-            </div>
-
-            <div class="tcn-field">
-                <label class="tcn-switchline">
-                    <input type="checkbox" prop:checked=move || everyone.get()
-                           on:change=move |ev| everyone.set(event_target_checked(&ev)) />
-                    "Shared by everyone"
-                </label>
-            </div>
-
-            <div class="tcn-field">
-                <label class="tcn-switchline">
-                    <input type="checkbox"
-                           prop:checked=move || !colour.get().is_empty()
-                           on:change=move |ev| colour.set(if event_target_checked(&ev) {
-                               // The app's own default when a row is first marked; the
-                               // colour input below changes it to anything else.
-                               "#ffd54f".to_owned()
-                           } else {
-                               String::new()
-                           }) />
-                    <span class="tcn-label" style="margin:0">"Colour"</span>
-                    <Show when=move || !colour.get().is_empty()>
-                        <input type="color" style="margin-left:8px"
-                               prop:value=move || colour.get()
-                               on:input=move |ev| colour.set(event_target_value(&ev)) />
-                    </Show>
-                </label>
-                <div class="tcn-hint">
-                    "Marks the row out in the list — a tourist tax for the whole group, an
-                     unexpected fine."
                 </div>
             </div>
 
-            <Show when=move || !everyone.get()>
-                <div class="tcn-field">
-                    <div class="tcn-label">"Split between"</div>
-                    {tour
-                        .persons
-                        .iter()
-                        .map(|p| {
-                            let id = p.id.clone();
-                            let checked_id = id.clone();
+            <div class="tcn-field">
+                <div class="tcn-label tcn-label-row">
+                    <span>"Split between"</span>
+                    <label class="tcn-switchline">
+                        <input type="checkbox" prop:checked=move || everyone.get()
+                               on:change=move |ev| everyone.set(event_target_checked(&ev)) />
+                        "everyone"
+                    </label>
+                </div>
+                <Show when=move || everyone.get()>
+                    <div class="tcn-hint">
+                        {format!("Shared by all {headcount} participants, by weight.")}
+                    </div>
+                </Show>
+                <Show when=move || !everyone.get()>
+                    <div class="tcn-pchips">
+                        {people_split
+                            .iter()
+                            .map(|p| {
+                                let id = p.id.clone();
+                                let mine = id.clone();
+                                let child = p.parent.is_some();
+                                view! {
+                                    <button type="button" class="tcn-pchip"
+                                            class:is-on=move || to.get().contains(&mine)
+                                            on:click={
+                                                let id = id.clone();
+                                                move |_| to.update(|list| {
+                                                    if let Some(at) =
+                                                        list.iter().position(|x| x == &id)
+                                                    {
+                                                        list.remove(at);
+                                                    } else {
+                                                        list.push(id.clone());
+                                                    }
+                                                })
+                                            }>
+                                        <crate::tour::Avatar name=p.name.clone() />
+                                        <span class="tcn-pchip-name">
+                                            {if child { "⤷ " } else { "" }}
+                                            {p.name.clone()}
+                                        </span>
+                                    </button>
+                                }
+                            })
+                            .collect_view()}
+                    </div>
+                    <div class="tcn-hint">
+                        {move || if to.get().is_empty() {
+                            view! { <span>"Pick who this expense is for."</span> }.into_any()
+                        } else {
                             view! {
-                                <label class="tcn-switchline">
-                                    <input type="checkbox"
-                                           prop:checked=move || to.get().contains(&checked_id)
-                                           on:change={
-                                               let id = id.clone();
-                                               move |ev| {
-                                                   let on = event_target_checked(&ev);
-                                                   to.update(|list| {
-                                                       list.retain(|x| x != &id);
-                                                       if on { list.push(id.clone()) }
-                                                   });
-                                               }
-                                           } />
-                                    {p.name.clone()}
-                                </label>
-                            }
-                        })
-                        .collect_view()}
+                                <span>{to.get().len()} " selected"</span>
+                                <button type="button" class="tcn-linkbtn"
+                                        on:click=move |_| to.set(Vec::new())>
+                                    "clear"
+                                </button>
+                            }.into_any()
+                        }}
+                    </div>
+                </Show>
+            </div>
+
+            <div class="tcn-field">
+                <div class="tcn-label">"Category"</div>
+                <div class="tcn-chips">
+                    {move || {
+                        let mut names = known_categories.clone();
+                        // Whatever this expense is already in belongs on the list, even if
+                        // nothing else in the tour uses it.
+                        let now = category.get();
+                        if !now.trim().is_empty() && !names.iter().any(|c| *c == now) {
+                            names.push(now);
+                        }
+                        names
+                            .into_iter()
+                            .map(|name| {
+                                let mine = name.clone();
+                                let guess = name.clone();
+                                let picked = name.clone();
+                                view! {
+                                    <span class="tcn-chip tcn-filter-chip"
+                                          class:is-on=move || {
+                                              category.get() == mine && !guessed.get()
+                                          }
+                                          class:is-guess=move || {
+                                              category.get() == guess && guessed.get()
+                                          }
+                                          on:click=move |_| {
+                                              guessed.set(false);
+                                              category.update(|c| {
+                                                  if *c == picked {
+                                                      c.clear()
+                                                  } else {
+                                                      *c = picked.clone()
+                                                  }
+                                              });
+                                          }>
+                                        {name}
+                                    </span>
+                                }
+                            })
+                            .collect_view()
+                    }}
+                    <span class="tcn-chip tcn-filter-chip"
+                          on:click=move |_| adding.update(|a| *a = !*a)>
+                        "+ new"
+                    </span>
+                </div>
+                <Show when=move || guessed.get()>
+                    <div class="tcn-hint" style="margin-top:4px">
+                        "Last used — tap another one if it is wrong."
+                    </div>
+                </Show>
+                <Show when=move || adding.get()>
+                    <div class="tcn-row" style="margin-top:8px">
+                        <input class="tcn-input" style="flex:1 1 140px" type="text"
+                               placeholder="Category name"
+                               prop:value=move || fresh_category.get()
+                               on:input=move |ev| fresh_category.set(event_target_value(&ev))
+                               on:keyup=move |ev: web_sys::KeyboardEvent| {
+                                   if ev.key() == "Enter" {
+                                       add_category(());
+                                   }
+                               } />
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
+                                on:click=move |_| add_category(())>
+                            "Add"
+                        </button>
+                    </div>
+                </Show>
+            </div>
+
+            <div class="tcn-field">
+                <div class="tcn-label">"Date"</div>
+                // A date input rather than free text: every browser that runs this has one,
+                // and it spells the day out in whatever order the reader's locale uses while
+                // handing back the same YYYY-MM-DD the data is stored in.
+                <input class="tcn-input tcn-input-date" type="date"
+                       prop:value=move || date.get()
+                       on:input=move |ev| date.set(event_target_value(&ev)) />
+                <div class="tcn-hint">
+                    "Only the day changes; an expense keeps its place among the ones entered
+                     the same day."
+                </div>
+            </div>
+
+            // Everything that is usually left alone, out of the way but one tap off.
+            <button type="button" class="tcn-btn tcn-btn-ghost tcn-btn-block"
+                    on:click=move |_| more.update(|m| *m = !*m)>
+                {move || if more.get() {
+                    view! { <crate::icon::Icon name="chevron-down" /> }
+                } else {
+                    view! { <crate::icon::Icon name="chevron-right" /> }
+                }}
+                " More options"
+            </button>
+
+            <Show when=move || more.get()>
+                <div class="tcn-field" style="margin-top:8px">
+                    <div class="tcn-row">
+                        <span class="tcn-label" style="margin:0">"Colour"</span>
+                        <input type="color" class="tcn-colour"
+                               prop:value=move || {
+                                   let c = colour.get();
+                                   if c.is_empty() { "#ffd54f".to_owned() } else { c }
+                               }
+                               on:input=move |ev| colour.set(event_target_value(&ev)) />
+                        <Show when=move || crate::ui::is_marked(&colour.get())>
+                            <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-ghost"
+                                    on:click=move |_| colour.set(String::new())>
+                                "reset"
+                            </button>
+                        </Show>
+                    </div>
+                    <div class="tcn-hint" style="margin-top:2px">
+                        "Marks an unusual expense - a group tax, an unexpected fine - so it
+                         catches the eye in the list."
+                    </div>
+                    // What you picked, as the list will show it: a colour is chosen for how
+                    // it looks there, not for how it looks in a colour picker.
+                    <div class="tcn-settle" style=move || format!(
+                        "margin-top:8px;{}", crate::ui::mark_style(&colour.get()))>
+                        <div class="tcn-settle-flow">
+                            <span class="tcn-settle-who">
+                                {move || {
+                                    let what = description.get();
+                                    if what.trim().is_empty() {
+                                        "This expense".to_owned()
+                                    } else {
+                                        what
+                                    }
+                                }}
+                            </span>
+                        </div>
+                        <div class="tcn-settle-amount">
+                            {move || crate::ui::money(Cents(
+                                amount.get().trim().parse::<i64>().unwrap_or(0)))}
+                        </div>
+                    </div>
                 </div>
             </Show>
 

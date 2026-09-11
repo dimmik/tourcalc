@@ -54,6 +54,10 @@ pub struct SpendingDraft {
     /// unexpected fine. Empty is the ordinary case.
     #[serde(default)]
     pub colour: String,
+    /// Which of the tour's currencies the amount is in. Empty leaves what is stored, which
+    /// is what an edit that never touched the field should do.
+    #[serde(default)]
+    pub currency_id: String,
 }
 
 impl SpendingDraft {
@@ -73,6 +77,10 @@ impl SpendingDraft {
             to: Vec::new(),
             date: today(),
             colour: String::new(),
+            // The one the amounts are being read in, not the tour's own: if the screen is
+            // in euro, what somebody is typing in is almost certainly euro too. The app
+            // starts a new expense the same way.
+            currency_id: tour.currency().id.as_str().to_owned(),
         }
     }
 
@@ -91,6 +99,7 @@ impl SpendingDraft {
             to,
             date: spending.day().unwrap_or_default().to_owned(),
             colour: tc_core::extras::str_of(&spending.extras, COLOUR),
+            currency_id: spending.currency.id.as_str().to_owned(),
         }
     }
 
@@ -183,6 +192,7 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
                 });
             }
             existing.split = split;
+            set_currency(existing, tour, &draft.currency_id);
         }
         // Not there: this is the add. Replaying it again finds the spending and updates it
         // instead of adding a second one.
@@ -192,7 +202,12 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
                 description: draft.description.clone(),
                 category: draft.category.clone(),
                 amount: draft.amount,
-                currency: tour.currency().clone(),
+                currency: tour
+                    .currencies
+                    .iter()
+                    .find(|c| c.id.as_str() == draft.currency_id)
+                    .cloned()
+                    .unwrap_or_else(|| tour.currency().clone()),
                 from: draft.from.clone(),
                 split,
                 remembered_split: None,
@@ -232,6 +247,38 @@ fn set_date(spending: &mut Spending, day: &str) {
         format!("{day}{rest}")
     };
     tc_core::extras::set(&mut spending.extras, SPENDING_DATE, stamp.into());
+}
+
+/// Puts the expense in the currency the form chose.
+///
+/// Only when the tour actually has that one: a currency it does not list is not a currency,
+/// and writing it would make the amount unconvertible - the arithmetic treats such an expense
+/// as already being in whatever is on screen, which is how a tour comes to show one figure in
+/// dinars and a different one in euro.
+fn set_currency(spending: &mut Spending, tour: &Tour, id: &str) {
+    if let Some(c) = tour.currencies.iter().find(|c| c.id.as_str() == id) {
+        spending.currency = c.clone();
+    }
+}
+
+/// The people of a tour in the order the app lists them: by name, with anybody paid for
+/// sitting under whoever pays for them.
+///
+/// The C# sorts on the parent's name with the child's appended, which is what puts the
+/// family together and keeps it in one piece.
+pub fn sorted_people(tour: &Tour) -> Vec<tc_core::Person> {
+    fn key(p: &tc_core::Person, tour: &Tour, depth: usize) -> String {
+        if depth > 50 {
+            return String::new();
+        }
+        match p.parent.as_ref().and_then(|id| tour.person(id)) {
+            Some(parent) => format!("{}{}", key(parent, tour, depth + 1), p.name),
+            None => p.name.clone(),
+        }
+    }
+    let mut people = tour.persons.clone();
+    people.sort_by_key(|p| key(p, tour, 0));
+    people
 }
 
 fn set_colour(spending: &mut Spending, colour: &str) {

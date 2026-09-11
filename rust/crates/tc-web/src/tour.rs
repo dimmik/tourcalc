@@ -1263,7 +1263,6 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView
         .cloned()
         .collect();
 
-    let total: Cents = counted.iter().map(|s| tour.amount_in_current(s)).sum();
     let total_weight = match tour.persons.iter().map(|p| p.weight as i64).sum::<i64>() {
         0 => 100,
         w => w,
@@ -1888,7 +1887,7 @@ fn Metric(
 }
 
 #[component]
-fn Avatar(name: String) -> impl IntoView {
+pub fn Avatar(name: String) -> impl IntoView {
     view! {
         <span class="tcn-avatar tcn-avatar-sm" style=format!("background:{}", avatar_colour(&name))>
             {initials(&name)}
