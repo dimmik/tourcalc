@@ -71,6 +71,13 @@ impl MongoStore {
         self.tours.find_one(doc! { "_id": id }).await.ok().flatten()
     }
 
+    /// Puts a document in as it stands, without going through [`Tour`]. Tests only: it is
+    /// how a document written by the C# app - which this port has to read - gets into the
+    /// database without a C# app to write it.
+    pub async fn insert_raw_for_tests(&self, doc: Document) {
+        let _ = self.tours.insert_one(doc).await;
+    }
+
     /// Empties the collection. Tests only, and it does what it says.
     pub async fn wipe_everything_for_tests(&self) {
         let _ = self.tours.delete_many(doc! {}).await;

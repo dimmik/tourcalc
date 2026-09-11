@@ -191,3 +191,83 @@ async fn the_document_is_the_shape_the_csharp_writes() {
         spending.get("SpendingDate")
     );
 }
+
+/// A currency is known by the id the app's driver stores, through the database.
+///
+/// The C# maps its `Id` property to the `_id` element and ignores elements it does not know,
+/// so a currency in the database is identified by `_id`. This port read `Id` instead, and on
+/// a real tour whose dinars were stamped with an older id that meant no conversion at all -
+/// the euro view came out sixty times too large while the app had it right.
+///
+/// The test that would have caught it has to run against MongoDB, because that is the only
+/// place the two names for the same thing exist side by side. The file-backed store has no
+/// `_id` anywhere, which is exactly why comparing the two clients on it agreed.
+#[tokio::test]
+async fn a_currency_keeps_its_identity_through_the_database() {
+    let store = store_or_skip!("a_currency_keeps_its_identity_through_the_database");
+
+    // As the app leaves it: the currency was named Din when the expense was entered, and is
+    // called RSD now. The driver wrote its identity to `_id` and never wrote an `Id`.
+    let din = bson::doc! { "_id": "Din", "Name": "RSD", "CurrencyRate": 1000 };
+    let eur = bson::doc! { "_id": "Eur", "Name": "Eur", "CurrencyRate": 117000 };
+    let stamped = bson::doc! { "_id": "Din", "Name": "Din", "CurrencyRate": 1000 };
+    store
+        .insert_raw_for_tests(bson::doc! {
+            "_id": "renamed",
+            "GUID": "renamed",
+            "Name": "a renamed currency",
+            "TourCurrencyId": "Eur",
+            "Currencies": [din, eur],
+            "Persons": [ { "GUID": "p1", "Name": "Ann", "Weight": 100 } ],
+            "Spendings": [ {
+                "GUID": "s1", "Description": "dinars", "Type": "food",
+                "AmountInCents": 11700, "Currency": stamped,
+                "FromGuid": "p1", "ToAll": true, "ToGuid": []
+            } ],
+        })
+        .await;
+
+    let tour = store
+        .get(&TourId::new("renamed".to_owned()))
+        .await
+        .expect("the tour");
+
+    assert_eq!(
+        tour.currencies[0].id.as_str(),
+        "Din",
+        "the identity is what the driver stored, not the name it happens to carry now"
+    );
+    assert_eq!(
+        tour.amount_in_current(&tour.spendings[0]),
+        tc_core::Cents(100),
+        "11700 dinars at 1000 against the euro at 117000 - not 11700, which is what \
+         'this tour has no such currency' would have left it as"
+    );
+
+    // And saving it back leaves a document the app still reads the same way.
+    store.store((*tour).clone()).await;
+    let raw = store
+        .raw_document_for_tests("renamed")
+        .await
+        .expect("the document");
+    let first = raw
+        .get_array("Currencies")
+        .expect("currencies")
+        .first()
+        .and_then(|c| c.as_document())
+        .expect("a currency");
+    assert_eq!(first.get_str("_id").ok(), Some("Din"), "unchanged for the app");
+    assert_eq!(
+        first.get_str("Id").ok(),
+        Some("Din"),
+        "and the same under the other name, which is what this port reads"
+    );
+    let currency = raw.get_document("Currency").ok();
+    if let Some(currency) = currency {
+        assert_eq!(
+            currency.get_str("_id").ok().or(currency.get_str("Id").ok()),
+            Some("Eur"),
+            "the tour's own currency says what TourCurrencyId says"
+        );
+    }
+}
