@@ -313,6 +313,15 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     // reloaded - which happens after every edit. Kept inside, it meant that saving an
     // expense answered by throwing the reader back to Balance.
     let tab = RwSignal::new(tab_of(landing));
+    // Whether that was an answer or a placeholder. The app settles this once and leaves it:
+    // a reader who has moved to another tab does not want the next refresh moving them back.
+    let tab_settled = RwSignal::new(!matches!(landing, crate::Landing::Unsaid));
+    let settle_tab = move |tour: &Tour| {
+        if !tab_settled.get_untracked() {
+            tab.set(opens_on(tour));
+            tab_settled.set(true);
+        }
+    };
 
     let refresh = Refresh {
         busy: RwSignal::new(false),
@@ -349,6 +358,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
 
     if let Some(known) = queue::cached(&id) {
         show_name(&known);
+        settle_tab(&known);
         set_state.set(Load::Ready(queue::with_pending(&known)));
         status.set(Status::Checking);
     }
@@ -412,6 +422,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
 
                 if let Some(t) = &tour {
                     show_name(t);
+                    settle_tab(t);
                 }
                 set_state.set(match tour {
                     Some(t) => Load::Ready(queue::with_pending(&t)),
@@ -1588,6 +1599,25 @@ pub fn tab_of(landing: crate::Landing) -> Tab {
         crate::Landing::Expenses | crate::Landing::AddSpending => Tab::Expenses,
         crate::Landing::Stats => Tab::Stats,
         crate::Landing::Balance => Tab::Balance,
+        // Until the tour is here to say. It never shows: the tab is settled the moment
+        // there is a tour to settle it from, cached copy included.
+        crate::Landing::Unsaid => Tab::Expenses,
+    }
+}
+
+/// Which tab a tour opens on when the address did not say.
+///
+/// A tour being settled up opens on the payments, because that is the whole of what anybody
+/// is doing with it; any other one opens where expenses are added, because that is the whole
+/// of what anybody is doing with *it*. An archived tour is nobody's business to settle, so it
+/// is treated as an ordinary one. The app's rule, and its reasons.
+pub fn opens_on(tour: &Tour) -> Tab {
+    let settling = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
+    let archived = tc_core::extras::bool_of(&tour.extras, tc_core::extras::ARCHIVED);
+    if settling && !archived {
+        Tab::Balance
+    } else {
+        Tab::Expenses
     }
 }
 

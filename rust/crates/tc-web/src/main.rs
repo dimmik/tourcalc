@@ -58,6 +58,9 @@ enum Route {
 /// Where in a tour a link points.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Landing {
+    /// The address named a tour and nothing else, so which tab to open is the tour's to
+    /// decide - see `tour::opens_on`.
+    Unsaid,
     Balance,
     People,
     Expenses,
@@ -80,7 +83,7 @@ fn route_of(path: &str) -> Route {
         [] | ["tourlist"] => Route::List,
         ["help"] => Route::Help,
         ["settings"] => Route::Settings,
-        ["tour", id] => Route::Tour((*id).to_owned(), Landing::Balance),
+        ["tour", id] => Route::Tour((*id).to_owned(), Landing::Unsaid),
         ["tour", id, "persons"] => Route::Tour((*id).to_owned(), Landing::People),
         ["tour", id, "spendings"] => Route::Tour((*id).to_owned(), Landing::Expenses),
         ["tour", id, "stats"] => Route::Tour((*id).to_owned(), Landing::Stats),
@@ -328,7 +331,7 @@ mod tests {
         assert_eq!(route_of("/"), Route::List);
         assert_eq!(route_of("/tourlist"), Route::List);
         assert_eq!(route_of("/settings"), Route::Settings);
-        assert!(matches!(route_of("/tour/abc"), Route::Tour(id, Landing::Balance) if id == "abc"));
+        assert!(matches!(route_of("/tour/abc"), Route::Tour(id, Landing::Unsaid) if id == "abc"));
         assert!(matches!(
             route_of("/tour/abc/persons"),
             Route::Tour(_, Landing::People)
@@ -342,6 +345,21 @@ mod tests {
         // "nothing here".
         assert_eq!(route_of("/help?from=list"), Route::Help);
         assert_eq!(route_of("/help#weights"), Route::Help);
+    }
+
+    #[test]
+    fn a_tour_on_its_own_leaves_the_tab_to_the_tour() {
+        // "/tour/x" is not a request for the balances: it is a request for the tour, and
+        // which tab that opens depends on whether it is being settled up. The three that do
+        // name a section still mean what they say.
+        assert!(matches!(
+            route_of("/tour/abc"),
+            Route::Tour(_, Landing::Unsaid)
+        ));
+        assert!(matches!(
+            route_of("/tour/abc/spendings"),
+            Route::Tour(_, Landing::Expenses)
+        ));
     }
 
     #[test]

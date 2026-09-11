@@ -243,6 +243,7 @@ mod tests {
             to: Vec::new(),
             date: "2021-08-14".into(),
             colour: String::new(),
+            currency_id: t.currency().id.as_str().to_owned(),
         })
     }
 
