@@ -498,9 +498,29 @@ pub mod wire {
 
     impl From<Currency> for super::Currency {
         fn from(c: Currency) -> super::Currency {
-            // The old model lets Id be absent and falls back to Name - "keep current
-            // contract", as the C# comment puts it. Kept, because the data relies on it.
-            let id = c.id.unwrap_or_else(|| c.name.clone());
+            // Which of the three fields is the currency's identity, in order.
+            //
+            // `_id` first, because that is where the C# keeps it once a tour has been
+            // through MongoDB: the driver maps the `Id` property to the `_id` element, and
+            // is registered to ignore every element it does not know - so a document with
+            // both is read by the app as `_id` and by nothing else.
+            //
+            // Reading `Id` instead is how a real tour came out wrong. Its dinars were
+            // stamped `Din`, the tour's own list said `_id: "Din"` with `Id: "RSD"` beside
+            // it, and this port matched on "RSD": no currency of that id, so every one of
+            // those expenses counted as "already in whatever you are looking at" and was
+            // never converted. In dinars nothing looked wrong. In euro the total was sixty
+            // times too big.
+            //
+            // Then `Id`, which is what the C#'s own JSON carries, and last the name, which
+            // is the old contract for a currency that never had an id written down at all.
+            let id = c
+                .rest
+                .get("_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_owned())
+                .or(c.id)
+                .unwrap_or_else(|| c.name.clone());
             super::Currency {
                 id: CurrencyId::new(id),
                 name: c.name,
@@ -613,11 +633,21 @@ pub mod wire {
 
 impl From<&Currency> for wire::Currency {
     fn from(c: &Currency) -> wire::Currency {
+        // Both names for the identity, and the same value in each. A document carrying an
+        // `Id` that disagreed with its `_id` is what this port used to write, and it is read
+        // one way by the app and the other way here - which is the whole of the bug above.
+        let mut rest = c.extras.0.clone();
+        if rest.contains_key("_id") {
+            rest.insert(
+                "_id".to_owned(),
+                serde_json::Value::String(c.id.as_str().to_owned()),
+            );
+        }
         wire::Currency {
             id: Some(c.id.as_str().to_owned()),
             name: c.name.clone(),
             currency_rate: c.rate,
-            rest: c.extras.0.clone(),
+            rest,
         }
     }
 }

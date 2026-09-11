@@ -451,3 +451,73 @@ fn the_threshold_follows_the_currency() {
     assert_eq!(single.min_meaningful(49).0, 49);
     assert_eq!(single.min_meaningful(0).0, 0);
 }
+
+/// A currency the app has stored in MongoDB is identified by `_id`, not by `Id`.
+///
+/// The MongoDB driver maps the C#'s `Id` property to the `_id` element and is registered to
+/// ignore every element it does not know, so a document carrying both is read by the app as
+/// its `_id`. Reading the other one is how a real tour's euro view came out sixty times too
+/// big: its expenses were stamped `Din`, the tour's list said `_id: "Din"` with `Id: "RSD"`
+/// written beside it, nothing matched, and "a currency the tour does not list" means "no
+/// conversion at all".
+#[test]
+fn a_currency_is_known_by_the_id_the_app_stores() {
+    let json = r#"{
+        "Id": "t1", "Name": "renamed currency",
+        "TourCurrencyId": "Eur",
+        "Currencies": [
+            {"Id": "RSD", "Name": "RSD", "CurrencyRate": 1000, "_id": "Din"},
+            {"Id": "Eur", "Name": "Eur", "CurrencyRate": 117000, "_id": "Eur"}
+        ],
+        "Persons": [{"GUID": "p1", "Name": "Ann", "Weight": 100}],
+        "Spendings": [
+            {"GUID": "s1", "Description": "dinars", "Type": "food", "AmountInCents": 11700,
+             "Currency": {"Id": "Din", "Name": "Din", "CurrencyRate": 1000, "_id": "Din"},
+             "FromGuid": "p1", "ToAll": true, "ToGuid": []}
+        ]
+    }"#;
+    let tour = tc_core::Tour::from_json(json).expect("a tour");
+
+    assert_eq!(
+        tour.currencies[0].id.as_str(),
+        "Din",
+        "the identity is the one the driver wrote, not the one beside it"
+    );
+    assert_eq!(
+        tour.amount_in_current(&tour.spendings[0]),
+        tc_core::Cents(100),
+        "11700 dinars at 1000 against the euro at 117000 - and not 11700, which is what \
+         'the tour has no such currency' would have given"
+    );
+
+    // Written back, the two names for it agree, so the next reader of either finds the same
+    // currency. Before this, saving from here left a document the app read one way and this
+    // port read the other.
+    let out: serde_json::Value = serde_json::from_str(&tour.to_json().unwrap()).unwrap();
+    let stored = &out["Currencies"][0];
+    assert_eq!(stored["Id"], "Din");
+    assert_eq!(stored["_id"], "Din");
+    assert_eq!(stored["Name"], "RSD", "the name is untouched: only the id was confused");
+}
+
+/// The same tour as the app's own JSON has it - `Id` and no `_id` - still reads by `Id`.
+#[test]
+fn a_currency_from_the_apps_json_is_known_by_its_id() {
+    let json = r#"{
+        "Id": "t2", "Name": "plain",
+        "TourCurrencyId": "Eur",
+        "Currencies": [
+            {"Id": "Din", "Name": "RSD", "CurrencyRate": 1000},
+            {"Id": "Eur", "Name": "Eur", "CurrencyRate": 117000}
+        ],
+        "Persons": [{"GUID": "p1", "Name": "Ann", "Weight": 100}],
+        "Spendings": [
+            {"GUID": "s1", "Description": "dinars", "Type": "food", "AmountInCents": 11700,
+             "Currency": {"Id": "Din", "Name": "RSD", "CurrencyRate": 1000},
+             "FromGuid": "p1", "ToAll": true, "ToGuid": []}
+        ]
+    }"#;
+    let tour = tc_core::Tour::from_json(json).expect("a tour");
+    assert_eq!(tour.currencies[0].id.as_str(), "Din");
+    assert_eq!(tour.amount_in_current(&tour.spendings[0]), tc_core::Cents(100));
+}
