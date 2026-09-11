@@ -712,6 +712,41 @@ impl From<&Spending> for wire::Spending {
 
 impl From<&Tour> for wire::Tour {
     fn from(t: &Tour) -> wire::Tour {
+        // `Currency` is the C#'s *computed* view of "which one is the tour in", written
+        // beside `TourCurrencyId` and kept in step by the app itself. Here it rides through
+        // `extras`, so a tour saved from this port could carry one that disagreed with the
+        // id next to it - and on the other side that field is not read-only: its setter
+        // changes the tour's currency and throws the suggested payments away. So it is
+        // rewritten from the currency the tour is actually in, and the two can no longer
+        // tell a reader different things.
+        let mut rest = t.extras.0.clone();
+        if rest.contains_key("Currency") {
+            let current = t.currency();
+            let mut written = serde_json::Map::new();
+            written.insert(
+                "Id".to_owned(),
+                serde_json::Value::String(current.id.as_str().to_owned()),
+            );
+            // Kept for a document that came from MongoDB, where that is the name the
+            // driver reads and the other one is ignored.
+            if rest
+                .get("Currency")
+                .and_then(|c| c.get("_id"))
+                .is_some()
+            {
+                written.insert(
+                    "_id".to_owned(),
+                    serde_json::Value::String(current.id.as_str().to_owned()),
+                );
+            }
+            written.insert(
+                "Name".to_owned(),
+                serde_json::Value::String(current.name.clone()),
+            );
+            written.insert("CurrencyRate".to_owned(), current.rate.into());
+            rest.insert("Currency".to_owned(), serde_json::Value::Object(written));
+        }
+
         wire::Tour {
             id: Some(t.id.as_str().to_owned()),
             guid: Some(t.id.as_str().to_owned()),
@@ -720,7 +755,7 @@ impl From<&Tour> for wire::Tour {
             spendings: t.spendings.iter().map(Into::into).collect(),
             currencies: Some(t.currencies.iter().map(Into::into).collect()),
             tour_currency_id: Some(t.current_currency.as_str().to_owned()),
-            rest: t.extras.0.clone(),
+            rest,
         }
     }
 }

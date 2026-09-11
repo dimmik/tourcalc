@@ -521,3 +521,35 @@ fn a_currency_from_the_apps_json_is_known_by_its_id() {
     assert_eq!(tour.currencies[0].id.as_str(), "Din");
     assert_eq!(tour.amount_in_current(&tour.spendings[0]), tc_core::Cents(100));
 }
+
+/// The `Currency` written beside `TourCurrencyId` says the same thing as it.
+///
+/// It is the C#'s computed view of which currency a tour is in, and on that side it is not
+/// read-only: the property's setter changes `TourCurrencyId` and drops the suggested
+/// payments. A tour saved from here used to carry whatever that field said when it arrived,
+/// which after any currency change was the wrong one - two fields, two answers, and which a
+/// reader believes depends on the order it reads them in.
+#[test]
+fn the_tours_own_currency_agrees_with_the_id_beside_it() {
+    let json = r#"{
+        "Id": "t3", "Name": "changed its mind",
+        "TourCurrencyId": "Eur",
+        "Currency": {"CurrencyRate": 1000, "Name": "RSD", "_id": "Din"},
+        "Currencies": [
+            {"Id": "RSD", "Name": "RSD", "CurrencyRate": 1000, "_id": "Din"},
+            {"Id": "Eur", "Name": "Eur", "CurrencyRate": 117000, "_id": "Eur"}
+        ],
+        "Persons": [], "Spendings": []
+    }"#;
+    let tour = tc_core::Tour::from_json(json).expect("a tour");
+    let out: serde_json::Value = serde_json::from_str(&tour.to_json().unwrap()).unwrap();
+
+    assert_eq!(out["TourCurrencyId"], "Eur");
+    assert_eq!(out["Currency"]["Id"], "Eur");
+    assert_eq!(out["Currency"]["Name"], "Eur");
+    assert_eq!(out["Currency"]["CurrencyRate"], 117000);
+    assert_eq!(
+        out["Currency"]["_id"], "Eur",
+        "a document that came from the database keeps the name the driver reads"
+    );
+}
