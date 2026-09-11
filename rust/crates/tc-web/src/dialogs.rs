@@ -91,7 +91,7 @@ pub fn SpendingDialog(
     });
     let colour = RwSignal::new(draft.colour.clone());
     let currency = RwSignal::new(draft.currency_id.clone());
-    let error = RwSignal::new(String::new());
+    let errors: RwSignal<Vec<&'static str>> = RwSignal::new(Vec::new());
     // A new expense opens in the category last used, and says so: it is a guess, and one
     // that is wrong often enough that it has to look different from a choice.
     let guessed = RwSignal::new(!editing && !draft.category.trim().is_empty());
@@ -122,8 +122,9 @@ pub fn SpendingDialog(
         d.colour = colour.get();
         d.currency_id = currency.get();
 
-        if let Some(why) = d.problem() {
-            error.set(why.to_owned());
+        let wrong = d.problems();
+        if !wrong.is_empty() {
+            errors.set(wrong);
             return;
         }
         // A new spending gets its id here, where the edit is decided - see the note on
@@ -144,6 +145,17 @@ pub fn SpendingDialog(
         ViewFn::from(move || {
             let submit = submit.clone();
             view! {
+                // Beside the button that produced them, not at the top of a body that may be
+                // scrolled somewhere else entirely.
+                <Show when=move || !errors.get().is_empty()>
+                    <div class="tcn-errors" role="alert" style="flex:1 1 100%; margin:0 0 8px">
+                        {move || errors.get()
+                            .into_iter()
+                            .map(|e| view! { <div>{e}</div> })
+                            .collect_view()}
+                    </div>
+                </Show>
+                <span style="flex:1 1 auto"></span>
                 <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>"Cancel"</button>
                 <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit.clone()>
                     "Save"
@@ -427,9 +439,6 @@ pub fn SpendingDialog(
                 </div>
             </Show>
 
-            <Show when=move || !error.get().is_empty()>
-                <div class="tcn-errors">{move || error.get()}</div>
-            </Show>
         </Modal>
     }
 }
@@ -537,9 +546,6 @@ pub fn PersonDialog(
                 </select>
             </div>
 
-            <Show when=move || !error.get().is_empty()>
-                <div class="tcn-errors">{move || error.get()}</div>
-            </Show>
         </Modal>
     }
 }

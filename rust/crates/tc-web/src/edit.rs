@@ -104,17 +104,29 @@ impl SpendingDraft {
     }
 
     /// Why this cannot be saved, if it cannot.
-    pub fn problem(&self) -> Option<&'static str> {
+    /// Everything wrong with it, in the app's words and all at once.
+    ///
+    /// All at once because they are independent: told only the first, somebody fixes it,
+    /// presses save, and is told the next one. The app lists them together and so does this.
+    ///
+    /// "What for" is on the list, which it was not before: an expense with no description is
+    /// a line in the list that says only how much, and a week later nobody knows what it
+    /// was.
+    pub fn problems(&self) -> Vec<&'static str> {
+        let mut wrong = Vec::new();
         if self.amount.0 == 0 {
-            return Some("How much was it?");
+            wrong.push("Amount should not be 0");
+        }
+        if self.description.trim().is_empty() {
+            wrong.push("Please specify what the money went for");
         }
         if !self.everyone && self.to.is_empty() {
-            return Some("Who was it for?");
+            wrong.push("Pick who this expense is for, or turn on “everyone”");
         }
         if self.from.as_str().is_empty() {
-            return Some("Who paid?");
+            wrong.push("Pick who paid");
         }
-        None
+        wrong
     }
 }
 

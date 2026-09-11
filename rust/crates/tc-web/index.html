@@ -90,6 +90,40 @@
             display: none;
         }
 
+        /*
+            A dialog that keeps its head and its feet. The card had no height of its own, so
+            a long form - the expense one, with its chips - grew past the screen and took
+            Cancel and Save with it: to save, you scrolled. Now the card is a column bounded
+            by the viewport, and only the middle of it scrolls.
+
+            `dvh` rather than `vh` because on a phone the browser's own bar comes and goes,
+            and `vh` is the tall version of the window: a footer positioned against it sits
+            below the fold exactly when the bar is showing. The `vh` line stays first for
+            anything that does not know `dvh`.
+        */
+        .tcn-modal-card {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 48px);
+            max-height: calc(100dvh - 48px);
+        }
+
+        .tcn-modal-body {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tcn-modal-head,
+        .tcn-modal-foot {
+            flex: 0 0 auto;
+        }
+
+        /* Errors sit above the two buttons, so the row has to be able to wrap. */
+        .tcn-modal-foot {
+            flex-wrap: wrap;
+        }
+
         /* The ring on the statistics tab. Bigger where there is room: beside a list on a
            wide screen it can afford to be, and on a phone it is sharing the width. */
         .tcw-ring {
