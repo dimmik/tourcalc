@@ -124,6 +124,31 @@
             flex-wrap: wrap;
         }
 
+        /* A row the calculator wrote for itself is not an expense, and the app paints it:
+           green for a payback, cyan for a transfer inside a family. Those rules are written
+           for `.tcn-sp`, and these rows are `.tcn-settle`, so the colours are repeated here
+           against the class the rows actually carry - the variables are the app's own.
+
+           The stripe is an inset shadow rather than a left border because a hand-picked
+           colour paints `border-color` inline, and the app is careful to keep the stripe
+           under a mark: the mark says "read this line", the stripe says what kind of line
+           it is, and they are answers to different questions. */
+        .tcn-settle.tcw-kind {
+            background: var(--tcw-kind-soft);
+            box-shadow: inset 4px 0 0 var(--tcw-kind), var(--tcn-shadow);
+            padding-left: 16px;
+        }
+
+        .tcn-settle.tcw-payback {
+            --tcw-kind: #10b981;
+            --tcw-kind-soft: var(--tcn-green-soft);
+        }
+
+        .tcn-settle.tcw-family {
+            --tcw-kind: #06b6d4;
+            --tcw-kind-soft: var(--tcn-cyan-soft);
+        }
+
         /* The ring on the statistics tab. Bigger where there is room: beside a list on a
            wide screen it can afford to be, and on a phone it is sharing the width. */
         .tcw-ring {

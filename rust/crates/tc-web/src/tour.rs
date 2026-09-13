@@ -1282,8 +1282,17 @@ fn ExpenseRow(
         String::new()
     };
 
+    // Green for a payback, cyan for a transfer inside a family - the app's own colours, on
+    // the row rather than only in a chip. A row the calculator wrote for itself is the one
+    // kind of line in the list that is not somebody's expense, and that is worth seeing
+    // without reading.
+    let family = service == Some("inside family");
     view! {
-        <div class="tcn-settle" class:tcn-sp-marked=move || marked style=mark_style>
+        <div class="tcn-settle"
+             class:tcw-kind=move || service.is_some()
+             class:tcw-payback=move || service.is_some() && !family
+             class:tcw-family=move || family
+             class:tcn-sp-marked=move || marked style=mark_style>
             <div class="tcn-settle-flow">
                 <Avatar name=who.clone() />
                 <span class="tcn-settle-who">
