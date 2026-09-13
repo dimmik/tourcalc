@@ -37,22 +37,36 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Everything else - wasm, js, css - is content-addressed by its name, so a hit is
-    // always the right answer and is worth taking before the network.
+    // The build renames what it compiles - `tc-web-163cb1d9…_bg.wasm` - so a file with a
+    // hash in its name can only ever mean one thing, and a hit is always the right answer.
+    if (HASHED.test(url.pathname)) {
+        event.respondWith(caches.match(req).then((hit) => hit || fromNetwork(req)));
+        return;
+    }
+
+    // Everything else keeps its name from one build to the next: the manifest, the icons,
+    // this file. Cache-first would freeze them in the browser of anybody who has been here
+    // before - the file is fetched once and never asked for again, so a change to it never
+    // arrives. Found exactly that way: after a server swapped one client for another, the
+    // page went on being handed the *old* app's manifest out of this cache. So the network
+    // is asked first, and the copy kept here is what answers when there is no network.
     event.respondWith(
-        caches.match(req).then(
-            (hit) =>
-                hit ||
-                fetch(req).then((resp) => {
-                    if (resp.ok) {
-                        const copy = resp.clone();
-                        caches.open(CACHE).then((c) => c.put(req, copy));
-                    }
-                    return resp;
-                })
-        )
+        fromNetwork(req).catch(() => caches.match(req).then((hit) => hit || Response.error()))
     );
 });
+
+/// The name of anything the build has renamed after its contents.
+const HASHED = /-[0-9a-f]{8,}\.[a-z0-9]+$/;
+
+function fromNetwork(req) {
+    return fetch(req).then((resp) => {
+        if (resp.ok) {
+            const copy = resp.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+        }
+        return resp;
+    });
+}
 
 function offlinePage() {
     return new Response(

@@ -186,19 +186,25 @@ async fn main() {
     // for answers that were always 304.
     let cache_headers = axum::middleware::from_fn(
         |request: axum::extract::Request, next: axum::middleware::Next| async move {
-            let is_api = request.uri().path().starts_with("/api");
+            let path = request.uri().path().to_owned();
+            let is_api = path.starts_with("/api");
             let mut response = next.run(request).await;
             let is_document = response
                 .headers()
                 .get(axum::http::header::CONTENT_TYPE)
                 .and_then(|v| v.to_str().ok())
                 .is_some_and(|v| v.starts_with("text/html"));
-            if is_api || is_document {
-                response.headers_mut().insert(
-                    axum::http::header::CACHE_CONTROL,
-                    axum::http::HeaderValue::from_static("no-cache"),
-                );
-            }
+            // Every answer says how long it may be kept. Saying nothing is not neutral: a
+            // browser then guesses from the file's age, and the guess is what left one
+            // client's manifest in front of another client's app.
+            response.headers_mut().insert(
+                axum::http::header::CACHE_CONTROL,
+                axum::http::HeaderValue::from_static(tc_server::cache_for(
+                    &path,
+                    is_api,
+                    is_document,
+                )),
+            );
             response
         },
     );

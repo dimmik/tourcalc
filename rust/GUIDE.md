@@ -478,13 +478,15 @@ graph LR
     beta["push в beta/**"] --> ci
     ci --> tests["cargo test --workspace"]
     tests --> build["сборка образа<br/>amd64 + arm64"]
-    build --> tprod["ghcr.io/…:rust-latest<br/>+ :rust-ГГГГММДД-ЧЧММСС"]
+    build --> tprod["ghcr.io/…:latest<br/>+ :prod-ГГГГММДД-ЧЧММСС"]
     build --> tbeta["ghcr.io/…:beta-latest<br/>+ :beta-ГГГГММДД-ЧЧММСС"]
     tprod --> pod["podman auto-update<br/>на сервере"]
     tbeta --> pod
 ```
 
-- Ветка `prod` собирает **растовый** образ и публикует его как `rust-latest`.
+- Ветка `prod` собирает **растовый** образ и публикует его как `latest` — просто `latest`,
+  без упоминания языка: сервер следит за этим именем навсегда, а чем оно внутри сделано,
+  видно на странице сборки и в заголовке `X-Tourcalc-Version`.
 - Ветки `beta/**` — тот же образ, теги `beta-latest` / `beta-ГГГГММДД-ЧЧММСС`. Бета-хост уже
   следит за `beta-latest`, так что на сервере менять ничего не надо: временные штуки просто
   начинают приезжать туда.

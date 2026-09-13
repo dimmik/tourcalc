@@ -29,14 +29,15 @@ room they take.
 docker run -d -p 127.0.0.1:8080:8080 \
   --env-file ./tourcalc.env \
   --name tourcalc \
-  ghcr.io/dimmik/tourcalc:rust-latest
+  ghcr.io/dimmik/tourcalc:latest
 ```
 
 (`podman run` works the same way.) The container listens on port 8080, as a user that is
 not root — which is why it is 8080 and not 80.
 
-That is the Rust build, and it is what runs in production. The original C# one is
-`blazor-latest`, listening on port 80; see [Two builds](#two-builds) for what differs.
+`latest` is whatever branch `prod` builds — today that is the Rust one. The original C#
+build is `blazor-latest` and listens on port 80; see [Two builds](#two-builds) for what
+differs.
 
 The smallest `tourcalc.env` that does something useful:
 
@@ -247,11 +248,16 @@ reply — so almost all of it is tested without a token, a network, or a bot.
 
 | Tag | Built from | |
 |---|---|---|
-| `ghcr.io/dimmik/tourcalc:rust-latest` | branch `prod` | The Rust build. What production follows. |
-| `ghcr.io/dimmik/tourcalc:rust-YYYYMMDD-HHmmss` | branch `prod` | The same image, dated — what to roll back to. The date is also what the app's build page shows. |
-| `ghcr.io/dimmik/tourcalc:beta-latest` | branches `beta/**` | The Rust build, from a beta branch — where the temporary things live. Dated tags beside it, as above. |
+| `ghcr.io/dimmik/tourcalc:latest` | branch `prod` | **What a deployment follows.** |
+| `ghcr.io/dimmik/tourcalc:prod-YYYYMMDD-HHmmss` | branch `prod` | The same image, dated — what to roll back to. The date is what the app's build page shows. |
+| `ghcr.io/dimmik/tourcalc:beta-latest` | branches `beta/**` | Where the temporary things live, with dated tags beside it as above. |
 | `ghcr.io/dimmik/tourcalc:blazor-latest` | by hand | The C# build. Was `prod`; now built from the Actions tab when it is wanted. |
-| `ghcr.io/dimmik/tourcalc:experiments-rust` | branches `experiments/**` | The Rust build, from a working branch. |
+| `ghcr.io/dimmik/tourcalc:experiments-rust` | branches `experiments/**` | A working branch. |
+
+The two moving tags say nothing about what the app is written in, on purpose: `latest` is
+whatever `prod` builds today. Which implementation that is shows on the build page and in
+the `X-Tourcalc-Version` header of every response, so the answer is one request away — but
+no server has to be edited the day it changes.
 
 ## Two builds
 

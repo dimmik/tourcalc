@@ -33,21 +33,28 @@ jobs:
           format: YYYYMMDD-HHmmss
           utcOffset: "+03:00"
 
-      # Which image this run is publishing. `prod` is the release and owns `rust-latest`;
-      # everything else is a beta and owns `beta-latest`, the tag the beta host already
-      # follows - so switching that host from the C# build to this one costs nothing on the
-      # server. A run started by hand counts as a beta whatever branch it is on: nobody
-      # means to publish the release by pressing a button on a working branch.
+      # Which image this run is publishing.
+      #
+      # The names say *which* image and never what it is made of: `prod` publishes plain
+      # `latest`, beta publishes `beta-latest`. A deployment follows one of those two names
+      # for good - the day the thing behind it is rewritten in something else again, nothing
+      # on any server has to be edited. Which implementation it actually is stays visible
+      # where it belongs: `BUILD_TYPE`, which the build page and the version header print.
+      #
+      # A run started by hand counts as a beta whatever branch it is on: nobody means to
+      # publish the release by pressing a button on a working branch.
       - name: Work out which image this is
         id: kind
         shell: bash
         run: |
           if [ "$GITHUB_REF" = "refs/heads/prod" ]; then
-            echo "prefix=rust"  >> $GITHUB_OUTPUT
-            echo "type=prodR"   >> $GITHUB_OUTPUT
+            echo "moving=latest"     >> $GITHUB_OUTPUT
+            echo "dated=prod"        >> $GITHUB_OUTPUT
+            echo "type=prodR"        >> $GITHUB_OUTPUT
           else
-            echo "prefix=beta"  >> $GITHUB_OUTPUT
-            echo "type=betaR"   >> $GITHUB_OUTPUT
+            echo "moving=beta-latest" >> $GITHUB_OUTPUT
+            echo "dated=beta"         >> $GITHUB_OUTPUT
+            echo "type=betaR"         >> $GITHUB_OUTPUT
           fi
 
       # No QEMU: the server is cross-compiled and the wasm is architecture-independent, so
@@ -84,7 +91,7 @@ jobs:
           push: true
           # The moving tag is what a deployment follows; the dated one is what it can be
           # rolled back to, and what the build page names.
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.kind.outputs.prefix }}-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.kind.outputs.prefix }}-${{ steps.current-time.outputs.formattedTime }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.kind.outputs.moving }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.kind.outputs.dated }}-${{ steps.current-time.outputs.formattedTime }}
           build-args: |
              BUILD_TYPE=${{ steps.kind.outputs.type }} (${{ steps.extract_branch.outputs.branch }})
              BUILD_ID=${{ steps.current-time.outputs.formattedTime }}
