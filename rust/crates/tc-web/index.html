@@ -133,20 +133,27 @@
            colour paints `border-color` inline, and the app is careful to keep the stripe
            under a mark: the mark says "read this line", the stripe says what kind of line
            it is, and they are answers to different questions. */
+        .tcw-payback {
+            --tcw-kind: #10b981;
+            --tcw-kind-soft: var(--tcn-green-soft);
+        }
+
+        .tcw-family {
+            --tcw-kind: #06b6d4;
+            --tcw-kind-soft: var(--tcn-cyan-soft);
+        }
+
         .tcn-settle.tcw-kind {
             background: var(--tcw-kind-soft);
             box-shadow: inset 4px 0 0 var(--tcw-kind), var(--tcn-shadow);
             padding-left: 16px;
         }
 
-        .tcn-settle.tcw-payback {
-            --tcw-kind: #10b981;
-            --tcw-kind-soft: var(--tcn-green-soft);
-        }
-
-        .tcn-settle.tcw-family {
-            --tcw-kind: #06b6d4;
-            --tcw-kind-soft: var(--tcn-cyan-soft);
+        /* The dense list says it in the gutter: mini.css only dims those rows, and dim is
+           what a draft looks like there, so the colour is what tells them apart. */
+        .tcm-item.tcw-kind > .tcm-row {
+            background: var(--tcw-kind-soft);
+            box-shadow: inset 3px 0 0 var(--tcw-kind);
         }
 
         /* The ring on the statistics tab. Bigger where there is room: beside a list on a

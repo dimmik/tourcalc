@@ -698,7 +698,7 @@ fn MiniExpenses(
             }
             let needle = search.get().trim().to_lowercase();
             let wanted = category.get();
-            let mut shown: Vec<&Spending> = real
+            let mut shown: Vec<Spending> = real
                 .iter()
                 .filter(|s| wanted.is_empty() || s.category == wanted)
                 .filter(|s| {
@@ -707,6 +707,7 @@ fn MiniExpenses(
                         || s.category.to_lowercase().contains(&needle)
                         || name_of(tour.person(&s.from)).to_lowercase().contains(&needle)
                 })
+                .cloned()
                 .collect();
 
             if shown.is_empty() {
@@ -714,13 +715,12 @@ fn MiniExpenses(
                     .into_any();
             }
 
-            match sort_by.get() {
-                Sort::Date => shown.sort_by(|a, b| a.day().cmp(&b.day())),
-                Sort::Amount => shown.sort_by_key(|s| tour.amount_in_current(s).0),
-            }
-            if newest_first.get() {
-                shown.reverse();
-            }
+            // The roomy list's own rule, not a second one: by the whole stamp rather than
+            // by the day alone, and sorted the way round that is asked rather than sorted
+            // and reversed. Sorting on the day threw away the time, and the reverse then
+            // turned what was left of a day upside down - so the two lists disagreed about
+            // the order of the same day.
+            crate::tour::order_rows(&mut shown, sort_by.get() == Sort::Amount, newest_first.get(), &tour);
 
             let counted: Cents = shown
                 .iter()
@@ -745,7 +745,7 @@ fn MiniExpenses(
                     };
                     let starts_day = by_day && !label.is_empty();
                     view! {
-                        <MiniSpending spending=s.clone() tour=tour.clone() unit=unit.clone()
+                        <MiniSpending spending=s tour=tour.clone() unit=unit.clone()
                                       date_label=label starts_day=starts_day open=open
                                       dialog=dialog delete=delete />
                     }
@@ -818,6 +818,17 @@ fn MiniSpending(
     let marked = crate::ui::is_marked(&colour);
     let mark_style = crate::ui::mark_style(&colour);
     let when = spending.when().unwrap_or_default().to_owned();
+    // A row the calculator wrote for itself, in the same green and cyan the roomy list
+    // uses. mini.css only dims those rows, and dim is what a *draft* looks like there:
+    // two different things that must not look the same.
+    let service = crate::ui::as_service_transfer(&spending.description).map(|_| {
+        if spending.description.starts_with("Family ") {
+            "inside family"
+        } else {
+            "payback"
+        }
+    });
+    let family = service == Some("inside family");
 
     let for_edit = spending.clone();
     let for_delete = spending.clone();
@@ -825,6 +836,9 @@ fn MiniSpending(
 
     view! {
         <div class="tcm-item" class:is-daystart=move || starts_day
+             class:tcw-kind=move || service.is_some()
+             class:tcw-payback=move || service.is_some() && !family
+             class:tcw-family=move || family
              class:tcm-marked=move || marked style=mark_style>
             <div class="tcm-row">
                 <span class="tcm-date" title=when.clone()>{date_label}</span>
@@ -850,6 +864,10 @@ fn MiniSpending(
                         <span>{pretty_when(&when)}</span>
                         <span class="tcm-dot">"·"</span>
                         <span>"for " <b>{for_whom.clone()}</b></span>
+                        {service.map(|what| view! {
+                            <span class="tcm-dot">"·"</span>
+                            <span>{what}</span>
+                        })}
                         {(!category.is_empty()).then(|| view! {
                             <span class="tcm-dot">"·"</span>
                             <span>{category.clone()}</span>
@@ -998,7 +1016,12 @@ fn MiniStats(tour: Tour, unit: String) -> impl IntoView {
                                     <div class="tcm-row">
                                         <span class="tcm-main">
                                             <span class="tcm-name">{key}</span>
-                                            <span class="tcm-hint">{n} " e"</span>
+                                            // Just the number, in the column mini.css keeps
+                                            // for it. It used to read "3 e" - the "e" was
+                                            // for "expenses" and said so to nobody.
+                                            <span class="tcm-n" title="expenses in this group">
+                                                {n}
+                                            </span>
                                         </span>
                                         <span class="tcm-bar-cell" aria-hidden="true">
                                             <span class="tcm-bar-fill"

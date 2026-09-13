@@ -1202,7 +1202,7 @@ fn categories_in_order(spendings: &[Spending]) -> Vec<String> {
 /// upside down - which is why one day read one way here and the other way in the app.
 /// `sort_by` is stable, so equal keys keep the order the tour stores them in, whichever way
 /// the list faces - exactly what `OrderBy` and `OrderByDescending` leave behind.
-fn order_rows(shown: &mut [Spending], by_amount: bool, newest_first: bool, tour: &Tour) {
+pub fn order_rows(shown: &mut [Spending], by_amount: bool, newest_first: bool, tour: &Tour) {
     let facing = |ord: std::cmp::Ordering| if newest_first { ord.reverse() } else { ord };
     if by_amount {
         shown.sort_by(|a, b| facing(tour.amount_in_current(a).0.cmp(&tour.amount_in_current(b).0)));
