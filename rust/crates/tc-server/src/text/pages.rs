@@ -285,7 +285,9 @@ pub async fn index(State(state): State<Shared>, Reader(auth): Reader) -> Respons
 
     let tours = state
         .store
-        .list(&|t: &Tour| auth.may_see(&fields::access_code(t)))
+        .list(auth.codes_to_search().as_deref(), &|t: &Tour| {
+            auth.may_see(&fields::access_code(t))
+        })
         .await;
 
     let body = if tours.is_empty() {

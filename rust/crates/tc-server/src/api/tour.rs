@@ -71,9 +71,16 @@ pub async fn all_suggested(
         None
     };
 
+    // What the database may be asked to narrow by: the one code an administrator picked, or
+    // the ones this token carries, or nothing when it is an administrator seeing everything.
+    let search = match &wanted_code {
+        Some(c) => Some(vec![c.clone()]),
+        None => auth.codes_to_search(),
+    };
+
     let visible = state
         .store
-        .list(&|t: &Tour| {
+        .list(search.as_deref(), &|t: &Tour| {
             let code = access_code_of(t);
             match &wanted_code {
                 Some(c) => code == c,

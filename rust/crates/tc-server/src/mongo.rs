@@ -152,11 +152,25 @@ impl TourStore for MongoStore {
         }
     }
 
-    async fn list(&self, allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync)) -> Vec<Arc<Tour>> {
+    async fn list(
+        &self,
+        codes: Option<&[String]>,
+        allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
+    ) -> Vec<Arc<Tour>> {
         // Versions are that tour's history and never appear in a list. The filter is on the
         // database side because a tour with a long history would otherwise be read whole,
         // once per version, to be thrown away here.
-        let filter = doc! { "IsVersion": { "$ne": true } };
+        let mut filter = doc! { "IsVersion": { "$ne": true } };
+        // And on the access code, when the answer is about one code: without it every list
+        // request reads every tour in the database - all of them, whole, spendings and all -
+        // to keep the handful that belong to the reader. The C# hands the same condition to
+        // the driver and lets the database do it; so does this now.
+        if let Some(codes) = codes {
+            filter.insert(
+                tc_core::extras::ACCESS_CODE,
+                doc! { "$in": codes.to_vec() },
+            );
+        }
         self.all(filter)
             .await
             .into_iter()

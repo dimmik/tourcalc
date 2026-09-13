@@ -137,7 +137,7 @@ async fn versions_are_kept_and_kept_out_of_the_list() {
     );
 
     // And the list is tours only - a version is history, not a tour.
-    let listed = store.list(&|_| true).await;
+    let listed = store.list(None, &|_| true).await;
     assert_eq!(listed.len(), 1, "one tour, not two");
     assert!(!fields::is_version(&listed[0]));
 }
@@ -370,4 +370,39 @@ fn sub(url: &str) -> tc_server::subscriptions::Subscription {
         p256dh: "key".into(),
         auth: "auth".into(),
     }
+}
+
+/// A list asks the database for the codes it may see, not for every tour there is.
+///
+/// On a database with everybody's tours in it, reading the lot to keep a handful is the
+/// difference between a list screen and a list screen that gets slower every year. The
+/// filter is an optimisation, so the test is about what comes back being right *and* the
+/// narrowing being real: a tour under another code is not in the answer even though
+/// `allowed` would have taken it.
+#[tokio::test]
+async fn a_list_is_narrowed_by_the_database() {
+    let store = store_or_skip!("list_by_code");
+
+    let mut mine = fixture();
+    mine.id = TourId::new("mine");
+    fields::set(&mut mine, fields::ACCESS_CODE, "AAA".into());
+    store.store(mine).await;
+
+    let mut theirs = fixture();
+    theirs.id = TourId::new("theirs");
+    fields::set(&mut theirs, fields::ACCESS_CODE, "BBB".into());
+    store.store(theirs).await;
+
+    let codes = vec!["AAA".to_owned()];
+    let listed = store.list(Some(&codes), &|_| true).await;
+    assert_eq!(listed.len(), 1, "only the one code: {:?}", ids(&listed));
+    assert_eq!(listed[0].id.as_str(), "mine");
+
+    // And without narrowing, both - which is what an administrator gets.
+    let all = store.list(None, &|_| true).await;
+    assert_eq!(all.len(), 2, "{:?}", ids(&all));
+}
+
+fn ids(tours: &[std::sync::Arc<Tour>]) -> Vec<&str> {
+    tours.iter().map(|t| t.id.as_str()).collect()
 }

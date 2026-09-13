@@ -206,10 +206,12 @@ async fn saving_a_tour_tells_the_subscribers() {
             subscribers: Vec<tc_server::subscriptions::Subscription>,
             _tour: &str,
             message: &str,
-        ) {
+        ) -> Vec<tc_server::subscriptions::Subscription> {
             for _ in subscribers {
                 self.0.lock().unwrap().push(message.to_owned());
             }
+            // Nothing to forget: this one always delivers.
+            Vec::new()
         }
     }
 

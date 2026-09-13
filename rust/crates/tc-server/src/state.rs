@@ -67,7 +67,12 @@ impl AppState {
             if subscribers.is_empty() {
                 return;
             }
-            state.push.notify(subscribers, &tour_id, &message).await;
+            let gone = state.push.notify(subscribers, &tour_id, &message).await;
+            // A subscription the push service has finished with is a row that would
+            // otherwise be tried on every save from now on.
+            for sub in &gone {
+                state.subscriptions.remove(&tour_id, sub).await;
+            }
         });
     }
 

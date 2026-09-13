@@ -70,6 +70,20 @@ impl AuthData {
     pub fn may_see(&self, tour_code: &str) -> bool {
         self.is_master || self.access_codes().any(|c| c == tour_code)
     }
+
+    /// The codes a store may narrow its search to, or `None` for "no narrowing possible".
+    ///
+    /// An administrator sees everything, so there is nothing to narrow by; anybody else
+    /// sees the piles their token names, and a database can be asked for exactly those
+    /// instead of for all the tours there are. It is an optimisation and not the rule -
+    /// [`may_see`](Self::may_see) still decides - but on a database with everybody's tours
+    /// in it, it is the difference between reading a handful and reading all of them.
+    pub fn codes_to_search(&self) -> Option<Vec<String>> {
+        if self.is_master {
+            return None;
+        }
+        Some(self.access_codes().map(|c| c.to_owned()).collect())
+    }
 }
 
 /// The access code, hashed the way the app has always hashed it.

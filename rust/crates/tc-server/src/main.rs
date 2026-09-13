@@ -247,9 +247,43 @@ async fn main() {
     tracing::info!("listening on http://{}", cfg.listen);
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
+        .with_graceful_shutdown(stop_asked())
         .await
         .expect("server");
+}
+
+/// Waits for somebody to ask the server to stop.
+///
+/// Ctrl-C is how it is stopped at a desk. **SIGTERM is how a container is stopped**, and
+/// that is the one that matters in a deployment: `podman stop` sends it, waits ten seconds,
+/// and then kills. With no handler for it the process simply dies on the signal - the
+/// default disposition - and whatever request was in flight dies with it. Waiting for the
+/// answers already being written costs nothing and is the difference between a deploy
+/// nobody notices and one somebody's save falls into.
+async fn stop_asked() {
+    let interrupt = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut sigterm) => {
+                sigterm.recv().await;
+            }
+            // Nothing to be done about it, and pretending to wait forever is better than
+            // shutting down because the handler could not be installed.
+            Err(e) => {
+                tracing::error!("cannot listen for SIGTERM: {e}");
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = interrupt => tracing::info!("interrupted, stopping"),
+        _ = terminate => tracing::info!("asked to stop"),
+    }
 }

@@ -19,7 +19,25 @@ pub trait Notifier: Send + Sync {
     /// The VAPID public key a browser needs in order to subscribe.
     fn public_key(&self) -> &str;
     /// Tells everybody subscribed to this tour.
-    async fn notify(&self, subscribers: Vec<Subscription>, tour_id: &str, message: &str);
+    ///
+    /// Answers with the subscriptions the push service says are finished with - a browser
+    /// that withdrew permission, an installation that is gone. They are no longer a list in
+    /// memory that a restart tidies up: they are rows, and rows that nobody removes are
+    /// rows that are tried again on every save for ever.
+    async fn notify(
+        &self,
+        subscribers: Vec<Subscription>,
+        tour_id: &str,
+        message: &str,
+    ) -> Vec<Subscription>;
+}
+
+/// What came of one delivery. Only two answers matter to the caller: the subscription is
+/// still worth keeping, or the push service has said it is not.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Delivery {
+    Sent,
+    Gone,
 }
 
 /// A server with no push keys configured. Answers with an empty key, which is what the C#
@@ -31,7 +49,14 @@ impl Notifier for Silent {
     fn public_key(&self) -> &str {
         ""
     }
-    async fn notify(&self, _subscribers: Vec<Subscription>, _tour_id: &str, _message: &str) {}
+    async fn notify(
+        &self,
+        _subscribers: Vec<Subscription>,
+        _tour_id: &str,
+        _message: &str,
+    ) -> Vec<Subscription> {
+        Vec::new()
+    }
 }
 
 /// The real one.
@@ -76,18 +101,29 @@ impl Notifier for WebPush {
         &self.public_key
     }
 
-    async fn notify(&self, subscribers: Vec<Subscription>, tour_id: &str, message: &str) {
+    async fn notify(
+        &self,
+        subscribers: Vec<Subscription>,
+        tour_id: &str,
+        message: &str,
+    ) -> Vec<Subscription> {
+        let mut finished = Vec::new();
         if subscribers.is_empty() {
-            return;
+            return finished;
         }
         let payload = WebPush::payload(tour_id, message);
 
         for sub in subscribers {
             match self.prepare(&sub, &payload) {
-                Ok(request) => self.deliver(&sub, request).await,
+                Ok(request) => {
+                    if self.deliver(&sub, request).await == Delivery::Gone {
+                        finished.push(sub);
+                    }
+                }
                 Err(e) => tracing::warn!("could not prepare a notification for {}: {e}", sub.url),
             }
         }
+        finished
     }
 }
 
@@ -139,7 +175,7 @@ impl WebPush {
     }
 
     #[cfg(feature = "push")]
-    async fn deliver(&self, sub: &Subscription, request: http::Request<Vec<u8>>) {
+    async fn deliver(&self, sub: &Subscription, request: http::Request<Vec<u8>>) -> Delivery {
         // Delivery is deliberately best-effort: a push service that is down, or a
         // subscription the browser has withdrawn, must not fail somebody's save.
         let client = reqwest::Client::new();
@@ -149,18 +185,32 @@ impl WebPush {
             send = send.header(name, value);
         }
         match send.send().await {
-            Ok(response) if response.status().is_success() => {}
-            Ok(response) => tracing::warn!("{} answered {}", sub.url, response.status()),
-            Err(e) => tracing::warn!("could not reach {}: {e}", sub.url),
+            Ok(response) if response.status().is_success() => Delivery::Sent,
+            // What a push service says when the subscription is finished with: 404 the
+            // endpoint never existed, 410 the browser withdrew it. Anything else - the
+            // service being down, a rate limit - is temporary and keeps its row.
+            Ok(response) if matches!(response.status().as_u16(), 404 | 410) => {
+                tracing::info!("{} is gone ({}), forgetting it", sub.url, response.status());
+                Delivery::Gone
+            }
+            Ok(response) => {
+                tracing::warn!("{} answered {}", sub.url, response.status());
+                Delivery::Sent
+            }
+            Err(e) => {
+                tracing::warn!("could not reach {}: {e}", sub.url);
+                Delivery::Sent
+            }
         }
     }
 
     #[cfg(not(feature = "push"))]
-    async fn deliver(&self, sub: &Subscription, _request: ()) {
+    async fn deliver(&self, sub: &Subscription, _request: ()) -> Delivery {
         tracing::info!(
             "would notify {} - built without --features push, so nothing was sent",
             sub.url
         );
+        Delivery::Sent
     }
 }
 

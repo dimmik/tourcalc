@@ -41,7 +41,17 @@ pub trait TourStore: Send + Sync {
     ///
     /// Never a version: those live in the same collection and are somebody's history, not a
     /// tour in their list.
-    async fn list(&self, allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync)) -> Vec<Arc<Tour>>;
+    /// Every tour the caller may see.
+    ///
+    /// `codes` are the access codes worth looking under, or `None` when that cannot be
+    /// narrowed - an administrator sees everything. A store with a database behind it should
+    /// ask for exactly those rather than read the lot and throw most of it away. `allowed`
+    /// still decides: the filter is an optimisation and never the rule.
+    async fn list(
+        &self,
+        codes: Option<&[String]>,
+        allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
+    ) -> Vec<Arc<Tour>>;
     /// Writes a tour, adding it if its id is new.
     async fn store(&self, tour: Tour);
     /// Removes a tour; `false` if there was none.
@@ -245,7 +255,12 @@ impl TourStore for InMemoryStore {
         self.tours.read().expect("store lock").get(id).cloned()
     }
 
-    async fn list(&self, allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync)) -> Vec<Arc<Tour>> {
+    async fn list(
+        &self,
+        _codes: Option<&[String]>,
+        allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
+    ) -> Vec<Arc<Tour>> {
+        // Nothing to narrow: everything is already in hand.
         let tours = self.tours.read().expect("store lock");
         self.order
             .read()

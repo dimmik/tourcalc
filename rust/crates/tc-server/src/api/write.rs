@@ -159,7 +159,9 @@ pub async fn add(
     // has something in it. Otherwise a stray code would quietly become a new account.
     let mine: Vec<_> = state
         .store
-        .list(&|t: &Tour| auth.may_see(&fields::access_code(t)))
+        .list(auth.codes_to_search().as_deref(), &|t: &Tour| {
+            auth.may_see(&fields::access_code(t))
+        })
         .await;
     if !auth.is_master {
         if mine.is_empty() {
@@ -215,7 +217,9 @@ pub async fn delete(
     if !auth.is_master {
         let mine = state
             .store
-            .list(&|t: &Tour| auth.may_see(&fields::access_code(t)))
+            .list(auth.codes_to_search().as_deref(), &|t: &Tour| {
+            auth.may_see(&fields::access_code(t))
+        })
             .await;
         if mine.len() <= 1 {
             return Err(ApiError::Forbidden(
