@@ -158,6 +158,11 @@ async fn log_logs(Bearer(auth): Bearer) -> axum::Json<Vec<serde_json::Value>> {
     axum::Json(Vec::new())
 }
 
+/// `2026-09-13T12:34:56Z` for right now - what a spending recorded on the server is dated.
+pub fn now_iso() -> String {
+    chrono_lite::Utc::from(std::time::SystemTime::now()).to_string()
+}
+
 /// Formats a unix timestamp the way the stored `StateGUID` is written.
 pub fn stamp(secs: u64) -> String {
     chrono_lite::Utc(secs)
@@ -169,7 +174,7 @@ pub fn stamp(secs: u64) -> String {
 /// A minimal ISO-8601 stamp, so that this crate does not pull in a date library to print
 /// one field. Seconds since the epoch is not what the client shows, but the field is only
 /// displayed, never parsed back.
-mod chrono_lite {
+pub mod chrono_lite {
     pub struct Utc(pub u64);
 
     impl From<std::time::SystemTime> for Utc {

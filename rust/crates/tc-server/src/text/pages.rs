@@ -890,7 +890,7 @@ pub async fn spend(
         .filter(|s| s.kind.counts(false))
         .collect();
     let needle = search.q.trim().to_lowercase();
-    let shown: Vec<&&Spending> = all
+    let mut shown: Vec<&&Spending> = all
         .iter()
         .filter(|s| {
             needle.is_empty()
@@ -899,6 +899,14 @@ pub async fn spend(
                 || name_of(tour, &s.from).to_lowercase().contains(&needle)
         })
         .collect();
+    // Newest first, as both of the other lists open. This page had no order of its own at
+    // all: it printed the tour in the order it is stored, which is the order things were
+    // entered, so the expense somebody just recorded was at the bottom of the page. The
+    // sort is stable and descending rather than ascending-and-reversed, so expenses that
+    // share a stamp - everything the new form records carries a bare date - keep the order
+    // the tour keeps them in, which is what the other two lists do.
+    // ISO stamps sort as text; see `Spending::when`.
+    shown.sort_by(|a, b| b.when().unwrap_or("").cmp(a.when().unwrap_or("")));
 
     let body = if shown.is_empty() {
         format!(
@@ -962,6 +970,16 @@ pub async fn spend(
         ),
     )
     .into_response()
+}
+
+/// Today, in the `SpendingDate` field the rest of the app reads.
+fn dated_now() -> tc_core::Extras {
+    let mut extras = tc_core::Extras::default();
+    extras.0.insert(
+        "SpendingDate".to_owned(),
+        serde_json::Value::String(crate::api::now_iso()),
+    );
+    extras
 }
 
 /// Who a spending was for, short enough for a narrow terminal.
@@ -1195,7 +1213,11 @@ pub async fn spending_save(
             split,
             remembered_split: None,
             kind: Kind::Real,
-            extras: Default::default(),
+            // With no date at all the row printed an empty day and sank to the bottom of a
+            // list that is now in date order. The browser clients stamp this from the
+            // reader's clock; here there is only the server's, which is close enough for a
+            // page that has no javascript to ask with.
+            extras: dated_now(),
         }),
     }
 

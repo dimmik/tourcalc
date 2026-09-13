@@ -406,3 +406,67 @@ async fn the_login_form_works_and_says_no() {
     assert_eq!(answer.status, StatusCode::SEE_OTHER);
     assert!(answer.cookie.starts_with("tc_text="));
 }
+
+/// The expense list opens on what happened last.
+///
+/// It used to print the tour in the order it is stored - the order things were entered -
+/// so the expense somebody had just recorded was at the foot of the page, under everything
+/// from the first day of the trip. Both of the other clients open newest first.
+#[tokio::test]
+async fn the_expense_list_starts_with_the_newest() {
+    let app = app();
+    let cookie = signed_in(&app).await;
+
+    let page = go(&app, "GET", &format!("/t/{TOUR}/spend"), &cookie, None).await;
+    assert_eq!(page.status, StatusCode::OK);
+
+    // The first cell of every row is the day, as `YYYY-MM-DD`.
+    let days: Vec<&str> = page
+        .body
+        .split("<tr><td>")
+        .skip(1)
+        .filter_map(|rest| rest.split("</td>").next())
+        .filter(|d| d.len() == 10)
+        .collect();
+    assert!(days.len() > 5, "the fixture has a list to sort: {days:?}");
+
+    let mut falling = days.clone();
+    falling.sort();
+    falling.reverse();
+    assert_eq!(days, falling, "the newest day is at the top");
+
+    // And a newly recorded expense lands where the reader is looking, not at the bottom.
+    let who = {
+        let form = go(&app, "GET", &format!("/t/{TOUR}/spend/edit"), &cookie, None).await;
+        form.body
+            .split("name=\"FromGuid\">")
+            .nth(1)
+            .and_then(|rest| rest.split("value=\"").nth(1))
+            .and_then(|rest| rest.split('"').next())
+            .expect("somebody to pay for it")
+            .to_owned()
+    };
+    let added = go(
+        &app,
+        "POST",
+        &format!("/t/{TOUR}/spend/edit"),
+        &cookie,
+        Some(&format!(
+            "Amount=700&Description=Recorded+just+now&FromGuid={who}&Type=Test&ToAll=on"
+        )),
+    )
+    .await;
+    assert_eq!(added.status, StatusCode::SEE_OTHER);
+
+    let page = go(&app, "GET", &format!("/t/{TOUR}/spend"), &cookie, None).await;
+    let first = page
+        .body
+        .split("<tbody>")
+        .nth(1)
+        .and_then(|rest| rest.split("</tr>").next())
+        .unwrap_or_default();
+    assert!(
+        first.contains("Recorded just now"),
+        "the new expense is the first row, not the last: {first}"
+    );
+}
