@@ -157,7 +157,7 @@ crates/tc-server/src/
 ├── mongo.rs         MongoStore (фича `mongo`) + перевод форматов дат и _id
 ├── versions.rs      версии тура при каждой записи
 ├── push.rs          web-push (фича `push`)
-├── subscriptions.rs кто подписан на уведомления
+├── subscriptions.rs кто подписан на уведомления (в памяти или в монге, рядом с турами)
 ├── api/
 │   ├── mod.rs       все маршруты /api/*
 │   ├── auth.rs      /api/Auth/*
@@ -527,6 +527,5 @@ PushNotificationMailto=mailto:…
 | Телеграм-бот | не переносился; живёт только в C#-сборке |
 | Classic UI | то же самое |
 | Черновики (`IsDryRun`) | данные сохраняются и считаются как раньше, но создать новый черновик в интерфейсе нельзя |
-| Подписки на уведомления | хранятся **в памяти**: рестарт сервера — и подписки надо оформлять заново. У C# они лежат в монге (`NSubscriptions`) |
 | `AnonymousIsMaster`, `ReturnVersionsInAllTours`, `DoRedirectToDomain`, `DoWakeup`/`WakeupUrl` | не читаются |
 | Просмотр логов | как и в C#, ручка есть и всегда пустая |

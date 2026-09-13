@@ -18,7 +18,7 @@ pub async fn check(
     Json(sub): Json<Subscription>,
 ) -> Result<Json<bool>, ApiError> {
     seen_by(&state, &auth, &tour).await?;
-    Ok(Json(state.subscriptions.has(&tour, &sub)))
+    Ok(Json(state.subscriptions.has(&tour, &sub).await))
 }
 
 pub async fn subscribe(
@@ -28,7 +28,7 @@ pub async fn subscribe(
     Json(sub): Json<Subscription>,
 ) -> Result<String, ApiError> {
     seen_by(&state, &auth, &tour).await?;
-    state.subscriptions.add(&tour, sub);
+    state.subscriptions.add(&tour, sub).await;
     Ok("OK".into())
 }
 
@@ -39,7 +39,7 @@ pub async fn unsubscribe(
     Json(sub): Json<Subscription>,
 ) -> Result<String, ApiError> {
     seen_by(&state, &auth, &tour).await?;
-    state.subscriptions.remove(&tour, &sub);
+    state.subscriptions.remove(&tour, &sub).await;
     Ok("OK".into())
 }
 

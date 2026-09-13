@@ -57,13 +57,16 @@ impl AppState {
     /// this runs, and a push service that is slow or down must not make somebody's edit
     /// slow or failed.
     pub fn announce(self: &Arc<Self>, tour_id: &str, message: String) {
-        let subscribers = self.subscriptions.for_tour(tour_id);
-        if subscribers.is_empty() {
-            return;
-        }
         let state = Arc::clone(self);
         let tour_id = tour_id.to_owned();
         tokio::spawn(async move {
+            // Reading who is subscribed is part of the errand now: with the database
+            // holding them it is a query, and a query does not belong on the path of
+            // somebody's save.
+            let subscribers = state.subscriptions.for_tour(&tour_id).await;
+            if subscribers.is_empty() {
+                return;
+            }
             state.push.notify(subscribers, &tour_id, &message).await;
         });
     }

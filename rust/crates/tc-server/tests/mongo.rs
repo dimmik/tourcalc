@@ -271,3 +271,103 @@ async fn a_currency_keeps_its_identity_through_the_database() {
         );
     }
 }
+
+/// Subscriptions survive the server. That is the whole point of storing them.
+///
+/// The in-memory version forgets everybody when the process stops, and this process stops on
+/// every deploy - so somebody who turned notifications on would quietly stop being told,
+/// with nothing on their screen to say so.
+#[tokio::test]
+async fn a_subscription_outlives_the_server() {
+    use tc_server::subscriptions::{Subscription, SubscriptionStore};
+
+    let store = store_or_skip!("subs");
+    let subs = store.subscriptions();
+    subs.add("t1", sub("https://push.example/a")).await;
+    subs.add("t1", sub("https://push.example/b")).await;
+    subs.add("t2", sub("https://push.example/a")).await;
+
+    // A second server, a fresh connection - which is what a restart looks like from here.
+    let again = MongoStore::connect_to(
+        &std::env::var("TC_TEST_MONGO").unwrap(),
+        "",
+        "",
+        "tc_test_subs",
+        "Tours",
+    )
+    .await
+    .expect("connects")
+    .subscriptions();
+
+    let mut found: Vec<String> = again
+        .for_tour("t1")
+        .await
+        .into_iter()
+        .map(|s| s.url)
+        .collect();
+    found.sort();
+    assert_eq!(found, ["https://push.example/a", "https://push.example/b"]);
+    assert!(again.has("t1", &sub("https://push.example/a")).await);
+    assert!(!again.has("t1", &sub("https://push.example/nobody")).await);
+
+    // A subscription belongs to its tour and not to the server.
+    assert_eq!(again.for_tour("t2").await.len(), 1);
+
+    // Subscribing twice from the same browser is one subscription, and the renewed keys win.
+    again
+        .add(
+            "t1",
+            Subscription {
+                url: "https://push.example/a".into(),
+                p256dh: "renewed".into(),
+                auth: "renewed".into(),
+            },
+        )
+        .await;
+    let mine = again.for_tour("t1").await;
+    assert_eq!(mine.len(), 2, "still two: {mine:?}");
+    assert_eq!(
+        mine.iter()
+            .find(|s| s.url == "https://push.example/a")
+            .map(|s| s.p256dh.as_str()),
+        Some("renewed")
+    );
+
+    again.remove("t1", &sub("https://push.example/a")).await;
+    assert_eq!(again.for_tour("t1").await.len(), 1);
+    assert!(!again.has("t1", &sub("https://push.example/a")).await);
+}
+
+/// And the C#'s own documents are read, because it is the same collection.
+#[tokio::test]
+async fn a_subscription_the_app_stored_is_read_here() {
+    use tc_server::subscriptions::SubscriptionStore;
+
+    let store = store_or_skip!("subs_csharp");
+    // What `MongoDbSubscriptionStorage.AddSubscription` inserts, field for field.
+    store
+        .insert_raw_subscription_for_tests(bson::doc! {
+            "TourId": "abc",
+            "Subscription": {
+                "Url": "https://push.example/from-the-app",
+                "P256dh": "p",
+                "Auth": "a",
+            },
+        })
+        .await;
+
+    let subs = store.subscriptions();
+    let mine = subs.for_tour("abc").await;
+    assert_eq!(mine.len(), 1, "{mine:?}");
+    assert_eq!(mine[0].url, "https://push.example/from-the-app");
+    assert_eq!(mine[0].p256dh, "p");
+    assert!(subs.has("abc", &sub("https://push.example/from-the-app")).await);
+}
+
+fn sub(url: &str) -> tc_server::subscriptions::Subscription {
+    tc_server::subscriptions::Subscription {
+        url: url.to_owned(),
+        p256dh: "key".into(),
+        auth: "auth".into(),
+    }
+}

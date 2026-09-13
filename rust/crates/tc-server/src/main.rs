@@ -37,6 +37,11 @@ async fn main() {
     };
 
     // Which store, by the same setting the C# reads.
+    // Filled in with the tour store when that store is a database, so that subscriptions
+    // live where the tours do. Without it they sit in memory and every new image - which is
+    // to say every deploy - quietly unsubscribes everybody who asked to be told.
+    let mut subscriptions: Option<Box<dyn tc_server::subscriptions::SubscriptionStore>> = None;
+
     let store: Box<dyn store::TourStore> = if cfg.storage_type.eq_ignore_ascii_case("MongoDb") {
         #[cfg(feature = "mongo")]
         {
@@ -49,6 +54,7 @@ async fn main() {
             {
                 Ok(store) => {
                     tracing::info!("storing tours in MongoDB");
+                    subscriptions = Some(Box::new(store.subscriptions()));
                     Box::new(store)
                 }
                 Err(e) => {
@@ -96,7 +102,11 @@ async fn main() {
     };
 
     let state: state::Shared = Arc::new(state::AppState {
-        subscriptions: Box::new(tc_server::subscriptions::InMemorySubscriptions::default()),
+        subscriptions: subscriptions.unwrap_or_else(|| {
+            // In-memory tours, in-memory subscriptions: a server that forgets the trips
+            // when it stops has nothing to notify anybody about afterwards.
+            Box::new(tc_server::subscriptions::InMemorySubscriptions::default())
+        }),
         push,
         store,
         signer,

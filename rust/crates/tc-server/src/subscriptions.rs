@@ -28,11 +28,17 @@ impl Subscription {
     }
 }
 
+/// Where subscriptions are kept.
+///
+/// Asynchronous for the same reason [`crate::store::TourStore`] is: one of the two
+/// implementations is a database on the other side of the network. The in-memory one does
+/// not need it and pays nothing for it.
+#[async_trait::async_trait]
 pub trait SubscriptionStore: Send + Sync {
-    fn add(&self, tour: &str, sub: Subscription);
-    fn remove(&self, tour: &str, sub: &Subscription);
-    fn has(&self, tour: &str, sub: &Subscription) -> bool;
-    fn for_tour(&self, tour: &str) -> Vec<Subscription>;
+    async fn add(&self, tour: &str, sub: Subscription);
+    async fn remove(&self, tour: &str, sub: &Subscription);
+    async fn has(&self, tour: &str, sub: &Subscription) -> bool;
+    async fn for_tour(&self, tour: &str) -> Vec<Subscription>;
 }
 
 #[derive(Default)]
@@ -40,8 +46,9 @@ pub struct InMemorySubscriptions {
     by_tour: RwLock<HashMap<String, Vec<Subscription>>>,
 }
 
+#[async_trait::async_trait]
 impl SubscriptionStore for InMemorySubscriptions {
-    fn add(&self, tour: &str, sub: Subscription) {
+    async fn add(&self, tour: &str, sub: Subscription) {
         let mut all = self.by_tour.write().expect("subscriptions lock");
         let mine = all.entry(tour.to_owned()).or_default();
         // Subscribing twice from the same browser is one subscription, not two - otherwise
@@ -53,7 +60,7 @@ impl SubscriptionStore for InMemorySubscriptions {
         }
     }
 
-    fn remove(&self, tour: &str, sub: &Subscription) {
+    async fn remove(&self, tour: &str, sub: &Subscription) {
         if let Some(mine) = self
             .by_tour
             .write()
@@ -64,7 +71,7 @@ impl SubscriptionStore for InMemorySubscriptions {
         }
     }
 
-    fn has(&self, tour: &str, sub: &Subscription) -> bool {
+    async fn has(&self, tour: &str, sub: &Subscription) -> bool {
         self.by_tour
             .read()
             .expect("subscriptions lock")
@@ -72,7 +79,7 @@ impl SubscriptionStore for InMemorySubscriptions {
             .is_some_and(|mine| mine.iter().any(|s| s.is_same(sub)))
     }
 
-    fn for_tour(&self, tour: &str) -> Vec<Subscription> {
+    async fn for_tour(&self, tour: &str) -> Vec<Subscription> {
         self.by_tour
             .read()
             .expect("subscriptions lock")
@@ -94,31 +101,31 @@ mod tests {
         }
     }
 
-    #[test]
-    fn subscribing_twice_is_one_subscription() {
+    #[tokio::test]
+    async fn subscribing_twice_is_one_subscription() {
         let store = InMemorySubscriptions::default();
-        store.add("t", sub("https://push.example/1"));
-        store.add("t", sub("https://push.example/1"));
-        assert_eq!(store.for_tour("t").len(), 1);
+        store.add("t", sub("https://push.example/1")).await;
+        store.add("t", sub("https://push.example/1")).await;
+        assert_eq!(store.for_tour("t").await.len(), 1);
     }
 
-    #[test]
-    fn a_subscription_belongs_to_its_tour() {
+    #[tokio::test]
+    async fn a_subscription_belongs_to_its_tour() {
         let store = InMemorySubscriptions::default();
-        store.add("one", sub("https://push.example/1"));
-        assert!(store.has("one", &sub("https://push.example/1")));
-        assert!(!store.has("two", &sub("https://push.example/1")));
-        assert!(store.for_tour("two").is_empty());
+        store.add("one", sub("https://push.example/1")).await;
+        assert!(store.has("one", &sub("https://push.example/1")).await);
+        assert!(!store.has("two", &sub("https://push.example/1")).await);
+        assert!(store.for_tour("two").await.is_empty());
     }
 
-    #[test]
-    fn unsubscribing_takes_it_away() {
+    #[tokio::test]
+    async fn unsubscribing_takes_it_away() {
         let store = InMemorySubscriptions::default();
-        store.add("t", sub("https://push.example/1"));
-        store.add("t", sub("https://push.example/2"));
-        store.remove("t", &sub("https://push.example/1"));
-        assert_eq!(store.for_tour("t").len(), 1);
-        assert!(store.has("t", &sub("https://push.example/2")));
+        store.add("t", sub("https://push.example/1")).await;
+        store.add("t", sub("https://push.example/2")).await;
+        store.remove("t", &sub("https://push.example/1")).await;
+        assert_eq!(store.for_tour("t").await.len(), 1);
+        assert!(store.has("t", &sub("https://push.example/2")).await);
     }
 
     /// The client sends what the C# model is called; older code sent the raw browser shape.

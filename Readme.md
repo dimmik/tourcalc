@@ -263,8 +263,6 @@ What only the C# build has:
 
 - the **Telegram bot**,
 - the **Classic** interface,
-- push subscriptions that **survive a restart** (the Rust build keeps them in memory, so a
-  restart asks everybody who wanted notifications to ask again),
 - a few settings nothing else reads: `AnonymousIsMaster`, `ReturnVersionsInAllTours`,
   `DoRedirectToDomain` / `RedirectDomain`, `DoWakeup` / `WakeupUrl`.
 

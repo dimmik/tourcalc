@@ -20,6 +20,7 @@ use futures_util::TryStreamExt;
 use mongodb::options::ClientOptions;
 use mongodb::{Client, Collection};
 use std::sync::Arc;
+use crate::subscriptions::{Subscription, SubscriptionStore};
 use tc_core::{Tour, TourId};
 
 /// Fields the C# model declares as `DateTime`, wherever they appear in a document.
@@ -27,6 +28,10 @@ const DATES: &[&str] = &["DateCreated", "DateVersioned", "SpendingDate"];
 
 pub struct MongoStore {
     tours: Collection<Document>,
+    /// The connection, kept so that the subscriptions can share it rather than opening a
+    /// second one to the same database.
+    client: Client,
+    database: String,
 }
 
 impl MongoStore {
@@ -55,6 +60,8 @@ impl MongoStore {
 
         let store = MongoStore {
             tours: client.database(database).collection::<Document>(collection),
+            client: client.clone(),
+            database: database.to_owned(),
         };
         store
             .tours
@@ -78,9 +85,38 @@ impl MongoStore {
         let _ = self.tours.insert_one(doc).await;
     }
 
-    /// Empties the collection. Tests only, and it does what it says.
+    /// Puts a subscription document in as the C# writes one. Tests only: reading what the
+    /// app stored is half the claim, and there is no app here to store it.
+    pub async fn insert_raw_subscription_for_tests(&self, doc: Document) {
+        let _ = self
+            .client
+            .database(&self.database)
+            .collection::<Document>("NSubscriptions")
+            .insert_one(doc)
+            .await;
+    }
+
+    /// Empties the collections. Tests only, and it does what it says - subscriptions
+    /// included, or a test that runs twice finds what the first run left.
     pub async fn wipe_everything_for_tests(&self) {
         let _ = self.tours.delete_many(doc! {}).await;
+        let _ = self
+            .client
+            .database(&self.database)
+            .collection::<Document>("NSubscriptions")
+            .delete_many(doc! {})
+            .await;
+    }
+
+    /// Subscriptions, in the collection the C# writes them to, on this same connection.
+    pub fn subscriptions(&self) -> MongoSubscriptions {
+        MongoSubscriptions {
+            // "NSubscriptions" is the C#'s own name for it.
+            subscriptions: self
+                .client
+                .database(&self.database)
+                .collection::<Document>("NSubscriptions"),
+        }
     }
 
     async fn all(&self, filter: Document) -> Vec<Arc<Tour>> {
@@ -216,6 +252,107 @@ impl TourStore for MongoStore {
 
         let total = mine.len();
         (mine.into_iter().skip(from).take(count).collect(), total)
+    }
+}
+
+/// Who wants telling, kept where the C# keeps them.
+///
+/// The whole reason this exists: the in-memory version forgets everybody when the process
+/// stops, and this process stops every time a new image is pulled. A reader who turned
+/// notifications on would quietly stop being told, and nothing on their screen would say
+/// so - the browser still holds a subscription the server has never heard of.
+///
+/// The document is the C#'s: `{ TourId, Subscription: { Url, P256dh, Auth } }` in
+/// `NSubscriptions`, keyed by nothing in particular - it looks them up by the pair. Same
+/// shape both ways, so the two servers can hand the collection back and forth.
+pub struct MongoSubscriptions {
+    subscriptions: Collection<Document>,
+}
+
+impl MongoSubscriptions {
+    /// The pair that identifies one: a tour and the endpoint the browser gave us. The keys
+    /// are not part of it - a browser renews those for the same endpoint, and the C#
+    /// compares the same way.
+    fn mine(tour: &str, sub: &Subscription) -> Document {
+        doc! { "TourId": tour, "Subscription.Url": &sub.url }
+    }
+
+    fn as_document(tour: &str, sub: &Subscription) -> Document {
+        doc! {
+            "TourId": tour,
+            "Subscription": {
+                "Url": &sub.url,
+                "P256dh": &sub.p256dh,
+                "Auth": &sub.auth,
+            },
+        }
+    }
+
+    fn as_subscription(document: &Document) -> Option<Subscription> {
+        let sub = document.get_document("Subscription").ok()?;
+        let text = |key: &str| sub.get_str(key).unwrap_or_default().to_owned();
+        let url = text("Url");
+        (!url.is_empty()).then(|| Subscription {
+            url,
+            p256dh: text("P256dh"),
+            auth: text("Auth"),
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl SubscriptionStore for MongoSubscriptions {
+    async fn add(&self, tour: &str, sub: Subscription) {
+        // Replacing rather than inserting: subscribing twice from the same browser is one
+        // subscription, and the keys may be the renewed ones. `upsert` makes the first time
+        // and every time after it the same operation.
+        let update = doc! { "$set": Self::as_document(tour, &sub) };
+        if let Err(e) = self
+            .subscriptions
+            .update_one(Self::mine(tour, &sub), update)
+            .upsert(true)
+            .await
+        {
+            tracing::error!("could not store a subscription: {e}");
+        }
+    }
+
+    async fn remove(&self, tour: &str, sub: &Subscription) {
+        if let Err(e) = self.subscriptions.delete_one(Self::mine(tour, sub)).await {
+            tracing::error!("could not remove a subscription: {e}");
+        }
+    }
+
+    async fn has(&self, tour: &str, sub: &Subscription) -> bool {
+        matches!(
+            self.subscriptions.find_one(Self::mine(tour, sub)).await,
+            Ok(Some(_))
+        )
+    }
+
+    async fn for_tour(&self, tour: &str) -> Vec<Subscription> {
+        let found = match self.subscriptions.find(doc! { "TourId": tour }).await {
+            Ok(cursor) => cursor.try_collect::<Vec<Document>>().await,
+            Err(e) => {
+                tracing::error!("could not read the subscriptions: {e}");
+                return Vec::new();
+            }
+        };
+        let mut mine: Vec<Subscription> = match found {
+            Ok(docs) => docs.iter().filter_map(Self::as_subscription).collect(),
+            Err(e) => {
+                tracing::error!("could not read the subscriptions: {e}");
+                return Vec::new();
+            }
+        };
+        // The C# collection can hold the same endpoint twice - its `AddSubscription` checks
+        // first and inserts, and two saves at once both pass the check. Sending the same
+        // notification twice is the reader's problem, so it is dealt with here rather than
+        // relied upon not to happen. Sorted first, because `dedup` only looks at
+        // neighbours and two copies need not be stored next to each other.
+        mine.sort_by(|a, b| a.url.cmp(&b.url));
+        mine.dedup_by(|a, b| a.is_same(b));
+        mine
     }
 }
 
