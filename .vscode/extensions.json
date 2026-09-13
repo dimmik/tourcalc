@@ -1,0 +1,23 @@
+{
+  // VS Code offers these when the folder is opened. Nothing here is a preference: without
+  // rust-analyzer the editor treats Rust as coloured text, and the other four are the
+  // difference between reading this project comfortably and not.
+  "recommendations": [
+    // The language server. Everything - completion, types, go-to-definition, the red
+    // underlines - is this one extension; the editor itself knows no Rust.
+    "rust-lang.rust-analyzer",
+    // Debugging: breakpoints in the server, with values you can read.
+    "vadimcn.vscode-lldb",
+    // Cargo.toml with schema and completion.
+    "tamasfe.even-better-toml",
+    // Rust's error messages are long and they are worth reading; this puts them on the line
+    // they belong to instead of in a panel somewhere else.
+    "usernamehw.errorlens",
+    // The diagrams in GUIDE.md are mermaid. GitHub draws them; this makes VS Code's own
+    // preview draw them too.
+    "bierner.markdown-mermaid",
+    // The code lives in WSL and so must cargo. Opening the folder through this extension is
+    // what puts the language server on the same side of the fence as the compiler.
+    "ms-vscode-remote.remote-wsl"
+  ]
+}

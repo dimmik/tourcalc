@@ -111,8 +111,8 @@ ARG BUILD_TYPE=na
 # it serves - see `client_asset` in the server's main.rs.
 ARG BUILD_ID=dev
 ARG BUILD_COMMIT=
-LABEL org.opencontainers.image.title="Tourcalc (Rust experiment)" \
-      org.opencontainers.image.description="The Rust port: axum server, Leptos client. Storage is in memory - see InMemoryFileName." \
+LABEL org.opencontainers.image.title="Tourcalc" \
+      org.opencontainers.image.description="axum server, Leptos client. Set StorageType=MongoDb to keep anything; without it the seed below is loaded into memory and forgotten on restart." \
       io.containers.autoupdate=registry
 
 WORKDIR /app
@@ -120,10 +120,13 @@ WORKDIR /app
 COPY --from=server /tc-server /app/tc-server
 COPY --from=client /src/rust/crates/tc-web/dist /app/wwwroot
 
-# The tours the server starts with. **This store lives in memory**: everything written to it
-# is lost when the container stops, and every start begins again from this file. That is the
-# state of the port - a database is phase 7 - so the image ships the repository's test tours
-# to be poked at rather than pretending to be a place to keep anything.
+# The tours the server starts with when nothing else is configured. **That store lives in
+# memory**: everything written to it is lost when the container stops, and every start
+# begins again from this file - so the image ships the repository's test tours to be poked
+# at rather than pretending to be a place to keep anything.
+#
+# A deployment that means to keep anything sets `StorageType=MongoDb` and the three
+# `MongoDb*` settings, and then this file is never read.
 COPY TCBlazor/Server/inmemory-tours.json /app/seed/inmemory-tours.json
 
 # Read by `config::from_env`, under the names the C# app already uses.

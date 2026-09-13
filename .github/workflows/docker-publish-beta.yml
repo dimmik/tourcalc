@@ -4,9 +4,11 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-# run from any beta branch
-    branches: ['beta/**']
+# Not run on a push any more: `beta/**` builds the Rust image now
+# (docker-publish-rust.yml), under the same `beta-latest` tag, so the beta host
+# follows the Rust build without being touched. The C# still builds by hand, from
+# the Actions tab - but mind that it publishes over that same tag.
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io

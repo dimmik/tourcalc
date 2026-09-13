@@ -666,3 +666,59 @@ async fn the_server_says_which_build_it_is_and_which_client_it_serves() {
         "the start time is there, and it is a time: {v}"
     );
 }
+
+/// The old client's service worker is answered with one that removes itself.
+///
+/// It has to be a script, and it has to be served as one: a browser checking for an update
+/// to its worker and getting the app's HTML page refuses it and keeps the worker it has -
+/// which is the failure this route exists to prevent, and it is invisible until the day the
+/// domain changes hands.
+#[tokio::test]
+async fn the_old_clients_service_worker_is_taken_off_the_air() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    let app = axum::Router::new().route(
+        "/service-worker.js",
+        axum::routing::get(tc_server::retire_the_old_service_worker),
+    );
+    let answer = app
+        .oneshot(
+            Request::builder()
+                .uri("/service-worker.js")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(answer.status(), StatusCode::OK);
+    let kind = answer
+        .headers()
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        kind.starts_with("application/javascript") || kind.starts_with("text/javascript"),
+        "a browser only accepts a worker served as a script, not as {kind}"
+    );
+
+    let body = String::from_utf8(
+        answer
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(body.contains("registration.unregister()"), "{body}");
+    assert!(
+        body.contains("tcw-"),
+        "and it leaves the new client's own caches alone: {body}"
+    );
+}

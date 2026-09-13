@@ -13,6 +13,11 @@
 *.docker                                text eol=lf
 tourcalc.experiment.docker.from-scratch  text eol=lf
 
+# The same reason, one step closer to home: a shell script checked out with CRLF
+# does not run at all - bash reads the CR as part of the interpreter's name and
+# answers "bad interpreter: /usr/bin/env bash^M". These are run from WSL.
+*.sh                                    text eol=lf
+
 # Never convert anything inside these.
 *.png   binary
 *.ico   binary

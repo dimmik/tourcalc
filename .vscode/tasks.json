@@ -1,0 +1,90 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // The one to run first in a fresh checkout: it installs the toolchain, the
+      // WebAssembly target and trunk, and does nothing at all if they are already there.
+      "label": "rust: set up the toolchain",
+      "type": "shell",
+      "command": "./rust/setup.sh",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      // What to press to see the app: builds the client, builds the server, runs both, and
+      // prints links that log in and open a tour.
+      "label": "rust: build and run",
+      "type": "shell",
+      "command": "./rust/build-and-run.sh",
+      "problemMatcher": ["$rustc"],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      // The same, without rebuilding the browser client. Seconds instead of a minute, and
+      // right whenever only the server changed.
+      "label": "rust: run (reuse the last client)",
+      "type": "shell",
+      "command": "./rust/build-and-run.sh --fast",
+      "problemMatcher": ["$rustc"],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      // The C# client on the same server and the same links - which is how anything in the
+      // port gets checked against the thing it is a port of.
+      "label": "rust: run with the C# client instead",
+      "type": "shell",
+      "command": "./rust/build-and-run.sh --blazor",
+      "problemMatcher": [],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "rust: test",
+      "type": "shell",
+      "command": "cargo test --workspace",
+      "options": { "cwd": "${workspaceFolder}/rust" },
+      "problemMatcher": ["$rustc"],
+      "group": { "kind": "test", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      // The database tests, which need the local mongod running. Without one they pass by
+      // doing nothing, so this says out loud where it is expected.
+      "label": "rust: test with the database",
+      "type": "shell",
+      "command": "TC_TEST_MONGO=mongodb://127.0.0.1:27017 cargo test --features mongo --test mongo -p tc-server",
+      "options": { "cwd": "${workspaceFolder}/rust" },
+      "problemMatcher": ["$rustc"],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "rust: clippy",
+      "type": "shell",
+      "command": "cargo clippy --workspace --all-targets",
+      "options": { "cwd": "${workspaceFolder}/rust" },
+      "problemMatcher": ["$rustc"],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "rust: format",
+      "type": "shell",
+      "command": "cargo fmt",
+      "options": { "cwd": "${workspaceFolder}/rust" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "dedicated" }
+    },
+    {
+      // Used by the debugger below, not by hand: a debug build has the symbols a breakpoint
+      // needs, which the release build the run script makes does not.
+      "label": "rust: build the server for debugging",
+      "type": "shell",
+      "command": "cargo build -p tc-server",
+      "options": { "cwd": "${workspaceFolder}/rust" },
+      "problemMatcher": ["$rustc"],
+      "presentation": { "reveal": "silent", "panel": "dedicated" }
+    }
+  ]
+}

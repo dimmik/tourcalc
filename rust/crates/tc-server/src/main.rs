@@ -122,7 +122,13 @@ async fn main() {
     let mut app = Router::new()
         .merge(api::routes(state.clone()))
         // The text interface, for browsers that cannot run the app at all.
-        .merge(tc_server::text::routes().with_state(state));
+        .merge(tc_server::text::routes().with_state(state))
+        // Before the static files, so it wins over anything left in the directory with that
+        // name: the Blazor client's service worker, dismissed.
+        .route(
+            "/service-worker.js",
+            axum::routing::get(tc_server::retire_the_old_service_worker),
+        );
 
     // Optionally serve the built Blazor client from here as well, which is what makes the
     // "point the old client at the new server" test possible without a proxy in between.

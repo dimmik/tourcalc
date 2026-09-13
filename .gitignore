@@ -6,3 +6,10 @@ packages/
 **/obj/*
 **/.vscode/**
 
+# ...except the four files that make the editor work out of the box for everybody. The rest
+# of .vscode is still somebody's own business.
+!/.vscode/extensions.json
+!/.vscode/settings.json
+!/.vscode/tasks.json
+!/.vscode/launch.json
+
