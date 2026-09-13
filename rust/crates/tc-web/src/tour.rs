@@ -862,16 +862,7 @@ fn ExpensesTab(
 ) -> impl IntoView {
     let Sifting { search, by_amount, newest_first, chosen, .. } = sifting;
 
-    let categories = {
-        let mut cs: Vec<String> = spendings
-            .iter()
-            .map(|s| s.category.trim().to_owned())
-            .filter(|c| !c.is_empty())
-            .collect();
-        cs.sort();
-        cs.dedup();
-        cs
-    };
+    let categories = categories_in_order(&spendings);
 
     let name_of_id = {
         let tour = tour.clone();
@@ -955,15 +946,7 @@ fn ExpensesTab(
                     .cloned()
                     .collect();
 
-                if by_amount.get() {
-                    shown.sort_by_key(|s| tour.amount_in_current(s).0);
-                } else {
-                    // ISO stamps sort as text - see `Spending::when`.
-                    shown.sort_by(|a, b| a.when().unwrap_or("").cmp(b.when().unwrap_or("")));
-                }
-                if newest_first.get() {
-                    shown.reverse();
-                }
+                order_rows(&mut shown, by_amount.get(), newest_first.get(), &tour);
 
                 // What the header counts and what this list counts have to agree, and the
                 // difference is worth naming rather than hiding: a payback has no category
@@ -1195,6 +1178,40 @@ fn span_of(shown: &[Spending]) -> Option<(String, String)> {
     Some((dotted(first), dotted(last)))
 }
 
+/// The categories the filter row offers, in the order the app puts them in.
+///
+/// The app sorts them with `OrderBy`, which asks the culture and not the code points:
+/// "бухать" comes before "Гнездо" there and after it under a plain byte-order sort, which
+/// is how the two lists came to disagree. Folding case in the key is what that difference
+/// amounts to on this data.
+fn categories_in_order(spendings: &[Spending]) -> Vec<String> {
+    let mut cs: Vec<String> = spendings
+        .iter()
+        .map(|s| s.category.trim().to_owned())
+        .filter(|c| !c.is_empty())
+        .collect();
+    cs.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()).then_with(|| a.cmp(b)));
+    cs.dedup();
+    cs
+}
+
+/// Put the expenses in the order the toolbar asks for.
+///
+/// Sorted the way round that is wanted rather than sorted and then reversed: every expense
+/// on a day carries the same stamp, and reversing turns the order they were entered in
+/// upside down - which is why one day read one way here and the other way in the app.
+/// `sort_by` is stable, so equal keys keep the order the tour stores them in, whichever way
+/// the list faces - exactly what `OrderBy` and `OrderByDescending` leave behind.
+fn order_rows(shown: &mut [Spending], by_amount: bool, newest_first: bool, tour: &Tour) {
+    let facing = |ord: std::cmp::Ordering| if newest_first { ord.reverse() } else { ord };
+    if by_amount {
+        shown.sort_by(|a, b| facing(tour.amount_in_current(a).0.cmp(&tour.amount_in_current(b).0)));
+    } else {
+        // ISO stamps sort as text - see `Spending::when`.
+        shown.sort_by(|a, b| facing(a.when().unwrap_or("").cmp(b.when().unwrap_or(""))));
+    }
+}
+
 #[component]
 fn ExpenseRow(
     spending: Spending,
@@ -1223,31 +1240,72 @@ fn ExpenseRow(
     let colour = tc_core::extras::str_of(&spending.extras, crate::edit::COLOUR);
     let marked = crate::ui::is_marked(&colour);
     let mark_style = crate::ui::mark_style(&colour);
-    let to_whom = match &spending.split {
-        Split::Everyone => "everyone".to_owned(),
-        Split::Equally(to) | Split::ByWeight(to) => to
-            .iter()
-            .map(|id| name_of(tour.person(id)))
-            .collect::<Vec<_>>()
-            .join(", "),
+    // Who it was for. Almost every expense is for everybody, so saying so on every row is
+    // the one thing on the line that never carries information - while the handful that are
+    // *not* (the restaurant half the party went to, the wine the children are not drinking)
+    // are exactly what somebody scanning the list is looking for. So the common case says
+    // nothing and the exception is marked.
+    let whose: Vec<String> = match &spending.split {
+        Split::Everyone => Vec::new(),
+        Split::Equally(to) | Split::ByWeight(to) => {
+            let mut names: Vec<String> = to.iter().map(|id| name_of(tour.person(id))).collect();
+            names.sort();
+            names
+        }
     };
-
-    let alone =
-        matches!(&spending.split, Split::Equally(to) | Split::ByWeight(to) if to.len() == 1);
+    // A payback is for one person by definition - marking that as an exception says
+    // nothing. The app names it instead, and so does this.
+    let service = crate::ui::as_service_transfer(&spending.description).map(|_| {
+        if spending.description.starts_with("Family ") {
+            "inside family"
+        } else {
+            "payback"
+        }
+    });
+    let some_of_them = !whose.is_empty() && service.is_none();
+    // Two names fit on a row; nine do not, and "4 of 9" is the thing worth knowing at a
+    // glance anyway. The full list is on the row's tooltip either way.
+    let for_chip = match whose.len() {
+        0 => String::new(),
+        1..=2 => format!("for {}", whose.join(", ")),
+        n => format!("for {n} of {}", tour.persons.len()),
+    };
+    let for_title = if some_of_them {
+        let mut why = format!("For {}.", whose.join(", "));
+        if whose.len() == 1 {
+            why = format!("Charged to {} alone.", whose[0]);
+        } else if matches!(&spending.split, Split::Equally(_)) {
+            why.push_str(" Split equally.");
+        }
+        why
+    } else {
+        String::new()
+    };
 
     view! {
         <div class="tcn-settle" class:tcn-sp-marked=move || marked style=mark_style>
             <div class="tcn-settle-flow">
                 <Avatar name=who.clone() />
-                <span class="tcn-settle-who"
-                      title=if alone { "Charged to one person only." } else { "" }>
+                <span class="tcn-settle-who">
                     {description}
-                    <small class="tcn-hint">
-                        " · " {who.clone()}
-                        {(!category.is_empty()).then(|| format!(" · {category}"))}
-                        " · for " {to_whom}
-                    </small>
+                    <small class="tcn-hint">" · " {who.clone()}</small>
                 </span>
+                // Outside the name, not inside it: that span ellipsises a long description,
+                // and a chip put in with it is the first thing the ellipsis eats.
+                {service.map(|what| view! {
+                    <span class="tcn-chip" style="flex:0 0 auto">{what}</span>
+                })}
+                {(!category.is_empty()).then(|| view! {
+                    <span class="tcn-chip tcn-chip-primary" style="flex:0 0 auto">
+                        {category.clone()}
+                    </span>
+                })}
+                {some_of_them.then(|| view! {
+                    <span class="tcn-chip tcn-chip-amber" style="flex:0 0 auto"
+                          title=for_title.clone()>
+                        {for_chip.clone()}
+                    </span>
+                })}
             </div>
             <div class="tcn-settle-amount">
                 <crate::explain::Explain what={
@@ -1963,5 +2021,74 @@ pub fn Avatar(name: String) -> impl IntoView {
         <span class="tcn-avatar tcn-avatar-sm" style=format!("background:{}", avatar_colour(&name))>
             {initials(&name)}
         </span>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tour() -> Tour {
+        Tour::from_json(include_str!("../../../fixtures/zscph2y.tour.json")).expect("fixture")
+    }
+
+    /// The app's chip row reads "бухать/вино … Гнездо/ещё … Треш и угар". A byte-order sort
+    /// puts every capital before every small letter and answers "Гнездо, Треш, бухать",
+    /// which is the list the reader saw side by side with the app's and asked about.
+    #[test]
+    fn the_categories_are_in_the_order_the_app_offers_them() {
+        let cats = categories_in_order(&tour().spendings);
+        let folded: Vec<String> = cats.iter().map(|c| c.to_lowercase()).collect();
+        let mut wanted = folded.clone();
+        wanted.sort();
+        assert_eq!(folded, wanted, "ignoring case, the chips are in order: {cats:?}");
+        assert!(
+            cats.iter().all(|c| !c.trim().is_empty()),
+            "an expense with no category is not a chip"
+        );
+    }
+
+    /// Expenses entered through the new form all carry the same midnight stamp, so the
+    /// sort decides nothing between them and what is left is the order the tour stores
+    /// them in. The app keeps it - its `OrderByDescending` is stable - and so must this, or
+    /// the same day reads one way here and the other way there.
+    #[test]
+    fn expenses_sharing_a_stamp_stay_in_the_order_the_tour_keeps_them() {
+        let t = tour();
+        // What the form writes: a day and no time, three in a row on the same one.
+        let mut rows: Vec<Spending> = t.spendings.iter().take(3).cloned().collect();
+        for s in rows.iter_mut() {
+            s.extras.0.insert(
+                crate::edit::SPENDING_DATE.to_owned(),
+                serde_json::Value::String("2026-09-11".to_owned()),
+            );
+        }
+        let stored: Vec<String> = rows.iter().map(|s| s.id.as_str().to_owned()).collect();
+
+        for newest_first in [true, false] {
+            let mut mine = rows.clone();
+            order_rows(&mut mine, false, newest_first, &t);
+            let shown: Vec<String> = mine.iter().map(|s| s.id.as_str().to_owned()).collect();
+            assert_eq!(shown, stored, "newest_first = {newest_first}");
+        }
+    }
+
+    /// And the days themselves do turn round.
+    #[test]
+    fn which_way_up_the_list_is_is_still_the_readers_choice() {
+        let t = tour();
+        let mut newest = t.spendings.clone();
+        order_rows(&mut newest, false, true, &t);
+        let mut oldest = t.spendings.clone();
+        order_rows(&mut oldest, false, false, &t);
+        assert!(
+            newest.first().unwrap().when() >= oldest.first().unwrap().when(),
+            "the two orders do not start on the same end"
+        );
+        assert_ne!(
+            newest.first().unwrap().when(),
+            newest.last().unwrap().when(),
+            "the fixture spans more than one day, or this test proves nothing"
+        );
     }
 }
