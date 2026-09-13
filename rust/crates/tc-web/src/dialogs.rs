@@ -479,13 +479,22 @@ pub fn PersonDialog(
 
     // Somebody cannot pay for themselves, and a payer who is paid for by another would
     // make a chain the settlement deliberately does not follow.
-    let candidates: Vec<_> = tour
-        .persons
-        .iter()
+    let candidates: Vec<_> = edit::sorted_people(&tour)
+        .into_iter()
         .filter(|p| Some(&p.id) != myself.as_ref())
         .filter(|p| p.parent.is_none())
-        .cloned()
         .collect();
+
+    // What a weight is actually for, in the four answers anybody ever gives. The app offers
+    // 100/75/50/25; 75 is nobody, and the three below a full share are the ones a tour
+    // really has - a teenager, a child, a small child. The box underneath still takes any
+    // number, so nothing is lost by not offering it as a chip.
+    let presets = [
+        (100, "Full · 100"),
+        (50, "Teen · 50"),
+        (35, "Child · 35"),
+        (25, "Toddler · 25"),
+    ];
 
     let base = draft.clone();
     let submit = move |_| {
@@ -511,9 +520,17 @@ pub fn PersonDialog(
         ViewFn::from(move || {
             let submit = submit.clone();
             view! {
+                // Beside the button that produced it. There was nowhere at all for this
+                // before: saving a person with no name simply did nothing.
+                <Show when=move || !error.get().is_empty()>
+                    <div class="tcn-errors" role="alert" style="flex:1 1 100%; margin:0 0 8px">
+                        {move || error.get()}
+                    </div>
+                </Show>
+                <span style="flex:1 1 auto"></span>
                 <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>"Cancel"</button>
                 <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit.clone()>
-                    "Save"
+                    {if editing { "Save" } else { "Add person" }}
                 </button>
             }
         })
@@ -523,39 +540,80 @@ pub fn PersonDialog(
         <Modal title=title.to_owned() on_close=on_close footer=footer>
             <div class="tcn-field">
                 <div class="tcn-label">"Name"</div>
-                <input class="tcn-input" type="text"
-                       prop:value=move || name.get()
-                       on:input=move |ev| name.set(event_target_value(&ev)) />
+                <div class="tcn-namerow">
+                    // The avatar is the app's, and it is not decoration: two people called
+                    // Дима get different colours and different initials, and this is where
+                    // the reader finds out which one they are typing.
+                    <span class="tcn-avatar"
+                          style=move || format!("background:{}", crate::ui::avatar_colour(&name.get()))>
+                        {move || crate::ui::initials(&name.get())}
+                    </span>
+                    <input class="tcn-input" type="text" placeholder="Who is joining?"
+                           prop:value=move || name.get()
+                           on:input=move |ev| name.set(event_target_value(&ev)) />
+                </div>
             </div>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Weight"</div>
-                <input class="tcn-input" type="number" inputmode="numeric"
-                       prop:value=move || weight.get()
-                       on:input=move |ev| weight.set(event_target_value(&ev)) />
+                <div class="tcn-label">"Share of the common expenses"</div>
+                <div class="tcn-chips">
+                    {presets
+                        .iter()
+                        .map(|(w, label)| {
+                            let w = *w;
+                            view! {
+                                <span class="tcn-chip tcn-filter-chip"
+                                      class:is-on=move || {
+                                          weight.get().trim().parse::<i32>() == Ok(w)
+                                      }
+                                      on:click=move |_| weight.set(w.to_string())>
+                                    {*label}
+                                </span>
+                            }
+                        })
+                        .collect_view()}
+                </div>
+                <div class="tcn-row" style="margin-top:8px">
+                    <span class="tcn-hint" style="margin:0">"custom"</span>
+                    <input class="tcn-input" style="width:100px" type="number" inputmode="numeric"
+                           min="0"
+                           prop:value=move || weight.get()
+                           on:input=move |ev| weight.set(event_target_value(&ev)) />
+                </div>
                 <div class="tcn-hint">
-                    "100 is a whole share. A child who eats half as much can be 50."
+                    "A full share is 100. Someone on 50 pays for half as much of everything \
+                     shared. A custom 0 means they pay for nothing at all."
                 </div>
             </div>
 
             <div class="tcn-field">
                 <div class="tcn-label">"Paid for by"</div>
-                <select class="tcn-input" on:change=move |ev| parent.set(event_target_value(&ev))>
-                    <option value="" selected=move || parent.get().is_empty()>
-                        "pays for themselves"
-                    </option>
+                <div class="tcn-pchips">
+                    <button type="button" class="tcn-pchip"
+                            class:is-on=move || parent.get().is_empty()
+                            on:click=move |_| parent.set(String::new())>
+                        <span class="tcn-pchip-name">"Pays for themselves"</span>
+                    </button>
                     {candidates
                         .iter()
                         .map(|p| {
                             let id = p.id.as_str().to_owned();
+                            let mine = id.clone();
                             view! {
-                                <option value=id.clone() selected=move || parent.get() == id>
-                                    {p.name.clone()}
-                                </option>
+                                <button type="button" class="tcn-pchip"
+                                        class:is-on=move || parent.get() == mine
+                                        on:click=move |_| parent.set(id.clone())>
+                                    <crate::tour::Avatar name=p.name.clone() />
+                                    <span class="tcn-pchip-name">{p.name.clone()}</span>
+                                </button>
                             }
                         })
                         .collect_view()}
-                </select>
+                </div>
+                <div class="tcn-hint">
+                    "Children and partners can be settled through one person instead of \
+                     paying separately."
+                </div>
             </div>
 
         </Modal>
