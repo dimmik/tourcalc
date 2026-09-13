@@ -206,6 +206,17 @@ fn App() -> impl IntoView {
 
     let title = PageTitle(RwSignal::new(None));
     provide_context(title);
+    // The browser's own title, too: the app sets it to the tour's name, and it is what a
+    // tab, a bookmark and a shared link are called. Ours said "Tourcalc" for every tour, so
+    // three tabs of three tours were three of the same thing.
+    Effect::new(move |_| {
+        if let Some(document) = web_sys::window().and_then(|w| w.document()) {
+            document.set_title(&match title.0.get() {
+                Some((name, _)) if !name.trim().is_empty() => name,
+                _ => "Tourcalc".to_owned(),
+            });
+        }
+    });
     // Leaving a tour puts the app's own name back, whoever set it.
     Effect::new(move |_| {
         if !matches!(route.get(), Route::Tour(_, _)) {

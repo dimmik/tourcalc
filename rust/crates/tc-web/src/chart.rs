@@ -37,6 +37,13 @@ const CHOSEN_R: f64 = 42.0;
 const CHOSEN_STROKE: f64 = 22.0;
 /// The white hair between the things inside a chosen category, in hundredths of a degree.
 const GAP: i64 = 90;
+/// The rail drawn outside a sector that has something inside it: thin, its own colour, and
+/// shorter than the sector it belongs to so it reads as a mark on it rather than as another
+/// ring of data. Without it the only sign that a category opens was the chevron in the list,
+/// and the circle - the thing being pressed - said nothing at all.
+const HINT_R: f64 = 52.0;
+const HINT_STROKE: f64 = 2.5;
+const HINT_INSET: i64 = 300;
 
 /// The app's seed, from `CSG`.
 const SEED: (u8, u8, u8) = (0x35, 0x66, 0xee);
@@ -302,6 +309,28 @@ pub fn Composition(
                                 } else {
                                     let (length, offset) = arc(s.hundredths, start, R);
                                     let key = s.row.key.clone();
+                                    // The mark that says "there is something under this one".
+                                    // Not on the chosen one: that is already open, and its
+                                    // parts are what the ring is showing.
+                                    if s.row.has_inside() && s.hundredths > HINT_INSET * 2 {
+                                        let span = s.hundredths - HINT_INSET * 2;
+                                        let (rail, at) = arc(span, start + HINT_INSET, HINT_R);
+                                        arcs.push(
+                                            view! {
+                                                <circle cx="60" cy="60" r=HINT_R fill="none"
+                                                        stroke=s.colour.clone()
+                                                        stroke-width=HINT_STROKE
+                                                        stroke-linecap="round"
+                                                        stroke-dasharray=dashes(rail, HINT_R)
+                                                        stroke-dashoffset=format!("{:.3}", -at)
+                                                        transform="rotate(-90 60 60)"
+                                                        opacity=if faded { ".2" } else { ".55" }
+                                                        style="pointer-events:none">
+                                                </circle>
+                                            }
+                                            .into_any(),
+                                        );
+                                    }
                                     arcs.push(
                                         view! {
                                             <circle cx="60" cy="60" r=R fill="none"
@@ -715,6 +744,14 @@ mod tests {
         assert!(
             CHOSEN_R + CHOSEN_STROKE / 2.0 <= HALF_BOX,
             "and the chosen band, which is the one that overflowed"
+        );
+        assert!(
+            HINT_R + HINT_STROKE / 2.0 <= HALF_BOX,
+            "and the rail outside them both"
+        );
+        assert!(
+            HINT_R - HINT_STROKE / 2.0 > R + STROKE / 2.0,
+            "and clears the ring it marks, or it would be read as part of it"
         );
     }
 
