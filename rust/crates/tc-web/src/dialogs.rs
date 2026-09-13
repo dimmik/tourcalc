@@ -98,6 +98,17 @@ pub fn SpendingDialog(
     let more = RwSignal::new(false);
     let adding = RwSignal::new(false);
     let fresh_category = RwSignal::new(String::new());
+    // Opening the box is asking to type in it. The effect re-runs when the input is
+    // mounted, not only when the flag turns: `NodeRef` is itself a signal, and at the
+    // moment "+ new" is pressed the element does not exist yet.
+    let new_category_box = NodeRef::<leptos::html::Input>::new();
+    Effect::new(move |_| {
+        if adding.get() {
+            if let Some(el) = new_category_box.get() {
+                let _ = el.focus();
+            }
+        }
+    });
     let add_category = move |()| {
         let name = fresh_category.get().trim().to_owned();
         if name.is_empty() {
@@ -353,6 +364,7 @@ pub fn SpendingDialog(
                 <Show when=move || adding.get()>
                     <div class="tcn-row" style="margin-top:8px">
                         <input class="tcn-input" style="flex:1 1 140px" type="text"
+                               node_ref=new_category_box
                                placeholder="Category name"
                                prop:value=move || fresh_category.get()
                                on:input=move |ev| fresh_category.set(event_target_value(&ev))

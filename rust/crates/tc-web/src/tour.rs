@@ -84,6 +84,42 @@ pub struct Refresh {
     pub tick: RwSignal<u32>,
 }
 
+/// What the reader has done to the expense list and to the ring: the search box, the sort,
+/// the categories picked out, which slice is open. Owned by the page for the same reason
+/// the open tab is - the screen below is rebuilt after every edit, and a filter that saving
+/// an expense throws away is a filter nobody can use while editing.
+#[derive(Clone, Copy)]
+pub struct Sifting {
+    /// The expense list's search box.
+    pub search: RwSignal<String>,
+    /// Sort by amount rather than by date.
+    pub by_amount: RwSignal<bool>,
+    /// Which way round that sort goes.
+    pub newest_first: RwSignal<bool>,
+    /// The categories the reader has picked out of the list, empty for all of them.
+    pub chosen: RwSignal<Vec<String>>,
+    /// Stats: by category rather than by person.
+    pub by_category: RwSignal<bool>,
+    /// Stats: what is chosen on the ring - a category, a head of several, or a person.
+    pub ring: RwSignal<String>,
+    /// Stats: which head we are inside, if any.
+    pub drill: RwSignal<Option<String>>,
+}
+
+impl Sifting {
+    fn new() -> Self {
+        Self {
+            search: RwSignal::new(String::new()),
+            by_amount: RwSignal::new(false),
+            newest_first: RwSignal::new(true),
+            chosen: RwSignal::new(Vec::new()),
+            by_category: RwSignal::new(true),
+            ring: RwSignal::new(String::new()),
+            drill: RwSignal::new(None),
+        }
+    }
+}
+
 /// A cheap "did anything actually change" stamp. The app's fingerprint, field for field:
 /// counts and totals catch any real edit, and nothing here needs to catch more than that.
 fn fingerprint(tour: &Tour) -> String {
@@ -323,6 +359,9 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         }
     };
 
+    // What the reader has filtered the list down to, owned here for the same reason.
+    let sifting = Sifting::new();
+
     let refresh = Refresh {
         busy: RwSignal::new(false),
         outcome: RwSignal::new(Outcome::None),
@@ -474,7 +513,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
             }.into_any(),
             Load::Ready(tour) => view! {
                 <TourView tour=tour reload=load status=status landing=landing tab=tab
-                          refresh=refresh />
+                          refresh=refresh sifting=sifting />
             }.into_any(),
         }}
     }
@@ -491,6 +530,8 @@ fn TourView(
     tab: RwSignal<Tab>,
     /// The state of the last refresh, likewise owned above.
     refresh: Refresh,
+    /// What the list and the ring are filtered to, likewise owned above.
+    sifting: Sifting,
 ) -> impl IntoView {
     // Every avatar on this screen can now tell one Дима from another.
     provide_context(crate::ui::Peers(
@@ -769,12 +810,13 @@ fn TourView(
 
         <Show when=move || tab.get() == Tab::Expenses>
             <ExpensesTab tour=tour_for_expenses.clone() spendings=real.clone()
-                         unit=unit_expenses.clone() dialog=dialog delete=delete />
+                         unit=unit_expenses.clone() dialog=dialog delete=delete
+                         sifting=sifting />
         </Show>
 
         <Show when=move || tab.get() == Tab::Stats>
             <StatsTab tour=tour_for_stats.clone() spendings=real_for_stats.clone()
-                      unit=unit_stats.clone() />
+                      unit=unit_stats.clone() sifting=sifting />
         </Show>
 
         <button type="button" class="tcn-btn tcn-btn-primary tcn-fab"
@@ -816,11 +858,9 @@ fn ExpensesTab(
     unit: String,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
+    sifting: Sifting,
 ) -> impl IntoView {
-    let search = RwSignal::new(String::new());
-    let by_amount = RwSignal::new(false);
-    let newest_first = RwSignal::new(true);
-    let chosen: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
+    let Sifting { search, by_amount, newest_first, chosen, .. } = sifting;
 
     let categories = {
         let mut cs: Vec<String> = spendings
@@ -1243,13 +1283,14 @@ fn ExpenseRow(
 /// least and would cost the most here, so the numbers are drawn as bars instead - same
 /// information, no library.
 #[component]
-fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String) -> impl IntoView {
-    let by_category = RwSignal::new(true);
+fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting) -> impl IntoView {
     // What the reader has chosen on the ring - a category, a head of several, or a person -
-    // and which of them we are inside, if any. Both live here rather than in the chart: the
-    // totals below are the other half of the same question.
-    let chosen = RwSignal::new(String::new());
-    let drill: RwSignal<Option<String>> = RwSignal::new(None);
+    // and which of them we are inside, if any. Both live with the page rather than in the
+    // chart: the totals below are the other half of the same question, and an edit made
+    // from this screen must not answer by clearing it.
+    let by_category = sifting.by_category;
+    let chosen = sifting.ring;
+    let drill = sifting.drill;
     // The tour's own length, which the tour dialog sets - not the span of the expenses.
     // They are different questions: a trip is eight days whether or not anybody spent
     // anything on the middle three. Four is the app's fallback for a tour that never had
