@@ -205,17 +205,28 @@ pub fn PeopleTab(
                                 let everyone = everyone.clone();
                                 move |_| {
                                     let all = everyone.clone();
-                                    // One button for both directions: anybody open means
-                                    // the next press closes.
-                                    if open.get().is_empty() {
+                                    // One button for both directions: anything open at
+                                    // all - a person's numbers or a family's children -
+                                    // means the next press closes.
+                                    if open.get().is_empty() && kids_open.get().is_empty() {
                                         kids_open.set(all.clone());
                                         open.set(all);
                                     } else {
+                                        // Families close with everybody else, which is the
+                                        // app's own wording for it. Clearing only the
+                                        // people left the children hanging open under a
+                                        // head that had just folded - so "collapse all"
+                                        // collapsed all but the one list still on screen.
+                                        kids_open.set(Vec::new());
                                         open.set(Vec::new());
                                     }
                                 }
                             }>
-                        {move || if open.get().is_empty() { "Expand all" } else { "Collapse all" }}
+                        {move || if open.get().is_empty() && kids_open.get().is_empty() {
+                            "Expand all"
+                        } else {
+                            "Collapse all"
+                        }}
                     </button>
                 </Show>
                 <span class="tcn-chip">{count} " people"</span>
