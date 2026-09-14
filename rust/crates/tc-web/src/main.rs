@@ -269,8 +269,6 @@ fn App() -> impl IntoView {
                 </Show>
                 <div class="tcn-topbar-actions" class:tcw-open=move || menu.get()
                      on:click=move |_| menu.set(false)>
-                    <span class="tcn-chip tcw-buildchip"
-                          title="This interface is written in Rust">"rust"</span>
                     <mode::ModeSwitch mode=mode />
                     <a class="tcn-iconbtn" href="/help" title="What everything here means"
                        aria-label="Help">
