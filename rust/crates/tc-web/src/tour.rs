@@ -1263,6 +1263,11 @@ fn ExpenseRow(
         }
     });
     let some_of_them = !whose.is_empty() && service.is_none();
+    // And the common case says so too, quietly: in the grey line with the payer, not on a
+    // chip. It is the answer to a question somebody does ask - "is this one everybody's?" -
+    // and the row should not make them open the expense to find out. Where it does not
+    // belong is beside the exceptions, competing with them for the eye.
+    let everyone = whose.is_empty() && service.is_none();
     // Two names fit on a row; nine do not, and "4 of 9" is the thing worth knowing at a
     // glance anyway. The full list is on the row's tooltip either way.
     let for_chip = match whose.len() {
@@ -1297,7 +1302,10 @@ fn ExpenseRow(
                 <Avatar name=who.clone() />
                 <span class="tcn-settle-who">
                     {description}
-                    <small class="tcn-hint">" · " {who.clone()}</small>
+                    <small class="tcn-hint">
+                        " · " {who.clone()}
+                        {everyone.then(|| " · for everyone")}
+                    </small>
                 </span>
                 // Outside the name, not inside it: that span ellipsises a long description,
                 // and a chip put in with it is the first thing the ellipsis eats.
