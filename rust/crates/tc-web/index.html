@@ -59,7 +59,7 @@
     -->
     <link data-trunk rel="copy-file" href="manifest.webmanifest" />
     <link data-trunk rel="copy-file" href="manifest.json" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="manifest" href="/manifest.webmanifest" data-tcw="page" />
     <!-- The two names that manifest asked for, so that even a stale copy of it works. -->
     <link data-trunk rel="copy-file" href="ms-icon-150x150.png" />
     <link data-trunk rel="copy-file" href="ms-icon-310x310.png" />
@@ -269,6 +269,31 @@
 </head>
 <body>
     <script>
+        // Making sure the page points at its manifest, because it turns out that cannot be
+        // taken for granted. On a reader's phone the tag was simply not in the document -
+        // the server sends it, the same check from elsewhere finds it, the manifest file
+        // itself downloads perfectly well from that very phone - so something on the device
+        // takes it out: a content blocker, a filtering VPN, a privacy app. Whatever it is,
+        // a browser only reads a manifest the page points at, so without the tag the app
+        // cannot be installed and nothing says why.
+        //
+        // Putting it back costs nothing where it was never taken away. Checked three times
+        // rather than watched continuously: at parse, when the document is ready and when
+        // everything has loaded, which is where anything that edits the page has done its
+        // work - and three fixed moments cannot turn into a fight with it.
+        (function () {
+            const ensure = () => {
+                if (document.querySelector('link[rel=manifest]')) return;
+                const link = document.createElement('link');
+                link.rel = 'manifest';
+                link.href = '/manifest.webmanifest';
+                document.head.appendChild(link);
+            };
+            ensure();
+            document.addEventListener('DOMContentLoaded', ensure);
+            window.addEventListener('load', ensure);
+        })();
+
         // Catching the browser's offer to install the app, which has to happen here rather
         // than in the app: the event fires once, early, and is gone - usually before a
         // megabyte of wasm has finished compiling. Held until somebody asks for it in

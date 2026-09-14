@@ -88,7 +88,10 @@ export async function tcw_why() {
     // is perfectly well served is a page that is not the one this server sent - a copy kept
     // by the browser from some earlier build. That is worth knowing and cannot be guessed.
     const link = document.querySelector('link[rel=manifest]');
-    said.push('link: ' + (link ? link.getAttribute('href') : 'MISSING'));
+    // Whether the tag is the one the page was sent with or the one it put back: on a device
+    // that strips it, that is the difference between "installable again" and "still not".
+    const mine = link && link.dataset && link.dataset.tcw === 'page';
+    said.push('link: ' + (link ? link.getAttribute('href') + (mine ? '' : ' (restored)') : 'MISSING'));
 
     try {
         const answer = await fetch('/manifest.webmanifest');
