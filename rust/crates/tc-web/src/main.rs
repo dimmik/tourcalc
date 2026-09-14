@@ -33,6 +33,21 @@ use leptos::task::spawn_local;
 fn main() {
     console_error_panic_hook::set_once();
     leptos::mount::mount_to_body(App);
+    // The page carries a plain "Starting…" of its own, because until this line runs there
+    // is nothing in the body at all - and a client that never starts would otherwise be a
+    // white screen with no word on it. See the note beside it in index.html.
+    tcw_started();
+}
+
+#[wasm_bindgen::prelude::wasm_bindgen(inline_js = r#"
+export function tcw_started() {
+    window.tcwStarted = true;
+    const boot = document.getElementById('tcw-boot');
+    if (boot) boot.remove();
+}
+"#)]
+extern "C" {
+    fn tcw_started();
 }
 
 /// Which screen the address bar is asking for.
