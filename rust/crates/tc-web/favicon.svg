@@ -1,15 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img"
      aria-label="Tourcalc">
     <!--
-        What the app does, in one glyph: it divides. A rounded tile in the default accent
-        with a division sign on it - a bar and two dots, which is about as much as survives
-        at sixteen pixels, and reads there as nothing else.
-
-        Deliberately not the old icon, which is a green tick: the two builds sit in
-        neighbouring tabs and have to be told apart at a glance.
+        What the app does, without a glyph to say it: the tile itself is cut in two, and the
+        two parts are not the same size. A sign drawn on a tile has to be read; a tile that
+        is divided is already the thing.
+        
+        Loud on purpose. This icon's job is to be found in a strip of twenty tabs, and the
+        acid green is a colour almost nothing else there wears. It is deliberately not the
+        app's accent indigo: the accent is the reader's to change, and the icon is one for
+        everybody.
+        
+        Nothing here is thinner than a couple of pixels at 16, which is the whole reason for
+        choosing a shape over a symbol.
     -->
-    <rect width="64" height="64" rx="15" fill="#4f46e5"/>
-    <circle cx="32" cy="18" r="6.5" fill="#fff"/>
-    <rect x="12" y="28.5" width="40" height="7" rx="3.5" fill="#fff"/>
-    <circle cx="32" cy="46" r="6.5" fill="#fff"/>
+    <defs>
+        <clipPath id="tile"><rect width="64" height="64" rx="15"/></clipPath>
+    </defs>
+    <g clip-path="url(#tile)">
+        <rect width="64" height="64" fill="#1f3bff"/>
+        <path d="M64,0 V64 L14,64 Z" fill="#a3ff12"/>
+        <path d="M10,68 L68,-4" stroke="#fff" stroke-width="3.6" fill="none"/>
+    </g>
 </svg>
