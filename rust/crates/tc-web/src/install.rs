@@ -46,6 +46,31 @@ export function tcw_mark_installed() {
     window.tcwInstalled = true;
 }
 
+// Whether this app is already on the device, asked of the browser rather than guessed.
+//
+// The manifest has to name itself under `related_applications` for this to answer at all -
+// the call was built for "is my *native* app installed", and listing your own manifest is
+// how it was extended to answer for the web app. Relative, so that it means this origin
+// wherever this is running: production, beta and a laptop are three different addresses.
+// Both manifest addresses are named: an app installed while this domain served the other
+// client was installed from the old one, and it is the installed copy's own manifest URL
+// that is matched against.
+//
+// It is the answer to the case that looks exactly like "cannot install" and is not: a
+// browser that has the app installed already stops offering to install it, and the tab
+// asking the question is still an ordinary tab, so nothing about *it* has changed. Chrome
+// includes the web app itself in this list; Firefox and Safari do not have the call at all,
+// which is not an error - they simply cannot say.
+export async function tcw_installed_elsewhere() {
+    if (!navigator.getInstalledRelatedApps) return false;
+    try {
+        const apps = await navigator.getInstalledRelatedApps();
+        return apps.some((app) => app.platform === 'webapp');
+    } catch (e) {
+        return false;
+    }
+}
+
 export async function tcw_install() {
     const offer = window.tcwInstall;
     if (!offer) return 'gone';
@@ -66,6 +91,8 @@ extern "C" {
     fn tcw_is_ios() -> bool;
     #[wasm_bindgen(js_name = tcw_mark_installed)]
     fn mark_installed();
+    #[wasm_bindgen(js_name = tcw_installed_elsewhere)]
+    async fn installed_elsewhere() -> wasm_bindgen::JsValue;
     async fn tcw_install() -> wasm_bindgen::JsValue;
 }
 
@@ -74,6 +101,8 @@ extern "C" {
 pub enum State {
     /// This *is* the installed app. Nothing to offer.
     Installed,
+    /// The app is on this device, but this is a tab rather than it.
+    Elsewhere,
     /// The browser has offered, and the offer is still in hand.
     Offered,
     /// Safari, which installs from the share sheet and says nothing to the page.
@@ -82,9 +111,11 @@ pub enum State {
     No,
 }
 
-pub fn state() -> State {
+pub fn state(on_the_device: bool) -> State {
     if tcw_running_installed() {
         State::Installed
+    } else if on_the_device {
+        State::Elsewhere
     } else if tcw_offered() {
         State::Offered
     } else if tcw_is_ios() {
@@ -98,13 +129,22 @@ pub fn state() -> State {
 /// cannot be told apart from a bug.
 #[component]
 pub fn InstallSetting() -> impl IntoView {
-    let now = RwSignal::new(state());
+    // Asked once, because the answer cannot change while this page is open: installing it
+    // from here opens a different window, and uninstalling happens elsewhere entirely.
+    let on_the_device = RwSignal::new(false);
+    let now = RwSignal::new(state(false));
+    leptos::task::spawn_local(async move {
+        if installed_elsewhere().await.as_bool().unwrap_or(false) {
+            on_the_device.set(true);
+            now.set(state(true));
+        }
+    });
     // The offer does not always arrive before this screen does - the browser weighs it up
     // in its own time - so the answer is asked for again while the page is open rather
     // than settled once and left wrong.
     leptos::prelude::set_interval(
         move || {
-            let fresh = state();
+            let fresh = state(on_the_device.get_untracked());
             if fresh != now.get_untracked() {
                 now.set(fresh);
             }
@@ -127,7 +167,7 @@ pub fn InstallSetting() -> impl IntoView {
                 "gone" => "The browser has withdrawn the offer. Reload the page and try again.",
                 _ => "The browser would not open the install dialogue.",
             }));
-            now.set(state());
+            now.set(state(on_the_device.get_untracked()));
         });
     };
 
@@ -149,6 +189,13 @@ pub fn InstallSetting() -> impl IntoView {
                             "Already installed — this is the installed app."
                         </div>
                     }.into_any(),
+                    State::Elsewhere => view! {
+                        <div class="tcn-hint" style="margin-top:6px">
+                            "Already on this device — open it from the home screen rather
+                             than here. A browser that has it installed stops offering to
+                             install it, which is why there is no button."
+                        </div>
+                    }.into_any(),
                     State::ByHand => view! {
                         <div class="tcn-hint" style="margin-top:6px">
                             "On iPhone and iPad it is done from the share menu: "
@@ -158,9 +205,11 @@ pub fn InstallSetting() -> impl IntoView {
                     }.into_any(),
                     State::No => view! {
                         <div class="tcn-hint" style="margin-top:6px">
-                            "This browser is not offering it. Either it does not install web
-                             apps, or it has not decided yet — it makes up its own mind a
-                             moment after the page loads, and this line follows it."
+                            "This browser is not offering it. Three reasons are possible:
+                             it does not install web apps at all; it has not decided yet, and
+                             this line follows it when it does; or the app is on this device
+                             already — a browser that has it installed stops offering, so
+                             look for Tourcalc on the home screen before looking for a bug."
                         </div>
                     }.into_any(),
                     State::Offered => ().into_any(),
