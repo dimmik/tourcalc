@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img"
+     aria-label="Tourcalc">
+    <!--
+        The same glyph, drawn for a launcher that will cut it to whatever shape it likes.
+        Two differences from favicon.svg, and both are what "maskable" means: the background
+        is the whole square rather than a rounded tile - the rounding is the launcher's job
+        now, and a rounded tile inside a rounded mask reads as a mistake - and the division
+        sign is shrunk to the middle, inside the safe circle that every mask is guaranteed
+        to leave alone.
+    -->
+    <rect width="64" height="64" fill="#4f46e5"/>
+    <g transform="translate(32 32) scale(0.62) translate(-32 -32)">
+        <circle cx="32" cy="18" r="6.5" fill="#fff"/>
+        <rect x="12" y="28.5" width="40" height="7" rx="3.5" fill="#fff"/>
+        <circle cx="32" cy="46" r="6.5" fill="#fff"/>
+    </g>
+</svg>

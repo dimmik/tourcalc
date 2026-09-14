@@ -49,9 +49,29 @@
     -->
     <link data-trunk rel="copy-file" href="icon-192.png" />
     <link data-trunk rel="copy-file" href="icon-512.png" />
+    <link data-trunk rel="copy-file" href="icon-maskable-512.png" />
+    <!--
+        Under a new name, and the old one kept beside it. A browser that was here while this
+        domain served the other client may be holding *its* manifest - one that names icons
+        which no longer exist - and until that copy expires the browser decides the app
+        cannot be installed and offers a bookmark instead. Nothing can be stale at an
+        address that has never been asked for before.
+    -->
+    <link data-trunk rel="copy-file" href="manifest.webmanifest" />
     <link data-trunk rel="copy-file" href="manifest.json" />
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- The two names that manifest asked for, so that even a stale copy of it works. -->
+    <link data-trunk rel="copy-file" href="ms-icon-150x150.png" />
+    <link data-trunk rel="copy-file" href="ms-icon-310x310.png" />
     <meta name="theme-color" content="#4f46e5" />
+    <!--
+        iOS reads none of the above. A home-screen icon there opens in Safari, with its
+        address bar and its back gesture, unless the page says otherwise - and it says it
+        with these, which Apple has never replaced.
+    -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Tourcalc" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/icon-180.png" />
@@ -249,6 +269,26 @@
 </head>
 <body>
     <script>
+        // Catching the browser's offer to install the app, which has to happen here rather
+        // than in the app: the event fires once, early, and is gone - usually before a
+        // megabyte of wasm has finished compiling. Held until somebody asks for it in
+        // Settings, which is the only place that offers it.
+        window.tcwInstall = null;
+        window.addEventListener('beforeinstallprompt', (event) => {
+            // Without this the browser puts its own bar on the page, which is its way of
+            // asking and not ours.
+            event.preventDefault();
+            window.tcwInstall = event;
+        });
+        // And the browser says when it is done - which may be from its own menu, without
+        // this page being asked at all. The tab it happened in is still a tab, so nothing
+        // else would notice.
+        window.tcwInstalled = false;
+        window.addEventListener('appinstalled', () => {
+            window.tcwInstall = null;
+            window.tcwInstalled = true;
+        });
+
         // Registration is three lines of JavaScript and there is no reason to route it
         // through wasm. It is deliberately not awaited: the app must start whether or not
         // the browser supports service workers.
