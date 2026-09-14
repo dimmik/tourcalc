@@ -111,6 +111,13 @@ pub fn SettingsPage(settings: settings::Shared) -> impl IntoView {
         </div>
 
         <div class="tcn-section">
+            <div class="tcn-section-title">"This device"</div>
+            <div class="tcn-card" style="padding: 14px;">
+                <crate::install::InstallSetting />
+            </div>
+        </div>
+
+        <div class="tcn-section">
             <div class="tcn-section-title">"Elsewhere"</div>
             <div class="tcn-card" style="padding: 14px;">
                 <div class="tcn-setrow">

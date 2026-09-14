@@ -11,6 +11,7 @@ mod edit;
 mod explain;
 mod help;
 mod icon;
+mod install;
 mod list;
 mod login;
 mod mini;
