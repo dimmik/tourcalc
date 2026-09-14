@@ -8,6 +8,14 @@ on:
   push:
 # prod is the release; beta/** is where the temporary things live. Both are this build now.
     branches: ['prod', 'beta/**']
+# A commit that cannot change the image does not need eight minutes of one. Prose and editor
+# settings are not in the image - the .dockerignore keeps them out of the build context too,
+# so a build from them would be the same image under a new tag.
+    paths-ignore:
+      - '**.md'
+      - '.vscode/**'
+      - '.gitignore'
+      - '.gitattributes'
 # and by hand, from any branch - which publishes the beta tags, never prod's.
   workflow_dispatch:
 
@@ -77,6 +85,16 @@ jobs:
       # The tests are the reason to trust the image; the image itself takes seven or eight
       # minutes, so they are the cheap half of the build. Everything but the database ones:
       # those need a mongod, which this job has not got.
+      # The tests compile the whole workspace, and on a fresh runner that means six hundred
+      # crates from nothing every time. This keeps cargo's registry and the test build
+      # between runs, keyed on Cargo.lock: unchanged dependencies are restored rather than
+      # rebuilt. It is a separate cache from the image's - that one is Docker layers, and
+      # this job is not building an image.
+      - name: Cache the test build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
       - name: Test
         run: |
           cd rust

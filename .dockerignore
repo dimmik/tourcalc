@@ -12,3 +12,4 @@ rust/crates/*/dist/
 # compiles the server: `COPY rust/` would pick it up, and a typo in the write-up would cost
 # a full rebuild.
 rust/README.md
+rust/GUIDE.md
