@@ -8,6 +8,9 @@
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "description": "Who paid for what on a trip, and who owes whom at the end.",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["finance", "travel", "utilities"],
   "related_applications": [
     { "platform": "webapp", "url": "/manifest.webmanifest" },
     { "platform": "webapp", "url": "/manifest.json" }
