@@ -156,6 +156,42 @@
             flex-wrap: wrap;
         }
 
+        /* The screen before the app's own screen. Deliberately plain: it is either seen
+           for a quarter of a second or it is the bad news, and neither wants decoration. */
+        .tcw-boot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-height: 70dvh;
+            padding: 24px;
+            text-align: center;
+            color: #475569;
+            font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .tcw-boot-name {
+            font-size: 19px;
+            font-weight: 700;
+            color: #1f2937;
+            letter-spacing: -.01em;
+        }
+
+        .tcw-boot-line { max-width: 34em; }
+
+        #tcw-boot-again {
+            margin-top: 6px;
+            padding: 9px 18px;
+            border-radius: 10px;
+            border: 1px solid #c7cbd4;
+            background: #fff;
+            font: inherit;
+            font-weight: 600;
+            color: #1f2937;
+            cursor: pointer;
+        }
+
         /* A row the calculator wrote for itself is not an expense, and the app paints it:
            green for a payback, cyan for a transfer inside a family. Those rules are written
            for `.tcn-sp`, and these rows are `.tcn-settle`, so the colours are repeated here
@@ -247,17 +283,6 @@
                 justify-content: center;
             }
 
-            /* The chip is a label, not a control: in a menu of things you can press it
-               should not look like one more of them. */
-            .tcn-topbar-actions.tcw-open .tcw-buildchip {
-                align-self: flex-start;
-                background: none;
-                border: none;
-                padding: 0 10px;
-                opacity: .75;
-                font-size: 12px;
-            }
-
             .tcw-menu-backdrop {
                 position: fixed;
                 inset: 0;
@@ -268,6 +293,23 @@
     </style>
 </head>
 <body>
+    <!--
+        What is on screen before the app is - which, until now, was nothing at all.
+        Leptos mounts into this body; everything above it is script. So a client that
+        does not start leaves a white page with no word on it and no way out but a
+        reload somebody has to think of, and on a phone that is exactly what happens:
+        the browser drops a tab that has been in the background for half an hour, comes
+        back to it, and asks for a megabyte of WebAssembly over a radio that is still
+        asleep. The fetch fails, nothing mounts, and the page is blank for good.
+
+        The app removes this the moment it is up (see `tcw_started` in main.rs).
+    -->
+    <div id="tcw-boot" class="tcw-boot">
+        <div class="tcw-boot-name">Tourcalc</div>
+        <div class="tcw-boot-line" id="tcw-boot-why">Starting…</div>
+        <button type="button" id="tcw-boot-again" hidden>Try again</button>
+    </div>
+
     <script>
         // Making sure the page points at its manifest, because it turns out that cannot be
         // taken for granted. On a reader's phone the tag was simply not in the document -
@@ -317,6 +359,52 @@
         // Registration is three lines of JavaScript and there is no reason to route it
         // through wasm. It is deliberately not awaited: the app must start whether or not
         // the browser supports service workers.
+        // Noticing that the app never started, and saying so.
+        //
+        // Three ways to find out, because they fail at different moments: the module
+        // itself refusing to load, the promise inside it rejecting, and - the catch-all
+        // for everything unforeseen - it simply not being up after nine seconds. Only
+        // the first two are quick; the timer is there so that no failure ends as a
+        // white page.
+        (function () {
+            const boot = document.getElementById('tcw-boot');
+            const why = document.getElementById('tcw-boot-why');
+            const again = document.getElementById('tcw-boot-again');
+            const up = () => window.tcwStarted === true;
+            let told = false;
+
+            const tell = () => {
+                if (up() || told || !boot) return;
+                told = true;
+                why.textContent = 'Tourcalc did not start. It may have been asked for while ' +
+                    'this device had no connection.';
+                again.hidden = false;
+            };
+
+            again.addEventListener('click', () => location.reload());
+            setTimeout(tell, 9000);
+            // A script that fails to load reports it on the element, which only a
+            // listener in the capture phase sees.
+            window.addEventListener('error', (event) => {
+                if (event.target && event.target.tagName === 'SCRIPT') tell();
+            }, true);
+            window.addEventListener('unhandledrejection', tell);
+
+            // And the one that fixes the case above by itself: coming back to a tab the
+            // browser emptied while we were away. If the app is not up by the time the
+            // page is looked at again, start it over - once a minute at the most, so a
+            // client that genuinely cannot start does not sit there reloading itself.
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState !== 'visible' || up()) return;
+                try {
+                    const last = Number(sessionStorage.getItem('tcw-reboot') || 0);
+                    if (Date.now() - last < 60000) return;
+                    sessionStorage.setItem('tcw-reboot', String(Date.now()));
+                } catch (e) { /* a browser with no session storage still gets one go */ }
+                location.reload();
+            });
+        })();
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
         }

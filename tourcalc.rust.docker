@@ -38,11 +38,54 @@ RUN rustup target add wasm32-unknown-unknown \
     | tar -xz -C /usr/local/bin trunk \
  && trunk --version
 
-# The client's index.html pulls the app's own stylesheets straight out of the Blazor client -
-# they are shared, not copied - so they have to be here too. The whole directory rather than
-# the files by name: naming them meant that adding the small interface's stylesheet built
-# perfectly here and failed in CI, where nothing else in the tree exists.
-COPY rust/ ./rust/
+# What follows is in three steps rather than one, and the order is the whole point: each
+# `COPY` is a layer, and a layer is rebuilt only when what it copies has changed. Copying
+# the tree in one go - which is what this did - meant that changing an icon recompiled six
+# hundred crates to put a different PNG in a directory.
+#
+# 1. the manifests, and the dependencies they name.
+COPY rust/Cargo.toml rust/Cargo.lock ./rust/
+COPY rust/crates/tc-core/Cargo.toml ./rust/crates/tc-core/
+COPY rust/crates/tc-server/Cargo.toml ./rust/crates/tc-server/
+COPY rust/crates/tc-web/Cargo.toml ./rust/crates/tc-web/
+COPY rust/crates/spike-bare/Cargo.toml ./rust/crates/spike-bare/
+COPY rust/crates/spike-dioxus/Cargo.toml ./rust/crates/spike-dioxus/
+COPY rust/crates/spike-leptos/Cargo.toml ./rust/crates/spike-leptos/
+
+# Cargo will not look at a workspace whose members are missing, so every member gets an
+# empty source file to be going on with. What is built here is everything *except* this
+# project: the dependency graph, which changes only when Cargo.lock does.
+RUN set -eux; \
+    for c in tc-core tc-server tc-web spike-bare spike-dioxus spike-leptos; do \
+        mkdir -p "rust/crates/$c/src"; \
+    done; \
+    : > rust/crates/tc-core/src/lib.rs; \
+    : > rust/crates/tc-server/src/lib.rs; \
+    for c in tc-server tc-web spike-bare spike-dioxus spike-leptos; do \
+        echo 'fn main() {}' > "rust/crates/$c/src/main.rs"; \
+    done; \
+    cd rust && cargo build --release --locked --target wasm32-unknown-unknown -p tc-web
+
+# 2. this project's own code, compiled against those dependencies.
+#
+# **The `touch` is not decoration.** `COPY` keeps the modification time the file has in the
+# build context, and cargo decides what to rebuild by modification time: a real source file
+# that lands looking older than the stub compiled above is one cargo declares up to date,
+# and the image is then built from the empty file. Tried it: cargo answered "Finished in
+# 0.06s" and kept the stub.
+COPY rust/crates/tc-core/src ./rust/crates/tc-core/src
+COPY rust/crates/tc-web/src ./rust/crates/tc-web/src
+RUN set -eux; \
+    find rust/crates -name '*.rs' -exec touch {} +; \
+    cd rust && cargo build --release --locked --target wasm32-unknown-unknown -p tc-web
+
+# 3. everything that is not code: the page, the icons, the manifest, the worker - and the
+# app's own stylesheets, which the client's index.html pulls straight out of the Blazor
+# client because they are shared rather than copied.
+#
+# Changing any of these re-runs only what is below this line. The wasm above is already
+# built, so trunk finds it done and gets on with hashing and copying.
+COPY rust/crates/tc-web ./rust/crates/tc-web
 COPY TCBlazor/Client/wwwroot/css/ ./TCBlazor/Client/wwwroot/css/
 
 WORKDIR /src/rust/crates/tc-web
@@ -86,15 +129,42 @@ RUN case "$TARGETARCH" in \
  && apt-get install -y --no-install-recommends $PACKAGES \
  && rm -rf /var/lib/apt/lists/*
 
-COPY rust/ ./rust/
+# In two steps, for the reason given in the client stage above - and with one more thing
+# worth saying here: **this stage never sees the browser client at all**. It compiles
+# `tc-core` and `tc-server`, and nothing it produces depends on a stylesheet, an icon or a
+# line of `tc-web`. It used to copy the lot, so every change to any of them recompiled a
+# server that could not tell the difference.
+COPY rust/Cargo.toml rust/Cargo.lock ./rust/
+COPY rust/crates/tc-core/Cargo.toml ./rust/crates/tc-core/
+COPY rust/crates/tc-server/Cargo.toml ./rust/crates/tc-server/
+COPY rust/crates/tc-web/Cargo.toml ./rust/crates/tc-web/
+COPY rust/crates/spike-bare/Cargo.toml ./rust/crates/spike-bare/
+COPY rust/crates/spike-dioxus/Cargo.toml ./rust/crates/spike-dioxus/
+COPY rust/crates/spike-leptos/Cargo.toml ./rust/crates/spike-leptos/
+
+RUN set -eux; \
+    for c in tc-core tc-server tc-web spike-bare spike-dioxus spike-leptos; do \
+        mkdir -p "rust/crates/$c/src"; \
+    done; \
+    : > rust/crates/tc-core/src/lib.rs; \
+    : > rust/crates/tc-server/src/lib.rs; \
+    for c in tc-server tc-web spike-bare spike-dioxus spike-leptos; do \
+        echo 'fn main() {}' > "rust/crates/$c/src/main.rs"; \
+    done; \
+    cd rust && cargo build --release --locked -p tc-server --target "$(cat /triple)"
 
 # `--locked` so the image is built from the versions in Cargo.lock and not from whatever has
 # been published since. The default features are on - MongoDB and push notifications - which
-# is what a deployment runs with.
-RUN cd rust \
- && cargo build --release --locked -p tc-server --target "$(cat /triple)" \
- && cp "target/$(cat /triple)/release/tc-server" /tc-server \
- && ls -la /tc-server
+# is what a deployment runs with. On the `touch`, see the client stage: without it a source
+# file that lands with an older date than the stub above is one cargo leaves alone.
+COPY rust/crates/tc-core/src ./rust/crates/tc-core/src
+COPY rust/crates/tc-server/src ./rust/crates/tc-server/src
+RUN set -eux; \
+    find rust/crates -name '*.rs' -exec touch {} +; \
+    cd rust; \
+    cargo build --release --locked -p tc-server --target "$(cat /triple)"; \
+    cp "target/$(cat /triple)/release/tc-server" /tc-server; \
+    ls -la /tc-server
 
 # ---------------------------------------------------------------------------------------
 # What actually ships. The binary is static and carries the Mozilla root certificates inside
