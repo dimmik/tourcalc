@@ -71,6 +71,34 @@ export async function tcw_installed_elsewhere() {
     }
 }
 
+// What the browser's own conditions look like from inside the page.
+//
+// Not decoration: a phone cannot be opened in a debugger, and "the browser is not offering
+// it" is three sentences of guesswork without this. Each of these is one of the things a
+// browser weighs, and the answer is short enough to read off a screen and say over the
+// telephone.
+export async function tcw_why() {
+    const said = [];
+    said.push('offer supported: ' + (('onbeforeinstallprompt' in window) ? 'yes' : 'no'));
+    said.push('worker in control: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'yes' : 'no'));
+    said.push('secure: ' + (window.isSecureContext ? 'yes' : 'no'));
+
+    const link = document.querySelector('link[rel=manifest]');
+    if (!link) {
+        said.push('manifest: not linked');
+    } else {
+        try {
+            const answer = await fetch(link.href);
+            const manifest = await answer.json();
+            const icons = (manifest.icons || []).length;
+            said.push('manifest: ' + answer.status + ', ' + (manifest.display || 'no display') + ', ' + icons + ' icons');
+        } catch (e) {
+            said.push('manifest: unreadable');
+        }
+    }
+    return said.join(' · ');
+}
+
 export async function tcw_install() {
     const offer = window.tcwInstall;
     if (!offer) return 'gone';
@@ -93,6 +121,8 @@ extern "C" {
     fn mark_installed();
     #[wasm_bindgen(js_name = tcw_installed_elsewhere)]
     async fn installed_elsewhere() -> wasm_bindgen::JsValue;
+    #[wasm_bindgen(js_name = tcw_why)]
+    async fn why() -> wasm_bindgen::JsValue;
     async fn tcw_install() -> wasm_bindgen::JsValue;
 }
 
@@ -152,6 +182,12 @@ pub fn InstallSetting() -> impl IntoView {
         std::time::Duration::from_millis(1200),
     );
     let outcome: RwSignal<Option<&'static str>> = RwSignal::new(None);
+    // Asked for whether it is needed or not, because it is needed exactly when nobody can
+    // ask for it: on somebody else's phone, with no way to look inside.
+    let checks = RwSignal::new(String::new());
+    leptos::task::spawn_local(async move {
+        checks.set(why().await.as_string().unwrap_or_default());
+    });
 
     let ask = move |_| {
         outcome.set(None);
@@ -217,6 +253,13 @@ pub fn InstallSetting() -> impl IntoView {
                 {move || outcome.get().map(|said| view! {
                     <div class="tcn-hint" style="margin-top:6px">{said}</div>
                 })}
+                // Only where it answers something: with a button on screen, nothing is
+                // wrong and a row of diagnostics is clutter.
+                <Show when=move || now.get() == State::No && !checks.get().is_empty()>
+                    <div class="tcn-hint" style="margin-top:6px; opacity:.75">
+                        "Checked here — " {move || checks.get()}
+                    </div>
+                </Show>
             </div>
             {move || match now.get() {
                 State::Offered => view! {
