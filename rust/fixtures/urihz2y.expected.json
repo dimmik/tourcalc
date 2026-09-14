@@ -1,0 +1,46 @@
+{
+  "tourId": "urihz2y",
+  "name": "Переводы рублей",
+  "currency": {
+    "id": "EUR",
+    "name": "EUR",
+    "rate": 117300
+  },
+  "isMultiCurrency": true,
+  "persons": [
+    {
+      "guid": "k7szz2y",
+      "name": "Рома",
+      "weight": 100,
+      "spent": 3037,
+      "received": 1108,
+      "debt": -1929
+    },
+    {
+      "guid": "pptkf2y",
+      "name": "Родители",
+      "weight": 100,
+      "spent": 1108,
+      "received": 3037,
+      "debt": 1929
+    }
+  ],
+  "transfers": [
+    {
+      "from": "pptkf2y",
+      "fromName": "Родители",
+      "to": "k7szz2y",
+      "toName": "Рома",
+      "amount": 222890,
+      "description": "X 'Родители' -> 'Рома'"
+    },
+    {
+      "from": "pptkf2y",
+      "fromName": "Родители",
+      "to": "k7szz2y",
+      "toName": "Рома",
+      "amount": 29,
+      "description": "X 'Родители' -> 'Рома'"
+    }
+  ]
+}

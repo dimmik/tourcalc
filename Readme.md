@@ -26,13 +26,18 @@ room they take.
 ## Quick start
 
 ```
-docker run -d -p 127.0.0.1:8080:80 \
+docker run -d -p 127.0.0.1:8080:8080 \
   --env-file ./tourcalc.env \
   --name tourcalc \
-  ghcr.io/dimmik/tourcalc:blazor-latest
+  ghcr.io/dimmik/tourcalc:latest
 ```
 
-(`podman run` works the same way.) The container listens on port 80.
+(`podman run` works the same way.) The container listens on port 8080, as a user that is
+not root — which is why it is 8080 and not 80.
+
+`latest` is whatever branch `prod` builds — today that is the Rust one. The original C#
+build is `blazor-latest` and listens on port 80; see [Two builds](#two-builds) for what
+differs.
 
 The smallest `tourcalc.env` that does something useful:
 
@@ -145,6 +150,8 @@ Turning the redirect off does not remove `/t` — it is still there to be typed,
 
 ## Telegram bot
 
+**The C# build only** — the Rust port has no bot. See [Two builds](#two-builds).
+
 Runs a trip from a chat, so nobody has to leave Telegram to write down an expense.
 
 **The bot speaks Russian.** The rest of the app is in English; the bot was written for a
@@ -185,6 +192,25 @@ tunnel is enough.
 
 ## Building from source
 
+### Rust
+
+Needs a Rust toolchain and [trunk](https://trunkrs.dev/); both are installed by
+`rust/setup.sh`, which is also what VS Code offers to run when the folder is opened.
+
+```
+./rust/build-and-run.sh          # build the client and the server, run both
+cd rust && cargo test --workspace
+```
+
+The script prints share links that log in and open a tour. Everything is explained at
+length in [`rust/GUIDE.md`](rust/GUIDE.md).
+
+```
+docker build -f tourcalc.rust.docker -t tourcalc .
+```
+
+### C#
+
 Needs the .NET 8 SDK.
 
 ```
@@ -211,13 +237,43 @@ docker build -f tourcalc.blazor.docker -t tourcalc .
 | `TCBlazor/Client` | The Blazor WebAssembly app: Full, Mini and Classic interfaces. |
 | `TCBlazor/Server` | The API, the no-JavaScript text pages, and the Telegram bot. |
 | `TCalcTests` | Tests. |
+| `rust/crates/tc-core` | The Rust port's domain and arithmetic — the same answers as `TCalcCore`, checked against it. |
+| `rust/crates/tc-server` | The Rust port's API, text pages and storage. |
+| `rust/crates/tc-web` | The Rust port's browser client (Leptos, WebAssembly): Full and Mini. |
 
 The bot's own logic knows nothing about Telegram — it takes a message and returns a
 reply — so almost all of it is tested without a token, a network, or a bot.
 
 ## Images
 
-| Tag | Built from |
-|---|---|
-| `ghcr.io/dimmik/tourcalc:blazor-latest` | branch `prod` |
-| `ghcr.io/dimmik/tourcalc:beta-latest` | branches `beta/**` |
+| Tag | Built from | |
+|---|---|---|
+| `ghcr.io/dimmik/tourcalc:latest` | branch `prod` | **What a deployment follows.** |
+| `ghcr.io/dimmik/tourcalc:prod-YYYYMMDD-HHmmss` | branch `prod` | The same image, dated — what to roll back to. The date is what the app's build page shows. |
+| `ghcr.io/dimmik/tourcalc:beta-latest` | branches `beta/**` | Where the temporary things live, with dated tags beside it as above. |
+| `ghcr.io/dimmik/tourcalc:blazor-latest` | by hand | The C# build. Was `prod`; now built from the Actions tab when it is wanted. |
+| `ghcr.io/dimmik/tourcalc:experiments-rust` | branches `experiments/**` | A working branch. |
+
+The two moving tags say nothing about what the app is written in, on purpose: `latest` is
+whatever `prod` builds today. Which implementation that is shows on the build page and in
+the `X-Tourcalc-Version` header of every response, so the answer is one request away — but
+no server has to be edited the day it changes.
+
+## Two builds
+
+The same app exists twice: the original C# one and a Rust port of it. They serve the same
+API, read the same database and show the same screens — a browser cannot tell which one it
+is talking to, which is how the port was checked.
+
+What only the C# build has:
+
+- the **Telegram bot**,
+- the **Classic** interface,
+- a few settings nothing else reads: `AnonymousIsMaster`, `ReturnVersionsInAllTours`,
+  `DoRedirectToDomain` / `RedirectDomain`, `DoWakeup` / `WakeupUrl`.
+
+What only the Rust build has: an image a tenth of the size that starts in milliseconds, and
+no runtime to keep up to date. Drafts (`IsDryRun`) are kept and counted exactly as before,
+but there is no longer a way to make one.
+
+How it is built and how to work on it: [`rust/GUIDE.md`](rust/GUIDE.md).

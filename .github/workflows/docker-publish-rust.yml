@@ -1,0 +1,103 @@
+name: Rust -- Create and publish a Docker image
+concurrency:
+# Per branch: a push to a beta branch must not cancel the build of prod.
+  group: tourcalc-rust-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+# prod is the release; beta/** is where the temporary things live. Both are this build now.
+    branches: ['prod', 'beta/**']
+# and by hand, from any branch - which publishes the beta tags, never prod's.
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Get current time
+        uses: josStorer/get-current-time@v2
+        id: current-time
+        with:
+          format: YYYYMMDD-HHmmss
+          utcOffset: "+03:00"
+
+      # Which image this run is publishing.
+      #
+      # The names say *which* image and never what it is made of: `prod` publishes plain
+      # `latest`, beta publishes `beta-latest`. A deployment follows one of those two names
+      # for good - the day the thing behind it is rewritten in something else again, nothing
+      # on any server has to be edited. Which implementation it actually is stays visible
+      # where it belongs: `BUILD_TYPE`, which the build page and the version header print.
+      #
+      # A run started by hand counts as a beta whatever branch it is on: nobody means to
+      # publish the release by pressing a button on a working branch.
+      - name: Work out which image this is
+        id: kind
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF" = "refs/heads/prod" ]; then
+            echo "moving=latest"     >> $GITHUB_OUTPUT
+            echo "dated=prod"        >> $GITHUB_OUTPUT
+            echo "type=prodR"        >> $GITHUB_OUTPUT
+          else
+            echo "moving=beta-latest" >> $GITHUB_OUTPUT
+            echo "dated=beta"         >> $GITHUB_OUTPUT
+            echo "type=betaR"         >> $GITHUB_OUTPUT
+          fi
+
+      # No QEMU: the server is cross-compiled and the wasm is architecture-independent, so
+      # nothing in this build ever runs emulated. See the comments in tourcalc.rust.docker.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=$(echo ${GITHUB_REF#refs/heads/} | sed 's/\//\\\//g')" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      # The tests are the reason to trust the image; the image itself takes seven or eight
+      # minutes, so they are the cheap half of the build. Everything but the database ones:
+      # those need a mongod, which this job has not got.
+      - name: Test
+        run: |
+          cd rust
+          cargo test --locked --workspace
+
+      - name: linux/amd64,linux/arm64 Build and push Docker image
+        uses: docker/build-push-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+          context: .
+          file: tourcalc.rust.docker
+          push: true
+          # The moving tag is what a deployment follows; the dated one is what it can be
+          # rolled back to, and what the build page names.
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.kind.outputs.moving }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.kind.outputs.dated }}-${{ steps.current-time.outputs.formattedTime }}
+          build-args: |
+             BUILD_TYPE=${{ steps.kind.outputs.type }} (${{ steps.extract_branch.outputs.branch }})
+             BUILD_ID=${{ steps.current-time.outputs.formattedTime }}
+             BUILD_COMMIT=${{ github.sha }}
+          # Rust compiles the world on a cold start; without this every push pays for it
+          # again. `mode=max` keeps the intermediate stages too, which is where the time is.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: io.containers.autoupdate=registry

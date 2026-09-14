@@ -1,0 +1,44 @@
+{
+  // The Rust workspace is not at the root of this repository - the C# app is - so
+  // rust-analyzer would find nothing without being told where to look.
+  "rust-analyzer.linkedProjects": ["rust/Cargo.toml"],
+
+  // Check with clippy rather than plain `cargo check`: same speed, and it catches the
+  // things that are not errors but are still wrong.
+  "rust-analyzer.check.command": "clippy",
+
+  // The editor and the terminal both want to build. Sharing one `target/` means each waits
+  // for the other's lock, which reads as "the editor froze"; this gives the editor its own.
+  "rust-analyzer.cargo.targetDir": true,
+
+  // Note there is deliberately no `rust-analyzer.cargo.target` here. The client is built
+  // for WebAssembly and the server for Linux, and that setting applies to the whole
+  // workspace: pointing it at wasm breaks the server's analysis. `tc-web` checks cleanly
+  // for the host anyway, so the editor reads both.
+
+  // Leptos's `view!` builds the DOM out of a macro. Expanding macros is what lets the
+  // editor see inside one; the runtime does it anyway, this only asks for a bigger budget.
+  "rust-analyzer.procMacro.enable": true,
+
+  // Types the code does not spell out, shown where they are inferred. Rust leans on
+  // inference heavily and this is most of learning to read it.
+  "editor.inlayHints.enabled": "onUnlessPressed",
+
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  },
+
+  // `cargo fmt` settles the layout of everything else; these two keep the rest of the tree
+  // out of the way of a search.
+  "files.watcherExclude": {
+    "**/rust/target/**": true,
+    "**/rust/.run/**": true,
+    "**/rust/crates/tc-web/dist/**": true
+  },
+  "search.exclude": {
+    "**/rust/target/**": true,
+    "**/rust/.run/**": true,
+    "**/rust/crates/tc-web/dist/**": true
+  }
+}

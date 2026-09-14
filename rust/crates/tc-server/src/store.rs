@@ -1,0 +1,319 @@
+//! Where the tours live.
+//!
+//! **This is the file to read for shared ownership.** The C# in-memory store answers every
+//! read with a full clone of the tour - serialised to JSON and parsed back - because
+//! otherwise a caller could reach into the store's own copy and change it:
+//!
+//! ```csharp
+//! public Tour GetTour(string tourid) {
+//!     var tour = Tours.FirstOrDefault(t => t.Id == tourid);
+//!     // return a clone
+//!     return JsonConvert.DeserializeObject<Tour>(JsonConvert.SerializeObject(tour));
+//! }
+//! ```
+//!
+//! Here a read hands out an `Arc<Tour>`: the tour itself is not copied, only a count of how
+//! many people are looking at it. Nobody can change it through that handle, because `Arc`
+//! gives out shared references and shared references are read-only - the compiler, not a
+//! convention, is what stops it.
+//!
+//! Writing is where it gets interesting. `Arc::make_mut` clones the tour **only if somebody
+//! else is still holding it**, and otherwise edits it where it lies. One copy, made exactly
+//! when a copy is unavoidable, instead of one per read.
+
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+use tc_core::{Tour, TourId};
+
+/// Anything that can answer for the tours.
+///
+/// Asynchronous because a real database is: every method here is a round trip for the
+/// MongoDB implementation, and a server that blocked a worker thread on each one would run
+/// out of workers under any load at all. The in-memory store answers immediately and pays
+/// nothing for the `async`.
+///
+/// `#[async_trait]` boxes the futures so that `dyn TourStore` works; a bare `async fn` in a
+/// trait is not yet usable through a trait object.
+#[async_trait::async_trait]
+pub trait TourStore: Send + Sync {
+    async fn get(&self, id: &TourId) -> Option<Arc<Tour>>;
+    /// Every tour the given access codes may see, in the order they were added.
+    ///
+    /// Never a version: those live in the same collection and are somebody's history, not a
+    /// tour in their list.
+    /// Every tour the caller may see.
+    ///
+    /// `codes` are the access codes worth looking under, or `None` when that cannot be
+    /// narrowed - an administrator sees everything. A store with a database behind it should
+    /// ask for exactly those rather than read the lot and throw most of it away. `allowed`
+    /// still decides: the filter is an optimisation and never the rule.
+    async fn list(
+        &self,
+        codes: Option<&[String]>,
+        allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
+    ) -> Vec<Arc<Tour>>;
+    /// Writes a tour, adding it if its id is new.
+    async fn store(&self, tour: Tour);
+    /// Removes a tour; `false` if there was none.
+    async fn remove(&self, id: &TourId) -> bool;
+
+    /// Replaces a tour, but only while it is still the one the caller looked at.
+    ///
+    /// This is the soft lock, and it has to be one indivisible step. Checking the state id
+    /// in a handler and writing afterwards is two, and between them another request can save
+    /// its own version of the tour - which then vanishes, with both clients told they
+    /// succeeded. The C# wraps the pair in a per-tour `lock`; this puts the whole decision
+    /// where the data is, so no caller can get it wrong.
+    ///
+    /// `version_of` is given the state about to be replaced and may return a copy to keep
+    /// alongside it. It runs inside the same critical section, so the history cannot record
+    /// a state that was never stored.
+    async fn replace(
+        &self,
+        id: &TourId,
+        expected_state: &str,
+        next: Tour,
+        version_of: &(dyn for<'a> Fn(&'a Tour) -> Option<Tour> + Sync),
+    ) -> Result<(), Stale>;
+
+    /// The kept states of one tour, newest first, and how many there are in all.
+    async fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize);
+}
+
+/// Somebody else saved first: this is the state id that is stored now.
+#[derive(Debug)]
+pub struct Stale(pub String);
+
+/// Tours held in memory, seeded from a file at startup and never written back.
+///
+/// `Send + Sync` is what lets axum share one of these across every connection at once, and
+/// it is not something to declare - it follows from what the type is made of. `RwLock` and
+/// `Arc` are both, so this is too, and the compiler will say so if that ever stops holding.
+pub struct InMemoryStore {
+    tours: RwLock<HashMap<TourId, Arc<Tour>>>,
+    /// Insertion order, so a list can come back the way the file had it.
+    order: RwLock<Vec<TourId>>,
+}
+
+impl InMemoryStore {
+    pub fn empty() -> Self {
+        InMemoryStore {
+            tours: RwLock::new(HashMap::new()),
+            order: RwLock::new(Vec::new()),
+        }
+    }
+
+    /// Reads the same seed file the C# server reads.
+    pub fn from_seed_file(path: &std::path::Path) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        Self::from_seed_json(&text)
+    }
+
+    pub fn from_seed_json(text: &str) -> Result<Self, String> {
+        // The file is an array of tours, and some entries are blank - the C# skips those by
+        // ending up with an empty id, so this does the same rather than failing the boot.
+        let values: Vec<serde_json::Value> =
+            serde_json::from_str(text).map_err(|e| format!("seed file: {e}"))?;
+
+        let store = InMemoryStore::empty();
+        for v in values {
+            let Ok(tour) = Tour::from_json(&v.to_string()) else {
+                continue;
+            };
+            if tour.id.as_str().is_empty() {
+                continue;
+            }
+            store.put(tour);
+        }
+        Ok(store)
+    }
+
+    /// Adds a tour, keeping the first of any duplicate ids.
+    ///
+    /// The seed file contains the same tour id twice under two different access codes. The
+    /// C# store keeps a plain list and answers with `FirstOrDefault`, so the first one wins
+    /// there; letting the later one overwrite made the tour invisible to the code that
+    /// owns it, and the tour list came back two entries short.
+    pub fn put(&self, tour: Tour) {
+        let id = tour.id.clone();
+        let mut tours = self.tours.write().expect("store lock");
+        if !tours.contains_key(&id) {
+            tours.insert(id.clone(), Arc::new(tour));
+            self.order.write().expect("store lock").push(id);
+        }
+    }
+
+    /// Changes a tour in place, cloning it only if somebody else is reading it right now.
+    ///
+    /// Unused while the server is read-only; here because it is the other half of the point
+    /// this module makes, and it is three lines.
+    pub fn update(&self, id: &TourId, f: impl FnOnce(&mut Tour)) -> bool {
+        let mut tours = self.tours.write().expect("store lock");
+        match tours.get_mut(id) {
+            Some(arc) => {
+                f(Arc::make_mut(arc));
+                true
+            }
+            None => false,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.tours.read().expect("store lock").len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+#[async_trait::async_trait]
+impl TourStore for InMemoryStore {
+    async fn replace(
+        &self,
+        id: &TourId,
+        expected_state: &str,
+        next: Tour,
+        version_of: &(dyn for<'a> Fn(&'a Tour) -> Option<Tour> + Sync),
+    ) -> Result<(), Stale> {
+        // One write lock around read, compare, and both writes. Nothing can interleave.
+        let mut tours = self.tours.write().expect("store lock");
+
+        // The Arc is cloned - a counter bump, not a tour - so that the map is free to be
+        // written to while the previous state is still in hand for the version.
+        let stored = tours.get(id).cloned().ok_or_else(|| Stale(String::new()))?;
+        let stored_state = crate::fields::str_of(&stored, crate::fields::STATE);
+        if stored_state != expected_state {
+            return Err(Stale(stored_state));
+        }
+
+        if let Some(version) = version_of(&stored) {
+            let vid = version.id.clone();
+            if tours.insert(vid.clone(), Arc::new(version)).is_none() {
+                self.order.write().expect("store lock").push(vid);
+            }
+        }
+
+        tours.insert(id.clone(), Arc::new(next));
+        Ok(())
+    }
+
+    async fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize) {
+        let tours = self.tours.read().expect("store lock");
+
+        // Walked in the order they were written, not in whatever order the map holds them:
+        // two versions of the same tour can share a timestamp to the second, and then the
+        // map's order is the only thing deciding which of them is "newest" - which is to say
+        // nothing is.
+        let mut mine: Vec<Arc<Tour>> = self
+            .order
+            .read()
+            .expect("store lock")
+            .iter()
+            .rev()
+            .filter_map(|i| tours.get(i))
+            .filter(|t| {
+                crate::fields::is_version(t)
+                    && crate::fields::str_of(t, crate::fields::VERSION_FOR) == id.as_str()
+            })
+            .cloned()
+            .collect();
+
+        // Newest first: the version somebody wants is nearly always the last one. A stable
+        // sort, so anything written within the same second keeps the order it was written
+        // in rather than swapping about between requests.
+        mine.sort_by(|a, b| {
+            crate::fields::str_of(b, crate::fields::VERSIONED_AT)
+                .cmp(&crate::fields::str_of(a, crate::fields::VERSIONED_AT))
+        });
+
+        let total = mine.len();
+        (mine.into_iter().skip(from).take(count).collect(), total)
+    }
+
+    async fn store(&self, tour: Tour) {
+        let id = tour.id.clone();
+        let mut tours = self.tours.write().expect("store lock");
+        if tours.insert(id.clone(), Arc::new(tour)).is_none() {
+            self.order.write().expect("store lock").push(id);
+        }
+    }
+
+    async fn remove(&self, id: &TourId) -> bool {
+        let mut tours = self.tours.write().expect("store lock");
+        if tours.remove(id).is_some() {
+            self.order.write().expect("store lock").retain(|i| i != id);
+            true
+        } else {
+            false
+        }
+    }
+
+    async fn get(&self, id: &TourId) -> Option<Arc<Tour>> {
+        // `.cloned()` on an Option<&Arc<Tour>> clones the Arc - a counter bump - and not
+        // the tour behind it. This is the line the C# spends a JSON round trip on.
+        self.tours.read().expect("store lock").get(id).cloned()
+    }
+
+    async fn list(
+        &self,
+        _codes: Option<&[String]>,
+        allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
+    ) -> Vec<Arc<Tour>> {
+        // Nothing to narrow: everything is already in hand.
+        let tours = self.tours.read().expect("store lock");
+        self.order
+            .read()
+            .expect("store lock")
+            .iter()
+            .filter_map(|id| tours.get(id))
+            .filter(|t| !crate::fields::is_version(t))
+            .filter(|t| allowed(t))
+            .cloned()
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn seed() -> InMemoryStore {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/zscph2y.tour.json");
+        let one = std::fs::read_to_string(path).unwrap();
+        InMemoryStore::from_seed_json(&format!("[{one}]")).unwrap()
+    }
+
+    #[tokio::test]
+    async fn reads_a_tour_without_copying_it() {
+        let store = seed();
+        let id = TourId::new("zscph2y");
+        let a = store.get(&id).await.unwrap();
+        let b = store.get(&id).await.unwrap();
+        // Two handles onto the same tour, not two tours.
+        assert!(Arc::ptr_eq(&a, &b));
+        assert_eq!(a.persons.len(), 10);
+    }
+
+    #[tokio::test]
+    async fn writing_while_somebody_reads_leaves_the_reader_alone() {
+        let store = seed();
+        let id = TourId::new("zscph2y");
+
+        let held = store.get(&id).await.unwrap();
+        let name_before = held.name.clone();
+
+        store.update(&id, |t| t.name = "renamed".to_owned());
+
+        // The reader still sees what it was given: make_mut copied rather than reaching
+        // into a tour somebody was holding.
+        assert_eq!(held.name, name_before);
+        assert_eq!(store.get(&id).await.unwrap().name, "renamed");
+    }
+
+    #[tokio::test]
+    async fn a_missing_tour_is_none() {
+        assert!(seed().get(&TourId::new("nope")).await.is_none());
+    }
+}

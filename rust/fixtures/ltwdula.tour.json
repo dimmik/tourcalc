@@ -1,0 +1,307 @@
+{
+  "InternalVersionComment": null,
+  "Persons": [
+    {
+      "Name": "первый",
+      "Weight": 100,
+      "SpentInCents": 100,
+      "ReceivedInCents": 67,
+      "SpentSendingInfo": [
+        {
+          "From": "первый",
+          "ReceivedAmountInCents": -1,
+          "Currency": null,
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 100,
+          "OriginalTotalSpendingAmountInCents": 0,
+          "SpendingDescription": "100",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        }
+      ],
+      "ReceivedSendingInfo": [
+        {
+          "From": "первый",
+          "ReceivedAmountInCents": 33,
+          "Currency": null,
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 100,
+          "OriginalTotalSpendingAmountInCents": 0,
+          "SpendingDescription": "100",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        },
+        {
+          "From": "третий",
+          "ReceivedAmountInCents": 33,
+          "Currency": null,
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 100,
+          "OriginalTotalSpendingAmountInCents": 0,
+          "SpendingDescription": "100",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        }
+      ],
+      "ParentId": "",
+      "GroupId": "ba4725d989c042cab342290179d5a558",
+      "FamilyId": "",
+      "Metadata": null,
+      "GUID": "bsbpymi",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2021-08-23T15:48:46.767Z"
+    },
+    {
+      "Name": "зависимый",
+      "Weight": 100,
+      "SpentInCents": 0,
+      "ReceivedInCents": 66,
+      "SpentSendingInfo": [],
+      "ReceivedSendingInfo": [
+        {
+          "From": "первый",
+          "ReceivedAmountInCents": 33,
+          "Currency": null,
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 100,
+          "OriginalTotalSpendingAmountInCents": 0,
+          "SpendingDescription": "100",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        },
+        {
+          "From": "третий",
+          "ReceivedAmountInCents": 33,
+          "Currency": null,
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 100,
+          "OriginalTotalSpendingAmountInCents": 0,
+          "SpendingDescription": "100",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        },
+        {
+          "From": "System",
+          "ReceivedAmountInCents": -1,
+          "Currency": null,
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": -1,
+          "OriginalTotalSpendingAmountInCents": 0,
+          "SpendingDescription": "Rounding Error - add -1 to received of highest debtor",
+          "IsSpendingToAll": false,
+          "ToNames": [
+            "зависимый"
+          ],
+          "Type": ""
+        }
+      ],
+      "ParentId": "bsbpymi",
+      "GroupId": "03ba6a4a33644556b531a47ff9f8086b",
+      "FamilyId": "",
+      "Metadata": null,
+      "GUID": "543awmq",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2021-08-23T15:48:56.405Z"
+    },
+    {
+      "Name": "третий",
+      "Weight": 100,
+      "SpentInCents": 100,
+      "ReceivedInCents": 67,
+      "SpentSendingInfo": [
+        {
+          "From": "третий",
+          "ReceivedAmountInCents": -1,
+          "Currency": null,
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 100,
+          "OriginalTotalSpendingAmountInCents": 0,
+          "SpendingDescription": "100",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        }
+      ],
+      "ReceivedSendingInfo": [
+        {
+          "From": "первый",
+          "ReceivedAmountInCents": 33,
+          "Currency": null,
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 100,
+          "OriginalTotalSpendingAmountInCents": 0,
+          "SpendingDescription": "100",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        },
+        {
+          "From": "третий",
+          "ReceivedAmountInCents": 33,
+          "Currency": null,
+          "OriginalReceivedAmountInCents": 0,
+          "TotalSpendingAmountInCents": 100,
+          "OriginalTotalSpendingAmountInCents": 0,
+          "SpendingDescription": "100",
+          "IsSpendingToAll": true,
+          "ToNames": [],
+          "Type": "Common"
+        }
+      ],
+      "ParentId": "",
+      "GroupId": "a525c3b108664133a1b988c62c4b8908",
+      "FamilyId": "",
+      "Metadata": null,
+      "GUID": "uxzvcmq",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2021-08-23T15:49:42.764Z"
+    }
+  ],
+  "Spendings": [
+    {
+      "FromGuid": "bsbpymi",
+      "ToGuid": [],
+      "AmountInCents": 100,
+      "Weighted": true,
+      "IsPartialWeighted": false,
+      "ToAll": true,
+      "Planned": false,
+      "Description": "100",
+      "Type": "Common",
+      "Currency": {
+        "Id": "coin",
+        "Name": "coin",
+        "CurrencyRate": 100
+      },
+      "Currencies": [],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2021-08-23T15:49:16.434Z",
+      "Metadata": null,
+      "GUID": "l67ssmq",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2021-08-23T15:49:16.434Z"
+    },
+    {
+      "FromGuid": "uxzvcmq",
+      "ToGuid": [],
+      "AmountInCents": 100,
+      "Weighted": true,
+      "IsPartialWeighted": false,
+      "ToAll": true,
+      "Planned": false,
+      "Description": "100",
+      "Type": "Common",
+      "Currency": {
+        "Id": "coin",
+        "Name": "coin",
+        "CurrencyRate": 100
+      },
+      "Currencies": [],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2021-08-23T15:49:55.442Z",
+      "Metadata": null,
+      "GUID": "wjcgkmq",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2021-08-23T15:49:55.442Z"
+    },
+    {
+      "FromGuid": "543awmq",
+      "ToGuid": [
+        "bsbpymi"
+      ],
+      "AmountInCents": 66,
+      "Weighted": true,
+      "IsPartialWeighted": false,
+      "ToAll": false,
+      "Planned": true,
+      "Description": "Family 'зависимый' -> 'первый'",
+      "Type": "Common",
+      "Currency": {
+        "Id": "coin",
+        "Name": "coin",
+        "CurrencyRate": 100
+      },
+      "Currencies": [],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2021-08-23T15:51:33.368Z",
+      "Metadata": null,
+      "GUID": "63dcc00d-1508-4137-ad8b-1c08704fd41d",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2021-08-23T15:51:33.368Z"
+    },
+    {
+      "FromGuid": "bsbpymi",
+      "ToGuid": [
+        "uxzvcmq"
+      ],
+      "AmountInCents": 33,
+      "Weighted": true,
+      "IsPartialWeighted": false,
+      "ToAll": false,
+      "Planned": true,
+      "Description": "X 'первый' -> 'третий'",
+      "Type": "Common",
+      "Currency": {
+        "Id": "coin",
+        "Name": "coin",
+        "CurrencyRate": 100
+      },
+      "Currencies": [],
+      "IsDryRun": false,
+      "IncludeDryRunInCalc": false,
+      "Color": "",
+      "SpendingDate": "2021-08-23T15:51:33.368Z",
+      "Metadata": null,
+      "GUID": "73457d9b-7896-423f-b4f1-90ccbde460fd",
+      "Order": 0,
+      "IsChanged": true,
+      "DateCreated": "2021-08-23T15:51:33.368Z"
+    }
+  ],
+  "Name": "TEST for issue repro InMem",
+  "Id": "ltwdula",
+  "AccessCodeMD5": "1C0369EA42B2F746D3DF1E66BCB2DE46",
+  "IsVersion": false,
+  "DateVersioned": "2021-08-23T15:32:40.958Z",
+  "VersionFor_Id": "",
+  "VersionComment": "",
+  "IsArchived": false,
+  "IsFinalizing": false,
+  "Duration": 5,
+  "StateGUID": "",
+  "Currencies": [
+    {
+      "Id": "coin",
+      "Name": "coin",
+      "CurrencyRate": 100
+    }
+  ],
+  "TourCurrencyId": "coin",
+  "Currency": {
+    "Id": "coin",
+    "Name": "coin",
+    "CurrencyRate": 100
+  },
+  "Metadata": null,
+  "GUID": "ltwdula",
+  "Order": 0,
+  "IsChanged": true,
+  "DateCreated": "2021-08-23T15:32:41.058Z"
+}

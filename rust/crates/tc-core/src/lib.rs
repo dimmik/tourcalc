@@ -1,0 +1,23 @@
+//! Tourcalc's domain and arithmetic.
+//!
+//! This crate knows nothing about HTTP, databases, browsers or the clock. It takes data
+//! and returns data, which is what lets it compile both to a native server binary and to
+//! `wasm32-unknown-unknown` for the offline client - one implementation of the money, used
+//! by the API, the text pages, the bot and the browser alike.
+//!
+//! That is also the reason the dependency list is two entries long: **anything that lands
+//! here lands in the browser.**
+
+pub mod calc;
+pub mod domain;
+pub mod ids;
+pub mod money;
+
+pub use calc::{
+    balances_after, breakdown, calculate, settlement_for, settlement_summary, split_family,
+    suggest_settlement, will_pay, Balances, Breakdown, CalcError, Line, Options, PersonBalance,
+    Transfer, MINIMUM_MEANINGFUL,
+};
+pub use domain::{extras, Currency, Extras, Kind, Person, Spending, Split, Tour};
+pub use ids::{CurrencyId, PersonId, SpendingId, TourId};
+pub use money::Cents;

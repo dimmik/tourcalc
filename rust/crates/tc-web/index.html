@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tourcalc</title>
+    <!--
+        The app's own stylesheet, taken from the Blazor client unchanged. Three and a half
+        thousand lines of CSS that know nothing about which framework drew the markup - the
+        cheapest part of the port by a distance.
+    -->
+    <link data-trunk rel="css" href="../../../TCBlazor/Client/wwwroot/css/newui.css" />
+    <!--
+        And the small interface's own, also taken as it is. It is 141 rules against the
+        roomy one's three and a half thousand, which is the whole shape of that screen:
+        one line per thing, and the line does the work.
+    -->
+    <link data-trunk rel="css" href="../../../TCBlazor/Client/wwwroot/css/mini.css" />
+    <!--
+        wasm-opt needs to be told which wasm features the compiler used; without these it
+        refuses the output of a current rustc with "memory.copy operations require bulk
+        memory operations".
+    -->
+    <link data-trunk rel="rust" data-wasm-opt="z"
+          data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext" />
+    <link data-trunk rel="copy-file" href="sw.js" />
+
+    <!--
+        The icon. Drawn here rather than fetched from anywhere: `favicon.svg` is the source,
+        and the other two are rendered from it -
+
+            python3 -c "import cairosvg; [cairosvg.svg2png(url='favicon.svg', \
+                write_to=f'/tmp/f{n}.png', output_width=n, output_height=n) for n in (48,180)]"
+            python3 -c "from PIL import Image; Image.open('/tmp/f48.png').save('favicon.ico', \
+                sizes=[(16,16),(32,32),(48,48)])"
+
+        The svg is what a current browser uses; the .ico is for the ones that ask for
+        /favicon.ico regardless of what the page says, which is most of them.
+    -->
+    <link data-trunk rel="copy-file" href="favicon.svg" />
+    <link data-trunk rel="copy-file" href="favicon.ico" />
+    <link data-trunk rel="copy-file" href="icon-180.png" />
+    <!--
+        The app installs on a phone's home screen, and what makes it installable rather than
+        a bookmark is the manifest: a name, a colour and two icons. The C# client had one;
+        without it "add to home screen" - which people here already use - loses the
+        standalone window and puts a screenshot of the page on the desktop instead of an
+        icon.
+    -->
+    <link data-trunk rel="copy-file" href="icon-192.png" />
+    <link data-trunk rel="copy-file" href="icon-512.png" />
+    <link data-trunk rel="copy-file" href="manifest.json" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+
+    <!--
+        This client's own rules. Everything else is the app's stylesheet, taken unchanged -
+        which is why these are here and not in it: they are about this build, and editing a
+        file two clients share to fix one of them is how the two drift apart.
+    -->
+    <style>
+        /*
+            The base the app's stylesheet is written against and never states, because in the
+            other client Bootstrap states it: `newui.css` is loaded there after
+            bootstrap.min.css, which resets both of these. Here nothing did.
+
+            Both were real bugs on a phone, and neither was visible on a desktop:
+
+            * the 8px body margin inset the whole app, so the sticky top bar stopped short of
+              both edges and the page scrolled past it down either side;
+            * without border-box, the search field - `width: 100%` plus 62px of padding, as
+              the stylesheet writes it - came out 305 pixels wide inside a 243 pixel box, and
+              pushed the whole page sideways. The Compact button went with it, off the edge.
+        */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+        }
+
+        /*
+            On a narrow screen the bar's controls take the whole width and the tour's name
+            is squeezed to nothing - literally nothing: a title box zero pixels wide.
+
+            Giving the name its own row worked and looked like what it was: a bar of buttons
+            with a caption stuck under it. So the controls go behind one button instead, and
+            the bar stays a single line: what you are looking at, and a way to everything
+            else. Which is also the honest order - the name is the thing you need to see
+            every time, and the interface switch is not.
+
+            The same markup either way. The row of controls becomes the panel: nothing is
+            duplicated, nothing can drift between the two.
+        */
+        .tcw-menu-btn {
+            display: none;
+        }
+
+        /*
+            A dialog that keeps its head and its feet. The card had no height of its own, so
+            a long form - the expense one, with its chips - grew past the screen and took
+            Cancel and Save with it: to save, you scrolled. Now the card is a column bounded
+            by the viewport, and only the middle of it scrolls.
+
+            `dvh` rather than `vh` because on a phone the browser's own bar comes and goes,
+            and `vh` is the tall version of the window: a footer positioned against it sits
+            below the fold exactly when the bar is showing. The `vh` line stays first for
+            anything that does not know `dvh`.
+        */
+        .tcn-modal-card {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 48px);
+            max-height: calc(100dvh - 48px);
+        }
+
+        .tcn-modal-body {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tcn-modal-head,
+        .tcn-modal-foot {
+            flex: 0 0 auto;
+        }
+
+        /* Errors sit above the two buttons, so the row has to be able to wrap. */
+        .tcn-modal-foot {
+            flex-wrap: wrap;
+        }
+
+        /* A row the calculator wrote for itself is not an expense, and the app paints it:
+           green for a payback, cyan for a transfer inside a family. Those rules are written
+           for `.tcn-sp`, and these rows are `.tcn-settle`, so the colours are repeated here
+           against the class the rows actually carry - the variables are the app's own.
+
+           The stripe is an inset shadow rather than a left border because a hand-picked
+           colour paints `border-color` inline, and the app is careful to keep the stripe
+           under a mark: the mark says "read this line", the stripe says what kind of line
+           it is, and they are answers to different questions. */
+        .tcw-payback {
+            --tcw-kind: #10b981;
+            --tcw-kind-soft: var(--tcn-green-soft);
+        }
+
+        .tcw-family {
+            --tcw-kind: #06b6d4;
+            --tcw-kind-soft: var(--tcn-cyan-soft);
+        }
+
+        .tcn-settle.tcw-kind {
+            background: var(--tcw-kind-soft);
+            box-shadow: inset 4px 0 0 var(--tcw-kind), var(--tcn-shadow);
+            padding-left: 16px;
+        }
+
+        /* The dense list says it in the gutter: mini.css only dims those rows, and dim is
+           what a draft looks like there, so the colour is what tells them apart. */
+        .tcm-item.tcw-kind > .tcm-row {
+            background: var(--tcw-kind-soft);
+            box-shadow: inset 3px 0 0 var(--tcw-kind);
+        }
+
+        /* The ring on the statistics tab. Bigger where there is room: beside a list on a
+           wide screen it can afford to be, and on a phone it is sharing the width. */
+        .tcw-ring {
+            width: 150px;
+            height: 150px;
+        }
+
+        @media (min-width: 560px) {
+            .tcw-ring {
+                width: 190px;
+                height: 190px;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .tcw-menu-btn {
+                display: inline-flex;
+            }
+
+            .tcn-topbar .tcn-topbar-actions {
+                display: none;
+                position: absolute;
+                top: 48px;
+                right: 8px;
+                z-index: 50;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                min-width: 190px;
+                padding: 10px;
+                border-radius: 14px;
+                /* The same colour as the bar it hangs from: the buttons inside it are white
+                   on translucent white, and on a pale panel they would be invisible. */
+                background: var(--tcn-primary-dark, var(--tcn-primary));
+                box-shadow: 0 12px 30px rgba(15, 23, 42, .35);
+            }
+
+            .tcn-topbar .tcn-topbar-actions.tcw-open {
+                display: flex;
+            }
+
+            /* In a menu an icon on its own is a riddle. The labels are already there, in the
+               aria-label every one of these carries for a screen reader. */
+            .tcn-topbar-actions.tcw-open .tcn-iconbtn {
+                width: auto;
+                justify-content: flex-start;
+                gap: 10px;
+                padding: 8px 10px;
+                font-size: 14px;
+            }
+
+            .tcn-topbar-actions.tcw-open .tcn-iconbtn::after {
+                content: attr(aria-label);
+            }
+
+            .tcn-topbar-actions.tcw-open .tcn-uiswitch {
+                justify-content: center;
+            }
+
+            /* The chip is a label, not a control: in a menu of things you can press it
+               should not look like one more of them. */
+            .tcn-topbar-actions.tcw-open .tcw-buildchip {
+                align-self: flex-start;
+                background: none;
+                border: none;
+                padding: 0 10px;
+                opacity: .75;
+                font-size: 12px;
+            }
+
+            .tcw-menu-backdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 45;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <script>
+        // Registration is three lines of JavaScript and there is no reason to route it
+        // through wasm. It is deliberately not awaited: the app must start whether or not
+        // the browser supports service workers.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
+</body>
+</html>

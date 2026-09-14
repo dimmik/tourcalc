@@ -1,0 +1,110 @@
+{
+  "tourId": "a2nzm5a",
+  "name": "Йух-2021",
+  "currency": {
+    "id": "coin",
+    "name": "coin",
+    "rate": 100
+  },
+  "isMultiCurrency": false,
+  "persons": [
+    {
+      "guid": "cjmzm6i",
+      "name": "Паша",
+      "weight": 100,
+      "spent": 54173,
+      "received": 54258,
+      "debt": 85
+    },
+    {
+      "guid": "qe4zesa",
+      "name": "Валя",
+      "weight": 100,
+      "spent": 69737,
+      "received": 69821,
+      "debt": 84
+    },
+    {
+      "guid": "vrr2asi",
+      "name": "Саша",
+      "weight": 100,
+      "spent": 70038,
+      "received": 70122,
+      "debt": 84
+    },
+    {
+      "guid": "pfwlqsi",
+      "name": "Олежка",
+      "weight": 25,
+      "spent": 27407,
+      "received": 27185,
+      "debt": -222
+    },
+    {
+      "guid": "xjyd4sq",
+      "name": "Дима",
+      "weight": 100,
+      "spent": 58035,
+      "received": 58120,
+      "debt": 85
+    },
+    {
+      "guid": "gwm7byi",
+      "name": "Вова+Катя+Боря+Юля",
+      "weight": 250,
+      "spent": 147334,
+      "received": 147334,
+      "debt": 0
+    },
+    {
+      "guid": "evmmhny",
+      "name": "Игорь",
+      "weight": 25,
+      "spent": 27301,
+      "received": 27185,
+      "debt": -116
+    }
+  ],
+  "transfers": [
+    {
+      "from": "pfwlqsi",
+      "fromName": "Олежка",
+      "to": "vrr2asi",
+      "toName": "Саша",
+      "amount": -222,
+      "description": "Family 'Олежка' -> 'Саша'"
+    },
+    {
+      "from": "evmmhny",
+      "fromName": "Игорь",
+      "to": "qe4zesa",
+      "toName": "Валя",
+      "amount": -116,
+      "description": "Family 'Игорь' -> 'Валя'"
+    },
+    {
+      "from": "cjmzm6i",
+      "fromName": "Паша",
+      "to": "vrr2asi",
+      "toName": "Саша",
+      "amount": 85,
+      "description": "X 'Паша' -> 'Саша'"
+    },
+    {
+      "from": "xjyd4sq",
+      "fromName": "Дима",
+      "to": "vrr2asi",
+      "toName": "Саша",
+      "amount": 53,
+      "description": "X 'Дима' -> 'Саша'"
+    },
+    {
+      "from": "xjyd4sq",
+      "fromName": "Дима",
+      "to": "qe4zesa",
+      "toName": "Валя",
+      "amount": 32,
+      "description": "X 'Дима' -> 'Валя'"
+    }
+  ]
+}

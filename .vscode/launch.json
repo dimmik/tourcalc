@@ -1,0 +1,49 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // F5 runs the server under the debugger, on the seed data, with the client that was
+      // built last. Breakpoints work anywhere in `tc-server` and `tc-core` - which is the
+      // whole API, the text pages and every number the app shows.
+      //
+      // The browser client cannot be debugged this way: it is WebAssembly in a browser, not
+      // a process here. Breakpoints for it go in the browser's own devtools - Chrome shows
+      // the Rust source - and `leptos::logging::log!` is usually quicker.
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug the server",
+      "program": "${workspaceFolder}/rust/target/debug/tc-server",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "MasterKey": "master",
+        "InMemoryFileName": "${workspaceFolder}/TCBlazor/Server/inmemory-tours.json",
+        "StaticFilesDir": "${workspaceFolder}/rust/crates/tc-web/dist",
+        "Listen": "127.0.0.1:5401",
+        "RUST_LOG": "info,tc_server=debug"
+      },
+      "preLaunchTask": "rust: build the server for debugging",
+      "sourceLanguages": ["rust"]
+    },
+    {
+      // The same, against the local MongoDB rather than the seed file - for anything that
+      // only goes wrong once the data has been through a database.
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug the server (MongoDB)",
+      "program": "${workspaceFolder}/rust/target/debug/tc-server",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "MasterKey": "master",
+        "StorageType": "MongoDb",
+        "MongoDbUrl": "mongodb://127.0.0.1:27017",
+        "StaticFilesDir": "${workspaceFolder}/rust/crates/tc-web/dist",
+        "Listen": "127.0.0.1:5401",
+        "RUST_LOG": "info,tc_server=debug"
+      },
+      "preLaunchTask": "rust: build the server for debugging",
+      "sourceLanguages": ["rust"]
+    }
+  ]
+}
