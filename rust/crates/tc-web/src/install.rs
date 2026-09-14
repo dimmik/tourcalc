@@ -83,19 +83,28 @@ export async function tcw_why() {
     said.push('worker in control: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'yes' : 'no'));
     said.push('secure: ' + (window.isSecureContext ? 'yes' : 'no'));
 
+    // The tag, and the file, separately. They answer different questions: a browser only
+    // reads a manifest the page points at, but a page that points at nothing while the file
+    // is perfectly well served is a page that is not the one this server sent - a copy kept
+    // by the browser from some earlier build. That is worth knowing and cannot be guessed.
     const link = document.querySelector('link[rel=manifest]');
-    if (!link) {
-        said.push('manifest: not linked');
-    } else {
-        try {
-            const answer = await fetch(link.href);
-            const manifest = await answer.json();
-            const icons = (manifest.icons || []).length;
-            said.push('manifest: ' + answer.status + ', ' + (manifest.display || 'no display') + ', ' + icons + ' icons');
-        } catch (e) {
-            said.push('manifest: unreadable');
-        }
+    said.push('link: ' + (link ? link.getAttribute('href') : 'MISSING'));
+
+    try {
+        const answer = await fetch('/manifest.webmanifest');
+        const manifest = await answer.json();
+        const icons = (manifest.icons || []).length;
+        said.push('file: ' + answer.status + ' ' + (manifest.display || 'no display') + ' ' + icons + ' icons');
+    } catch (e) {
+        said.push('file: unreadable');
     }
+
+    // Which build this page actually is. The server names the one it serves at
+    // /api/Info/version; if the two differ, the browser is holding an old copy.
+    const script = [...document.scripts].map((s) => s.textContent).join(' ');
+    const named = script.match(/tc-web-[0-9a-f]{8}/);
+    said.push('client: ' + (named ? named[0].slice(7) : 'unknown'));
+
     return said.join(' · ');
 }
 
