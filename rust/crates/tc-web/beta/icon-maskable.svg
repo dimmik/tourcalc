@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img"
+     aria-label="Tourcalc beta">
+    <!--
+        The maskable beta tile. As with the real one, no rounded corners of our own: the
+        launcher cuts it to whatever shape it likes.
+
+        The letter is smaller and further in than on the square icon, and that is the whole
+        difference between the two files. A mask may be a circle, and a circle keeps only
+        the middle 80% - a b sitting in the corner the way it does on the tab icon would
+        come out with its top sliced off. Here every corner of it is inside that circle,
+        with a pixel to spare, and still clear of the cut.
+    -->
+    <rect width="64" height="64" fill="#1f3bff"/>
+    <path d="M64,0 V64 L14,64 Z" fill="#a3ff12"/>
+    <path d="M10,68 L68,-4" stroke="#fff" stroke-width="3.6" fill="none"/>
+    <path fill="#fff" fill-rule="nonzero" d="M15,14 h3.47 v21 h-3.47 Z M16.73,28.18 a6.83,6.83 0 1,0 13.65,0 a6.83,6.83 0 1,0 -13.65,0 Z M20.2,28.18 a3.36,3.36 0 1,1 6.72,0 a3.36,3.36 0 1,1 -6.72,0 Z"/>
+</svg>

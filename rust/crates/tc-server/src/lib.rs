@@ -105,6 +105,21 @@ fn named_after_its_contents(path: &str) -> bool {
     hash.len() >= 8 && hash.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+/// Whether this build should wear the beta icon.
+///
+/// The build stamps `BUILD_TYPE` into the image - `betaR (branch)` off a beta branch,
+/// `prodR (prod)` off prod - and it is already read, already handed to the client and
+/// already on the build page. So which icon to serve is a question that has been answered
+/// before it was asked: no second build argument, no second manifest, nothing for the page
+/// to know. A beta container serves `dist/beta/favicon.svg` at `/favicon.svg`, and every
+/// address on the page stays what it was.
+///
+/// `na` is a build nobody stamped - a developer's own. Those get the real icon, and
+/// `BUILD_TYPE=beta ./rust/build-and-run.sh` is how to see the other one.
+pub fn wears_the_beta_skin(build_type: &str) -> bool {
+    build_type.trim_start().to_ascii_lowercase().starts_with("beta")
+}
+
 /// The wasm file a built index.html names, hash and all.
 ///
 /// Found from the `_bg.wasm` end and read backwards: the page names the glue script
@@ -115,6 +130,25 @@ pub fn wasm_named_in(page: &str) -> Option<&str> {
     let end = page.find("_bg.wasm")? + "_bg.wasm".len();
     let start = page[..end].rfind("tc-web-")?;
     Some(&page[start..end])
+}
+
+#[cfg(test)]
+mod beta_tests {
+    use super::wears_the_beta_skin;
+
+    #[test]
+    fn only_a_beta_build_wears_the_beta_icon() {
+        // What the workflow actually stamps, both ways round.
+        assert!(wears_the_beta_skin("betaR (beta/save-tour-in-help)"));
+        assert!(!wears_the_beta_skin("prodR (prod)"));
+        // A developer's own build, and somebody setting it by hand to have a look.
+        assert!(!wears_the_beta_skin("na"));
+        assert!(wears_the_beta_skin("beta"));
+        assert!(wears_the_beta_skin("Beta"));
+        // "prod" is not "beta" however it is written, and neither is nothing.
+        assert!(!wears_the_beta_skin(""));
+        assert!(!wears_the_beta_skin("prod-beta"));
+    }
 }
 
 #[cfg(test)]

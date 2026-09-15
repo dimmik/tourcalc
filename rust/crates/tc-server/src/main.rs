@@ -144,7 +144,17 @@ async fn main() {
     // "point the old client at the new server" test possible without a proxy in between.
     if let Some(dir) = &cfg.static_dir {
         let index = std::path::Path::new(dir).join("index.html");
-        app = app.fallback_service(ServeDir::new(dir).fallback(ServeFile::new(index)));
+        let files = ServeDir::new(dir).fallback(ServeFile::new(index));
+        // A beta build answers for the icons out of a directory of its own, put in front of
+        // the rest: same names, same addresses, a b drawn on them. Anything not in there -
+        // which is everything except the icons - falls straight through.
+        let skin = std::path::Path::new(dir).join("beta");
+        app = if tc_server::wears_the_beta_skin(&cfg.build_type) && skin.is_dir() {
+            tracing::info!("beta icons from {}", skin.display());
+            app.fallback_service(ServeDir::new(skin).fallback(files))
+        } else {
+            app.fallback_service(files)
+        };
         tracing::info!("serving {dir}");
     }
 

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img"
+     aria-label="Tourcalc beta">
+    <!--
+        The beta build's icon: the app's own tile, unchanged, with a b in it.
+
+        Same plan as the real one - the point of a beta icon is not to be pretty but to be
+        told apart from the real one in a strip of twenty tabs, and the way to do that is to
+        keep everything else identical and add one mark. The letter goes in the blue
+        triangle because that is the half of the tile with nothing in it, and it is sized to
+        stop short of the white cut: two marks that touch read as one smudge at 16 pixels.
+
+        The b is a path rather than a glyph. A letter set in a font is a letter set in
+        whatever font the machine rendering it happens to have, and this is rendered on
+        somebody else's machine at some later date; a stem and a bowl are the same shape
+        everywhere. Its thicknesses are the cut's thickness, so nothing here is thinner than
+        a couple of pixels at 16 either.
+    -->
+    <defs>
+        <clipPath id="tile"><rect width="64" height="64" rx="15"/></clipPath>
+    </defs>
+    <g clip-path="url(#tile)">
+        <rect width="64" height="64" fill="#1f3bff"/>
+        <path d="M64,0 V64 L14,64 Z" fill="#a3ff12"/>
+        <path d="M10,68 L68,-4" stroke="#fff" stroke-width="3.6" fill="none"/>
+        <path fill="#fff" fill-rule="nonzero" d="M8,5 h4.95 v30 h-4.95 Z M10.48,25.25 a9.75,9.75 0 1,0 19.5,0 a9.75,9.75 0 1,0 -19.5,0 Z M15.43,25.25 a4.8,4.8 0 1,1 9.6,0 a4.8,4.8 0 1,1 -9.6,0 Z"/>
+    </g>
+</svg>
