@@ -201,6 +201,7 @@ fn App() -> impl IntoView {
     // and the tour read it.
     let mode = RwSignal::new(mode::stored());
     provide_context(mode);
+    Effect::new(move |_| mode::on_the_body(mode.get()));
 
     // What this browser is set to, and the colour it is painted in. Applied before anything
     // is drawn, so the page does not flash the default first.
@@ -280,7 +281,7 @@ fn App() -> impl IntoView {
     });
 
     view! {
-        <div class="tcn-shell">
+        <div class="tcn-shell" class:tcm-shell=move || mode.get() == mode::UiMode::Mini>
             <header class="tcn-topbar">
                 <a class="tcn-brand" href="/" title="Tour list">"🧭"</a>
                 <a class="tcn-topbar-title" class:tcw-back=move || stepped_aside.get()

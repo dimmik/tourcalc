@@ -49,6 +49,30 @@ pub fn remember(mode: UiMode) {
     }
 }
 
+/// Tells the stylesheet which interface is on.
+///
+/// Two classes, because the two stylesheets are written against two different elements.
+/// `tcm-shell` on the shell is what shrinks the top bar and gives the rows the whole width;
+/// `tcm-on` on the body is what tightens the forms, which mini does not redraw - it borrows
+/// the roomy ones and takes the padding off. Both are the app's own names and the app's own
+/// placement: the rules are in `mini.css`, unchanged, and this is the switch they were
+/// written for.
+///
+/// (The app also puts `tcn-on` on the body for both interfaces. That one only paints the
+/// background behind the shell, and the shell here is opaque and full height, so there is
+/// nothing for it to do.)
+pub fn on_the_body(mode: UiMode) {
+    let Some(body) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.body())
+    else {
+        return;
+    };
+    let _ = body
+        .class_list()
+        .toggle_with_force("tcm-on", mode == UiMode::Mini);
+}
+
 /// The switch, small enough to sit in a header.
 #[component]
 pub fn ModeSwitch(mode: RwSignal<UiMode>) -> impl IntoView {
