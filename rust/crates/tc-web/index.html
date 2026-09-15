@@ -27,12 +27,7 @@
 
     <!--
         The icon. Drawn here rather than fetched from anywhere: `favicon.svg` is the source,
-        and the other two are rendered from it -
-
-            python3 -c "import cairosvg; [cairosvg.svg2png(url='favicon.svg', \
-                write_to=f'/tmp/f{n}.png', output_width=n, output_height=n) for n in (48,180)]"
-            python3 -c "from PIL import Image; Image.open('/tmp/f48.png').save('favicon.ico', \
-                sizes=[(16,16),(32,32),(48,48)])"
+        and everything else is rendered from it by `render-icons.py` beside this file.
 
         The svg is what a current browser uses; the .ico is for the ones that ask for
         /favicon.ico regardless of what the page says, which is most of them.
@@ -63,6 +58,16 @@
     <!-- The two names that manifest asked for, so that even a stale copy of it works. -->
     <link data-trunk rel="copy-file" href="ms-icon-150x150.png" />
     <link data-trunk rel="copy-file" href="ms-icon-310x310.png" />
+    <!--
+        The same set again, with a b on it, for the beta build. Nothing here points at it:
+        the files keep their names and the server puts this directory in front of the one
+        above when it is a beta build, so every address on the page - and in the manifest -
+        stays exactly what it is. See `beta_skin` in the server.
+
+        Which means a beta phone installs the app with the beta icon on it, without a second
+        manifest and without the page knowing which build it is.
+    -->
+    <link data-trunk rel="copy-dir" href="beta" />
     <meta name="theme-color" content="#4f46e5" />
     <!--
         iOS reads none of the above. A home-screen icon there opens in Safari, with its
