@@ -17,6 +17,7 @@ mod login;
 mod mini;
 mod mode;
 mod people;
+mod place;
 mod chart;
 mod push;
 mod settings;
@@ -194,18 +195,13 @@ fn intercept_links(set_route: WriteSignal<Route>) {
     }
 }
 
-/// What the bar at the top calls this screen: the tour's name while a tour is open, and the
-/// app's own name everywhere else. The app does the same, and on a phone that line is the
-/// only place the tour is named once the hero has scrolled away.
-#[derive(Clone, Copy)]
-pub struct PageTitle(pub RwSignal<Option<(String, String)>>);
-
 #[component]
 fn App() -> impl IntoView {
     // Which interface, shared by every screen: the switch is in the header and both the list
     // and the tour read it.
     let mode = RwSignal::new(mode::stored());
     provide_context(mode);
+    Effect::new(move |_| mode::on_the_body(mode.get()));
 
     // What this browser is set to, and the colour it is painted in. Applied before anything
     // is drawn, so the page does not flash the default first.
@@ -220,28 +216,50 @@ fn App() -> impl IntoView {
     // controls are simply a row, and this signal never does anything.
     let menu = RwSignal::new(false);
 
-    let title = PageTitle(RwSignal::new(None));
-    provide_context(title);
+    // Where the reader is, which is not the same question as which screen is on: stepping
+    // into Help or Settings does not leave the tour, it looks something up. Read from this
+    // browser first, so a reload on one of those screens still knows the way back.
+    let place: place::Current = RwSignal::new(place::stored());
+    provide_context(place);
+    Effect::new(move |_| match route.get() {
+        Route::List => place::went_to_the_list(place),
+        Route::Tour(id, _) => place::went_to_a_tour(place, &id),
+        // Help, Settings, a share link on its way through, a path that means nothing: none
+        // of them is a place, and all of them are somewhere you came from somewhere else.
+        _ => {}
+    });
     // The browser's own title, too: the app sets it to the tour's name, and it is what a
     // tab, a bookmark and a shared link are called. Ours said "Tourcalc" for every tour, so
-    // three tabs of three tours were three of the same thing.
+    // three tabs of three tours were three of the same thing. Here it follows the screen
+    // rather than the place - a tab called "Settings" is about settings.
     Effect::new(move |_| {
         if let Some(document) = web_sys::window().and_then(|w| w.document()) {
-            document.set_title(&match title.0.get() {
-                Some((name, _)) if !name.trim().is_empty() => name,
+            document.set_title(&match route.get() {
+                Route::Tour(..) => place.get().label(),
+                Route::Help => "Help · Tourcalc".to_owned(),
+                Route::Settings => "Settings · Tourcalc".to_owned(),
                 _ => "Tourcalc".to_owned(),
             });
-        }
-    });
-    // Leaving a tour puts the app's own name back, whoever set it.
-    Effect::new(move |_| {
-        if !matches!(route.get(), Route::Tour(_, _)) {
-            title.0.set(None);
         }
     });
     // Whether anybody is signed in on this device. A signal rather than a check in the
     // view, so that signing in or out redraws without a reload.
     let signed_in = RwSignal::new(api::signed_in());
+
+    // What the bar is about. Somebody who is not signed in is shown none of it: the tour
+    // they were in before is not theirs to be reminded of until the code is typed again.
+    let named_at_the_top = Memo::new(move |_| {
+        if signed_in.get() {
+            place.get()
+        } else {
+            place::Place::List
+        }
+    });
+    // Whether the bar is naming the screen you are on or the one you can go back to. The
+    // second is a button in a way the first is not, and it is worth looking like one.
+    let stepped_aside = Memo::new(move |_| {
+        signed_in.get() && !matches!(route.get(), Route::List | Route::Tour(..))
+    });
 
     // A share link is not a screen: it exchanges the code for a token and then goes where
     // it was pointing. Done once, when that is the route we arrived on.
@@ -263,13 +281,16 @@ fn App() -> impl IntoView {
     });
 
     view! {
-        <div class="tcn-shell">
+        <div class="tcn-shell" class:tcm-shell=move || mode.get() == mode::UiMode::Mini>
             <header class="tcn-topbar">
                 <a class="tcn-brand" href="/" title="Tour list">"🧭"</a>
-                <a class="tcn-topbar-title"
-                   href=move || title.0.get().map(|(_, href)| href).unwrap_or("/".to_owned())
-                   title=move || title.0.get().map(|(name, _)| name).unwrap_or_default()>
-                    {move || title.0.get().map(|(name, _)| name).unwrap_or("Tourcalc".to_owned())}
+                <a class="tcn-topbar-title" class:tcw-back=move || stepped_aside.get()
+                   href=move || named_at_the_top.get().href()
+                   title=move || {
+                       let place = named_at_the_top.get();
+                       if stepped_aside.get() { place.back_to() } else { place.label() }
+                   }>
+                    {move || named_at_the_top.get().label()}
                 </a>
                 // Only on a narrow screen, where the controls become the panel below.
                 <button type="button" class="tcn-iconbtn tcw-menu-btn" title="Menu"

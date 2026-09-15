@@ -123,6 +123,47 @@
         }
 
         /*
+            The name in the bar is two different things wearing one set of clothes. On the
+            list or in a tour it is a caption - this is what you are looking at. On Help or
+            Settings it is the way back to the tour you stepped out of, and a caption is not
+            something anybody presses: it has to look like a control, and say which way it
+            goes.
+
+            It hugs its text there rather than filling the bar, so the pill is the size of
+            the thing it offers; `margin-right: auto` keeps the controls at the far end,
+            which the caption's `flex: 1` was doing before.
+
+            The arrow is positioned rather than a flex item, and the box stays the block the
+            caption already was: a flex container has no single line of text to trim, so an
+            inline-flex pill cut a long tour's name off mid-letter instead of ending it in
+            the ellipsis the caption has always had.
+        */
+        .tcn-topbar-title.tcw-back {
+            flex: 0 1 auto;
+            margin-right: auto;
+            position: relative;
+            padding: 3px 11px 3px 21px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .16);
+            transition: background .15s ease;
+        }
+
+        .tcn-topbar-title.tcw-back::before {
+            content: "\2039";
+            position: absolute;
+            left: 9px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2em;
+            line-height: 1;
+            opacity: .85;
+        }
+
+        .tcn-topbar-title.tcw-back:hover {
+            background: rgba(255, 255, 255, .3);
+        }
+
+        /*
             A dialog that keeps its head and its feet. The card had no height of its own, so
             a long form - the expense one, with its chips - grew past the screen and took
             Cancel and Save with it: to save, you scrolled. Now the card is a column bounded

@@ -385,13 +385,10 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     // under the title says which of the two is on screen.
     // The name in the top bar, set as soon as there is one to set - from the local copy
     // before the server has answered, which is the whole point of having kept it.
-    let name_in_the_bar = use_context::<crate::PageTitle>();
+    let where_we_are = use_context::<crate::place::Current>();
     let show_name = move |tour: &Tour| {
-        if let Some(t) = name_in_the_bar {
-            t.0.set(Some((
-                tour.name.clone(),
-                format!("/tour/{}", tour.id.as_str()),
-            )));
+        if let Some(place) = where_we_are {
+            crate::place::name_is(place, tour.id.as_str(), &tour.name);
         }
     };
 
