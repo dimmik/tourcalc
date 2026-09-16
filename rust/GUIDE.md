@@ -155,9 +155,11 @@ crates/tc-server/src/
 ├── auth.rs          токены: подпись, проверка, код доступа → права
 ├── store.rs         trait TourStore + InMemoryStore
 ├── mongo.rs         MongoStore (фича `mongo`) + перевод форматов дат и _id
-├── versions.rs      версии тура при каждой записи
+├── versions.rs      версии тура при каждой записи (строки истории — слово в слово как в C#, не менять)
+├── news.rs          текст push-уведомления: то же изменение, но человеческими словами
 ├── push.rs          web-push (фича `push`)
-├── subscriptions.rs кто подписан на уведомления (в памяти или в монге, рядом с турами)
+├── subscriptions.rs кто подписан на уведомления (в памяти или в монге, рядом с турами);
+│                    мёртвые подписки удаляются при отправке, счётчик — subscriptionsForgotten в /api/Info/version
 ├── api/
 │   ├── mod.rs       все маршруты /api/*
 │   ├── auth.rs      /api/Auth/*
@@ -227,7 +229,7 @@ crates/tc-web/src/
 ├── settings*.rs   настройки: порог мелочи, акцентный цвет
 ├── mode.rs        Full / Mini
 ├── place.rs       где читатель был: тур в шапке, к которому возвращаются из Help
-├── push.rs        подписка на уведомления
+├── push.rs        подписка на уведомления; колокольчики в списке туров (один POST /api/Subscription/mine на весь список, кэш __tcw_bells)
 ├── version.rs     страница сборки: какая версия у меня и какая на сервере
 └── install.rs     установка приложения на устройство (настройка «Install on this device»)
 ```

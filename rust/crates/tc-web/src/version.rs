@@ -23,8 +23,14 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[wasm_bindgen(inline_js = r#"
 export async function tcw_update() {
     // Everything the browser is keeping of this app, in the order that matters: the caches
-    // the service worker filled, then the worker itself, then a reload that has nothing
-    // left to serve it but the network.
+    // the service worker filled, then a fresh copy of the worker itself, then a reload that
+    // has nothing left to serve it but the network.
+    //
+    // The worker is updated, never unregistered. Its registration is what the push
+    // subscription belongs to, and unregistering deletes the subscription with it - so this
+    // button used to switch off notifications for every tour, silently: the bells said "not
+    // notified", which was by then true, and nothing said why. A fresh sw.js takes over at
+    // once anyway (`skipWaiting` and `clients.claim`), so unregistering bought nothing.
     try {
         if (window.caches) {
             const keys = await caches.keys();
@@ -34,7 +40,7 @@ export async function tcw_update() {
     try {
         if (navigator.serviceWorker) {
             const regs = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(regs.map((r) => r.unregister()));
+            await Promise.all(regs.map((r) => r.update()));
         }
     } catch (e) {}
     location.reload();

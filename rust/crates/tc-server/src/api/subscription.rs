@@ -43,6 +43,31 @@ pub async fn unsubscribe(
     Ok("OK".into())
 }
 
+/// Which of the reader's tours this browser is subscribed to - the bells in the tour list.
+///
+/// One request for the whole list, whatever its length: asking `check` for each tour would
+/// be a request per row, each reading its tour whole. Only tours this token may see are
+/// named; an endpoint alone must not tell anybody which tours exist.
+pub async fn mine(
+    State(state): State<Shared>,
+    Bearer(auth): Bearer,
+    Json(sub): Json<Subscription>,
+) -> Json<Vec<String>> {
+    let tours = state.subscriptions.tours_of(&sub).await;
+    if tours.is_empty() {
+        return Json(Vec::new());
+    }
+    let seen = state
+        .store
+        .access_codes(&tours)
+        .await
+        .into_iter()
+        .filter(|(_, code)| auth.may_see(code))
+        .map(|(id, _)| id)
+        .collect();
+    Json(seen)
+}
+
 /// Only for a tour this token may see.
 ///
 /// The C# marks the controller `[Authorize]` and stops there, so anybody holding any token

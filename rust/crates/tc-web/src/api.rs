@@ -44,6 +44,7 @@ pub fn log_out() {
         let _ = s.remove_item(TOKEN_KEY);
     }
     crate::queue::forget_list();
+    crate::push::forget_bells();
 }
 
 /// What went wrong, in the words the screen will show.
@@ -317,28 +318,32 @@ pub async fn push_public_key() -> Result<String, Failed> {
 }
 
 pub async fn push_check(tour: &str, sub: &PushSubscription) -> Result<bool, Failed> {
-    let body = post_subscription("check", tour, sub).await?;
+    let body = post_subscription(&format!("check/{tour}"), sub).await?;
     Ok(body.trim() == "true")
 }
 
 pub async fn push_subscribe(tour: &str, sub: &PushSubscription) -> Result<(), Failed> {
-    post_subscription("subscribe", tour, sub).await.map(|_| ())
-}
-
-pub async fn push_unsubscribe(tour: &str, sub: &PushSubscription) -> Result<(), Failed> {
-    post_subscription("unsubscribe", tour, sub)
+    post_subscription(&format!("subscribe/{tour}"), sub)
         .await
         .map(|_| ())
 }
 
-async fn post_subscription(
-    what: &str,
-    tour: &str,
-    sub: &PushSubscription,
-) -> Result<String, Failed> {
+pub async fn push_unsubscribe(tour: &str, sub: &PushSubscription) -> Result<(), Failed> {
+    post_subscription(&format!("unsubscribe/{tour}"), sub)
+        .await
+        .map(|_| ())
+}
+
+/// The reader's tours this browser is subscribed to, in one request for the whole list.
+pub async fn push_mine(sub: &PushSubscription) -> Result<Vec<String>, Failed> {
+    let body = post_subscription("mine", sub).await?;
+    serde_json::from_str(&body).map_err(|e| format!("could not read the answer: {e}"))
+}
+
+async fn post_subscription(what: &str, sub: &PushSubscription) -> Result<String, Failed> {
     let body = serde_json::to_string(sub).map_err(|e| format!("could not write it down: {e}"))?;
 
-    let mut req = Request::post(&format!("/api/Subscription/{what}/{tour}"));
+    let mut req = Request::post(&format!("/api/Subscription/{what}"));
     if let Some(t) = token() {
         req = req.header("Authorization", &format!("bearer {t}"));
     }

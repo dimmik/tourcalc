@@ -127,6 +127,22 @@
             display: none;
         }
 
+        /* The bell on a tour in the list: whether this device is notified about it. After the
+           name, not a chip of its own - it is about the reader's device, not the tour.
+           Ringing in colour; known not to, crossed out and grey; not found out yet, a faint
+           grey bell. */
+        .tcw-bell {
+            display: inline-block;
+            margin-left: .35em;
+            font-size: .8em;
+            text-decoration: none;
+        }
+        .tcw-bell.is-off { filter: grayscale(1); opacity: .5; }
+        /* The tour's own bell while what is true is not known: dashed, so it does not read
+           as the outline of "off". */
+        .tcn-bell.is-unknown { border-style: dashed; background: transparent; }
+        .tcw-bell.is-unknown { filter: grayscale(1); opacity: .28; }
+
         /*
             The name in the bar is two different things wearing one set of clothes. On the
             list or in a tour it is a caption - this is what you are looking at. On Help or

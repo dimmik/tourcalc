@@ -32,6 +32,7 @@ fn state_with(push: Box<dyn tc_server::push::Notifier>) -> tc_server::state::Sha
         build_commit: String::new(),
         client_asset: None,
         wakeups: Default::default(),
+        forgotten_subscriptions: Default::default(),
     })
 }
 
@@ -172,6 +173,149 @@ async fn nobody_subscribes_to_somebody_elses_tour() {
     assert_eq!(status, StatusCode::NOT_FOUND, "another code, no tour");
 }
 
+/// The tour list asks once which of its tours this browser is subscribed to.
+#[tokio::test]
+async fn the_list_learns_its_bells_in_one_question() {
+    let app = tc_server::api::routes(state_with(Box::new(tc_server::push::Silent)));
+    let token = token(&app).await;
+    let mine = subscription("https://push.example.org/mine");
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/Subscription/mine",
+        Some(&token),
+        Some(mine.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "[]", "subscribed to nothing yet");
+
+    for tour in ["zscph2y", "hs3huvy"] {
+        send(
+            &app,
+            "POST",
+            &format!("/api/Subscription/subscribe/{tour}"),
+            Some(&token),
+            Some(mine.clone()),
+        )
+        .await;
+    }
+    // Somebody else's browser, on a third tour: not this one's bell.
+    send(
+        &app,
+        "POST",
+        "/api/Subscription/subscribe/a2nzm5a",
+        Some(&token),
+        Some(subscription("https://push.example.org/theirs")),
+    )
+    .await;
+
+    let (_, body) = send(
+        &app,
+        "POST",
+        "/api/Subscription/mine",
+        Some(&token),
+        Some(mine.clone()),
+    )
+    .await;
+    let mut tours: Vec<String> = serde_json::from_str(&body).unwrap();
+    tours.sort();
+    assert_eq!(tours, ["hs3huvy", "zscph2y"]);
+
+    // The endpoint alone tells a stranger nothing about which tours exist.
+    let (_, other) = send(
+        &app,
+        "GET",
+        "/api/Auth/token/code/some-other-code",
+        None,
+        None,
+    )
+    .await;
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/Subscription/mine",
+        Some(&other),
+        Some(mine.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "[]", "another code");
+    let (_, body) = send(&app, "POST", "/api/Subscription/mine", None, Some(mine)).await;
+    assert_eq!(body, "[]", "no token");
+}
+
+/// A subscription the push service says is finished with is forgotten, and counted where
+/// anybody can see it: after a browser drops its subscriptions, the rows it leaves behind go
+/// on the next change to their tour.
+#[tokio::test]
+async fn a_finished_subscription_is_forgotten_and_counted() {
+    struct AllGone;
+
+    #[async_trait::async_trait]
+    impl tc_server::push::Notifier for AllGone {
+        fn public_key(&self) -> &str {
+            "k"
+        }
+        async fn notify(
+            &self,
+            subscribers: Vec<tc_server::subscriptions::Subscription>,
+            _tour: &str,
+            _message: &str,
+        ) -> Vec<tc_server::subscriptions::Subscription> {
+            subscribers
+        }
+    }
+
+    let state = state_with(Box::new(AllGone));
+    let app = tc_server::api::routes(Arc::clone(&state));
+    let token = token(&app).await;
+    for url in ["https://push.example.org/a", "https://push.example.org/b"] {
+        send(
+            &app,
+            "POST",
+            "/api/Subscription/subscribe/zscph2y",
+            Some(&token),
+            Some(subscription(url)),
+        )
+        .await;
+    }
+
+    let (_, body) = send(&app, "GET", "/api/Info/version", None, None).await;
+    let version: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(version["subscriptionsForgotten"], 0);
+
+    let (_, body) = send(&app, "GET", "/api/Tour/zscph2y", Some(&token), None).await;
+    let mut tour: serde_json::Value = serde_json::from_str(&body).unwrap();
+    tour["Name"] = "Anybody there?".into();
+    let (status, _) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let mut forgotten = serde_json::Value::Null;
+    for _ in 0..50 {
+        let (_, body) = send(&app, "GET", "/api/Info/version", None, None).await;
+        forgotten = serde_json::from_str::<serde_json::Value>(&body).unwrap()
+            ["subscriptionsForgotten"]
+            .clone();
+        if forgotten == 2 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert_eq!(forgotten, 2);
+
+    let (_, body) = send(
+        &app,
+        "POST",
+        "/api/Subscription/check/zscph2y",
+        Some(&token),
+        Some(subscription("https://push.example.org/a")),
+    )
+    .await;
+    assert_eq!(body, "false", "the row is gone, not just counted");
+}
+
 /// The public key is what a browser needs before it can subscribe at all.
 #[tokio::test]
 async fn the_public_key_is_public() {
@@ -245,10 +389,10 @@ async fn saving_a_tour_tells_the_subscribers() {
 
     let said = recorder.0.lock().unwrap().clone();
     assert_eq!(said.len(), 1, "one subscriber, one notification");
-    assert!(
-        said[0].starts_with("Renamed for the neighbours : Changed: Tour Name"),
-        "it says which tour and what changed: {}",
-        said[0]
+    // In words for a phone, not the history's "Changed: Tour Name a -> b".
+    assert_eq!(
+        said[0], "Renamed for the neighbours — Renamed from “(Fin) Поход Урал Август 2021”",
+        "it says which tour and what changed"
     );
 
     // And a save that changes nothing tells nobody.

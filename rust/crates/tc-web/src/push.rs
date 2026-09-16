@@ -25,82 +25,273 @@ enum Bell {
     /// Finding out what is true - the state the button starts in, before the browser and the
     /// server have been asked.
     Checking,
+    /// Asked, and no answer: the server is down or did not reply in time. Not the same as
+    /// off, and it must not look like it - a reader who sees "off" believes it.
+    Unknown,
     /// Turning it on or off right now.
     Working,
+    /// The browser, or a server with no keys, said no.
     Refused,
+}
+
+/// How long a question about notifications may take before the answer is "can't tell".
+/// A server that is down behind a proxy usually fails at once; one that hangs would leave
+/// a spinner, or an old answer, looking like the truth for as long as it hangs.
+const PATIENCE: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Why turning notifications on or off did not happen.
+enum Failure {
+    /// Somebody said no: the browser, the reader, or a server without keys.
+    Refused(String),
+    /// Nobody answered, so what is true now is not known.
+    NoAnswer(String),
 }
 
 #[component]
 pub fn PushBell(tour_id: String) -> impl IntoView {
     let state = RwSignal::new(Bell::Checking);
-    let id = tour_id.clone();
+    // Which question is the latest: a timer for an old one must not overrule a newer answer.
+    let asked = StoredValue::new(0u32);
+    let tour_of = StoredValue::new(tour_id);
 
-    // What is true when the page opens: does this browser support it, and is this device
-    // already subscribed to this tour?
-    {
-        let id = id.clone();
+    // What is true: does this browser support it, and is this device subscribed to this
+    // tour? Asked when the page opens, and again when a "can't tell" is clicked.
+    let check = move || {
+        let id = tour_of.get_value();
+        let n = asked.get_value() + 1;
+        asked.set_value(n);
+        state.set(Bell::Checking);
         spawn_local(async move {
-            match existing_subscription().await {
-                None => state.set(if supported() {
-                    Bell::Off
-                } else {
-                    Bell::Impossible
-                }),
-                Some(sub) => {
-                    let known = api::push_check(&id, &sub).await.unwrap_or(false);
-                    state.set(if known { Bell::On } else { Bell::Off });
-                }
+            let found = match existing_subscription().await {
+                None if supported() => Bell::Off,
+                None => Bell::Impossible,
+                Some(sub) => match api::push_check(&id, &sub).await {
+                    Ok(known) => {
+                        // What the tour page found out is what the list should show next.
+                        rings_for(&id, known);
+                        if known {
+                            Bell::On
+                        } else {
+                            Bell::Off
+                        }
+                    }
+                    Err(why) => {
+                        leptos::logging::warn!("push: could not check: {why}");
+                        Bell::Unknown
+                    }
+                },
+            };
+            if asked.try_get_value() == Some(n) {
+                state.try_set(found);
             }
         });
-    }
+        set_timeout(
+            move || {
+                if asked.try_get_value() == Some(n)
+                    && state.try_get_untracked() == Some(Bell::Checking)
+                {
+                    state.try_set(Bell::Unknown);
+                }
+            },
+            PATIENCE,
+        );
+    };
+    check();
 
-    // A signal rather than a captured String: the button lives inside `Show`, whose children
-    // are re-run, so anything they use has to be `Copy` or cloneable on each run.
-    let tour_of = StoredValue::new(id.clone());
-    let toggle = move |_| {
-        let id = tour_of.get_value();
+    let click = move |_| {
         let was = state.get();
+        if matches!(was, Bell::Unknown) {
+            check();
+            return;
+        }
+        let id = tour_of.get_value();
+        let n = asked.get_value() + 1;
+        asked.set_value(n);
         state.set(Bell::Working);
         spawn_local(async move {
             let outcome = match was {
                 Bell::On => turn_off(&id).await.map(|()| Bell::Off),
                 _ => turn_on(&id).await.map(|()| Bell::On),
             };
-            state.set(match outcome {
+            if let Ok(now) = &outcome {
+                rings_for(&id, *now == Bell::On);
+            }
+            let next = match outcome {
                 Ok(next) => next,
-                Err(why) => {
+                Err(Failure::Refused(why)) => {
                     leptos::logging::warn!("push: {why}");
                     Bell::Refused
                 }
-            });
+                Err(Failure::NoAnswer(why)) => {
+                    leptos::logging::warn!("push: {why}");
+                    Bell::Unknown
+                }
+            };
+            if asked.try_get_value() == Some(n) {
+                state.try_set(next);
+            }
         });
     };
 
     view! {
         <Show when=move || state.get() != Bell::Impossible>
-            // The app's own pill, and its own two faces: an outline while it is off, solid
-            // white once you are subscribed. It was carrying `tcn-hero-link` as well, which
-            // is the underlined-link style, and that is what it looked like - a link, not a
-            // button you had switched on.
+            // The app's own pill, and its own faces: an outline while it is off, solid white
+            // once you are subscribed, dashed while what is true is not known.
             <button type="button" class="tcn-bell"
                     class:is-on=move || state.get() == Bell::On
+                    class:is-unknown=move || matches!(state.get(), Bell::Checking | Bell::Unknown)
                     prop:disabled=move || matches!(state.get(), Bell::Working | Bell::Checking)
                     title=move || match state.get() {
-                        Bell::On => "You get a push when someone changes this tour. Click to stop.",
-                        Bell::Refused => "The browser or the notification service said no — click to try again",
-                        _ => "Get a push when someone changes this tour.",
+                        Bell::On => "This device gets a push when someone changes this tour. Click to stop.",
+                        Bell::Off => "This device is not notified about this tour. Click to get a push when someone changes it.",
+                        Bell::Checking => "Finding out whether this device is notified…",
+                        Bell::Unknown => "Could not find out whether this device is notified — the server did not answer. Click to ask again.",
+                        Bell::Refused => "The browser or the server said no — click to try again",
+                        Bell::Working | Bell::Impossible => "",
                     }
-                    on:click=toggle>
+                    on:click=click>
                 {move || match state.get() {
                     Bell::On => "🔔 notified",
+                    Bell::Off => "🔕 not notified",
                     Bell::Checking => "⏳ checking…",
+                    Bell::Unknown => "❔ can't tell",
                     Bell::Working => "⏳ …",
                     Bell::Refused => "🔕 not allowed",
-                    _ => "🔕 notify me",
+                    Bell::Impossible => "",
                 }}
             </button>
         </Show>
     }
+}
+
+// --- the bells in the tour list ----------------------------------------------------------
+
+/// Which tours this browser is subscribed to, as far as the list knows: `None` until it has
+/// found out, then the ids that ring - every other tour is known not to.
+pub type Bells = RwSignal<Option<Vec<String>>>;
+
+/// What one row of the list says about notifications on this device.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Ring {
+    /// Not found out: the browser or the server has still to answer, or could not.
+    Unknown,
+    Off,
+    On,
+}
+
+pub fn ring_of(known: Option<&[String]>, tour: &str) -> Ring {
+    match known {
+        None => Ring::Unknown,
+        Some(tours) if tours.iter().any(|t| t == tour) => Ring::On,
+        Some(_) => Ring::Off,
+    }
+}
+
+/// The list's bells: the last answer at once, then the real one - or "can't tell" when the
+/// question fails or takes longer than [`PATIENCE`]. The last answer is only a guess about
+/// now, and a stopped server must not leave it looking like one it just gave.
+pub fn list_bells() -> Bells {
+    let bells: Bells = RwSignal::new(remembered_bells());
+    let answered = std::rc::Rc::new(std::cell::Cell::new(false));
+    {
+        let answered = answered.clone();
+        spawn_local(async move {
+            let found = subscribed_tours().await;
+            answered.set(true);
+            // `try_`: the reader may have opened a tour before the answer came.
+            bells.try_set(found);
+        });
+    }
+    set_timeout(
+        move || {
+            if !answered.get() {
+                bells.try_set(None);
+            }
+        },
+        PATIENCE,
+    );
+    bells
+}
+
+/// The bell after a tour's name in the list, in both interfaces.
+#[component]
+pub fn ListBell(bells: Bells, tour: String) -> impl IntoView {
+    let ring = Memo::new(move |_| bells.with(|b| ring_of(b.as_deref(), &tour)));
+    view! {
+        <span class="tcw-bell"
+              class:is-on=move || ring.get() == Ring::On
+              class:is-off=move || ring.get() == Ring::Off
+              class:is-unknown=move || ring.get() == Ring::Unknown
+              title=move || match ring.get() {
+                  Ring::On => "This device is notified when the tour changes",
+                  Ring::Off => "This device is not notified about this tour",
+                  Ring::Unknown => "Could not find out whether this device is notified",
+              }>
+            {move || if ring.get() == Ring::Off { "🔕" } else { "🔔" }}
+        </span>
+    }
+}
+
+/// The last answer, so the list draws its bells with the rows instead of a moment after.
+/// The key being there at all is what says "found out": an empty list is a real answer.
+const BELLS_KEY: &str = "__tcw_bells";
+
+/// What the list shows before it has asked: the answer it got last time, if it ever got one.
+pub fn remembered_bells() -> Option<Vec<String>> {
+    storage()
+        .and_then(|s| s.get_item(BELLS_KEY).ok().flatten())
+        .and_then(|text| serde_json::from_str(&text).ok())
+}
+
+fn remember_bells(tours: &[String]) {
+    let Some(s) = storage() else { return };
+    if let Ok(text) = serde_json::to_string(tours) {
+        let _ = s.set_item(BELLS_KEY, &text);
+    }
+}
+
+/// On the way out, with the list: the ids are the reader's.
+pub fn forget_bells() {
+    if let Some(s) = storage() {
+        let _ = s.remove_item(BELLS_KEY);
+    }
+}
+
+/// What the tour page found out about one tour, into the list's answer.
+///
+/// Only into an answer the list already has: one tour checked says nothing about the rest,
+/// and starting a list from it would mark every other tour as not notified.
+fn rings_for(tour: &str, on: bool) {
+    let Some(mut bells) = remembered_bells() else {
+        return;
+    };
+    bells.retain(|t| t != tour);
+    if on {
+        bells.push(tour.to_owned());
+    }
+    remember_bells(&bells);
+}
+
+/// Which of the reader's tours this browser is subscribed to.
+///
+/// A browser that never subscribed - most of them - finds that out from itself and asks the
+/// server nothing. One that did asks once, for the whole list. `None` when the answer could
+/// not be had: the list then says it cannot tell, and the remembered answer stays for next
+/// time.
+pub async fn subscribed_tours() -> Option<Vec<String>> {
+    if !supported() {
+        return Some(Vec::new());
+    }
+    let tours = match existing_subscription().await {
+        None => Vec::new(),
+        Some(sub) => api::push_mine(&sub).await.ok()?,
+    };
+    remember_bells(&tours);
+    Some(tours)
+}
+
+fn storage() -> Option<web_sys::Storage> {
+    web_sys::window()?.local_storage().ok().flatten()
 }
 
 fn supported() -> bool {
@@ -131,14 +322,18 @@ async fn existing_subscription() -> Option<api::PushSubscription> {
     read_subscription(&existing)
 }
 
-async fn turn_on(tour_id: &str) -> Result<(), String> {
-    let manager = manager().await.ok_or("no service worker")?;
+async fn turn_on(tour_id: &str) -> Result<(), Failure> {
+    let manager = manager()
+        .await
+        .ok_or_else(|| Failure::Refused("no service worker".into()))?;
 
     // The server's VAPID public key: the browser encrypts to it, so a notification can only
     // come from whoever holds the other half.
-    let key = api::push_public_key().await?;
+    let key = api::push_public_key().await.map_err(Failure::NoAnswer)?;
     if key.trim().is_empty() {
-        return Err("this server has no notification keys configured".into());
+        return Err(Failure::Refused(
+            "this server has no notification keys configured".into(),
+        ));
     }
 
     let subscription = match existing_subscription().await {
@@ -148,28 +343,35 @@ async fn turn_on(tour_id: &str) -> Result<(), String> {
             // Promising the notification will be shown to the reader. Chrome refuses a
             // subscription without it, and silent push is not what this is for anyway.
             options.set_user_visible_only(true);
-            let bytes = js_sys::Uint8Array::from(base64url(&key)?.as_slice());
+            let bytes =
+                js_sys::Uint8Array::from(base64url(&key).map_err(Failure::Refused)?.as_slice());
             options.set_application_server_key(&bytes);
             let promise = manager
                 .subscribe_with_options(&options)
-                .map_err(|e| format!("could not subscribe: {e:?}"))?;
+                .map_err(|e| Failure::Refused(format!("could not subscribe: {e:?}")))?;
             let value = JsFuture::from(promise)
                 .await
-                .map_err(|_| "the browser refused notifications".to_owned())?;
-            read_subscription(&value).ok_or("the subscription came back in an odd shape")?
+                .map_err(|_| Failure::Refused("the browser refused notifications".into()))?;
+            read_subscription(&value).ok_or_else(|| {
+                Failure::Refused("the subscription came back in an odd shape".into())
+            })?
         }
     };
 
-    api::push_subscribe(tour_id, &subscription).await
+    api::push_subscribe(tour_id, &subscription)
+        .await
+        .map_err(Failure::NoAnswer)
 }
 
-async fn turn_off(tour_id: &str) -> Result<(), String> {
+async fn turn_off(tour_id: &str) -> Result<(), Failure> {
     let Some(subscription) = existing_subscription().await else {
         return Ok(());
     };
     // Told to the server first: the browser's own subscription is shared by every tour on
     // this origin, so it is dropped only when nothing wants it.
-    api::push_unsubscribe(tour_id, &subscription).await
+    api::push_unsubscribe(tour_id, &subscription)
+        .await
+        .map_err(Failure::NoAnswer)
 }
 
 /// Reads the browser's subscription object into the shape the server stores.
@@ -216,4 +418,19 @@ fn base64url(text: &str) -> Result<Vec<u8>, String> {
         .atob(&cleaned)
         .map_err(|_| "the server's key is not base64".to_owned())?;
     Ok(raw.chars().map(|c| c as u8).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Not having asked is not the same as having been told no.
+    #[test]
+    fn a_bell_is_unknown_until_the_answer_and_off_after_it() {
+        let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(ring_of(None, "a"), Ring::Unknown);
+        assert_eq!(ring_of(Some(&ids(&[])), "a"), Ring::Off);
+        assert_eq!(ring_of(Some(&ids(&["a", "b"])), "a"), Ring::On);
+        assert_eq!(ring_of(Some(&ids(&["b"])), "a"), Ring::Off);
+    }
 }

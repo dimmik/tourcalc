@@ -32,6 +32,10 @@ pub fn routes(state: Shared) -> Router {
         .route("/api/Tour/{id}/versions", get(tour::versions))
         .route("/api/Subscription/publickey", get(subscription::public_key))
         .route(
+            "/api/Subscription/mine",
+            axum::routing::post(subscription::mine),
+        )
+        .route(
             "/api/Subscription/check/{tour}",
             axum::routing::post(subscription::check),
         )
@@ -85,6 +89,9 @@ async fn info_version(
         "commit": state.build_commit,
         "client": state.client_asset,
         "started": chrono_lite::Utc::from(state.started).to_string(),
+        "subscriptionsForgotten": state
+            .forgotten_subscriptions
+            .load(std::sync::atomic::Ordering::Relaxed),
     }))
 }
 

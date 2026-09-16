@@ -52,6 +52,21 @@ pub trait TourStore: Send + Sync {
         codes: Option<&[String]>,
         allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
     ) -> Vec<Arc<Tour>>;
+    /// The access code of each of these tours that exists, as `(id, code)`.
+    ///
+    /// For deciding who may hear about a tour without reading it: the tour list asks which
+    /// of the tours this browser is subscribed to are the reader's, and the answer needs one
+    /// field of each, not the spendings. The default reads them whole, which in memory is a
+    /// counter bump; a database should ask for the one field.
+    async fn access_codes(&self, ids: &[String]) -> Vec<(String, String)> {
+        let mut found = Vec::new();
+        for id in ids {
+            if let Some(tour) = self.get(&TourId::new(id.clone())).await {
+                found.push((id.clone(), crate::fields::access_code(&tour)));
+            }
+        }
+        found
+    }
     /// Writes a tour, adding it if its id is new.
     async fn store(&self, tour: Tour);
     /// Removes a tour; `false` if there was none.

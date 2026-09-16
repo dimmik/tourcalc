@@ -127,6 +127,7 @@ async fn main() {
         // "am I current?" should not cost a disk read.
         client_asset: client_asset(cfg.static_dir.as_deref()),
         wakeups: Default::default(),
+        forgotten_subscriptions: Default::default(),
     });
 
     let mut app = Router::new()

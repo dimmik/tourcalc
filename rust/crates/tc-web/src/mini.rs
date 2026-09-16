@@ -1094,6 +1094,7 @@ pub fn MiniList(
     remove: Callback<Tour>,
     clone_it: Callback<(Tour, bool)>,
     copy_json: Callback<Tour>,
+    bells: crate::push::Bells,
 ) -> impl IntoView {
     let more: RwSignal<Option<String>> = RwSignal::new(None);
     let total = tours.len();
@@ -1175,7 +1176,7 @@ pub fn MiniList(
                         .into_iter()
                         .map(|tour| view! {
                             <MiniTourRow tour=tour more=more remove=remove
-                                         clone_it=clone_it copy_json=copy_json />
+                                         clone_it=clone_it copy_json=copy_json bells=bells />
                         })
                         .collect_view()}
                 </div>
@@ -1191,6 +1192,7 @@ fn MiniTourRow(
     remove: Callback<Tour>,
     clone_it: Callback<(Tour, bool)>,
     copy_json: Callback<Tour>,
+    bells: crate::push::Bells,
 ) -> impl IntoView {
     let id = tour.id.as_str().to_owned();
     let mine = id.clone();
@@ -1216,6 +1218,7 @@ fn MiniTourRow(
                     {tour.name.clone()}
                     {finalizing.then(|| view! { <span class="tcm-tag is-amber">"settling"</span> })}
                     {archived.then(|| view! { <span class="tcm-tag">"arch"</span> })}
+                    <crate::push::ListBell bells=bells tour=id.clone() />
                 </a>
                 <span class="tcm-facts" title=names.join(", ")>
                     <span>{people} "p"</span>

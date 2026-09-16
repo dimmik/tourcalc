@@ -15,12 +15,12 @@
 //! write strings into a database the C# then refuses to read.
 
 use crate::store::{Stale, TourStore};
+use crate::subscriptions::{Subscription, SubscriptionStore};
 use bson::{doc, Document};
 use futures_util::TryStreamExt;
 use mongodb::options::ClientOptions;
 use mongodb::{Client, Collection};
 use std::sync::Arc;
-use crate::subscriptions::{Subscription, SubscriptionStore};
 use tc_core::{Tour, TourId};
 
 /// Fields the C# model declares as `DateTime`, wherever they appear in a document.
@@ -166,16 +166,53 @@ impl TourStore for MongoStore {
         // to keep the handful that belong to the reader. The C# hands the same condition to
         // the driver and lets the database do it; so does this now.
         if let Some(codes) = codes {
-            filter.insert(
-                tc_core::extras::ACCESS_CODE,
-                doc! { "$in": codes.to_vec() },
-            );
+            filter.insert(tc_core::extras::ACCESS_CODE, doc! { "$in": codes.to_vec() });
         }
         self.all(filter)
             .await
             .into_iter()
             .filter(|t| allowed(t))
             .collect()
+    }
+
+    async fn access_codes(&self, ids: &[String]) -> Vec<(String, String)> {
+        if ids.is_empty() {
+            return Vec::new();
+        }
+        // Just the code: these are tours somebody subscribed to, and reading them whole to
+        // look at one field would make the tour list pay for every spending in them. Both
+        // spellings, because some documents are camelCase throughout (see `fields`).
+        let codes = tc_core::extras::ACCESS_CODE;
+        let lower = format!("{}{}", codes[..1].to_ascii_lowercase(), &codes[1..]);
+        let projection = doc! { codes: 1, &lower: 1 };
+        let found = match self
+            .tours
+            .find(doc! { "_id": { "$in": ids.to_vec() } })
+            .projection(projection)
+            .await
+        {
+            Ok(cursor) => cursor.try_collect::<Vec<Document>>().await,
+            Err(e) => Err(e),
+        };
+        match found {
+            Ok(docs) => docs
+                .iter()
+                .filter_map(|d| {
+                    let id = d.get_str("_id").ok()?.to_owned();
+                    let code = d
+                        .iter()
+                        .find(|(k, _)| k.eq_ignore_ascii_case(codes))
+                        .and_then(|(_, v)| v.as_str())
+                        .unwrap_or_default()
+                        .to_owned();
+                    Some((id, code))
+                })
+                .collect(),
+            Err(e) => {
+                tracing::error!("MongoDB read failed: {e}");
+                Vec::new()
+            }
+        }
     }
 
     async fn store(&self, tour: Tour) {
@@ -367,6 +404,35 @@ impl SubscriptionStore for MongoSubscriptions {
         mine.sort_by(|a, b| a.url.cmp(&b.url));
         mine.dedup_by(|a, b| a.is_same(b));
         mine
+    }
+
+    async fn tours_of(&self, sub: &Subscription) -> Vec<String> {
+        // Only the tour ids: the keys are of no use to a list of bells. No index on the URL,
+        // on purpose - the collection is a few hundred rows, a scan of it is a millisecond,
+        // and an index would be this server changing the shape of a database it shares.
+        let found = match self
+            .subscriptions
+            .find(doc! { "Subscription.Url": &sub.url })
+            .projection(doc! { "TourId": 1, "_id": 0 })
+            .await
+        {
+            Ok(cursor) => cursor.try_collect::<Vec<Document>>().await,
+            Err(e) => Err(e),
+        };
+        let mut tours: Vec<String> = match found {
+            Ok(docs) => docs
+                .iter()
+                .filter_map(|d| d.get_str("TourId").ok().map(str::to_owned))
+                .collect(),
+            Err(e) => {
+                tracing::error!("could not read the subscriptions: {e}");
+                return Vec::new();
+            }
+        };
+        // The same pair can be stored twice by the C# (see `for_tour`).
+        tours.sort();
+        tours.dedup();
+        tours
     }
 }
 

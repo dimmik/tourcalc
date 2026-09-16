@@ -44,6 +44,12 @@ pub struct AppState {
     /// When the server was last woken, newest last. The C# keeps the same short list and
     /// shows it on the startup-info page.
     pub wakeups: RwLock<Vec<std::time::SystemTime>>,
+
+    /// Subscriptions forgotten since start because the push service said they are finished
+    /// with - a browser that unsubscribed, or whose worker was unregistered. Shown on
+    /// `/api/Info/version`, so that "the dead ones do get cleared" is something to look at
+    /// rather than to take on trust.
+    pub forgotten_subscriptions: std::sync::atomic::AtomicU64,
 }
 
 /// How many wake-up times are worth keeping. The C#'s number, and for the same reason:
@@ -72,6 +78,16 @@ impl AppState {
             // otherwise be tried on every save from now on.
             for sub in &gone {
                 state.subscriptions.remove(&tour_id, sub).await;
+            }
+            if !gone.is_empty() {
+                let total = state
+                    .forgotten_subscriptions
+                    .fetch_add(gone.len() as u64, std::sync::atomic::Ordering::Relaxed)
+                    + gone.len() as u64;
+                tracing::info!(
+                    "forgot {} finished subscription(s) to tour {tour_id}; {total} since start",
+                    gone.len()
+                );
             }
         });
     }

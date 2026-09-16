@@ -256,7 +256,11 @@ async fn a_currency_keeps_its_identity_through_the_database() {
         .first()
         .and_then(|c| c.as_document())
         .expect("a currency");
-    assert_eq!(first.get_str("_id").ok(), Some("Din"), "unchanged for the app");
+    assert_eq!(
+        first.get_str("_id").ok(),
+        Some("Din"),
+        "unchanged for the app"
+    );
     assert_eq!(
         first.get_str("Id").ok(),
         Some("Din"),
@@ -338,6 +342,47 @@ async fn a_subscription_outlives_the_server() {
     assert!(!again.has("t1", &sub("https://push.example/a")).await);
 }
 
+/// The tour list's question - which tours is this browser subscribed to, and whose are
+/// they - answered from the database without reading a tour whole.
+#[tokio::test]
+async fn a_browser_finds_its_subscribed_tours() {
+    use tc_server::subscriptions::SubscriptionStore;
+
+    let store = store_or_skip!("subs_mine");
+    let tour = fixture();
+    store.store(tour.clone()).await;
+
+    let subs = store.subscriptions();
+    subs.add(tour.id.as_str(), sub("https://push.example/a"))
+        .await;
+    subs.add("gone", sub("https://push.example/a")).await;
+    subs.add("other", sub("https://push.example/b")).await;
+    // Stored twice, as the C# can.
+    store
+        .insert_raw_subscription_for_tests(bson::doc! {
+            "TourId": tour.id.as_str(),
+            "Subscription": { "Url": "https://push.example/a", "P256dh": "p", "Auth": "a" },
+        })
+        .await;
+
+    let tours = subs.tours_of(&sub("https://push.example/a")).await;
+    let mut expected = vec!["gone".to_owned(), tour.id.as_str().to_owned()];
+    expected.sort();
+    assert_eq!(tours, expected);
+    assert!(subs
+        .tours_of(&sub("https://push.example/c"))
+        .await
+        .is_empty());
+
+    // Only the tour that exists has a code, and it is the tour's.
+    let codes = store.access_codes(&tours).await;
+    assert_eq!(
+        codes,
+        [(tour.id.as_str().to_owned(), fields::access_code(&tour))]
+    );
+    assert!(!fields::access_code(&tour).is_empty());
+}
+
 /// And the C#'s own documents are read, because it is the same collection.
 #[tokio::test]
 async fn a_subscription_the_app_stored_is_read_here() {
@@ -361,7 +406,10 @@ async fn a_subscription_the_app_stored_is_read_here() {
     assert_eq!(mine.len(), 1, "{mine:?}");
     assert_eq!(mine[0].url, "https://push.example/from-the-app");
     assert_eq!(mine[0].p256dh, "p");
-    assert!(subs.has("abc", &sub("https://push.example/from-the-app")).await);
+    assert!(
+        subs.has("abc", &sub("https://push.example/from-the-app"))
+            .await
+    );
 }
 
 fn sub(url: &str) -> tc_server::subscriptions::Subscription {
