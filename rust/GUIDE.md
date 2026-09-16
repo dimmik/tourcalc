@@ -155,9 +155,11 @@ crates/tc-server/src/
 ├── auth.rs          токены: подпись, проверка, код доступа → права
 ├── store.rs         trait TourStore + InMemoryStore
 ├── mongo.rs         MongoStore (фича `mongo`) + перевод форматов дат и _id
-├── versions.rs      версии тура при каждой записи
+├── versions.rs      версии тура при каждой записи (строки истории — слово в слово как в C#, не менять)
+├── news.rs          текст push-уведомления: то же изменение, но человеческими словами
 ├── push.rs          web-push (фича `push`)
-├── subscriptions.rs кто подписан на уведомления (в памяти или в монге, рядом с турами)
+├── subscriptions.rs кто подписан на уведомления (в памяти или в монге, рядом с турами);
+│                    мёртвые подписки удаляются при отправке, счётчик — subscriptionsForgotten в /api/Info/version
 ├── api/
 │   ├── mod.rs       все маршруты /api/*
 │   ├── auth.rs      /api/Auth/*

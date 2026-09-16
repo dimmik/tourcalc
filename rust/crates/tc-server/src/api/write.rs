@@ -118,7 +118,16 @@ pub async fn update(
     {
         Ok(()) => {
             if let Some(what) = change {
-                state.announce(&id, format!("{} : {what}", incoming.name));
+                // Words for a phone rather than the history's line - unless whoever saved
+                // asked for a comment (a restore), which says it better than a diff could.
+                let told = asked_comment
+                    .is_empty()
+                    .then(|| crate::news::describe(&stored, &incoming))
+                    .flatten();
+                state.announce(
+                    &id,
+                    told.unwrap_or_else(|| format!("{} : {what}", incoming.name)),
+                );
             }
             Ok(id)
         }

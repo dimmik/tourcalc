@@ -9,6 +9,7 @@ pub mod config;
 pub mod fields;
 #[cfg(feature = "mongo")]
 pub mod mongo;
+pub mod news;
 pub mod push;
 pub mod state;
 pub mod store;

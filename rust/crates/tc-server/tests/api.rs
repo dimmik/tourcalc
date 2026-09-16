@@ -41,6 +41,7 @@ fn app_with(tweak: impl FnOnce(&mut tc_server::state::AppState)) -> axum::Router
         build_commit: String::new(),
         client_asset: None,
         wakeups: Default::default(),
+        forgotten_subscriptions: Default::default(),
     };
     let mut state = state;
     tweak(&mut state);

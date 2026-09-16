@@ -89,6 +89,9 @@ async fn info_version(
         "commit": state.build_commit,
         "client": state.client_asset,
         "started": chrono_lite::Utc::from(state.started).to_string(),
+        "subscriptionsForgotten": state
+            .forgotten_subscriptions
+            .load(std::sync::atomic::Ordering::Relaxed),
     }))
 }
 

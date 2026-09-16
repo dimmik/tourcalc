@@ -32,6 +32,7 @@ fn app() -> axum::Router {
         build_commit: String::new(),
         client_asset: None,
         wakeups: Default::default(),
+        forgotten_subscriptions: Default::default(),
     });
     tc_server::text::routes().with_state(state)
 }
