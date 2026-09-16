@@ -138,6 +138,9 @@
             text-decoration: none;
         }
         .tcw-bell.is-off { filter: grayscale(1); opacity: .5; }
+        /* The tour's own bell while what is true is not known: dashed, so it does not read
+           as the outline of "off". */
+        .tcn-bell.is-unknown { border-style: dashed; background: transparent; }
         .tcw-bell.is-unknown { filter: grayscale(1); opacity: .28; }
 
         /*

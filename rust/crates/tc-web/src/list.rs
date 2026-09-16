@@ -51,13 +51,7 @@ pub fn TourListPage() -> impl IntoView {
 
     // Which of these tours ring on this device. Drawn from last time at once, then asked -
     // once for the whole list, and not at all by a browser that never subscribed.
-    let bells: crate::push::Bells = RwSignal::new(crate::push::remembered_bells());
-    spawn_local(async move {
-        if let Some(tours) = crate::push::subscribed_tours().await {
-            // `try_`: the reader may have opened a tour before the answer came.
-            bells.try_set(Some(tours));
-        }
-    });
+    let bells = crate::push::list_bells();
 
     let mode = use_context::<RwSignal<crate::mode::UiMode>>()
         .unwrap_or_else(|| RwSignal::new(crate::mode::UiMode::Full));
