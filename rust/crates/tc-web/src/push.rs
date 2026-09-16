@@ -46,10 +46,14 @@ pub fn PushBell(tour_id: String) -> impl IntoView {
                 } else {
                     Bell::Impossible
                 }),
-                Some(sub) => {
-                    let known = api::push_check(&id, &sub).await.unwrap_or(false);
-                    state.set(if known { Bell::On } else { Bell::Off });
-                }
+                Some(sub) => match api::push_check(&id, &sub).await {
+                    Ok(known) => {
+                        // What the tour page found out is what the list should show next.
+                        rings_for(&id, known);
+                        state.set(if known { Bell::On } else { Bell::Off });
+                    }
+                    Err(_) => state.set(Bell::Off),
+                },
             }
         });
     }
@@ -66,6 +70,9 @@ pub fn PushBell(tour_id: String) -> impl IntoView {
                 Bell::On => turn_off(&id).await.map(|()| Bell::Off),
                 _ => turn_on(&id).await.map(|()| Bell::On),
             };
+            if let Ok(now) = &outcome {
+                rings_for(&id, *now == Bell::On);
+            }
             state.set(match outcome {
                 Ok(next) => next,
                 Err(why) => {
@@ -101,6 +108,64 @@ pub fn PushBell(tour_id: String) -> impl IntoView {
             </button>
         </Show>
     }
+}
+
+// --- the bells in the tour list ----------------------------------------------------------
+
+/// The tours this browser was last known to be subscribed to, so the list draws its bells
+/// straight away instead of a moment after it draws the rows.
+const BELLS_KEY: &str = "__tcw_bells";
+
+/// What the list shows before it has asked: the answer it got last time.
+pub fn remembered_bells() -> Vec<String> {
+    storage()
+        .and_then(|s| s.get_item(BELLS_KEY).ok().flatten())
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+fn remember_bells(tours: &[String]) {
+    let Some(s) = storage() else { return };
+    if tours.is_empty() {
+        let _ = s.remove_item(BELLS_KEY);
+    } else if let Ok(text) = serde_json::to_string(tours) {
+        let _ = s.set_item(BELLS_KEY, &text);
+    }
+}
+
+/// On the way out, with the list: the ids are the reader's.
+pub fn forget_bells() {
+    remember_bells(&[]);
+}
+
+fn rings_for(tour: &str, on: bool) {
+    let mut bells = remembered_bells();
+    bells.retain(|t| t != tour);
+    if on {
+        bells.push(tour.to_owned());
+    }
+    remember_bells(&bells);
+}
+
+/// Which of the reader's tours this browser is subscribed to.
+///
+/// A browser that never subscribed - most of them - finds that out from itself and asks the
+/// server nothing. One that did asks once, for the whole list. `None` when the answer could
+/// not be had, so the list keeps what it already shows.
+pub async fn subscribed_tours() -> Option<Vec<String>> {
+    if !supported() {
+        return Some(Vec::new());
+    }
+    let tours = match existing_subscription().await {
+        None => Vec::new(),
+        Some(sub) => api::push_mine(&sub).await.ok()?,
+    };
+    remember_bells(&tours);
+    Some(tours)
+}
+
+fn storage() -> Option<web_sys::Storage> {
+    web_sys::window()?.local_storage().ok().flatten()
 }
 
 fn supported() -> bool {

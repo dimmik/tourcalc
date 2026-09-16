@@ -32,6 +32,10 @@ pub fn routes(state: Shared) -> Router {
         .route("/api/Tour/{id}/versions", get(tour::versions))
         .route("/api/Subscription/publickey", get(subscription::public_key))
         .route(
+            "/api/Subscription/mine",
+            axum::routing::post(subscription::mine),
+        )
+        .route(
             "/api/Subscription/check/{tour}",
             axum::routing::post(subscription::check),
         )

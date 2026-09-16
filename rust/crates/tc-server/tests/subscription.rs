@@ -172,6 +172,79 @@ async fn nobody_subscribes_to_somebody_elses_tour() {
     assert_eq!(status, StatusCode::NOT_FOUND, "another code, no tour");
 }
 
+/// The tour list asks once which of its tours this browser is subscribed to.
+#[tokio::test]
+async fn the_list_learns_its_bells_in_one_question() {
+    let app = tc_server::api::routes(state_with(Box::new(tc_server::push::Silent)));
+    let token = token(&app).await;
+    let mine = subscription("https://push.example.org/mine");
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/Subscription/mine",
+        Some(&token),
+        Some(mine.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "[]", "subscribed to nothing yet");
+
+    for tour in ["zscph2y", "hs3huvy"] {
+        send(
+            &app,
+            "POST",
+            &format!("/api/Subscription/subscribe/{tour}"),
+            Some(&token),
+            Some(mine.clone()),
+        )
+        .await;
+    }
+    // Somebody else's browser, on a third tour: not this one's bell.
+    send(
+        &app,
+        "POST",
+        "/api/Subscription/subscribe/a2nzm5a",
+        Some(&token),
+        Some(subscription("https://push.example.org/theirs")),
+    )
+    .await;
+
+    let (_, body) = send(
+        &app,
+        "POST",
+        "/api/Subscription/mine",
+        Some(&token),
+        Some(mine.clone()),
+    )
+    .await;
+    let mut tours: Vec<String> = serde_json::from_str(&body).unwrap();
+    tours.sort();
+    assert_eq!(tours, ["hs3huvy", "zscph2y"]);
+
+    // The endpoint alone tells a stranger nothing about which tours exist.
+    let (_, other) = send(
+        &app,
+        "GET",
+        "/api/Auth/token/code/some-other-code",
+        None,
+        None,
+    )
+    .await;
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/Subscription/mine",
+        Some(&other),
+        Some(mine.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "[]", "another code");
+    let (_, body) = send(&app, "POST", "/api/Subscription/mine", None, Some(mine)).await;
+    assert_eq!(body, "[]", "no token");
+}
+
 /// The public key is what a browser needs before it can subscribe at all.
 #[tokio::test]
 async fn the_public_key_is_public() {

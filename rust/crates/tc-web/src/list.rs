@@ -49,6 +49,16 @@ pub fn TourListPage() -> impl IntoView {
     });
     load.run(());
 
+    // Which of these tours ring on this device. Drawn from last time at once, then asked -
+    // once for the whole list, and not at all by a browser that never subscribed.
+    let bells = RwSignal::new(crate::push::remembered_bells());
+    spawn_local(async move {
+        if let Some(tours) = crate::push::subscribed_tours().await {
+            // `try_`: the reader may have opened a tour before the answer came.
+            bells.try_set(tours);
+        }
+    });
+
     let mode = use_context::<RwSignal<crate::mode::UiMode>>()
         .unwrap_or_else(|| RwSignal::new(crate::mode::UiMode::Full));
 
@@ -102,6 +112,16 @@ pub fn TourListPage() -> impl IntoView {
                     new_code.set(String::new());
                     new_json.set(String::new());
                     load.run(());
+
+    // Which of these tours ring on this device. Drawn from last time at once, then asked -
+    // once for the whole list, and not at all by a browser that never subscribed.
+    let bells = RwSignal::new(crate::push::remembered_bells());
+    spawn_local(async move {
+        if let Some(tours) = crate::push::subscribed_tours().await {
+            // `try_`: the reader may have opened a tour before the answer came.
+            bells.try_set(tours);
+        }
+    });
                 }
                 Err(e) => trouble.set(e),
             }
@@ -286,7 +306,7 @@ pub fn TourListPage() -> impl IntoView {
                 <crate::mini::MiniList tours=tours search=search show_archived=show_archived
                                        adding=adding new_name=new_name new_code=new_code
                                        new_json=new_json busy=busy
-                                       create=create
+                                       create=create bells=bells
                                        remove=remove clone_it=clone copy_json=copy_json />
             }.into_any(),
             Load::Ready(tours) => {
@@ -330,7 +350,7 @@ pub fn TourListPage() -> impl IntoView {
                                     .iter()
                                     .map(|t| view! {
                                         <Row tour=t.clone() remove=remove clone_it=clone
-                                             copy_json=copy_json />
+                                             copy_json=copy_json bells=bells />
                                     })
                                     .collect_view()}
                             </div>
@@ -348,8 +368,13 @@ fn Row(
     remove: Callback<Tour>,
     clone_it: Callback<(Tour, bool)>,
     copy_json: Callback<Tour>,
+    bells: RwSignal<Vec<String>>,
 ) -> impl IntoView {
     let href = format!("/tour/{}", tour.id);
+    let rings = {
+        let id = tour.id.as_str().to_owned();
+        move || bells.with(|b| b.contains(&id))
+    };
     let people = tour.persons.len();
 
     // The list carries what the server already worked out, in `SpentInCents` on each
@@ -379,7 +404,12 @@ fn Row(
 
     view! {
         <div class="tcn-tour" class:is-archived=move || archived>
-            <a class="tcn-tour-name" href=href>{tour.name.clone()}</a>
+            <a class="tcn-tour-name" href=href>
+                {tour.name.clone()}
+                <Show when=rings.clone()>
+                    <span class="tcw-bell" title="This device is notified when the tour changes">"🔔"</span>
+                </Show>
+            </a>
             <div class="tcn-tour-meta">
                 <span>{people} " people"</span>
                 <span>"·"</span>

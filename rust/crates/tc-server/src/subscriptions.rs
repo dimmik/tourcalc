@@ -39,6 +39,9 @@ pub trait SubscriptionStore: Send + Sync {
     async fn remove(&self, tour: &str, sub: &Subscription);
     async fn has(&self, tour: &str, sub: &Subscription) -> bool;
     async fn for_tour(&self, tour: &str) -> Vec<Subscription>;
+    /// Every tour this browser is subscribed to, each once - the tour list's bells, asked
+    /// in one question rather than one per tour.
+    async fn tours_of(&self, sub: &Subscription) -> Vec<String>;
 }
 
 #[derive(Default)]
@@ -87,6 +90,19 @@ impl SubscriptionStore for InMemorySubscriptions {
             .cloned()
             .unwrap_or_default()
     }
+
+    async fn tours_of(&self, sub: &Subscription) -> Vec<String> {
+        let mut tours: Vec<String> = self
+            .by_tour
+            .read()
+            .expect("subscriptions lock")
+            .iter()
+            .filter(|(_, mine)| mine.iter().any(|s| s.is_same(sub)))
+            .map(|(tour, _)| tour.clone())
+            .collect();
+        tours.sort();
+        tours
+    }
 }
 
 #[cfg(test)]
@@ -126,6 +142,23 @@ mod tests {
         store.remove("t", &sub("https://push.example/1")).await;
         assert_eq!(store.for_tour("t").await.len(), 1);
         assert!(store.has("t", &sub("https://push.example/2")).await);
+    }
+
+    #[tokio::test]
+    async fn a_browser_knows_every_tour_it_is_subscribed_to() {
+        let store = InMemorySubscriptions::default();
+        store.add("one", sub("https://push.example/1")).await;
+        store.add("two", sub("https://push.example/1")).await;
+        store.add("two", sub("https://push.example/2")).await;
+        store.add("three", sub("https://push.example/2")).await;
+        assert_eq!(
+            store.tours_of(&sub("https://push.example/1")).await,
+            ["one", "two"]
+        );
+        assert!(store
+            .tours_of(&sub("https://push.example/3"))
+            .await
+            .is_empty());
     }
 
     /// The client sends what the C# model is called; older code sent the raw browser shape.

@@ -1094,6 +1094,7 @@ pub fn MiniList(
     remove: Callback<Tour>,
     clone_it: Callback<(Tour, bool)>,
     copy_json: Callback<Tour>,
+    bells: RwSignal<Vec<String>>,
 ) -> impl IntoView {
     let more: RwSignal<Option<String>> = RwSignal::new(None);
     let total = tours.len();
@@ -1175,7 +1176,7 @@ pub fn MiniList(
                         .into_iter()
                         .map(|tour| view! {
                             <MiniTourRow tour=tour more=more remove=remove
-                                         clone_it=clone_it copy_json=copy_json />
+                                         clone_it=clone_it copy_json=copy_json bells=bells />
                         })
                         .collect_view()}
                 </div>
@@ -1191,8 +1192,13 @@ fn MiniTourRow(
     remove: Callback<Tour>,
     clone_it: Callback<(Tour, bool)>,
     copy_json: Callback<Tour>,
+    bells: RwSignal<Vec<String>>,
 ) -> impl IntoView {
     let id = tour.id.as_str().to_owned();
+    let rings = {
+        let id = id.clone();
+        move || bells.with(|b| b.contains(&id))
+    };
     let mine = id.clone();
     let is_open = Memo::new(move |_| more.get().as_deref() == Some(mine.as_str()));
     let toggle_id = id.clone();
@@ -1216,6 +1222,9 @@ fn MiniTourRow(
                     {tour.name.clone()}
                     {finalizing.then(|| view! { <span class="tcm-tag is-amber">"settling"</span> })}
                     {archived.then(|| view! { <span class="tcm-tag">"arch"</span> })}
+                    <Show when=rings.clone()>
+                        <span class="tcw-bell" title="This device is notified when the tour changes">"🔔"</span>
+                    </Show>
                 </a>
                 <span class="tcm-facts" title=names.join(", ")>
                     <span>{people} "p"</span>
