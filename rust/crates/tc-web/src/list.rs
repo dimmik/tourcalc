@@ -51,11 +51,11 @@ pub fn TourListPage() -> impl IntoView {
 
     // Which of these tours ring on this device. Drawn from last time at once, then asked -
     // once for the whole list, and not at all by a browser that never subscribed.
-    let bells = RwSignal::new(crate::push::remembered_bells());
+    let bells: crate::push::Bells = RwSignal::new(crate::push::remembered_bells());
     spawn_local(async move {
         if let Some(tours) = crate::push::subscribed_tours().await {
             // `try_`: the reader may have opened a tour before the answer came.
-            bells.try_set(tours);
+            bells.try_set(Some(tours));
         }
     });
 
@@ -112,16 +112,6 @@ pub fn TourListPage() -> impl IntoView {
                     new_code.set(String::new());
                     new_json.set(String::new());
                     load.run(());
-
-    // Which of these tours ring on this device. Drawn from last time at once, then asked -
-    // once for the whole list, and not at all by a browser that never subscribed.
-    let bells = RwSignal::new(crate::push::remembered_bells());
-    spawn_local(async move {
-        if let Some(tours) = crate::push::subscribed_tours().await {
-            // `try_`: the reader may have opened a tour before the answer came.
-            bells.try_set(tours);
-        }
-    });
                 }
                 Err(e) => trouble.set(e),
             }
@@ -368,13 +358,9 @@ fn Row(
     remove: Callback<Tour>,
     clone_it: Callback<(Tour, bool)>,
     copy_json: Callback<Tour>,
-    bells: RwSignal<Vec<String>>,
+    bells: crate::push::Bells,
 ) -> impl IntoView {
     let href = format!("/tour/{}", tour.id);
-    let rings = {
-        let id = tour.id.as_str().to_owned();
-        move || bells.with(|b| b.contains(&id))
-    };
     let people = tour.persons.len();
 
     // The list carries what the server already worked out, in `SpentInCents` on each
@@ -406,9 +392,7 @@ fn Row(
         <div class="tcn-tour" class:is-archived=move || archived>
             <a class="tcn-tour-name" href=href>
                 {tour.name.clone()}
-                <Show when=rings.clone()>
-                    <span class="tcw-bell" title="This device is notified when the tour changes">"🔔"</span>
-                </Show>
+                <crate::push::ListBell bells=bells tour=tour.id.as_str().to_owned() />
             </a>
             <div class="tcn-tour-meta">
                 <span>{people} " people"</span>

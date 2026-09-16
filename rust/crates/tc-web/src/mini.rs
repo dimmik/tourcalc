@@ -1094,7 +1094,7 @@ pub fn MiniList(
     remove: Callback<Tour>,
     clone_it: Callback<(Tour, bool)>,
     copy_json: Callback<Tour>,
-    bells: RwSignal<Vec<String>>,
+    bells: crate::push::Bells,
 ) -> impl IntoView {
     let more: RwSignal<Option<String>> = RwSignal::new(None);
     let total = tours.len();
@@ -1192,13 +1192,9 @@ fn MiniTourRow(
     remove: Callback<Tour>,
     clone_it: Callback<(Tour, bool)>,
     copy_json: Callback<Tour>,
-    bells: RwSignal<Vec<String>>,
+    bells: crate::push::Bells,
 ) -> impl IntoView {
     let id = tour.id.as_str().to_owned();
-    let rings = {
-        let id = id.clone();
-        move || bells.with(|b| b.contains(&id))
-    };
     let mine = id.clone();
     let is_open = Memo::new(move |_| more.get().as_deref() == Some(mine.as_str()));
     let toggle_id = id.clone();
@@ -1222,9 +1218,7 @@ fn MiniTourRow(
                     {tour.name.clone()}
                     {finalizing.then(|| view! { <span class="tcm-tag is-amber">"settling"</span> })}
                     {archived.then(|| view! { <span class="tcm-tag">"arch"</span> })}
-                    <Show when=rings.clone()>
-                        <span class="tcw-bell" title="This device is notified when the tour changes">"🔔"</span>
-                    </Show>
+                    <crate::push::ListBell bells=bells tour=id.clone() />
                 </a>
                 <span class="tcm-facts" title=names.join(", ")>
                     <span>{people} "p"</span>

@@ -112,34 +112,79 @@ pub fn PushBell(tour_id: String) -> impl IntoView {
 
 // --- the bells in the tour list ----------------------------------------------------------
 
-/// The tours this browser was last known to be subscribed to, so the list draws its bells
-/// straight away instead of a moment after it draws the rows.
+/// Which tours this browser is subscribed to, as far as the list knows: `None` until it has
+/// found out, then the ids that ring - every other tour is known not to.
+pub type Bells = RwSignal<Option<Vec<String>>>;
+
+/// What one row of the list says about notifications on this device.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Ring {
+    /// Not found out yet: the browser or the server has still to answer, or could not.
+    Unknown,
+    Off,
+    On,
+}
+
+pub fn ring_of(known: Option<&[String]>, tour: &str) -> Ring {
+    match known {
+        None => Ring::Unknown,
+        Some(tours) if tours.iter().any(|t| t == tour) => Ring::On,
+        Some(_) => Ring::Off,
+    }
+}
+
+/// The bell after a tour's name in the list, in both interfaces.
+#[component]
+pub fn ListBell(bells: Bells, tour: String) -> impl IntoView {
+    let ring = Memo::new(move |_| bells.with(|b| ring_of(b.as_deref(), &tour)));
+    view! {
+        <span class="tcw-bell"
+              class:is-on=move || ring.get() == Ring::On
+              class:is-off=move || ring.get() == Ring::Off
+              class:is-unknown=move || ring.get() == Ring::Unknown
+              title=move || match ring.get() {
+                  Ring::On => "This device is notified when the tour changes",
+                  Ring::Off => "This device is not notified about this tour",
+                  Ring::Unknown => "Not known yet whether this device is notified",
+              }>
+            {move || if ring.get() == Ring::Off { "🔕" } else { "🔔" }}
+        </span>
+    }
+}
+
+/// The last answer, so the list draws its bells with the rows instead of a moment after.
+/// The key being there at all is what says "found out": an empty list is a real answer.
 const BELLS_KEY: &str = "__tcw_bells";
 
-/// What the list shows before it has asked: the answer it got last time.
-pub fn remembered_bells() -> Vec<String> {
+/// What the list shows before it has asked: the answer it got last time, if it ever got one.
+pub fn remembered_bells() -> Option<Vec<String>> {
     storage()
         .and_then(|s| s.get_item(BELLS_KEY).ok().flatten())
         .and_then(|text| serde_json::from_str(&text).ok())
-        .unwrap_or_default()
 }
 
 fn remember_bells(tours: &[String]) {
     let Some(s) = storage() else { return };
-    if tours.is_empty() {
-        let _ = s.remove_item(BELLS_KEY);
-    } else if let Ok(text) = serde_json::to_string(tours) {
+    if let Ok(text) = serde_json::to_string(tours) {
         let _ = s.set_item(BELLS_KEY, &text);
     }
 }
 
 /// On the way out, with the list: the ids are the reader's.
 pub fn forget_bells() {
-    remember_bells(&[]);
+    if let Some(s) = storage() {
+        let _ = s.remove_item(BELLS_KEY);
+    }
 }
 
+/// What the tour page found out about one tour, into the list's answer.
+///
+/// Only into an answer the list already has: one tour checked says nothing about the rest,
+/// and starting a list from it would mark every other tour as not notified.
 fn rings_for(tour: &str, on: bool) {
-    let mut bells = remembered_bells();
+    let Some(mut bells) = remembered_bells() else {
+        return;
+    };
     bells.retain(|t| t != tour);
     if on {
         bells.push(tour.to_owned());
@@ -281,4 +326,19 @@ fn base64url(text: &str) -> Result<Vec<u8>, String> {
         .atob(&cleaned)
         .map_err(|_| "the server's key is not base64".to_owned())?;
     Ok(raw.chars().map(|c| c as u8).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Not having asked is not the same as having been told no.
+    #[test]
+    fn a_bell_is_unknown_until_the_answer_and_off_after_it() {
+        let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(ring_of(None, "a"), Ring::Unknown);
+        assert_eq!(ring_of(Some(&ids(&[])), "a"), Ring::Off);
+        assert_eq!(ring_of(Some(&ids(&["a", "b"])), "a"), Ring::On);
+        assert_eq!(ring_of(Some(&ids(&["b"])), "a"), Ring::Off);
+    }
 }
