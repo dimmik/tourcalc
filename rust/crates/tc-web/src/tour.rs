@@ -307,14 +307,17 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
             Status::Waiting(n) => {
                 // Naming the edits rather than counting them: "2 changes waiting" invites
                 // the question this can answer directly.
-                let what = queue::pending(&tour_id)
-                    .iter()
-                    .map(|op| op.describe())
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                // Three names and a count: with eight edits waiting, the line ran off the
+                // side of a phone - and "and 5 more" is what the ninth one is worth anyway.
+                let waiting: Vec<String> =
+                    queue::pending(&tour_id).iter().map(|op| op.describe()).collect();
+                let what = match waiting.len() {
+                    0..=3 => waiting.join(", "),
+                    n => format!("{}, and {} more", waiting[..3].join(", "), n - 3),
+                };
                 view! {
                     <div class="tcn-section" style="padding-bottom:0">
-                        <div class="tcn-chip tcn-chip-amber">
+                        <div class="tcn-chip tcn-chip-amber tcw-wraps">
                             {if n == 0 {
                                 "Offline — showing what this device had last".to_owned()
                             } else {

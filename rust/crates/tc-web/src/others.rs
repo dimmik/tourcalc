@@ -105,6 +105,31 @@ impl Others {
             }
         }
 
+        // The network coming back is the other moment worth acting on, and the one nobody
+        // presses a button for: a phone taken off flight mode used to sit on edits until
+        // the reader pressed refresh. Not through `look`, which keeps quiet while the tab
+        // is hidden - a queue should go out whether or not anybody is watching.
+        if let Some(window) = web_sys::window() {
+            use wasm_bindgen::JsCast;
+            let on_online = wasm_bindgen::closure::Closure::<dyn FnMut(web_sys::Event)>::new({
+                let id = id.clone();
+                let look = look.clone();
+                move |_: web_sys::Event| {
+                    if !self.send_what_is_stuck(&id, load, status) {
+                        look();
+                    }
+                }
+            })
+            .into_js_value();
+            let _ = window.add_event_listener_with_callback("online", on_online.unchecked_ref());
+            let held = leptos::__reexports::send_wrapper::SendWrapper::new((window, on_online));
+            on_cleanup(move || {
+                let (window, on_online) = held.take();
+                let _ =
+                    window.remove_event_listener_with_callback("online", on_online.unchecked_ref());
+            });
+        }
+
         // Coming back to the tab - unlocking the phone, switching back from a chat - is when
         // somebody is about to look at the numbers, so that is when to ask first.
         if let Some(document) = web_sys::window().and_then(|w| w.document()) {
@@ -161,6 +186,14 @@ impl Others {
             }
             return;
         }
+        // Edits of this reader's that never got out - the network went away mid-save, or
+        // the page was opened on a train. Sending them comes before asking anything: a
+        // server whose tour has not changed since answers "still the same", and this used
+        // to stop there, leaving the queue sitting until somebody pressed refresh.
+        if self.send_what_is_stuck(&id, load, status) {
+            return;
+        }
+
         let Some(had) = self.base.try_get_value().flatten() else {
             return;
         };
@@ -190,14 +223,9 @@ impl Others {
             }
 
             // 3. Their own edits are stuck: send them, which is what the refresh button
-            //    does. Only when the queue is stuck, not while a save is merely under way.
-            if !queue::pending(&id).is_empty() {
-                if matches!(
-                    status.try_get_untracked(),
-                    Some(Status::Waiting(_) | Status::Failed(_))
-                ) {
-                    load.run(false);
-                }
+            //    does. (Checked before the question too; something may have been queued
+            //    while it was in flight.)
+            if self.send_what_is_stuck(&id, load, status) {
                 return;
             }
 
@@ -225,6 +253,34 @@ impl Others {
     /// every load.
     pub fn showing(self, base: &Tour) {
         self.base.try_set_value(Some(base.clone()));
+    }
+
+    /// Sends a queue that is stuck - edits waiting because the network went away - the way
+    /// the refresh button does. `true` when it started; then nothing else is asked, because
+    /// that send fetches the tour itself.
+    ///
+    /// Only when the queue is *stuck*: while a save is under way its edits are pending too,
+    /// and two sends of one queue can each replay the same edit onto the other's result.
+    fn send_what_is_stuck(
+        self,
+        id: &str,
+        load: Callback<bool>,
+        status: RwSignal<Status>,
+    ) -> bool {
+        if queue::pending(id).is_empty()
+            || self.saving.try_get_untracked().unwrap_or(0) > 0
+            || self.loading.try_get_untracked() == Some(true)
+        {
+            return false;
+        }
+        if !matches!(
+            status.try_get_untracked(),
+            Some(Status::Waiting(_) | Status::Failed(_))
+        ) {
+            return false;
+        }
+        load.run(false);
+        true
     }
 
     /// Called by the load with the tour it just put on screen.
