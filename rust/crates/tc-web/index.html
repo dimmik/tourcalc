@@ -141,6 +141,19 @@
         }
         .tcw-caret { margin-left: 4px; font-size: 10px; opacity: .7; }
 
+        /* The small interface's unfolded expense: who carries how much, two columns. */
+        .tcw-mini-shares {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            column-gap: 12px;
+            row-gap: 1px;
+            max-width: 360px;
+            margin: 4px 0 2px;
+        }
+        .tcw-mini-share-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tcw-mini-shares .tcm-money { text-align: right; }
+        .tcw-dim { opacity: .6; }
+
         /* Somebody else changed the open tour. Over everything, a form included - that is
            where "what you save goes on top of it" matters - and clear of the + Spend button. */
         .tcw-others {
