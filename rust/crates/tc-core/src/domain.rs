@@ -282,7 +282,46 @@ impl Tour {
         let mut value: serde_json::Value = serde_json::from_str(s)?;
         wire::normalise_case(&mut value);
         let w: wire::Tour = serde_json::from_value(value)?;
-        Ok(w.into())
+        let mut tour: Tour = w.into();
+        tour.give_every_spending_its_own_id();
+        Ok(tour)
+    }
+
+    /// Spendings that share an id are given ids of their own: the first keeps it, the next
+    /// become `id-2`, `id-3`, skipping any already taken.
+    ///
+    /// Every edit finds its spending by id, so two spendings with one id are one spending as
+    /// far as an edit can tell. Opening the second and saving it - changing nothing - wrote
+    /// its amount and payer over the *first*, and left two copies of the second. Found from
+    /// a notification that said "«ввв» 33 324 → 3 332; now paid by …" about an expense
+    /// nobody had touched; how the data came to share an id is not known.
+    ///
+    /// Done here, on reading, because everything reads through here - the server from the
+    /// database, the browser from the server and from its own storage - and the same tour
+    /// always comes out with the same ids: the queue replays onto the same names the screen
+    /// showed. The first save after that stores them, and the data is mended for good.
+    fn give_every_spending_its_own_id(&mut self) {
+        let mut taken: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let all: std::collections::HashSet<String> = self
+            .spendings
+            .iter()
+            .map(|s| s.id.as_str().to_owned())
+            .collect();
+        if all.len() == self.spendings.len() {
+            return;
+        }
+        for spending in &mut self.spendings {
+            let id = spending.id.as_str().to_owned();
+            if taken.insert(id.clone()) {
+                continue;
+            }
+            let fresh = (2..)
+                .map(|n| format!("{id}-{n}"))
+                .find(|candidate| !all.contains(candidate) && !taken.contains(candidate))
+                .expect("an unused suffix");
+            taken.insert(fresh.clone());
+            spending.id = SpendingId::new(fresh);
+        }
     }
 
     /// Writes the tour back in the shape the C# app reads.

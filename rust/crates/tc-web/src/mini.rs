@@ -830,12 +830,31 @@ fn MiniSpending(
     });
     let family = service == Some("inside family");
 
+    // Who carries how much of it, and who is not in it - the same figures as the roomy
+    // list's details, from the calculator's own arithmetic: an equal split is equal whatever
+    // the weights. Not for a payback, which is one person's by definition.
+    let (groups, left_out) = crate::explain::share_groups(&tour, &spending);
+    let shown_shares = service.is_none();
+    // With the shares below naming everybody, the line above says only how many.
+    let for_whom = match (&spending.split, shown_shares) {
+        (Split::Everyone, _) | (_, false) => for_whom,
+        _ => format!(
+            "{} of {}",
+            groups.iter().map(|g| g.names.len()).sum::<usize>(),
+            tour.persons.len()
+        ),
+    };
+
     let for_edit = spending.clone();
     let for_delete = spending.clone();
     let _ = unit;
+    let others = use_context::<crate::others::Others>();
+    let lit_id = id.clone();
+    let lit = move || others.is_some_and(|o| o.lit(&lit_id));
 
     view! {
         <div class="tcm-item" class:is-daystart=move || starts_day
+             class:tcw-lit=lit
              class:tcw-kind=move || service.is_some()
              class:tcw-payback=move || service.is_some() && !family
              class:tcw-family=move || family
@@ -877,6 +896,30 @@ fn MiniSpending(
                             <span>{e}</span>
                         })}
                     </div>
+                    {shown_shares.then(|| view! {
+                        <div class="tcw-mini-shares">
+                            {groups
+                                .iter()
+                                .map(|g| {
+                                    let each = g.names.len() > 1;
+                                    view! {
+                                        <div>
+                                            <b class="tcm-money">{money(g.share)}</b>
+                                            <span class="tcw-dim">
+                                                {each.then_some(" each")}
+                                                {g.weight.map(|w| format!(" w{w}"))}
+                                                " — "
+                                            </span>
+                                            {g.names.join(", ")}
+                                        </div>
+                                    }
+                                })
+                                .collect_view()}
+                            {(!left_out.is_empty()).then(|| view! {
+                                <div class="tcw-dim">"not in it: " {left_out.join(", ")}</div>
+                            })}
+                        </div>
+                    })}
                     <div class="tcm-fields">
                         <button type="button" class="tcm-btn"
                                 on:click={

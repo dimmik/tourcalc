@@ -4,13 +4,20 @@
 //! added" - which is the right line for a history and a poor one for a notification: it is
 //! the C#'s wording, kept word for word so a tour's history reads the same whichever server
 //! wrote it, and it was never meant to be read on a lock screen. So the two are separate.
-//! [`crate::versions`] stays as it is; this says the same thing the way a person would.
+//! The server's `versions` module stays as it is; this says the same thing the way a person
+//! would.
 //!
 //! Only the words differ. Which saves are worth telling anybody about is still decided by
-//! `versions::describe_change` - a save that changed nothing it can name tells nobody.
+//! the server's `versions::describe_change` - a save that changed nothing it can name tells
+//! nobody.
+//!
+//! Here rather than in the server so that both ends say it the same way: the server puts
+//! it in a push, and a tour page that finds somebody else's change puts it on screen. The
+//! page compares the copy it had with the one it just fetched, so it can say what happened
+//! whichever server - or whichever client - made the change.
 
-use crate::fields;
-use tc_core::{Kind, Person, Spending, Split, Tour};
+use crate::extras;
+use crate::{Kind, Person, Spending, SpendingId, Split, Tour};
 
 /// How many edits one notification names before it just counts the rest.
 const NAMED: usize = 3;
@@ -94,8 +101,8 @@ fn news(old: &Tour, new: &Tour) -> Option<String> {
         ));
     }
 
-    let archived = fields::bool_of(new, fields::ARCHIVED);
-    if fields::bool_of(old, fields::ARCHIVED) != archived {
+    let archived = extras::bool_of(&new.extras, extras::ARCHIVED);
+    if extras::bool_of(&old.extras, extras::ARCHIVED) != archived {
         return Some(
             if archived {
                 "Moved to the archive"
@@ -111,8 +118,8 @@ fn news(old: &Tour, new: &Tour) -> Option<String> {
     if old.name != new.name {
         edits.push(format!("renamed from “{}”", old.name));
     }
-    let settling = fields::bool_of(new, fields::FINALIZING);
-    if fields::bool_of(old, fields::FINALIZING) != settling {
+    let settling = extras::bool_of(&new.extras, extras::FINALIZING);
+    if extras::bool_of(&old.extras, extras::FINALIZING) != settling {
         edits.push(
             if settling {
                 "settling up started"
@@ -201,6 +208,33 @@ fn spending_edits(
     }
 }
 
+/// The expenses a reader should have pointed out after this change: the new ones, and the
+/// ones edited in place. Deleted ones are not here - there is no row left to point at.
+pub fn touched_spendings(old: &Tour, new: &Tour) -> Vec<SpendingId> {
+    let was = real(old);
+    real(new)
+        .into_iter()
+        .filter(|is| match was.iter().find(|w| w.id == is.id) {
+            None => true,
+            Some(w) => {
+                w.description != is.description
+                    || w.amount != is.amount
+                    || w.currency.name != is.currency.name
+                    || w.from != is.from
+                    || !same_split(&w.split, &is.split)
+                    || w.category != is.category
+                    || w.day() != is.day()
+            }
+        })
+        .map(|s| s.id.clone())
+        .collect()
+}
+
+/// What changed, without the tour's name in front - for a screen that already shows it.
+pub fn what_changed(old: &Tour, new: &Tour) -> Option<String> {
+    news(old, new)
+}
+
 /// The first few, then how many more: a notification is a line, not a report.
 fn listed(items: impl Iterator<Item = String>) -> String {
     let all: Vec<String> = items.collect();
@@ -243,7 +277,7 @@ fn amount(s: &Spending, tour: &Tour) -> String {
 
 /// The same people, the same way - in whatever order the form happened to list them.
 fn same_split(a: &Split, b: &Split) -> bool {
-    fn sorted(to: &[tc_core::PersonId]) -> Vec<&str> {
+    fn sorted(to: &[crate::PersonId]) -> Vec<&str> {
         let mut ids: Vec<&str> = to.iter().map(|p| p.as_str()).collect();
         ids.sort_unstable();
         ids
@@ -268,7 +302,7 @@ fn for_whom(s: &Spending, tour: &Tour) -> String {
     }
 }
 
-fn name_in(tour: &Tour, id: &tc_core::PersonId) -> String {
+fn name_in(tour: &Tour, id: &crate::PersonId) -> String {
     tour.person(id)
         .map(|p| p.name.clone())
         .unwrap_or_else(|| "somebody".to_owned())
@@ -315,9 +349,9 @@ mod tests {
             .find(|s| s.kind != Kind::Planned)
             .unwrap()
             .clone();
-        s.id = tc_core::SpendingId::new("brand-new".to_owned());
+        s.id = crate::SpendingId::new("brand-new".to_owned());
         s.description = "Еда".into();
-        s.amount = tc_core::Cents(1200);
+        s.amount = crate::Cents(1200);
         s.split = Split::Everyone;
         let payer = name_in(&new, &s.from);
         new.spendings.push(s);
@@ -349,7 +383,7 @@ mod tests {
         new.name = "Урал".into();
         let s = first_real(&mut new);
         s.description = "Такси".into();
-        s.amount = tc_core::Cents(s.amount.0 + 100);
+        s.amount = crate::Cents(s.amount.0 + 100);
         s.category = String::new();
         s.split = Split::Everyone;
         let said = news(&old, &new).unwrap();
@@ -380,7 +414,7 @@ mod tests {
         }
         let mut new = old.clone();
         let s = first_real(&mut new);
-        s.amount = tc_core::Cents(5);
+        s.amount = crate::Cents(5);
         let currency = s.currency.name.clone();
         let said = news(&old, &new).unwrap();
         assert!(said.ends_with(&format!("→ 5 {currency}")), "{said}");
@@ -390,12 +424,12 @@ mod tests {
     fn settling_up_and_the_archive_are_said_plainly() {
         let old = tour();
         let mut new = old.clone();
-        fields::set(&mut new, fields::ARCHIVED, true.into());
+        extras::set(&mut new.extras, extras::ARCHIVED, true.into());
         assert_eq!(news(&old, &new).unwrap(), "Moved to the archive");
 
         let mut new = old.clone();
-        let now = !fields::bool_of(&old, fields::FINALIZING);
-        fields::set(&mut new, fields::FINALIZING, now.into());
+        let now = !extras::bool_of(&old.extras, extras::FINALIZING);
+        extras::set(&mut new.extras, extras::FINALIZING, now.into());
         let said = news(&old, &new).unwrap();
         assert!(said.starts_with("Settling up "), "{said}");
     }
@@ -403,12 +437,34 @@ mod tests {
     #[test]
     fn the_same_people_in_another_order_is_not_a_change() {
         let mut old = single();
-        let people: Vec<tc_core::PersonId> =
+        let people: Vec<crate::PersonId> =
             old.persons.iter().take(3).map(|p| p.id.clone()).collect();
         first_real(&mut old).split = Split::Equally(people.clone());
         let mut new = old.clone();
         first_real(&mut new).split = Split::Equally(people.into_iter().rev().collect());
         assert_eq!(news(&old, &new), None);
+    }
+
+    #[test]
+    fn the_rows_to_point_at_are_the_new_and_the_edited() {
+        let old = single();
+        let mut new = old.clone();
+        let edited = first_real(&mut new);
+        edited.amount = crate::Cents(edited.amount.0 + 1);
+        let edited = edited.id.clone();
+        let mut added = old
+            .spendings
+            .iter()
+            .find(|s| s.kind != Kind::Planned)
+            .unwrap()
+            .clone();
+        added.id = crate::SpendingId::new("brand-new".to_owned());
+        new.spendings.push(added);
+        assert_eq!(
+            touched_spendings(&old, &new),
+            vec![edited, crate::SpendingId::new("brand-new".to_owned())]
+        );
+        assert!(touched_spendings(&old, &old).is_empty());
     }
 
     #[test]

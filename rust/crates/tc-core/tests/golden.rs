@@ -553,3 +553,38 @@ fn the_tours_own_currency_agrees_with_the_id_beside_it() {
         "a document that came from the database keeps the name the driver reads"
     );
 }
+
+/// A share is what the balances count: equal on an equal split whatever the weights, by
+/// weight otherwise, nothing for somebody the expense was not for - and the shares of an
+/// expense add up to it, give or take the rounding of each.
+#[test]
+fn a_share_is_the_one_the_balances_count() {
+    let (_, mut tour, _) = cases().remove(0);
+    let ids: Vec<tc_core::PersonId> = tour.persons.iter().map(|p| p.id.clone()).collect();
+    tour.persons[0].weight = 3;
+    tour.persons[1].weight = 1;
+    let mut s = tour
+        .spendings
+        .iter()
+        .find(|s| s.kind == tc_core::Kind::Real)
+        .unwrap()
+        .clone();
+    s.amount = tc_core::Cents(4000);
+    s.currency = tour.currency().clone();
+
+    s.split = tc_core::Split::Equally(vec![ids[0].clone(), ids[1].clone()]);
+    assert_eq!(tc_core::share(&tour, &s, &ids[0]), Some(tc_core::Cents(2000)));
+    assert_eq!(tc_core::share(&tour, &s, &ids[1]), Some(tc_core::Cents(2000)));
+    assert_eq!(tc_core::share(&tour, &s, &ids[2]), None);
+
+    s.split = tc_core::Split::ByWeight(vec![ids[0].clone(), ids[1].clone()]);
+    assert_eq!(tc_core::share(&tour, &s, &ids[0]), Some(tc_core::Cents(3000)));
+    assert_eq!(tc_core::share(&tour, &s, &ids[1]), Some(tc_core::Cents(1000)));
+
+    s.split = tc_core::Split::Everyone;
+    let total: i64 = ids
+        .iter()
+        .map(|id| tc_core::share(&tour, &s, id).unwrap().0)
+        .sum();
+    assert!((total - 4000).abs() <= ids.len() as i64, "{total}");
+}

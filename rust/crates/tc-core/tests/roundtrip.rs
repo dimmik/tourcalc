@@ -201,3 +201,54 @@ fn find_invented_nulls(before: &Value, after: &Value, path: String, out: &mut Ve
         _ => {}
     }
 }
+
+/// Two spendings with one id come out with an id each, the same ids every time - and an
+/// edit to the second no longer lands on the first.
+#[test]
+fn spendings_that_share_an_id_are_told_apart() {
+    let (_, json) = tour_files().remove(0);
+    let mut value: Value = serde_json::from_str(&json).unwrap();
+    let spendings = value["Spendings"].as_array_mut().unwrap();
+    let mut first = spendings
+        .iter()
+        .find(|s| !s["Planned"].as_bool().unwrap_or(false))
+        .unwrap()
+        .clone();
+    first["GUID"] = "same".into();
+    first["Description"] = "one".into();
+    let mut second = first.clone();
+    second["Description"] = "two".into();
+    let mut third = first.clone();
+    third["Description"] = "three".into();
+    // An id the suffix must not collide with.
+    let mut taken = first.clone();
+    taken["GUID"] = "same-2".into();
+    taken["Description"] = "already called same-2".into();
+    spendings.extend([first, second, third, taken]);
+    let text = value.to_string();
+
+    let tour = Tour::from_json(&text).unwrap();
+    let id_of = |t: &Tour, d: &str| {
+        t.spendings
+            .iter()
+            .find(|s| s.description == d)
+            .unwrap()
+            .id
+            .as_str()
+            .to_owned()
+    };
+    assert_eq!(id_of(&tour, "one"), "same");
+    assert_eq!(id_of(&tour, "two"), "same-3");
+    assert_eq!(id_of(&tour, "three"), "same-4");
+    assert_eq!(id_of(&tour, "already called same-2"), "same-2");
+
+    let mut ids: Vec<&str> = tour.spendings.iter().map(|s| s.id.as_str()).collect();
+    let count = ids.len();
+    ids.sort();
+    ids.dedup();
+    assert_eq!(ids.len(), count, "every id is its own");
+
+    // The same ids on every read, and once written they stay.
+    assert_eq!(Tour::from_json(&text).unwrap(), tour);
+    assert_eq!(Tour::from_json(&tour.to_json().unwrap()).unwrap(), tour);
+}

@@ -49,14 +49,7 @@ pub async fn push(tour_id: &str) -> (Option<Tour>, Status) {
 
     // Nothing of ours to send: just take what the server has.
     if ops.is_empty() {
-        return match api::tour(tour_id).await {
-            Ok(t) => {
-                queue::cache(&t);
-                (Some(t), Status::Idle)
-            }
-            Err(e) if api::looks_offline(&e) => (queue::cached(tour_id), Status::Waiting(0)),
-            Err(e) => (queue::cached(tour_id), Status::Failed(e)),
-        };
+        return fetch(tour_id).await;
     }
 
     for _ in 0..MAX_ROUNDS {
@@ -103,6 +96,23 @@ pub async fn push(tour_id: &str) -> (Option<Tour>, Status) {
             "Could not save: the tour kept changing underneath ({MAX_ROUNDS} tries)."
         )),
     )
+}
+
+/// What the server has, and nothing sent - whatever is queued stays queued.
+///
+/// For a load nobody asked to send anything: the page noticing somebody else's change
+/// fetches this way, so that it can never become a second send of a queue that a save is
+/// already sending (see `others`).
+pub async fn fetch(tour_id: &str) -> (Option<Tour>, Status) {
+    let waiting = queue::pending(tour_id).len();
+    match api::tour(tour_id).await {
+        Ok(t) => {
+            queue::cache(&t);
+            (Some(t), Status::Idle)
+        }
+        Err(e) if api::looks_offline(&e) => (queue::cached(tour_id), Status::Waiting(waiting)),
+        Err(e) => (queue::cached(tour_id), Status::Failed(e)),
+    }
 }
 
 /// The tour with every queued operation carried out, in the order they were made.

@@ -138,9 +138,11 @@ pub fn Explain(
     }
 }
 
-/// The sheet an explanation opens into. Mounted once, near the top of the page.
+/// What an explanation says: the headline, the facts, the sections and the sentence. Drawn
+/// in the sheet a number opens, and in place under an expense that is unfolded.
 #[component]
-pub fn ExplainSheet(open: Open) -> impl IntoView {
+pub fn ExplanationBody(explanation: Explanation) -> impl IntoView {
+    let e = explanation;
     let facts = |list: Vec<Fact>| {
         view! {
             <div class="tcn-facts">
@@ -171,10 +173,31 @@ pub fn ExplainSheet(open: Open) -> impl IntoView {
             </div>
         }
     };
+    view! {
+        {(!e.headline.is_empty()).then(|| view! {
+            <div class="tcn-explain-headline">{e.headline.clone()}</div>
+        })}
+        {(!e.facts.is_empty()).then(|| facts(e.facts.clone()))}
+        {e.sections
+            .into_iter()
+            .map(|(title, list)| {
+                view! {
+                    <div class="tcn-label" style="margin-top:14px">{title}</div>
+                    {facts(list)}
+                }
+            })
+            .collect_view()}
+        {(!e.note.is_empty()).then(|| view! {
+            <div class="tcn-explain-note">{e.note.clone()}</div>
+        })}
+    }
+}
 
+/// The sheet an explanation opens into. Mounted once, near the top of the page.
+#[component]
+pub fn ExplainSheet(open: Open) -> impl IntoView {
     view! {
         {move || open.get().map(|e| {
-            let sections = e.sections.clone();
             view! {
                 <div class="tcn-modal tcn-sheet" on:click=move |_| open.set(None)>
                     <div class="tcn-modal-card" on:click=|ev| ev.stop_propagation()>
@@ -186,22 +209,7 @@ pub fn ExplainSheet(open: Open) -> impl IntoView {
                             </button>
                         </div>
                         <div class="tcn-sheet-body">
-                            {(!e.headline.is_empty()).then(|| view! {
-                                <div class="tcn-explain-headline">{e.headline.clone()}</div>
-                            })}
-                            {(!e.facts.is_empty()).then(|| facts(e.facts.clone()))}
-                            {sections
-                                .into_iter()
-                                .map(|(title, list)| {
-                                    view! {
-                                        <div class="tcn-label" style="margin-top:14px">{title}</div>
-                                        {facts(list)}
-                                    }
-                                })
-                                .collect_view()}
-                            {(!e.note.is_empty()).then(|| view! {
-                                <div class="tcn-explain-note">{e.note.clone()}</div>
-                            })}
+                            <ExplanationBody explanation=e.clone() />
                         </div>
                         <div class="tcn-sheet-foot">
                             <span style="flex:1 1 auto"></span>
@@ -603,6 +611,7 @@ pub fn spending(tour: &Tour, s: &Spending) -> Explanation {
         }
     };
     let weight: i64 = receivers.iter().map(|p| p.weight as i64).sum();
+    let by_weight = !matches!(s.split, Split::Equally(_));
 
     let mut facts = vec![
         Fact::new("Paid by", name_of(tour, &s.from)),
@@ -617,24 +626,52 @@ pub fn spending(tour: &Tour, s: &Spending) -> Explanation {
             format!("{} {}", money(s.amount), s.currency.name),
         ));
     }
+    if let Kind::Draft { counted } = s.kind {
+        facts.push(Fact::new(
+            "Draft",
+            if counted {
+                "counted in the balances"
+            } else {
+                "not counted yet"
+            },
+        ));
+    }
 
+    // Each share from the calculator itself: an equal split is equal whatever the weights,
+    // and this used to divide every split by weight - disagreeing, on exactly the expenses
+    // somebody opens to check, with the balance it was explaining.
     let mut shares: Vec<&&Person> = receivers.iter().collect();
     shares.sort_by(|a, b| b.weight.cmp(&a.weight).then(a.name.cmp(&b.name)));
     let split = shares
         .into_iter()
         .map(|p| {
-            let share = if weight == 0 {
-                Cents::ZERO
+            let share = tc_core::share(tour, s, &p.id).unwrap_or(Cents::ZERO);
+            let fact = Fact::money(p.name.clone(), share);
+            if by_weight {
+                fact.with_note(format!("weight {}", p.weight))
             } else {
-                Cents(amount.0 * p.weight as i64 / weight)
-            };
-            Fact::money(p.name.clone(), share).with_note(format!("weight {}", p.weight))
+                fact
+            }
         })
+        .collect();
+
+    // Who it was not for, by name: on an expense for five of ten, "which five" is the
+    // question, and the other five are the quicker way to see the answer.
+    let mut left_out: Vec<&Person> = tour
+        .persons
+        .iter()
+        .filter(|p| !receivers.iter().any(|r| r.id == p.id))
+        .collect();
+    left_out.sort_by(|a, b| a.name.cmp(&b.name));
+    let left_out = left_out
+        .into_iter()
+        .map(|p| Fact::new(p.name.clone(), "—"))
         .collect();
 
     let note = match (&s.split, receivers.len()) {
         (Split::Everyone, _) => "Shared by everyone in the tour, split by weight.".to_owned(),
         (_, 1) => "Charged to one person only.".to_owned(),
+        (Split::Equally(_), n) => format!("Charged to {n} people, in equal shares."),
         (_, n) => format!("Charged to {n} people, split by weight (total weight {weight})."),
     };
 
@@ -644,9 +681,62 @@ pub fn spending(tour: &Tour, s: &Spending) -> Explanation {
         None => s.description.clone(),
     })
     .headline(with_unit(amount, tour))
-    .section(format!("Split between {}", receivers.len()), split)
+    .section(
+        if matches!(s.split, Split::Everyone) {
+            format!("Split between everyone ({})", receivers.len())
+        } else {
+            format!("Split between {} of {}", receivers.len(), tour.persons.len())
+        },
+        split,
+    )
+    .section("Not in this one", left_out)
     .facts(facts)
     .note(note)
+}
+
+/// People who carry the same share of one expense: said once, with their names after it.
+///
+/// An expense unfolded in the list used to give every person a line of their own - ten
+/// lines of "63" for a dinner split equally. The figure is what differs; the names are what
+/// shares it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShareGroup {
+    pub share: Cents,
+    /// Their weight, when the split goes by weight - and so the reason the figures differ.
+    pub weight: Option<i32>,
+    pub names: Vec<String>,
+}
+
+/// Who carries how much of an expense, largest share first, and who is not in it at all.
+/// The shares are the calculator's own ([`tc_core::share`]).
+pub fn share_groups(tour: &Tour, s: &Spending) -> (Vec<ShareGroup>, Vec<String>) {
+    let by_weight = !matches!(s.split, Split::Equally(_));
+    let mut groups: Vec<ShareGroup> = Vec::new();
+    let mut left_out: Vec<String> = Vec::new();
+    for p in &tour.persons {
+        let Some(share) = tc_core::share(tour, s, &p.id) else {
+            left_out.push(p.name.clone());
+            continue;
+        };
+        let weight = by_weight.then_some(p.weight);
+        match groups
+            .iter_mut()
+            .find(|g| g.share == share && g.weight == weight)
+        {
+            Some(g) => g.names.push(p.name.clone()),
+            None => groups.push(ShareGroup {
+                share,
+                weight,
+                names: vec![p.name.clone()],
+            }),
+        }
+    }
+    for g in &mut groups {
+        g.names.sort();
+    }
+    groups.sort_by_key(|g| std::cmp::Reverse(g.share));
+    left_out.sort();
+    (groups, left_out)
 }
 
 /// A day in the expense list: what was spent that day, largest first.
@@ -763,5 +853,45 @@ pub fn pretty_stamp(when: &str) -> String {
         [y, m, d] if time.is_empty() => format!("{d}.{m}.{y}"),
         [y, m, d] => format!("{d}.{m}.{y} {time}"),
         _ => when.to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tour() -> Tour {
+        Tour::from_json(include_str!("../../../fixtures/hs3huvy.tour.json")).expect("fixture")
+    }
+
+    /// Ten people on one dinner come out as one line per figure, not one per person.
+    #[test]
+    fn the_same_share_is_said_once() {
+        let tour = tour();
+        let mut s = tour
+            .spendings
+            .iter()
+            .find(|s| s.kind == Kind::Real)
+            .unwrap()
+            .clone();
+        s.split = Split::Everyone;
+        let (groups, left_out) = share_groups(&tour, &s);
+        assert!(left_out.is_empty());
+        assert_eq!(
+            groups.iter().map(|g| g.names.len()).sum::<usize>(),
+            tour.persons.len()
+        );
+        let weights: std::collections::HashSet<i32> =
+            tour.persons.iter().map(|p| p.weight).collect();
+        assert_eq!(groups.len(), weights.len(), "one line per weight: {groups:?}");
+        assert!(groups.windows(2).all(|w| w[0].share >= w[1].share));
+
+        let three: Vec<PersonId> = tour.persons.iter().take(3).map(|p| p.id.clone()).collect();
+        s.split = Split::Equally(three);
+        let (groups, left_out) = share_groups(&tour, &s);
+        assert_eq!(groups.len(), 1, "equal is one figure whatever the weights");
+        assert_eq!(groups[0].weight, None);
+        assert_eq!(groups[0].names.len(), 3);
+        assert_eq!(left_out.len(), tour.persons.len() - 3);
     }
 }

@@ -35,6 +35,53 @@ pub struct MongoStore {
 }
 
 impl MongoStore {
+    /// These fields of these tours, and nothing else - `(id, values in the order asked)`,
+    /// an absent field as an empty string. Both spellings of each, because some documents
+    /// are camelCase throughout (see `fields`).
+    async fn just(&self, ids: &[String], keys: &[&str]) -> Vec<(String, Vec<String>)> {
+        if ids.is_empty() {
+            return Vec::new();
+        }
+        let mut projection = Document::new();
+        for key in keys {
+            let lower = format!("{}{}", key[..1].to_ascii_lowercase(), &key[1..]);
+            projection.insert(*key, 1);
+            projection.insert(lower, 1);
+        }
+        let found = match self
+            .tours
+            .find(doc! { "_id": { "$in": ids.to_vec() } })
+            .projection(projection)
+            .await
+        {
+            Ok(cursor) => cursor.try_collect::<Vec<Document>>().await,
+            Err(e) => Err(e),
+        };
+        match found {
+            Ok(docs) => docs
+                .iter()
+                .filter_map(|d| {
+                    let id = d.get_str("_id").ok()?.to_owned();
+                    let values = keys
+                        .iter()
+                        .map(|key| {
+                            d.iter()
+                                .find(|(k, _)| k.eq_ignore_ascii_case(key))
+                                .and_then(|(_, v)| v.as_str())
+                                .unwrap_or_default()
+                                .to_owned()
+                        })
+                        .collect();
+                    Some((id, values))
+                })
+                .collect(),
+            Err(e) => {
+                tracing::error!("MongoDB read failed: {e}");
+                Vec::new()
+            }
+        }
+    }
+
     /// Connects, and checks the connection by asking for a tour that does not exist -
     /// exactly as the C# constructor does, and for the same reason: a database that cannot
     /// be reached should say so at startup and not on somebody's first save.
@@ -176,43 +223,27 @@ impl TourStore for MongoStore {
     }
 
     async fn access_codes(&self, ids: &[String]) -> Vec<(String, String)> {
-        if ids.is_empty() {
-            return Vec::new();
-        }
         // Just the code: these are tours somebody subscribed to, and reading them whole to
-        // look at one field would make the tour list pay for every spending in them. Both
-        // spellings, because some documents are camelCase throughout (see `fields`).
-        let codes = tc_core::extras::ACCESS_CODE;
-        let lower = format!("{}{}", codes[..1].to_ascii_lowercase(), &codes[1..]);
-        let projection = doc! { codes: 1, &lower: 1 };
-        let found = match self
-            .tours
-            .find(doc! { "_id": { "$in": ids.to_vec() } })
-            .projection(projection)
+        // look at one field would make the tour list pay for every spending in them.
+        self.just(ids, &[tc_core::extras::ACCESS_CODE])
             .await
-        {
-            Ok(cursor) => cursor.try_collect::<Vec<Document>>().await,
-            Err(e) => Err(e),
-        };
-        match found {
-            Ok(docs) => docs
-                .iter()
-                .filter_map(|d| {
-                    let id = d.get_str("_id").ok()?.to_owned();
-                    let code = d
-                        .iter()
-                        .find(|(k, _)| k.eq_ignore_ascii_case(codes))
-                        .and_then(|(_, v)| v.as_str())
-                        .unwrap_or_default()
-                        .to_owned();
-                    Some((id, code))
-                })
-                .collect(),
-            Err(e) => {
-                tracing::error!("MongoDB read failed: {e}");
-                Vec::new()
-            }
-        }
+            .into_iter()
+            .map(|(id, mut values)| (id, values.remove(0)))
+            .collect()
+    }
+
+    async fn state_of(&self, id: &TourId) -> Option<(String, String)> {
+        // Asked every half minute by every open tour page: two short strings, never the tour.
+        let mut found = self
+            .just(
+                &[id.as_str().to_owned()],
+                &[tc_core::extras::ACCESS_CODE, tc_core::extras::STATE],
+            )
+            .await;
+        let (_, mut values) = found.pop()?;
+        let state = values.pop()?;
+        let code = values.pop()?;
+        Some((code, state))
     }
 
     async fn store(&self, tour: Tour) {

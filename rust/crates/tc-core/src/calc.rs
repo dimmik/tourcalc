@@ -205,6 +205,19 @@ fn share_of(s: &Spending, person: &Person, tour: &Tour, total_weight: i64) -> Op
     }
 }
 
+/// One person's share of one spending, in the tour's current currency - `None` when it was
+/// not for them.
+///
+/// The same arithmetic the balances use ([`share_of`]), rounded on its own. For a screen
+/// that says who an expense was for and how much of it each of them carries: an equal
+/// split is equal, whatever the weights, and a figure worked out here any other way would
+/// disagree with the balance it is meant to explain.
+pub fn share(tour: &Tour, spending: &Spending, person: &PersonId) -> Option<Cents> {
+    let who = tour.person(person)?;
+    let scaled = share_of(spending, who, tour, tour.total_weight())?;
+    Some(Cents(((scaled + MAGNITUDE / 2) / MAGNITUDE) as i64))
+}
+
 /// Nudges one person so that what is owed equals what is due.
 ///
 /// Dividing in whole cents leaves a remainder: the sum of everybody's credit need not equal

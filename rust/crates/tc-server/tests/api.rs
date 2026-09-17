@@ -241,6 +241,43 @@ async fn a_change_is_stored_and_gets_a_new_state() {
     assert_ne!(after["StateGUID"].as_str().unwrap_or(""), state_before);
 }
 
+/// An open page asks for the state alone, and sees it move when somebody else saves.
+#[tokio::test]
+async fn the_state_alone_says_whether_somebody_saved() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let tour = fetch_tour(&app, &token, "zscph2y").await;
+    let (status, state) = get(&app, "/api/Tour/zscph2y/state", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(state, tour["StateGUID"].as_str().unwrap());
+
+    let mut changed = tour.clone();
+    changed["Name"] = "somebody else's name".into();
+    send(
+        &app,
+        "PATCH",
+        "/api/Tour/zscph2y",
+        Some(&token),
+        Some(changed),
+    )
+    .await;
+    let (_, after) = get(&app, "/api/Tour/zscph2y/state", Some(&token)).await;
+    assert_ne!(after, state);
+    assert_eq!(
+        after,
+        fetch_tour(&app, &token, "zscph2y").await["StateGUID"]
+            .as_str()
+            .unwrap()
+    );
+
+    // Nobody else's tour, and no tour at all, look the same: not found.
+    let (status, _) = get(&app, "/api/Tour/zscph2y/state", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = get(&app, "/api/Tour/nosuchtour/state", Some(&token)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
 /// Saving over somebody else's change is refused rather than silently winning.
 #[tokio::test]
 async fn a_stale_save_is_a_conflict() {

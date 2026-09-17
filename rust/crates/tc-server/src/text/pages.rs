@@ -1202,7 +1202,12 @@ pub async fn spending_save(
                 s.category = form.text("Type").to_owned();
                 s.amount = Cents(amount);
                 s.from = from;
-                s.split = split;
+                // This form has no "by weight or equally" of its own, so an edit keeps what
+                // the expense had - it used to make every partial split equal.
+                s.split = match (split, &s.split) {
+                    (Split::Equally(to), Split::ByWeight(_)) => Split::ByWeight(to),
+                    (other, _) => other,
+                };
             }
         }
         None => next.spendings.push(Spending {

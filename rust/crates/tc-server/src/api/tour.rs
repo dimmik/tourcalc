@@ -55,6 +55,26 @@ pub async fn one(
     Ok(Json(to_value(&tour)))
 }
 
+/// `GET /api/Tour/{id}/state` - the tour's `StateGUID`, as plain text.
+///
+/// Which changes on every save, so an open tour page asks this - when it comes back into
+/// view, and every so often while it is on screen - and fetches the tour only when the
+/// answer is not the state it already has. Not part of the C#'s API; neither client needs
+/// it to be.
+pub async fn state_of(
+    State(state): State<Shared>,
+    Bearer(auth): Bearer,
+    Path(id): Path<String>,
+) -> Result<String, ApiError> {
+    state
+        .store
+        .state_of(&TourId::new(id.clone()))
+        .await
+        .filter(|(code, _)| auth.may_see(code))
+        .map(|(_, stamp)| stamp)
+        .ok_or_else(|| ApiError::NotFound(format!("No tour with id={id}")))
+}
+
 /// `GET /api/Tour/all/suggested` - every visible tour, settled, without its spendings.
 ///
 /// The C# version strips the spendings and the per-person breakdowns before answering,

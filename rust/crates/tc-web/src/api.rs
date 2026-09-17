@@ -171,6 +171,14 @@ pub async fn tour(id: &str) -> Result<Tour, Failed> {
     Tour::from_json(&body).map_err(|e| format!("could not read the tour: {e}"))
 }
 
+/// The tour's `StateGUID` alone - which changes on every save, so it is how an open page
+/// finds out that somebody else saved without fetching the tour to compare.
+pub async fn tour_state(id: &str) -> Result<String, Failed> {
+    get(&format!("/api/Tour/{id}/state"))
+        .await
+        .map(|s| s.trim().to_owned())
+}
+
 /// Every tour this token may see.
 ///
 /// The list endpoint answers with the tours stripped of their spendings, so what comes back

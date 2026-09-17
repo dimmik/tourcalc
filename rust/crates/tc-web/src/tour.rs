@@ -104,6 +104,9 @@ pub struct Sifting {
     pub ring: RwSignal<String>,
     /// Stats: which head we are inside, if any.
     pub drill: RwSignal<Option<String>>,
+    /// Expenses: the one expense unfolded to show its details, by id. One at a time, and
+    /// kept here so that an edit elsewhere on the page does not fold it back up.
+    pub unfolded: RwSignal<Option<String>>,
 }
 
 impl Sifting {
@@ -116,6 +119,7 @@ impl Sifting {
             by_category: RwSignal::new(true),
             ring: RwSignal::new(String::new()),
             drill: RwSignal::new(None),
+            unfolded: RwSignal::new(None),
         }
     }
 }
@@ -392,7 +396,13 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         }
     };
 
+    // Who else is changing this tour: asked while the page is open, see `others`. Owned
+    // here, above the view that every load rebuilds, and handed down as context.
+    let others = crate::others::Others::new();
+    provide_context(others);
+
     if let Some(known) = queue::cached(&id) {
+        others.showing(&known);
         show_name(&known);
         settle_tab(&known);
         set_state.set(Load::Ready(queue::with_pending(&known)));
@@ -410,8 +420,13 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         let id = id.clone();
         move |asked: bool| {
             if refresh.busy.get_untracked() {
+                others.missed();
                 return;
             }
+            // A fetch `others` asked for only fetches: it must never become a second send of
+            // a queue that a save is already sending.
+            let quiet = others.fetch_only();
+            others.loading.set(true);
             let id = id.clone();
             if asked {
                 refresh.busy.set(true);
@@ -427,7 +442,11 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                 status.set(Status::Checking);
             }
             spawn_local(async move {
-                let (tour, st) = sync::push(&id).await;
+                let (tour, st) = if quiet {
+                    sync::fetch(&id).await
+                } else {
+                    sync::push(&id).await
+                };
                 let answered = matches!(st, Status::Idle | Status::Synced);
                 status.set(st);
 
@@ -460,6 +479,14 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                     show_name(t);
                     settle_tab(t);
                 }
+                if let Some(t) = &tour {
+                    others.showing(t);
+                }
+                match &tour {
+                    Some(t) if answered => others.landed(t),
+                    _ => others.missed(),
+                }
+                others.loading.try_set(false);
                 set_state.set(match tour {
                     Some(t) => Load::Ready(queue::with_pending(&t)),
                     None => Load::Failed(
@@ -498,8 +525,10 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         }
     });
     load.run(false);
+    others.watch(id.clone(), load, status);
 
     view! {
+        <crate::others::OthersLine others=others />
         {move || match state.get() {
             Load::Loading => view! { <div class="tcn-loading">"Loading the tour…"</div> }.into_any(),
             Load::Failed(why) => view! {
@@ -538,6 +567,13 @@ fn TourView(
     let dialog: RwSignal<Option<Dialog>> = RwSignal::new(None);
     let tour_id = tour.id.as_str().to_owned();
 
+    // The page above has to know when a form is open, to keep somebody else's change from
+    // replacing the tour under it.
+    let others = use_context::<crate::others::Others>();
+    if let Some(o) = others {
+        Effect::new(move |_| o.editing.set(dialog.with(|d| d.is_some())));
+    }
+
     // A link straight to "record an expense" opens with the dialog already up: that is what
     // the app's own /tour/x/spending/add does, and it is how the button on a phone's home
     // screen gets somebody to a keypad in one tap.
@@ -551,9 +587,17 @@ fn TourView(
         let tour_id = tour_id.clone();
         Callback::new(move |op: Operation| {
             let tour_id = tour_id.clone();
+            // Counted before the form closes: closing it is what makes `others` look again,
+            // and this save moves the state as surely as anybody else's would.
+            if let Some(o) = others {
+                o.saving.update(|n| *n += 1);
+            }
             dialog.set(None);
             spawn_local(async move {
                 let (_, st) = sync::record(&tour_id, op).await;
+                if let Some(o) = others {
+                    o.saving.try_update(|n| *n = n.saturating_sub(1));
+                }
                 status.set(st);
                 reload.run(false);
             });
@@ -857,7 +901,7 @@ fn ExpensesTab(
     delete: Callback<Removal>,
     sifting: Sifting,
 ) -> impl IntoView {
-    let Sifting { search, by_amount, newest_first, chosen, .. } = sifting;
+    let Sifting { search, by_amount, newest_first, chosen, unfolded, .. } = sifting;
 
     let categories = categories_in_order(&spendings);
 
@@ -1087,7 +1131,8 @@ fn ExpensesTab(
                                             .iter()
                                             .map(|s| view! {
                                                 <ExpenseRow spending=s.clone() tour=tour.clone()
-                                                            unit=unit.clone() dialog=dialog delete=delete />
+                                                            unit=unit.clone() dialog=dialog delete=delete
+                                                            unfolded=unfolded />
                                             })
                                             .collect_view()}
                                     </div>
@@ -1216,8 +1261,32 @@ fn ExpenseRow(
     unit: String,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
+    /// Which expense is showing its details; see [`Sifting::unfolded`].
+    unfolded: RwSignal<Option<String>>,
 ) -> impl IntoView {
     let who = name_of(tour.person(&spending.from));
+    // Tapping the expense unfolds what it is - who paid, when, who it is for and what each
+    // of them carries, who it leaves out - without opening a form to find out. The edit is
+    // a button; the row itself is for reading.
+    let my_id = spending.id.as_str().to_owned();
+    let is_open = {
+        let my_id = my_id.clone();
+        Memo::new(move |_| unfolded.with(|u| u.as_deref() == Some(my_id.as_str())))
+    };
+    let fold = {
+        let my_id = my_id.clone();
+        move || {
+            unfolded.update(|u| {
+                *u = if u.as_deref() == Some(my_id.as_str()) {
+                    None
+                } else {
+                    Some(my_id.clone())
+                };
+            })
+        }
+    };
+    let for_details = spending.clone();
+    let tour_for_details = tour.clone();
     let shown = tour.amount_in_current(&spending);
     let original = (spending.currency.id != tour.currency().id && tour.currencies.len() > 1)
         .then(|| format!("{} {}", money(spending.amount), spending.currency.name));
@@ -1225,6 +1294,9 @@ fn ExpenseRow(
     let for_delete = spending.clone();
     let for_why = spending.clone();
     let tour_for_why = tour.clone();
+    let others = use_context::<crate::others::Others>();
+    let lit_id = spending.id.as_str().to_owned();
+    let lit = move || others.is_some_and(|o| o.lit(&lit_id));
     // A payment the app recorded reads as a payment; anything a person typed is theirs.
     let description = match crate::ui::as_service_transfer(&spending.description) {
         Some((from, to)) => format!("{from} → {to}"),
@@ -1267,13 +1339,21 @@ fn ExpenseRow(
     let everyone = whose.is_empty() && service.is_none();
     // Two names fit on a row; nine do not, and "4 of 9" is the thing worth knowing at a
     // glance anyway. The full list is on the row's tooltip either way.
+    let equally = matches!(spending.split, Split::Equally(_)) && whose.len() > 1;
     let for_chip = match whose.len() {
         0 => String::new(),
         1..=2 => format!("for {}", whose.join(", ")),
         n => format!("for {n} of {}", tour.persons.len()),
     };
+    // By weight is the rule; equal shares are the exception, and the chip says so - the
+    // app marks them the same way.
+    let for_chip = if equally {
+        format!("{for_chip} · equally")
+    } else {
+        for_chip
+    };
     let for_title = if some_of_them {
-        let mut why = format!("For {}.", whose.join(", "));
+        let mut why = format!("For {}. Tap for who carries how much.", whose.join(", "));
         if whose.len() == 1 {
             why = format!("Charged to {} alone.", whose[0]);
         } else if matches!(&spending.split, Split::Equally(_)) {
@@ -1294,8 +1374,25 @@ fn ExpenseRow(
              class:tcw-kind=move || service.is_some()
              class:tcw-payback=move || service.is_some() && !family
              class:tcw-family=move || family
+             class:tcw-lit=lit
+             class:tcw-unfolded=move || is_open.get()
              class:tcn-sp-marked=move || marked style=mark_style>
-            <div class="tcn-settle-flow">
+            <div class="tcn-settle-flow tcw-unfold" role="button" tabindex="0"
+                 aria-expanded=move || is_open.get().to_string()
+                 title="Details"
+                 on:click={
+                     let fold = fold.clone();
+                     move |_| fold()
+                 }
+                 on:keydown={
+                     let fold = fold.clone();
+                     move |ev: leptos::ev::KeyboardEvent| {
+                         if ev.key() == "Enter" || ev.key() == " " {
+                             ev.prevent_default();
+                             fold();
+                         }
+                     }
+                 }>
                 <Avatar name=who.clone() />
                 <span class="tcn-settle-who">
                     {description}
@@ -1315,9 +1412,12 @@ fn ExpenseRow(
                     </span>
                 })}
                 {some_of_them.then(|| view! {
-                    <span class="tcn-chip tcn-chip-amber" style="flex:0 0 auto"
+                    <span class="tcn-chip tcn-chip-amber tcw-for-chip" style="flex:0 0 auto"
                           title=for_title.clone()>
                         {for_chip.clone()}
+                        <span class="tcw-caret" aria-hidden="true">
+                            {move || if is_open.get() { "▴" } else { "▾" }}
+                        </span>
                     </span>
                 })}
             </div>
@@ -1344,7 +1444,72 @@ fn ExpenseRow(
                     "✕"
                 </button>
             </div>
+            <Show when=move || is_open.get()>
+                <div class="tcw-details">
+                    <ExpenseDetails tour=tour_for_details.clone() spending=for_details.clone() />
+                </div>
+            </Show>
         </div>
+    }
+}
+
+/// What an unfolded expense says: who paid and when on one line, then each share once with
+/// the names that carry it, then who is not in it.
+#[component]
+fn ExpenseDetails(tour: Tour, spending: Spending) -> impl IntoView {
+    let payer = name_of(tour.person(&spending.from));
+    let mut meta: Vec<String> = vec![crate::explain::pretty_stamp(
+        spending.when().unwrap_or_default(),
+    )];
+    if !spending.category.trim().is_empty() {
+        meta.push(spending.category.trim().to_owned());
+    }
+    if tour.currencies.len() > 1 && spending.currency.id != tour.currency().id {
+        meta.push(format!(
+            "entered as {} {}",
+            money(spending.amount),
+            spending.currency.name
+        ));
+    }
+    if let tc_core::Kind::Draft { counted } = spending.kind {
+        meta.push(if counted { "draft, counted" } else { "draft, not counted" }.to_owned());
+    }
+    let (groups, left_out) = crate::explain::share_groups(&tour, &spending);
+    let how = match &spending.split {
+        Split::Everyone => "everyone, by weight".to_owned(),
+        Split::Equally(_) => format!("{} of {}, equally", groups.iter().map(|g| g.names.len()).sum::<usize>(), tour.persons.len()),
+        Split::ByWeight(_) => format!("{} of {}, by weight", groups.iter().map(|g| g.names.len()).sum::<usize>(), tour.persons.len()),
+    };
+
+    view! {
+        <div class="tcw-det-meta">
+            <b>{payer}</b>" paid · " {meta.join(" · ")}
+        </div>
+        <div class="tcw-det-how">{how}</div>
+        <div class="tcw-shares">
+            {groups
+                .into_iter()
+                .map(|g| {
+                    let each = g.names.len() > 1;
+                    view! {
+                        <span class="tcw-share-amt">{money(g.share)}</span>
+                        <span class="tcw-share-names">
+                            {(each || g.weight.is_some()).then(|| view! {
+                                <span class="tcw-share-tag">
+                                    {each.then_some("each")}
+                                    {(each && g.weight.is_some()).then_some(" · ")}
+                                    {g.weight.map(|w| format!("w{w}"))}
+                                </span>
+                            })}
+                            {g.names.join(", ")}
+                        </span>
+                    }
+                })
+                .collect_view()}
+        </div>
+        {(!left_out.is_empty()).then(|| view! {
+            <div class="tcw-det-out">"Not in it: " {left_out.join(", ")}</div>
+        })}
     }
 }
 

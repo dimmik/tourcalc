@@ -9,7 +9,8 @@ pub mod config;
 pub mod fields;
 #[cfg(feature = "mongo")]
 pub mod mongo;
-pub mod news;
+/// The words for a change, shared with the browser client - see [`tc_core::news`].
+pub use tc_core::news;
 pub mod push;
 pub mod state;
 pub mod store;
