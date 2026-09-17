@@ -69,6 +69,37 @@ pub fn remember(settings: &Settings) {
     let _ = s.set_item(KEY, &text);
 }
 
+// --- how often an open tour asks whether somebody else changed it --------------------------
+
+/// Kept apart from the settings above, under this client's own prefix: that object is
+/// shared with the Blazor client, which writes it back from its own model and would drop a
+/// field it does not know - quietly putting this back to the default.
+const CHECK_KEY: &str = "__tcw_check_seconds";
+
+/// The choices offered, in seconds. `0` is "only when I come back to the tab".
+pub const CHECK_CHOICES: &[u32] = &[5, 10, 30, 60, 0];
+
+/// Ten seconds: a change at the next table shows up while people are still talking about
+/// it, and a tour left open on a phone costs a handful of tiny requests a minute.
+pub const CHECK_DEFAULT: u32 = 10;
+
+/// How often an open tour asks the server whether somebody else saved, in seconds; `0` for
+/// never on a timer. Anything not on the list reads as the default, so a hand-edited "1"
+/// cannot turn every open tab into a request a second.
+pub fn check_seconds() -> u32 {
+    storage()
+        .and_then(|s| s.get_item(CHECK_KEY).ok().flatten())
+        .and_then(|text| text.trim().parse::<u32>().ok())
+        .filter(|n| CHECK_CHOICES.contains(n))
+        .unwrap_or(CHECK_DEFAULT)
+}
+
+pub fn remember_check_seconds(seconds: u32) {
+    if let Some(s) = storage() {
+        let _ = s.set_item(CHECK_KEY, &seconds.to_string());
+    }
+}
+
 /// The settings every screen reads, and the one place they are written.
 pub type Shared = RwSignal<Settings>;
 

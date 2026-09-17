@@ -4,8 +4,9 @@
 //! to, or its refresh button was pressed - so two people at one table could look at two
 //! different totals for as long as neither of them touched anything. Now the page asks
 //! the server for the tour's `StateGUID` (a few bytes, see `GET /api/Tour/{id}/state`)
-//! whenever it comes back into view, and every [`EVERY`] while it is on screen. A state
-//! that is not the one this device last had means somebody saved.
+//! whenever it comes back into view, and on a timer while it is on screen - every ten
+//! seconds unless Settings says otherwise (`settings::check_seconds`). A state that is not
+//! the one this page is drawing means somebody saved.
 //!
 //! What happens then depends on what the reader is doing:
 //!
@@ -27,9 +28,6 @@ use crate::sync::Status;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use tc_core::Tour;
-
-/// How often an open, visible tour asks whether it is still current.
-pub const EVERY: std::time::Duration = std::time::Duration::from_secs(25);
 
 /// How long the touched expenses stay lit, and how long the line about them stays up.
 const LIT: std::time::Duration = std::time::Duration::from_secs(4);
@@ -92,14 +90,19 @@ impl Others {
             move || self.look(id.clone(), load, status)
         };
 
-        if let Ok(handle) = leptos::prelude::set_interval_with_handle(
-            {
-                let look = look.clone();
-                move || look()
-            },
-            EVERY,
-        ) {
-            on_cleanup(move || handle.clear());
+        // Read when the page opens: a change in Settings applies to the next tour opened,
+        // which is the only kind there is - Settings is a page of its own.
+        let every = crate::settings::check_seconds();
+        if every > 0 {
+            if let Ok(handle) = leptos::prelude::set_interval_with_handle(
+                {
+                    let look = look.clone();
+                    move || look()
+                },
+                std::time::Duration::from_secs(every.into()),
+            ) {
+                on_cleanup(move || handle.clear());
+            }
         }
 
         // Coming back to the tab - unlocking the phone, switching back from a chat - is when

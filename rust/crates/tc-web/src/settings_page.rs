@@ -1,7 +1,8 @@
 //! The settings screen.
 //!
 //! Two settings, out of the app's eleven, and the two that change what a reader sees rather
-//! than which interface they are in. The rest are accounted for on the page itself: it is
+//! than which interface they are in - and one of this client's own, about how often an open
+//! tour checks for other people's changes. The rest are accounted for on the page itself: it is
 //! better to say why something is missing than to let somebody look for it.
 
 use crate::accent;
@@ -25,6 +26,7 @@ pub fn SettingsPage(settings: settings::Shared) -> impl IntoView {
     };
 
     let current_accent = move || settings.get().accent;
+    let check = RwSignal::new(settings::check_seconds());
 
     view! {
         <div class="tcn-section">
@@ -113,6 +115,44 @@ pub fn SettingsPage(settings: settings::Shared) -> impl IntoView {
         <div class="tcn-section">
             <div class="tcn-section-title">"This device"</div>
             <div class="tcn-card" style="padding: 14px;">
+                <div class="tcn-setrow">
+                    <div class="tcn-settext">
+                        <div class="tcn-setname">"Check for other people's changes"</div>
+                        <div class="tcn-setdesc">
+                            "While a tour is open and on screen, it asks the server whether
+                             somebody else has changed it, and brings the change in if so. It
+                             always asks the moment you come back to the tab; this is how often
+                             it asks in between. Each question is a few bytes, and nothing is
+                             asked while the tab is hidden or the phone is locked. Applies to the
+                             next tour you open."
+                        </div>
+                    </div>
+                    <select class="tcn-input" id="check-seconds" style="width:auto; flex:0 0 auto"
+                            aria-label="Check for other people's changes"
+                            on:change=move |ev| {
+                                let seconds = event_target_value(&ev)
+                                    .parse::<u32>()
+                                    .unwrap_or(settings::CHECK_DEFAULT);
+                                settings::remember_check_seconds(seconds);
+                                check.set(seconds);
+                                saved.set(true);
+                            }>
+                        {settings::CHECK_CHOICES
+                            .iter()
+                            .map(|&n| {
+                                let label = match n {
+                                    0 => "only when I come back".to_owned(),
+                                    60 => "every minute".to_owned(),
+                                    n => format!("every {n} s"),
+                                };
+                                view! {
+                                    <option value=n.to_string()
+                                            selected=move || check.get() == n>{label}</option>
+                                }
+                            })
+                            .collect_view()}
+                    </select>
+                </div>
                 <crate::install::InstallSetting />
             </div>
         </div>
