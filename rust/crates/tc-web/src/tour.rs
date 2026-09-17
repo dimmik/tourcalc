@@ -302,27 +302,45 @@ fn CurrencyPicker(tour: Tour, apply: Callback<Operation>) -> impl IntoView {
 #[component]
 fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -> impl IntoView {
     view! {
-        {move || match status.get() {
-            Status::Idle | Status::Synced | Status::Checking => ().into_any(),
-            Status::Waiting(n) => {
-                // Naming the edits rather than counting them: "2 changes waiting" invites
-                // the question this can answer directly.
-                let what = queue::pending(&tour_id)
-                    .iter()
-                    .map(|op| op.describe())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                view! {
-                    <div class="tcn-section" style="padding-bottom:0">
-                        <div class="tcn-chip tcn-chip-amber">
-                            {if n == 0 {
-                                "Offline — showing what this device had last".to_owned()
-                            } else {
-                                format!("Offline — saved here, waiting to be sent: {what}")
-                            }}
-                        </div>
+        // What is waiting is a fact about this device, not about the last request: it is
+        // read from the queue, and the queue says when it changes. Tied to the request, the
+        // line went out for as long as any load said "checking" - which is every load, and
+        // one runs after every edit.
+        {move || {
+            queue::changes();
+            // Naming the edits rather than counting them: "2 changes waiting" invites the
+            // question this can answer directly. Three names and a count: with eight
+            // waiting the line ran off the side of a phone, and "and 5 more" is what the
+            // ninth one is worth anyway.
+            let waiting: Vec<String> =
+                queue::pending(&tour_id).iter().map(|op| op.describe()).collect();
+            if waiting.is_empty() {
+                return ().into_any();
+            }
+            let what = match waiting.len() {
+                0..=3 => waiting.join(", "),
+                n => format!("{}, and {} more", waiting[..3].join(", "), n - 3),
+            };
+            view! {
+                <div class="tcn-section" style="padding-bottom:0">
+                    <div class="tcn-chip tcn-chip-amber tcw-wraps">
+                        {format!("Saved here, waiting to be sent: {what}")}
                     </div>
-                }.into_any()
+                </div>
+            }.into_any()
+        }}
+        {move || match status.get() {
+            // Nothing of this device's is waiting and the server was not reached: the copy
+            // on screen is what this device had.
+            Status::Waiting(0) => view! {
+                <div class="tcn-section" style="padding-bottom:0">
+                    <div class="tcn-chip tcn-chip-amber tcw-wraps">
+                        "Offline — showing what this device had last"
+                    </div>
+                </div>
+            }.into_any(),
+            Status::Idle | Status::Synced | Status::Checking | Status::Waiting(_) => {
+                ().into_any()
             }
             Status::Failed(why) => view! {
                 <div class="tcn-section" style="padding-bottom:0">

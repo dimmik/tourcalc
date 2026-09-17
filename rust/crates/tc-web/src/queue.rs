@@ -15,6 +15,7 @@
 //!   pending operations applied - the same computation the sync will do.
 
 use crate::edit::{self, CurrencyDraft, PaymentDraft, PersonDraft, SpendingDraft, TourDraft};
+use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use tc_core::{PersonId, SpendingId, Tour};
 
@@ -124,6 +125,36 @@ fn stamp_key(tour: &str) -> String {
 /// One key for the whole list, not one per tour: it is a screen, not a set of documents.
 const LIST_KEY: &str = "__tcw_tourlist";
 
+thread_local! {
+    /// Bumped whenever anything is queued or sent, so a screen drawn from what is waiting -
+    /// the tour's amber line, the list's "not sent yet" - follows the queue itself rather
+    /// than the state of the last request. It used to follow the request: every load set
+    /// "checking" for as long as it lasted, and the line vanished and came back with it.
+    ///
+    /// Set once by the app, because a signal belongs to the reactive root; before that, and
+    /// in a test, there is none and the screens simply do not track it.
+    static CHANGED: std::cell::Cell<Option<RwSignal<u32>>> = const { std::cell::Cell::new(None) };
+}
+
+/// Hands the queue the signal it reports changes on. Called once, by the app.
+pub fn reports_changes_on(signal: RwSignal<u32>) {
+    CHANGED.with(|c| c.set(Some(signal)));
+}
+
+/// Reads the counter, so the caller re-runs when a queue changes. Nothing to read before
+/// the app has started.
+pub fn changes() {
+    if let Some(signal) = CHANGED.with(|c| c.get()) {
+        signal.track();
+    }
+}
+
+fn changed() {
+    if let Some(signal) = CHANGED.with(|c| c.get()) {
+        signal.try_update(|n| *n = n.wrapping_add(1));
+    }
+}
+
 /// What is still waiting to be sent for this tour.
 pub fn pending(tour: &str) -> Vec<Operation> {
     storage()
@@ -139,6 +170,28 @@ pub fn set_pending(tour: &str, ops: &[Operation]) {
     } else if let Ok(text) = serde_json::to_string(ops) {
         let _ = s.set_item(&queue_key(tour), &text);
     }
+    changed();
+}
+
+/// Every tour with edits still waiting to be sent, by id.
+///
+/// Read from the keys themselves: a queue belongs to the tour it is named after, and a
+/// separate list of them would be a second thing to keep in step.
+pub fn tours_with_pending() -> Vec<String> {
+    let Some(s) = storage() else {
+        return Vec::new();
+    };
+    let prefix = queue_key("");
+    let mut tours = Vec::new();
+    for i in 0..s.length().unwrap_or(0) {
+        let Ok(Some(key)) = s.key(i) else { continue };
+        if let Some(tour) = key.strip_prefix(&prefix) {
+            if !pending(tour).is_empty() {
+                tours.push(tour.to_owned());
+            }
+        }
+    }
+    tours
 }
 
 pub fn push(tour: &str, op: Operation) {

@@ -196,6 +196,62 @@ fn intercept_links(set_route: WriteSignal<Route>) {
     }
 }
 
+/// How often the app tries a queue that is still waiting. Nothing is asked of the server
+/// while every queue is empty, which is nearly always.
+const RETRY_WAITING: std::time::Duration = std::time::Duration::from_secs(20);
+
+/// Sends the queues of tours nobody is looking at: when the network comes back, when the app
+/// comes back into view, and every [`RETRY_WAITING`] while anything is still waiting.
+///
+/// The open tour is left out: its own page sends for it, and it knows how to say what
+/// changed afterwards. Two senders for one tour cannot collide in any case - `sync::push`
+/// allows one at a time - but the page's is the one that redraws the screen.
+fn send_what_is_waiting(route: ReadSignal<Route>) {
+    // `Copy`, so the timer and the listener can each have it.
+    let go = move || {
+        let open = match route.try_get_untracked() {
+            Some(Route::Tour(id, _)) => Some(id),
+            _ => None,
+        };
+        for tour in queue::tours_with_pending() {
+            if Some(&tour) == open.as_ref() {
+                continue;
+            }
+            leptos::task::spawn_local(async move {
+                let _ = sync::push(&tour).await;
+            });
+        }
+    };
+
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    use wasm_bindgen::JsCast;
+    let listener = wasm_bindgen::closure::Closure::<dyn FnMut(web_sys::Event)>::new(
+        move |_: web_sys::Event| {
+            // Coming back into view counts too: a phone that woke up with a network again
+            // raises no "online" at all.
+            let hidden = web_sys::window()
+                .and_then(|w| w.document())
+                .is_some_and(|d| d.hidden());
+            if !hidden {
+                go();
+            }
+        },
+    )
+    .into_js_value();
+    let _ = window.add_event_listener_with_callback("online", listener.unchecked_ref());
+    if let Some(document) = window.document() {
+        let _ = document.add_event_listener_with_callback("visibilitychange", listener.unchecked_ref());
+    }
+    // And on a timer, because the events cannot be relied on: a phone coming off flight
+    // mode raises "online" sometimes and not others - in a browser told to go offline for a
+    // test, `navigator.onLine` never changed at all - and a queue that waits for an event
+    // that never comes waits until somebody presses refresh.
+    leptos::prelude::set_interval(go, RETRY_WAITING);
+    // Never removed: both live as long as the app does.
+}
+
 #[component]
 fn App() -> impl IntoView {
     // Which interface, shared by every screen: the switch is in the header and both the list
@@ -212,6 +268,15 @@ fn App() -> impl IntoView {
 
     let (route, set_route) = signal(current_route());
     intercept_links(set_route);
+
+    // Edits made without a network go out as soon as there is one, whatever screen the
+    // reader is on - the tour list, Help, or the app left in the background. The tour page
+    // watches for its own tour (see `others`); this is for every other one, and for the
+    // times nothing on screen is watching at all.
+    // What is waiting to be sent is drawn from the queue itself, which reports its changes
+    // on this signal - see `queue::reports_changes_on`.
+    queue::reports_changes_on(RwSignal::new(0));
+    send_what_is_waiting(route);
 
     // Whether the narrow-screen menu is open. On a wide screen there is no menu: the same
     // controls are simply a row, and this signal never does anything.

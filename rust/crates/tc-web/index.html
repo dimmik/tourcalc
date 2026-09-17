@@ -184,6 +184,16 @@
         .tcw-mini-shares .tcm-money { font-variant-numeric: tabular-nums; }
         .tcw-dim { opacity: .6; }
 
+        /* A chip with a sentence in it - the offline line naming what is waiting - wraps
+           instead of running off the side of the screen. */
+        .tcn-chip.tcw-wraps {
+            display: block;
+            max-width: 100%;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.45;
+        }
+
         /* How the chosen people share an expense, in the form's More options. */
         .tcw-splitway { display: inline-flex; gap: 6px; }
         .tcw-splitway-opt {

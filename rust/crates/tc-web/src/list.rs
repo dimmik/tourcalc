@@ -376,6 +376,17 @@ fn Row(
     let for_clone = tour.clone();
     let for_clone_bare = tour.clone();
     let for_json = tour.clone();
+    // Edits made on this device that have not reached the server - the tour page says so
+    // while you are in it, and the list said nothing at all, so a tour with a day's worth
+    // of expenses waiting looked like any other. Read through the counter the sender bumps,
+    // so the chip goes when the queue does rather than at the next redraw.
+    let waiting = {
+        let id = tour.id.as_str().to_owned();
+        move || {
+            crate::queue::changes();
+            crate::queue::pending(&id).len()
+        }
+    };
     let archived = tc_core::extras::bool_of(&tour.extras, tc_core::extras::ARCHIVED);
     // Which tours are being settled up is the thing you look for in a list of them: it says
     // which one is asking for something to be done. The app marks it here, the small
@@ -400,6 +411,19 @@ fn Row(
                 {archived.then(|| view! {
                     <span class="tcn-chip" title="Hidden from the default list">"archived"</span>
                 })}
+                <Show when={
+                    let waiting = waiting.clone();
+                    move || waiting() > 0
+                }>
+                    <span class="tcn-chip tcn-chip-amber"
+                          title="Saved on this device and not yet sent to the server">
+                        {let waiting = waiting.clone();
+                         move || match waiting() {
+                            1 => "1 not sent yet".to_owned(),
+                            n => format!("{n} not sent yet"),
+                        }}
+                    </span>
+                </Show>
                 <span title="Everything spent on this tour">
                     {money(Cents(spent))}
                     {(!currency.is_empty()).then(|| view! { "\u{a0}" {currency} })}

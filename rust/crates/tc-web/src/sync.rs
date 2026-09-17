@@ -52,6 +52,14 @@ pub async fn push(tour_id: &str) -> (Option<Tour>, Status) {
         return fetch(tour_id).await;
     }
 
+    // One send per tour at a time. Two of them - the open page and the app noticing the
+    // network is back - would each read the server, replay the same queue onto what the
+    // other had just written, and leave an expense recorded twice. The second caller takes
+    // what this device has and says the answer is on its way.
+    let Some(_sending) = Sending::of(tour_id) else {
+        return (queue::cached(tour_id), Status::Checking);
+    };
+
     for _ in 0..MAX_ROUNDS {
         // Always start from the freshest server copy: that is what makes a conflict
         // recoverable instead of fatal.
@@ -96,6 +104,29 @@ pub async fn push(tour_id: &str) -> (Option<Tour>, Status) {
             "Could not save: the tour kept changing underneath ({MAX_ROUNDS} tries)."
         )),
     )
+}
+
+thread_local! {
+    /// The tours a send is in flight for. A thread local because this is a browser: one
+    /// thread, and the whole app is inside it.
+    static SENDING: std::cell::RefCell<std::collections::HashSet<String>> =
+        std::cell::RefCell::new(std::collections::HashSet::new());
+}
+
+/// Marks a tour as being sent, and unmarks it however the send ends.
+struct Sending(String);
+
+impl Sending {
+    fn of(tour: &str) -> Option<Sending> {
+        SENDING.with(|busy| busy.borrow_mut().insert(tour.to_owned()))
+            .then(|| Sending(tour.to_owned()))
+    }
+}
+
+impl Drop for Sending {
+    fn drop(&mut self) {
+        SENDING.with(|busy| busy.borrow_mut().remove(&self.0));
+    }
 }
 
 /// What the server has, and nothing sent - whatever is queued stays queued.
