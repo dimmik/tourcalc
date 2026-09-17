@@ -104,6 +104,9 @@ pub struct Sifting {
     pub ring: RwSignal<String>,
     /// Stats: which head we are inside, if any.
     pub drill: RwSignal<Option<String>>,
+    /// Expenses: the one expense unfolded to show its details, by id. One at a time, and
+    /// kept here so that an edit elsewhere on the page does not fold it back up.
+    pub unfolded: RwSignal<Option<String>>,
 }
 
 impl Sifting {
@@ -116,6 +119,7 @@ impl Sifting {
             by_category: RwSignal::new(true),
             ring: RwSignal::new(String::new()),
             drill: RwSignal::new(None),
+            unfolded: RwSignal::new(None),
         }
     }
 }
@@ -897,7 +901,7 @@ fn ExpensesTab(
     delete: Callback<Removal>,
     sifting: Sifting,
 ) -> impl IntoView {
-    let Sifting { search, by_amount, newest_first, chosen, .. } = sifting;
+    let Sifting { search, by_amount, newest_first, chosen, unfolded, .. } = sifting;
 
     let categories = categories_in_order(&spendings);
 
@@ -1127,7 +1131,8 @@ fn ExpensesTab(
                                             .iter()
                                             .map(|s| view! {
                                                 <ExpenseRow spending=s.clone() tour=tour.clone()
-                                                            unit=unit.clone() dialog=dialog delete=delete />
+                                                            unit=unit.clone() dialog=dialog delete=delete
+                                                            unfolded=unfolded />
                                             })
                                             .collect_view()}
                                     </div>
@@ -1256,8 +1261,32 @@ fn ExpenseRow(
     unit: String,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
+    /// Which expense is showing its details; see [`Sifting::unfolded`].
+    unfolded: RwSignal<Option<String>>,
 ) -> impl IntoView {
     let who = name_of(tour.person(&spending.from));
+    // Tapping the expense unfolds what it is - who paid, when, who it is for and what each
+    // of them carries, who it leaves out - without opening a form to find out. The edit is
+    // a button; the row itself is for reading.
+    let my_id = spending.id.as_str().to_owned();
+    let is_open = {
+        let my_id = my_id.clone();
+        Memo::new(move |_| unfolded.with(|u| u.as_deref() == Some(my_id.as_str())))
+    };
+    let fold = {
+        let my_id = my_id.clone();
+        move || {
+            unfolded.update(|u| {
+                *u = if u.as_deref() == Some(my_id.as_str()) {
+                    None
+                } else {
+                    Some(my_id.clone())
+                };
+            })
+        }
+    };
+    let for_details = spending.clone();
+    let tour_for_details = tour.clone();
     let shown = tour.amount_in_current(&spending);
     let original = (spending.currency.id != tour.currency().id && tour.currencies.len() > 1)
         .then(|| format!("{} {}", money(spending.amount), spending.currency.name));
@@ -1316,7 +1345,7 @@ fn ExpenseRow(
         n => format!("for {n} of {}", tour.persons.len()),
     };
     let for_title = if some_of_them {
-        let mut why = format!("For {}.", whose.join(", "));
+        let mut why = format!("For {}. Tap for who carries how much.", whose.join(", "));
         if whose.len() == 1 {
             why = format!("Charged to {} alone.", whose[0]);
         } else if matches!(&spending.split, Split::Equally(_)) {
@@ -1338,8 +1367,24 @@ fn ExpenseRow(
              class:tcw-payback=move || service.is_some() && !family
              class:tcw-family=move || family
              class:tcw-lit=lit
+             class:tcw-unfolded=move || is_open.get()
              class:tcn-sp-marked=move || marked style=mark_style>
-            <div class="tcn-settle-flow">
+            <div class="tcn-settle-flow tcw-unfold" role="button" tabindex="0"
+                 aria-expanded=move || is_open.get().to_string()
+                 title="Details"
+                 on:click={
+                     let fold = fold.clone();
+                     move |_| fold()
+                 }
+                 on:keydown={
+                     let fold = fold.clone();
+                     move |ev: leptos::ev::KeyboardEvent| {
+                         if ev.key() == "Enter" || ev.key() == " " {
+                             ev.prevent_default();
+                             fold();
+                         }
+                     }
+                 }>
                 <Avatar name=who.clone() />
                 <span class="tcn-settle-who">
                     {description}
@@ -1359,9 +1404,12 @@ fn ExpenseRow(
                     </span>
                 })}
                 {some_of_them.then(|| view! {
-                    <span class="tcn-chip tcn-chip-amber" style="flex:0 0 auto"
+                    <span class="tcn-chip tcn-chip-amber tcw-for-chip" style="flex:0 0 auto"
                           title=for_title.clone()>
                         {for_chip.clone()}
+                        <span class="tcw-caret" aria-hidden="true">
+                            {move || if is_open.get() { "▴" } else { "▾" }}
+                        </span>
                     </span>
                 })}
             </div>
@@ -1388,6 +1436,12 @@ fn ExpenseRow(
                     "✕"
                 </button>
             </div>
+            <Show when=move || is_open.get()>
+                <div class="tcw-details">
+                    <crate::explain::ExplanationBody without_headline=true
+                        explanation=crate::explain::spending(&tour_for_details, &for_details) />
+                </div>
+            </Show>
         </div>
     }
 }

@@ -127,6 +127,20 @@
             display: none;
         }
 
+        /* An expense unfolds in place to show its details: the row wraps, and the details
+           take a line of their own under it. */
+        .tcw-unfold { cursor: pointer; border-radius: 8px; }
+        .tcw-unfold:focus-visible { outline: 2px solid var(--tcn-primary, #4f46e5); outline-offset: 2px; }
+        .tcn-settle.tcw-unfolded { flex-wrap: wrap; row-gap: 8px; }
+        .tcw-details {
+            flex: 1 1 100%;
+            margin-top: 2px;
+            padding: 10px 12px 4px;
+            border-top: 1px dashed var(--tcn-border, #e2e8f0);
+            font-size: 14px;
+        }
+        .tcw-caret { margin-left: 4px; font-size: 10px; opacity: .7; }
+
         /* Somebody else changed the open tour. Over everything, a form included - that is
            where "what you save goes on top of it" matters - and clear of the + Spend button. */
         .tcw-others {
