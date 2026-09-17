@@ -1244,11 +1244,8 @@ fn MiniTourRow(
 
     let waiting = {
         let id = id.clone();
-        let changed = use_context::<crate::QueuesChanged>();
         move || {
-            if let Some(c) = changed {
-                c.0.get();
-            }
+            crate::queue::changes();
             crate::queue::pending(&id).len()
         }
     };

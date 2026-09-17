@@ -196,11 +196,6 @@ fn intercept_links(set_route: WriteSignal<Route>) {
     }
 }
 
-/// Bumped whenever a queue this app sent has emptied, so a screen drawn from what is
-/// waiting - the tour list's "not sent yet" - stops saying so without being reloaded.
-#[derive(Clone, Copy)]
-pub struct QueuesChanged(pub RwSignal<u32>);
-
 /// How often the app tries a queue that is still waiting. Nothing is asked of the server
 /// while every queue is empty, which is nearly always.
 const RETRY_WAITING: std::time::Duration = std::time::Duration::from_secs(20);
@@ -211,7 +206,7 @@ const RETRY_WAITING: std::time::Duration = std::time::Duration::from_secs(20);
 /// The open tour is left out: its own page sends for it, and it knows how to say what
 /// changed afterwards. Two senders for one tour cannot collide in any case - `sync::push`
 /// allows one at a time - but the page's is the one that redraws the screen.
-fn send_what_is_waiting(route: ReadSignal<Route>, changed: QueuesChanged) {
+fn send_what_is_waiting(route: ReadSignal<Route>) {
     // `Copy`, so the timer and the listener can each have it.
     let go = move || {
         let open = match route.try_get_untracked() {
@@ -224,7 +219,6 @@ fn send_what_is_waiting(route: ReadSignal<Route>, changed: QueuesChanged) {
             }
             leptos::task::spawn_local(async move {
                 let _ = sync::push(&tour).await;
-                changed.0.try_update(|n| *n = n.wrapping_add(1));
             });
         }
     };
@@ -279,9 +273,10 @@ fn App() -> impl IntoView {
     // reader is on - the tour list, Help, or the app left in the background. The tour page
     // watches for its own tour (see `others`); this is for every other one, and for the
     // times nothing on screen is watching at all.
-    let queues_changed = QueuesChanged(RwSignal::new(0));
-    provide_context(queues_changed);
-    send_what_is_waiting(route, queues_changed);
+    // What is waiting to be sent is drawn from the queue itself, which reports its changes
+    // on this signal - see `queue::reports_changes_on`.
+    queue::reports_changes_on(RwSignal::new(0));
+    send_what_is_waiting(route);
 
     // Whether the narrow-screen menu is open. On a wide screen there is no menu: the same
     // controls are simply a row, and this signal never does anything.

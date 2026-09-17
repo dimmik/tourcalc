@@ -382,11 +382,8 @@ fn Row(
     // so the chip goes when the queue does rather than at the next redraw.
     let waiting = {
         let id = tour.id.as_str().to_owned();
-        let changed = use_context::<crate::QueuesChanged>();
         move || {
-            if let Some(c) = changed {
-                c.0.get();
-            }
+            crate::queue::changes();
             crate::queue::pending(&id).len()
         }
     };
