@@ -223,6 +223,7 @@ pub fn touched_spendings(old: &Tour, new: &Tour) -> Vec<SpendingId> {
                     || w.from != is.from
                     || !same_split(&w.split, &is.split)
                     || w.category != is.category
+                    || w.day() != is.day()
             }
         })
         .map(|s| s.id.clone())

@@ -237,8 +237,13 @@ impl Others {
             .into_iter()
             .map(|s| s.as_str().to_owned())
             .collect();
-        // A change news.rs has no words for - a currency's rate, a date - is still a change.
-        let text = text.or_else(|| Some("somebody saved a change".to_owned()));
+        // A save that changed nothing anybody can point at - pressing Save on an untouched
+        // form moves the state all the same - is swapped in without a word. Saying "somebody
+        // saved a change" about it sends people looking for a change that is not there.
+        if text.is_none() && touched.is_empty() {
+            return;
+        }
+        let text = text.or_else(|| Some("somebody changed an expense".to_owned()));
         self.announce(text, touched);
     }
 
