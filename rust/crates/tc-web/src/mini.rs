@@ -1242,6 +1242,16 @@ fn MiniTourRow(
     let is_open = Memo::new(move |_| more.get().as_deref() == Some(mine.as_str()));
     let toggle_id = id.clone();
 
+    let waiting = {
+        let id = id.clone();
+        let changed = use_context::<crate::QueuesChanged>();
+        move || {
+            if let Some(c) = changed {
+                c.0.get();
+            }
+            crate::queue::pending(&id).len()
+        }
+    };
     let archived = tc_core::extras::bool_of(&tour.extras, tc_core::extras::ARCHIVED);
     let finalizing = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
     let days = tc_core::extras::int_of(&tour.extras, tc_core::extras::DURATION).unwrap_or(0);
@@ -1261,6 +1271,16 @@ fn MiniTourRow(
                     {tour.name.clone()}
                     {finalizing.then(|| view! { <span class="tcm-tag is-amber">"settling"</span> })}
                     {archived.then(|| view! { <span class="tcm-tag">"arch"</span> })}
+                    <Show when={
+                        let waiting = waiting.clone();
+                        move || waiting() > 0
+                    }>
+                        <span class="tcm-tag is-amber"
+                              title="Saved on this device and not yet sent to the server">
+                            {let waiting = waiting.clone();
+                             move || format!("{} unsent", waiting())}
+                        </span>
+                    </Show>
                     <crate::push::ListBell bells=bells tour=id.clone() />
                 </a>
                 <span class="tcm-facts" title=names.join(", ")>

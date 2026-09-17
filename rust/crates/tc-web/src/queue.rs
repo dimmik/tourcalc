@@ -141,6 +141,27 @@ pub fn set_pending(tour: &str, ops: &[Operation]) {
     }
 }
 
+/// Every tour with edits still waiting to be sent, by id.
+///
+/// Read from the keys themselves: a queue belongs to the tour it is named after, and a
+/// separate list of them would be a second thing to keep in step.
+pub fn tours_with_pending() -> Vec<String> {
+    let Some(s) = storage() else {
+        return Vec::new();
+    };
+    let prefix = queue_key("");
+    let mut tours = Vec::new();
+    for i in 0..s.length().unwrap_or(0) {
+        let Ok(Some(key)) = s.key(i) else { continue };
+        if let Some(tour) = key.strip_prefix(&prefix) {
+            if !pending(tour).is_empty() {
+                tours.push(tour.to_owned());
+            }
+        }
+    }
+    tours
+}
+
 pub fn push(tour: &str, op: Operation) {
     let mut ops = pending(tour);
     ops.push(op);
