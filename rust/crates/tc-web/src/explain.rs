@@ -141,13 +141,7 @@ pub fn Explain(
 /// What an explanation says: the headline, the facts, the sections and the sentence. Drawn
 /// in the sheet a number opens, and in place under an expense that is unfolded.
 #[component]
-pub fn ExplanationBody(
-    explanation: Explanation,
-    /// Leave out the figure at the top - for a place where it is already on screen, right
-    /// above.
-    #[prop(optional)]
-    without_headline: bool,
-) -> impl IntoView {
+pub fn ExplanationBody(explanation: Explanation) -> impl IntoView {
     let e = explanation;
     let facts = |list: Vec<Fact>| {
         view! {
@@ -180,7 +174,7 @@ pub fn ExplanationBody(
         }
     };
     view! {
-        {(!without_headline && !e.headline.is_empty()).then(|| view! {
+        {(!e.headline.is_empty()).then(|| view! {
             <div class="tcn-explain-headline">{e.headline.clone()}</div>
         })}
         {(!e.facts.is_empty()).then(|| facts(e.facts.clone()))}
@@ -700,6 +694,51 @@ pub fn spending(tour: &Tour, s: &Spending) -> Explanation {
     .note(note)
 }
 
+/// People who carry the same share of one expense: said once, with their names after it.
+///
+/// An expense unfolded in the list used to give every person a line of their own - ten
+/// lines of "63" for a dinner split equally. The figure is what differs; the names are what
+/// shares it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShareGroup {
+    pub share: Cents,
+    /// Their weight, when the split goes by weight - and so the reason the figures differ.
+    pub weight: Option<i32>,
+    pub names: Vec<String>,
+}
+
+/// Who carries how much of an expense, largest share first, and who is not in it at all.
+/// The shares are the calculator's own ([`tc_core::share`]).
+pub fn share_groups(tour: &Tour, s: &Spending) -> (Vec<ShareGroup>, Vec<String>) {
+    let by_weight = !matches!(s.split, Split::Equally(_));
+    let mut groups: Vec<ShareGroup> = Vec::new();
+    let mut left_out: Vec<String> = Vec::new();
+    for p in &tour.persons {
+        let Some(share) = tc_core::share(tour, s, &p.id) else {
+            left_out.push(p.name.clone());
+            continue;
+        };
+        let weight = by_weight.then_some(p.weight);
+        match groups
+            .iter_mut()
+            .find(|g| g.share == share && g.weight == weight)
+        {
+            Some(g) => g.names.push(p.name.clone()),
+            None => groups.push(ShareGroup {
+                share,
+                weight,
+                names: vec![p.name.clone()],
+            }),
+        }
+    }
+    for g in &mut groups {
+        g.names.sort();
+    }
+    groups.sort_by_key(|g| std::cmp::Reverse(g.share));
+    left_out.sort();
+    (groups, left_out)
+}
+
 /// A day in the expense list: what was spent that day, largest first.
 pub fn day(tour: &Tour, label: &str, rows: &[Spending]) -> Explanation {
     let mut sorted: Vec<&Spending> = rows.iter().collect();
@@ -814,5 +853,45 @@ pub fn pretty_stamp(when: &str) -> String {
         [y, m, d] if time.is_empty() => format!("{d}.{m}.{y}"),
         [y, m, d] => format!("{d}.{m}.{y} {time}"),
         _ => when.to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tour() -> Tour {
+        Tour::from_json(include_str!("../../../fixtures/hs3huvy.tour.json")).expect("fixture")
+    }
+
+    /// Ten people on one dinner come out as one line per figure, not one per person.
+    #[test]
+    fn the_same_share_is_said_once() {
+        let tour = tour();
+        let mut s = tour
+            .spendings
+            .iter()
+            .find(|s| s.kind == Kind::Real)
+            .unwrap()
+            .clone();
+        s.split = Split::Everyone;
+        let (groups, left_out) = share_groups(&tour, &s);
+        assert!(left_out.is_empty());
+        assert_eq!(
+            groups.iter().map(|g| g.names.len()).sum::<usize>(),
+            tour.persons.len()
+        );
+        let weights: std::collections::HashSet<i32> =
+            tour.persons.iter().map(|p| p.weight).collect();
+        assert_eq!(groups.len(), weights.len(), "one line per weight: {groups:?}");
+        assert!(groups.windows(2).all(|w| w[0].share >= w[1].share));
+
+        let three: Vec<PersonId> = tour.persons.iter().take(3).map(|p| p.id.clone()).collect();
+        s.split = Split::Equally(three);
+        let (groups, left_out) = share_groups(&tour, &s);
+        assert_eq!(groups.len(), 1, "equal is one figure whatever the weights");
+        assert_eq!(groups[0].weight, None);
+        assert_eq!(groups[0].names.len(), 3);
+        assert_eq!(left_out.len(), tour.persons.len() - 3);
     }
 }

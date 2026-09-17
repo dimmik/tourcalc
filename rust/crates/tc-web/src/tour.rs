@@ -1438,11 +1438,70 @@ fn ExpenseRow(
             </div>
             <Show when=move || is_open.get()>
                 <div class="tcw-details">
-                    <crate::explain::ExplanationBody without_headline=true
-                        explanation=crate::explain::spending(&tour_for_details, &for_details) />
+                    <ExpenseDetails tour=tour_for_details.clone() spending=for_details.clone() />
                 </div>
             </Show>
         </div>
+    }
+}
+
+/// What an unfolded expense says: who paid and when on one line, then each share once with
+/// the names that carry it, then who is not in it.
+#[component]
+fn ExpenseDetails(tour: Tour, spending: Spending) -> impl IntoView {
+    let payer = name_of(tour.person(&spending.from));
+    let mut meta: Vec<String> = vec![crate::explain::pretty_stamp(
+        spending.when().unwrap_or_default(),
+    )];
+    if !spending.category.trim().is_empty() {
+        meta.push(spending.category.trim().to_owned());
+    }
+    if tour.currencies.len() > 1 && spending.currency.id != tour.currency().id {
+        meta.push(format!(
+            "entered as {} {}",
+            money(spending.amount),
+            spending.currency.name
+        ));
+    }
+    if let tc_core::Kind::Draft { counted } = spending.kind {
+        meta.push(if counted { "draft, counted" } else { "draft, not counted" }.to_owned());
+    }
+    let (groups, left_out) = crate::explain::share_groups(&tour, &spending);
+    let how = match &spending.split {
+        Split::Everyone => "everyone, by weight".to_owned(),
+        Split::Equally(_) => format!("{} of {}, equally", groups.iter().map(|g| g.names.len()).sum::<usize>(), tour.persons.len()),
+        Split::ByWeight(_) => format!("{} of {}, by weight", groups.iter().map(|g| g.names.len()).sum::<usize>(), tour.persons.len()),
+    };
+
+    view! {
+        <div class="tcw-det-meta">
+            <b>{payer}</b>" paid · " {meta.join(" · ")}
+        </div>
+        <div class="tcw-det-how">{how}</div>
+        <div class="tcw-shares">
+            {groups
+                .into_iter()
+                .map(|g| {
+                    let each = g.names.len() > 1;
+                    view! {
+                        <span class="tcw-share-amt">{money(g.share)}</span>
+                        <span class="tcw-share-names">
+                            {(each || g.weight.is_some()).then(|| view! {
+                                <span class="tcw-share-tag">
+                                    {each.then_some("each")}
+                                    {(each && g.weight.is_some()).then_some(" · ")}
+                                    {g.weight.map(|w| format!("w{w}"))}
+                                </span>
+                            })}
+                            {g.names.join(", ")}
+                        </span>
+                    }
+                })
+                .collect_view()}
+        </div>
+        {(!left_out.is_empty()).then(|| view! {
+            <div class="tcw-det-out">"Not in it: " {left_out.join(", ")}</div>
+        })}
     }
 }
 

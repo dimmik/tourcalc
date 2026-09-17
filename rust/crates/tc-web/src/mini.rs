@@ -833,23 +833,17 @@ fn MiniSpending(
     // Who carries how much of it, and who is not in it - the same figures as the roomy
     // list's details, from the calculator's own arithmetic: an equal split is equal whatever
     // the weights. Not for a payback, which is one person's by definition.
-    let by_weight = !matches!(spending.split, Split::Equally(_));
-    let mut shares: Vec<(String, i32, Cents)> = tour
-        .persons
-        .iter()
-        .filter_map(|p| {
-            tc_core::share(&tour, &spending, &p.id).map(|c| (p.name.clone(), p.weight, c))
-        })
-        .collect();
-    shares.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
-    let mut left_out: Vec<String> = tour
-        .persons
-        .iter()
-        .filter(|p| tc_core::share(&tour, &spending, &p.id).is_none())
-        .map(|p| p.name.clone())
-        .collect();
-    left_out.sort();
+    let (groups, left_out) = crate::explain::share_groups(&tour, &spending);
     let shown_shares = service.is_none();
+    // With the shares below naming everybody, the line above says only how many.
+    let for_whom = match (&spending.split, shown_shares) {
+        (Split::Everyone, _) | (_, false) => for_whom,
+        _ => format!(
+            "{} of {}",
+            groups.iter().map(|g| g.names.len()).sum::<usize>(),
+            tour.persons.len()
+        ),
+    };
 
     let for_edit = spending.clone();
     let for_delete = spending.clone();
@@ -903,27 +897,28 @@ fn MiniSpending(
                         })}
                     </div>
                     {shown_shares.then(|| view! {
-                        <div class="tcw-mini-shares"
-                             title=if by_weight { "Each share by weight" } else { "Equal shares" }>
-                            {shares
+                        <div class="tcw-mini-shares">
+                            {groups
                                 .iter()
-                                .map(|(name, weight, share)| view! {
-                                    <span class="tcw-mini-share-name">
-                                        {name.clone()}
-                                        {by_weight.then(|| view! {
-                                            <span class="tcw-dim" title="weight">" w" {*weight}</span>
-                                        })}
-                                    </span>
-                                    <span class="tcm-money">{money(*share)}</span>
+                                .map(|g| {
+                                    let each = g.names.len() > 1;
+                                    view! {
+                                        <div>
+                                            <b class="tcm-money">{money(g.share)}</b>
+                                            <span class="tcw-dim">
+                                                {each.then_some(" each")}
+                                                {g.weight.map(|w| format!(" w{w}"))}
+                                                " — "
+                                            </span>
+                                            {g.names.join(", ")}
+                                        </div>
+                                    }
                                 })
                                 .collect_view()}
+                            {(!left_out.is_empty()).then(|| view! {
+                                <div class="tcw-dim">"not in it: " {left_out.join(", ")}</div>
+                            })}
                         </div>
-                        {(!left_out.is_empty()).then(|| view! {
-                            <div class="tcm-facts-line">
-                                <span class="tcw-dim">"not in it: "</span>
-                                <span>{left_out.join(", ")}</span>
-                            </div>
-                        })}
                     })}
                     <div class="tcm-fields">
                         <button type="button" class="tcm-btn"

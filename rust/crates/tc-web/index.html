@@ -131,27 +131,57 @@
            take a line of their own under it. */
         .tcw-unfold { cursor: pointer; border-radius: 8px; }
         .tcw-unfold:focus-visible { outline: 2px solid var(--tcn-primary, #4f46e5); outline-offset: 2px; }
-        .tcn-settle.tcw-unfolded { flex-wrap: wrap; row-gap: 8px; }
+        .tcn-settle.tcw-unfolded { flex-wrap: wrap; row-gap: 6px; }
         .tcw-details {
             flex: 1 1 100%;
-            margin-top: 2px;
-            padding: 10px 12px 4px;
+            padding: 8px 2px 0 42px;
             border-top: 1px dashed var(--tcn-border, #e2e8f0);
-            font-size: 14px;
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--tcn-text, #1e293b);
+        }
+        .tcw-det-meta { color: var(--tcn-muted, #64748b); }
+        .tcw-det-meta b { color: var(--tcn-text, #1e293b); font-weight: 600; }
+        .tcw-det-how {
+            margin-top: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: var(--tcn-muted, #64748b);
+        }
+        .tcw-shares {
+            display: grid;
+            grid-template-columns: max-content minmax(0, 1fr);
+            column-gap: 10px;
+            row-gap: 3px;
+            margin-top: 3px;
+        }
+        .tcw-share-amt {
+            text-align: right;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        .tcw-share-tag {
+            display: inline-block;
+            margin-right: 6px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: var(--tcn-surface-2, #f1f5f9);
+            color: var(--tcn-muted, #64748b);
+            font-size: 11px;
+            line-height: 17px;
+            vertical-align: 1px;
+        }
+        .tcw-det-out { margin-top: 5px; color: var(--tcn-muted, #64748b); }
+        @media (max-width: 520px) {
+            .tcw-details { padding-left: 2px; }
         }
         .tcw-caret { margin-left: 4px; font-size: 10px; opacity: .7; }
 
-        /* The small interface's unfolded expense: who carries how much, two columns. */
-        .tcw-mini-shares {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            column-gap: 12px;
-            row-gap: 1px;
-            max-width: 360px;
-            margin: 4px 0 2px;
-        }
-        .tcw-mini-share-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .tcw-mini-shares .tcm-money { text-align: right; }
+        /* The small interface's unfolded expense: a line per figure, the names after it. */
+        .tcw-mini-shares { margin: 3px 0 2px; line-height: 1.4; }
+        .tcw-mini-shares .tcm-money { font-variant-numeric: tabular-nums; }
         .tcw-dim { opacity: .6; }
 
         /* Somebody else changed the open tour. Over everything, a form included - that is
