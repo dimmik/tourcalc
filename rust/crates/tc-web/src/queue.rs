@@ -241,6 +241,7 @@ mod tests {
             from: t.persons[0].id.clone(),
             everyone: true,
             to: Vec::new(),
+            by_weight: true,
             date: "2021-08-14".into(),
             colour: String::new(),
             currency_id: t.currency().id.as_str().to_owned(),

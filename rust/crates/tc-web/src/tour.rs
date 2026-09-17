@@ -1339,10 +1339,18 @@ fn ExpenseRow(
     let everyone = whose.is_empty() && service.is_none();
     // Two names fit on a row; nine do not, and "4 of 9" is the thing worth knowing at a
     // glance anyway. The full list is on the row's tooltip either way.
+    let equally = matches!(spending.split, Split::Equally(_)) && whose.len() > 1;
     let for_chip = match whose.len() {
         0 => String::new(),
         1..=2 => format!("for {}", whose.join(", ")),
         n => format!("for {n} of {}", tour.persons.len()),
+    };
+    // By weight is the rule; equal shares are the exception, and the chip says so - the
+    // app marks them the same way.
+    let for_chip = if equally {
+        format!("{for_chip} · equally")
+    } else {
+        for_chip
     };
     let for_title = if some_of_them {
         let mut why = format!("For {}. Tap for who carries how much.", whose.join(", "));

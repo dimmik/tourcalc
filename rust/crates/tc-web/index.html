@@ -184,6 +184,23 @@
         .tcw-mini-shares .tcm-money { font-variant-numeric: tabular-nums; }
         .tcw-dim { opacity: .6; }
 
+        /* How the chosen people share an expense, in the form's More options. */
+        .tcw-splitway { display: inline-flex; gap: 6px; }
+        .tcw-splitway-opt {
+            padding: 3px 12px;
+            border: 1px solid var(--tcn-border, #e2e8f0);
+            border-radius: 999px;
+            background: var(--tcn-surface, #fff);
+            color: var(--tcn-text, #111827);
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .tcw-splitway-opt.is-on {
+            background: var(--tcn-primary, #4f46e5);
+            border-color: var(--tcn-primary, #4f46e5);
+            color: #fff;
+        }
+
         /* Somebody else changed the open tour. Over everything, a form included - that is
            where "what you save goes on top of it" matters - and clear of the + Spend button. */
         .tcw-others {

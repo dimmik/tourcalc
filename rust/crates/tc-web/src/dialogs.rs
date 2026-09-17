@@ -87,6 +87,7 @@ pub fn SpendingDialog(
     });
     let from = RwSignal::new(draft.from.as_str().to_owned());
     let everyone = RwSignal::new(draft.everyone);
+    let by_weight = RwSignal::new(draft.by_weight);
     let to = RwSignal::new(draft.to.clone());
     let date = RwSignal::new(if draft.date.is_empty() {
         edit::today()
@@ -132,6 +133,7 @@ pub fn SpendingDialog(
         d.amount = Cents(amount.get().trim().parse::<i64>().unwrap_or(0));
         d.from = PersonId::new(from.get());
         d.everyone = everyone.get();
+        d.by_weight = by_weight.get();
         d.to = to.get();
         d.date = date.get();
         d.colour = colour.get();
@@ -311,6 +313,13 @@ pub fn SpendingDialog(
                             }.into_any()
                         }}
                     </div>
+                    <div class="tcn-hint">
+                        {move || if by_weight.get() {
+                            "Shared by weight. Equal shares are under More options."
+                        } else {
+                            "In equal shares, whatever the weights. By weight is under More options."
+                        }}
+                    </div>
                 </Show>
             </div>
 
@@ -411,6 +420,37 @@ pub fn SpendingDialog(
             </button>
 
             <Show when=move || more.get()>
+                <div class="tcn-field" style="margin-top:8px">
+                    <div class="tcn-row" style="flex-wrap:wrap; gap:6px 8px">
+                        <span class="tcn-label" style="margin:0">"Split the chosen people"</span>
+                        <span class="tcw-splitway" role="radiogroup"
+                              aria-label="How the chosen people share it">
+                            <button type="button" role="radio" class="tcw-splitway-opt"
+                                    class:is-on=move || by_weight.get()
+                                    aria-checked=move || by_weight.get().to_string()
+                                    on:click=move |_| by_weight.set(true)>
+                                "by weight"
+                            </button>
+                            <button type="button" role="radio" class="tcw-splitway-opt"
+                                    class:is-on=move || !by_weight.get()
+                                    aria-checked=move || (!by_weight.get()).to_string()
+                                    on:click=move |_| by_weight.set(false)>
+                                "equally"
+                            </button>
+                        </span>
+                    </div>
+                    <div class="tcn-hint" style="margin-top:2px">
+                        {move || match (everyone.get(), by_weight.get()) {
+                            (true, _) => "For an expense for some of the people. One for everyone \
+                                          is always shared by weight; this is what it goes back \
+                                          to if “everyone” is switched off.",
+                            (false, true) => "Each person carries a share in proportion to their \
+                                              weight - the usual way.",
+                            (false, false) => "Everyone chosen carries the same amount, whatever \
+                                               their weight.",
+                        }}
+                    </div>
+                </div>
                 <div class="tcn-field" style="margin-top:8px">
                     <div class="tcn-row">
                         <span class="tcn-label" style="margin:0">"Colour"</span>

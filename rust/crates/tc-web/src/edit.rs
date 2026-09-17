@@ -45,6 +45,15 @@ pub struct SpendingDraft {
     pub from: PersonId,
     pub everyone: bool,
     pub to: Vec<PersonId>,
+    /// Whether the people in `to` share it by weight, or equally. By weight unless somebody
+    /// says otherwise - the app's own default, and the one every expense entered through it
+    /// carries. This form used to have no such choice and saved every partial split as
+    /// equal, so a trip's expenses for "the grown-ups" ignored the weights they were given,
+    /// and editing one entered in the app quietly changed how it was divided.
+    ///
+    /// Defaulted when read back: an edit queued before the field existed is by weight.
+    #[serde(default = "by_weight")]
+    pub by_weight: bool,
     /// The day it happened, `YYYY-MM-DD`. Empty means "leave whatever is stored", which is
     /// what an expense entered without touching the field should do - the app fills it in
     /// with today when the spending is new.
@@ -58,6 +67,19 @@ pub struct SpendingDraft {
     /// is what an edit that never touched the field should do.
     #[serde(default)]
     pub currency_id: String,
+}
+
+fn by_weight() -> bool {
+    true
+}
+
+/// The split a draft describes, for these people.
+fn split_for(by_weight: bool, to: Vec<PersonId>) -> Split {
+    if by_weight {
+        Split::ByWeight(to)
+    } else {
+        Split::Equally(to)
+    }
 }
 
 impl SpendingDraft {
@@ -75,6 +97,7 @@ impl SpendingDraft {
                 .unwrap_or_else(|| PersonId::new("")),
             everyone: true,
             to: Vec::new(),
+            by_weight: true,
             date: today(),
             colour: String::new(),
             // The one the amounts are being read in, not the tour's own: if the screen is
@@ -89,6 +112,13 @@ impl SpendingDraft {
             Split::Everyone => (true, Vec::new()),
             Split::Equally(to) | Split::ByWeight(to) => (false, to.clone()),
         };
+        // For an expense for everyone, the choice it would go back to if "everyone" were
+        // switched off - which is what the stored format remembers.
+        let by_weight = match &spending.split {
+            Split::Everyone => !matches!(spending.remembered_split, Some(Split::Equally(_))),
+            Split::Equally(_) => false,
+            Split::ByWeight(_) => true,
+        };
         SpendingDraft {
             id: Some(spending.id.clone()),
             description: spending.description.clone(),
@@ -97,6 +127,7 @@ impl SpendingDraft {
             from: spending.from.clone(),
             everyone,
             to,
+            by_weight,
             date: spending.day().unwrap_or_default().to_owned(),
             colour: tc_core::extras::str_of(&spending.extras, COLOUR),
             currency_id: spending.currency.id.as_str().to_owned(),
@@ -176,7 +207,7 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
     let split = if draft.everyone {
         Split::Everyone
     } else {
-        Split::Equally(draft.to.clone())
+        split_for(draft.by_weight, draft.to.clone())
     };
 
     let id = draft
@@ -195,13 +226,12 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
             // What the form had before "everyone" was switched on is kept, as the stored
             // format does.
             if matches!(split, Split::Everyone) {
-                existing.remembered_split = Some(match &existing.split {
-                    Split::Everyone => existing
-                        .remembered_split
-                        .clone()
-                        .unwrap_or(Split::Equally(Vec::new())),
-                    other => other.clone(),
-                });
+                let chosen = match (&existing.split, &existing.remembered_split) {
+                    (Split::Equally(to) | Split::ByWeight(to), _) => to.clone(),
+                    (Split::Everyone, Some(Split::Equally(to) | Split::ByWeight(to))) => to.clone(),
+                    _ => Vec::new(),
+                };
+                existing.remembered_split = Some(split_for(draft.by_weight, chosen));
             }
             existing.split = split;
             set_currency(existing, tour, &draft.currency_id);
@@ -221,8 +251,9 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
                     .cloned()
                     .unwrap_or_else(|| tour.currency().clone()),
                 from: draft.from.clone(),
+                remembered_split: matches!(split, Split::Everyone)
+                    .then(|| split_for(draft.by_weight, Vec::new())),
                 split,
-                remembered_split: None,
                 kind: Kind::Real,
                 extras: Default::default(),
             };
@@ -251,7 +282,10 @@ fn set_date(spending: &mut Spending, day: &str) {
     if day.is_empty() {
         return;
     }
-    let existing = tc_core::extras::str_of(&spending.extras, SPENDING_DATE);
+    // The time from whatever the expense is dated by - `SpendingDate`, or for one entered
+    // before that existed, `DateCreated`. Reading only the first stamped every save of an
+    // old expense at midnight, and it sank below the ones entered later that same day.
+    let existing = spending.when().unwrap_or_default().to_owned();
     let rest = existing.get(10..).unwrap_or("");
     let stamp = if rest.is_empty() {
         format!("{day}T00:00:00")
@@ -621,4 +655,106 @@ pub fn record_payment(tour: &Tour, draft: &PaymentDraft) -> Tour {
 
     next.spendings.push(payment);
     next
+}
+
+#[cfg(test)]
+mod split_tests {
+    use super::*;
+
+    fn tour() -> Tour {
+        Tour::from_json(include_str!("../../../fixtures/zscph2y.tour.json")).expect("fixture")
+    }
+
+    /// Built by hand: `SpendingDraft::new` asks the browser for today's date.
+    fn partial(t: &Tour) -> SpendingDraft {
+        SpendingDraft {
+            id: Some(SpendingId::new("split-test")),
+            description: "for some".into(),
+            category: "Еда".into(),
+            amount: Cents(1000),
+            from: t.persons[0].id.clone(),
+            everyone: false,
+            to: t.persons.iter().take(3).map(|p| p.id.clone()).collect(),
+            by_weight: true,
+            date: "2021-08-14".into(),
+            colour: String::new(),
+            currency_id: t.currency().id.as_str().to_owned(),
+        }
+    }
+
+    fn written(t: &Tour) -> serde_json::Value {
+        let json: serde_json::Value = serde_json::from_str(&t.to_json().unwrap()).unwrap();
+        json["Spendings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["GUID"] == "split-test")
+            .unwrap()
+            .clone()
+    }
+
+    /// A new expense for some of the people is shared by weight, as in the app - and is
+    /// written with the flag the app reads that from.
+    #[test]
+    fn a_partial_split_is_by_weight_unless_asked() {
+        let t = tour();
+        let next = put_spending(&t, &partial(&t));
+        assert!(matches!(
+            next.spendings.iter().find(|s| s.id.as_str() == "split-test").unwrap().split,
+            Split::ByWeight(_)
+        ));
+        assert_eq!(written(&next)["IsPartialWeighted"], true);
+
+        let mut equal = partial(&t);
+        equal.by_weight = false;
+        let next = put_spending(&t, &equal);
+        assert_eq!(written(&next)["IsPartialWeighted"], false);
+    }
+
+    /// Opening an expense and saving it keeps how it was divided, both ways - and through
+    /// "everyone" and back.
+    #[test]
+    fn an_edit_keeps_the_way_it_was_divided() {
+        let t = tour();
+        for by_weight in [true, false] {
+            let mut d = partial(&t);
+            d.by_weight = by_weight;
+            let once = put_spending(&t, &d);
+            let s = once.spendings.iter().find(|s| s.id.as_str() == "split-test").unwrap();
+            let again = SpendingDraft::of(s);
+            assert_eq!(again.by_weight, by_weight);
+
+            let mut all = again.clone();
+            all.everyone = true;
+            let everyone = put_spending(&once, &all);
+            let s = everyone.spendings.iter().find(|s| s.id.as_str() == "split-test").unwrap();
+            let back = SpendingDraft::of(s);
+            assert!(back.everyone);
+            assert_eq!(back.by_weight, by_weight, "remembered through everyone");
+            assert_eq!(written(&everyone)["IsPartialWeighted"], by_weight);
+        }
+    }
+
+    /// Saving an old expense - dated only by when it was created - keeps its time of day.
+    #[test]
+    fn a_saved_expense_keeps_its_time_of_day() {
+        let t = tour();
+        let mut s = t.spendings.iter().find(|s| s.kind == Kind::Real).unwrap().clone();
+        tc_core::extras::remove(&mut s.extras, SPENDING_DATE);
+        tc_core::extras::set(&mut s.extras, "DateCreated", "2021-08-17T11:39:04Z".into());
+        set_date(&mut s, "2021-08-17");
+        assert_eq!(s.when(), Some("2021-08-17T11:39:04Z"));
+        set_date(&mut s, "2021-08-18");
+        assert_eq!(s.when(), Some("2021-08-18T11:39:04Z"));
+    }
+
+    /// An edit queued before the choice existed reads as by weight.
+    #[test]
+    fn an_old_queued_draft_is_by_weight() {
+        let t = tour();
+        let mut value = serde_json::to_value(partial(&t)).unwrap();
+        value.as_object_mut().unwrap().remove("by_weight");
+        let d: SpendingDraft = serde_json::from_value(value).unwrap();
+        assert!(d.by_weight);
+    }
 }
