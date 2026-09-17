@@ -127,6 +127,60 @@
             display: none;
         }
 
+        /* Somebody else changed the open tour. Over everything, a form included - that is
+           where "what you save goes on top of it" matters - and clear of the + Spend button. */
+        .tcw-others {
+            position: fixed;
+            left: 50%;
+            bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+            transform: translateX(-50%);
+            z-index: 1100;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            width: max-content;
+            max-width: min(560px, calc(100vw - 32px));
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: #1e1b4b;
+            color: #fff;
+            font-size: 14px;
+            line-height: 1.35;
+            box-shadow: 0 8px 28px rgba(15, 23, 42, .28);
+        }
+        .tcw-others-waiting {
+            margin: 10px 16px 0;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: #fef3c7;
+            color: #78350f;
+            border: 1px solid #fcd34d;
+            font-size: 13px;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+        .tcw-others-text { overflow-wrap: anywhere; }
+        .tcw-others-close {
+            flex: none;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            opacity: .75;
+        }
+        .tcw-others-close:hover { opacity: 1; }
+        /* The expenses it touched, lit for a moment. */
+        .tcw-lit { animation: tcw-lit 4s ease-out; }
+        @keyframes tcw-lit {
+            0%, 35% { background-color: #fde68a; box-shadow: 0 0 0 2px #f59e0b; }
+            100% { background-color: transparent; box-shadow: 0 0 0 0 transparent; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .tcw-lit { animation: none; outline: 2px solid #f59e0b; }
+        }
+
         /* The bell on a tour in the list: whether this device is notified about it. After the
            name, not a chip of its own - it is about the reader's device, not the tour.
            Ringing in colour; known not to, crossed out and grey; not found out yet, a faint

@@ -67,6 +67,16 @@ pub trait TourStore: Send + Sync {
         }
         found
     }
+    /// A tour's access code and its `StateGUID`, as `(code, state)` - which changes on every
+    /// save, so it is how an open page finds out somebody else saved, without fetching the
+    /// tour to compare. The default reads the tour whole; a database should read the two.
+    async fn state_of(&self, id: &TourId) -> Option<(String, String)> {
+        let tour = self.get(id).await?;
+        Some((
+            crate::fields::access_code(&tour),
+            crate::fields::str_of(&tour, crate::fields::STATE),
+        ))
+    }
     /// Writes a tour, adding it if its id is new.
     async fn store(&self, tour: Tour);
     /// Removes a tour; `false` if there was none.

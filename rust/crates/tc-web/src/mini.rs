@@ -833,9 +833,13 @@ fn MiniSpending(
     let for_edit = spending.clone();
     let for_delete = spending.clone();
     let _ = unit;
+    let others = use_context::<crate::others::Others>();
+    let lit_id = id.clone();
+    let lit = move || others.is_some_and(|o| o.lit(&lit_id));
 
     view! {
         <div class="tcm-item" class:is-daystart=move || starts_day
+             class:tcw-lit=lit
              class:tcw-kind=move || service.is_some()
              class:tcw-payback=move || service.is_some() && !family
              class:tcw-family=move || family

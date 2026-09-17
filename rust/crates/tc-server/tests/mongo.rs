@@ -383,6 +383,23 @@ async fn a_browser_finds_its_subscribed_tours() {
     assert!(!fields::access_code(&tour).is_empty());
 }
 
+/// The state alone, read without the tour - and it is the tour's own.
+#[tokio::test]
+async fn the_state_is_read_without_the_tour() {
+    let store = store_or_skip!("state_of");
+    let tour = fixture();
+    store.store(tour.clone()).await;
+
+    let (code, state) = store.state_of(&tour.id).await.expect("it is there");
+    assert_eq!(code, fields::access_code(&tour));
+    assert_eq!(state, fields::str_of(&tour, fields::STATE));
+    assert!(!state.is_empty());
+    assert!(store
+        .state_of(&TourId::new("nosuchtour".to_owned()))
+        .await
+        .is_none());
+}
+
 /// And the C#'s own documents are read, because it is the same collection.
 #[tokio::test]
 async fn a_subscription_the_app_stored_is_read_here() {

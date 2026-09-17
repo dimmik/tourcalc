@@ -12,6 +12,7 @@ pub mod calc;
 pub mod domain;
 pub mod ids;
 pub mod money;
+pub mod news;
 
 pub use calc::{
     balances_after, breakdown, calculate, settlement_for, settlement_summary, split_family,

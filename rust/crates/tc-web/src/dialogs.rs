@@ -27,6 +27,9 @@ fn Modal(
     children: Children,
     #[prop(optional)] footer: Option<ViewFn>,
 ) -> impl IntoView {
+    // Somebody else's change, said inside the form it is waiting for: a line over the
+    // screen would sit on top of this form's own buttons.
+    let others = use_context::<crate::others::Others>();
     view! {
         <div class="tcn-modal"
              // Closing on *click* and not on mousedown: releasing the button over the mask
@@ -39,6 +42,7 @@ fn Modal(
                         <Icon name="close" />
                     </button>
                 </div>
+                {others.map(|o| view! { <crate::others::WaitingLine others=o /> })}
                 <div class="tcn-modal-body">{children()}</div>
                 {footer.map(|f| view! { <div class="tcn-modal-foot">{f.run()}</div> })}
             </div>

@@ -16,6 +16,7 @@ mod list;
 mod login;
 mod mini;
 mod mode;
+mod others;
 mod people;
 mod place;
 mod chart;

@@ -392,7 +392,13 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         }
     };
 
+    // Who else is changing this tour: asked while the page is open, see `others`. Owned
+    // here, above the view that every load rebuilds, and handed down as context.
+    let others = crate::others::Others::new();
+    provide_context(others);
+
     if let Some(known) = queue::cached(&id) {
+        others.showing(&known);
         show_name(&known);
         settle_tab(&known);
         set_state.set(Load::Ready(queue::with_pending(&known)));
@@ -410,8 +416,13 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         let id = id.clone();
         move |asked: bool| {
             if refresh.busy.get_untracked() {
+                others.missed();
                 return;
             }
+            // A fetch `others` asked for only fetches: it must never become a second send of
+            // a queue that a save is already sending.
+            let quiet = others.fetch_only();
+            others.loading.set(true);
             let id = id.clone();
             if asked {
                 refresh.busy.set(true);
@@ -427,7 +438,11 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                 status.set(Status::Checking);
             }
             spawn_local(async move {
-                let (tour, st) = sync::push(&id).await;
+                let (tour, st) = if quiet {
+                    sync::fetch(&id).await
+                } else {
+                    sync::push(&id).await
+                };
                 let answered = matches!(st, Status::Idle | Status::Synced);
                 status.set(st);
 
@@ -460,6 +475,14 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                     show_name(t);
                     settle_tab(t);
                 }
+                if let Some(t) = &tour {
+                    others.showing(t);
+                }
+                match &tour {
+                    Some(t) if answered => others.landed(t),
+                    _ => others.missed(),
+                }
+                others.loading.try_set(false);
                 set_state.set(match tour {
                     Some(t) => Load::Ready(queue::with_pending(&t)),
                     None => Load::Failed(
@@ -498,8 +521,10 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         }
     });
     load.run(false);
+    others.watch(id.clone(), load, status);
 
     view! {
+        <crate::others::OthersLine others=others />
         {move || match state.get() {
             Load::Loading => view! { <div class="tcn-loading">"Loading the tour…"</div> }.into_any(),
             Load::Failed(why) => view! {
@@ -538,6 +563,13 @@ fn TourView(
     let dialog: RwSignal<Option<Dialog>> = RwSignal::new(None);
     let tour_id = tour.id.as_str().to_owned();
 
+    // The page above has to know when a form is open, to keep somebody else's change from
+    // replacing the tour under it.
+    let others = use_context::<crate::others::Others>();
+    if let Some(o) = others {
+        Effect::new(move |_| o.editing.set(dialog.with(|d| d.is_some())));
+    }
+
     // A link straight to "record an expense" opens with the dialog already up: that is what
     // the app's own /tour/x/spending/add does, and it is how the button on a phone's home
     // screen gets somebody to a keypad in one tap.
@@ -551,9 +583,17 @@ fn TourView(
         let tour_id = tour_id.clone();
         Callback::new(move |op: Operation| {
             let tour_id = tour_id.clone();
+            // Counted before the form closes: closing it is what makes `others` look again,
+            // and this save moves the state as surely as anybody else's would.
+            if let Some(o) = others {
+                o.saving.update(|n| *n += 1);
+            }
             dialog.set(None);
             spawn_local(async move {
                 let (_, st) = sync::record(&tour_id, op).await;
+                if let Some(o) = others {
+                    o.saving.try_update(|n| *n = n.saturating_sub(1));
+                }
                 status.set(st);
                 reload.run(false);
             });
@@ -1225,6 +1265,9 @@ fn ExpenseRow(
     let for_delete = spending.clone();
     let for_why = spending.clone();
     let tour_for_why = tour.clone();
+    let others = use_context::<crate::others::Others>();
+    let lit_id = spending.id.as_str().to_owned();
+    let lit = move || others.is_some_and(|o| o.lit(&lit_id));
     // A payment the app recorded reads as a payment; anything a person typed is theirs.
     let description = match crate::ui::as_service_transfer(&spending.description) {
         Some((from, to)) => format!("{from} → {to}"),
@@ -1294,6 +1337,7 @@ fn ExpenseRow(
              class:tcw-kind=move || service.is_some()
              class:tcw-payback=move || service.is_some() && !family
              class:tcw-family=move || family
+             class:tcw-lit=lit
              class:tcn-sp-marked=move || marked style=mark_style>
             <div class="tcn-settle-flow">
                 <Avatar name=who.clone() />
