@@ -1,23 +1,19 @@
-name: Rust -- Create and publish a Docker image
-concurrency:
-# Per branch: a push to a beta branch must not cancel the build of prod.
-  group: tourcalc-rust-${{ github.ref }}
-  cancel-in-progress: true
+name: Rust image (shared steps)
+# Not run by itself: `rust-prod.yml` and `rust-beta.yml` call it, one per kind of build.
+#
+# Two callers rather than one workflow with a branch check, for the sake of whoever reads
+# the notifications. GitHub names a run after the workflow, and the branch comes last in the
+# subject of its e-mail - "Run failed: Rust -- Create and publish a Docker image -
+# beta/workflows (1c55d08)" - where a mail client's preview has already cut it off. With a
+# caller per kind the subject starts "PROD" or "BETA". The steps stay here, in one place.
 
 on:
-  push:
-# prod is the release; beta/** is where the temporary things live. Both are this build now.
-    branches: ['prod', 'beta/**']
-# A commit that cannot change the image does not need eight minutes of one. Prose and editor
-# settings are not in the image - the .dockerignore keeps them out of the build context too,
-# so a build from them would be the same image under a new tag.
-    paths-ignore:
-      - '**.md'
-      - '.vscode/**'
-      - '.gitignore'
-      - '.gitattributes'
-# and by hand, from any branch - which publishes the beta tags, never prod's.
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      kind:
+        description: "prod or beta: which tags to publish, and what the build calls itself"
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -25,7 +21,9 @@ env:
 
 jobs:
   build-and-push-image:
+    name: ${{ inputs.kind }} image
     runs-on: ubuntu-latest
+    # No more than the caller grants; both callers grant exactly this.
     permissions:
       contents: read
       packages: write
@@ -50,29 +48,31 @@ jobs:
           format: YYYYMMDD-HHmmss
           utcOffset: "+03:00"
 
-      # Which image this run is publishing.
+      # Which image this run is publishing, as the caller said.
       #
-      # The names say *which* image and never what it is made of: `prod` publishes plain
+      # The names say *which* image and never what it is made of: prod publishes plain
       # `latest`, beta publishes `beta-latest`. A deployment follows one of those two names
       # for good - the day the thing behind it is rewritten in something else again, nothing
       # on any server has to be edited. Which implementation it actually is stays visible
       # where it belongs: `BUILD_TYPE`, which the build page and the version header print.
-      #
-      # A run started by hand counts as a beta whatever branch it is on: nobody means to
-      # publish the release by pressing a button on a working branch.
       - name: Work out which image this is
         id: kind
         shell: bash
+        env:
+          KIND: ${{ inputs.kind }}
         run: |
-          if [ "$GITHUB_REF" = "refs/heads/prod" ]; then
-            echo "moving=latest"     >> $GITHUB_OUTPUT
-            echo "dated=prod"        >> $GITHUB_OUTPUT
-            echo "type=prodR"        >> $GITHUB_OUTPUT
-          else
-            echo "moving=beta-latest" >> $GITHUB_OUTPUT
-            echo "dated=beta"         >> $GITHUB_OUTPUT
-            echo "type=betaR"         >> $GITHUB_OUTPUT
-          fi
+          case "$KIND" in
+            prod)
+              echo "moving=latest"      >> $GITHUB_OUTPUT
+              echo "dated=prod"         >> $GITHUB_OUTPUT
+              echo "type=prodR"         >> $GITHUB_OUTPUT ;;
+            beta)
+              echo "moving=beta-latest" >> $GITHUB_OUTPUT
+              echo "dated=beta"         >> $GITHUB_OUTPUT
+              echo "type=betaR"         >> $GITHUB_OUTPUT ;;
+            *)
+              echo "kind must be prod or beta, not '$KIND'" >&2; exit 1 ;;
+          esac
 
       # No QEMU: the server is cross-compiled and the wasm is architecture-independent, so
       # nothing in this build ever runs emulated. See the comments in tourcalc.rust.docker.

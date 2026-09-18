@@ -5,7 +5,7 @@ concurrency:
 
 on:
 # Not run on a push any more: `prod` builds the Rust image now
-# (docker-publish-rust.yml), and building both from one branch would publish two
+# (rust-prod.yml), and building both from one branch would publish two
 # different servers from the same commit. The C# is still here and still builds -
 # by hand, from the Actions tab, on whatever branch is picked.
   workflow_dispatch:
