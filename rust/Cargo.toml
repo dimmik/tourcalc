@@ -10,3 +10,12 @@ lto = true           # let the linker throw away across crate boundaries
 codegen-units = 1    # one unit optimises better than sixteen parallel ones
 panic = "abort"      # no unwinding tables; a panic in a browser is fatal anyway
 strip = true
+
+# The server, built from the same settings but unwinding on a panic. With `abort` a panic in
+# one handler ends the process and every request in flight; with `unwind` the server's
+# CatchPanicLayer turns it into a 500 for that one request. `panic` cannot be set per
+# package, hence a profile of its own: `cargo build --profile server -p tc-server`, which
+# puts the binary in target/<triple>/server/.
+[profile.server]
+inherits = "release"
+panic = "unwind"

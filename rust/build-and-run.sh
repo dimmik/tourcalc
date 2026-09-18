@@ -107,9 +107,9 @@ fi
 
 # --- the server --------------------------------------------------------------------------
 say "building the server…"
-"$CARGO" build --release --manifest-path "$ROOT/rust/Cargo.toml" -p tc-server --quiet
+"$CARGO" build --profile server --manifest-path "$ROOT/rust/Cargo.toml" -p tc-server --quiet
 
-BIN="$ROOT/rust/target/release/tc-server"
+BIN="$ROOT/rust/target/server/tc-server"
 [ -x "$BIN" ] || die "the server did not build"
 
 if command -v ss >/dev/null && ss -ltn 2>/dev/null | grep -q ":$PORT "; then

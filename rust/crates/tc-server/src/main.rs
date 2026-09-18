@@ -1,8 +1,8 @@
 //! Tourcalc's server, in Rust.
 //!
-//! Phase 2 of the port: read-only, so that it can be run beside the C# one and checked by
-//! pointing the existing Blazor client at it. If that client cannot tell the difference,
-//! the contract is right.
+//! The same API the C# server answers - the Blazor client can be pointed at it and cannot
+//! tell the difference - plus the Rust client's files, the text pages and push
+//! notifications, over MongoDB or an in-memory store.
 
 use axum::response::IntoResponse;
 use axum::Router;
@@ -27,6 +27,13 @@ async fn main() {
         .init();
 
     let cfg = config::Config::from_env();
+    if let Err(why) = cfg.signing_key_is_acceptable() {
+        tracing::error!("{why}");
+        std::process::exit(1);
+    }
+    if cfg.private_key_b64 == config::DEVELOPMENT_KEY {
+        tracing::warn!("signing tokens with the development key: fine on a desk, nowhere else");
+    }
 
     let signer = match auth::Signer_::from_base64(&cfg.private_key_b64) {
         Ok(s) => s,
@@ -252,6 +259,11 @@ async fn main() {
                 .allow_credentials(true),
         )
         .layer(tower_http::compression::CompressionLayer::new())
+        // A panic in a handler is a 500 for that request and a line in the log, not the end
+        // of the process and of every other request in flight. That needs the server built
+        // with unwinding - the workspace's release profile aborts, for the browser's sake -
+        // which is what the `server` profile in Cargo.toml is for.
+        .layer(tower_http::catch_panic::CatchPanicLayer::new())
         .layer(tower_http::trace::TraceLayer::new_for_http());
 
     let listener = match tokio::net::TcpListener::bind(&cfg.listen).await {

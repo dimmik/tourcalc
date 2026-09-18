@@ -151,7 +151,7 @@ RUN set -eux; \
     for c in tc-server tc-web spike-bare spike-dioxus spike-leptos; do \
         echo 'fn main() {}' > "rust/crates/$c/src/main.rs"; \
     done; \
-    cd rust && cargo build --release --locked -p tc-server --target "$(cat /triple)"
+    cd rust && cargo build --profile server --locked -p tc-server --target "$(cat /triple)"
 
 # `--locked` so the image is built from the versions in Cargo.lock and not from whatever has
 # been published since. The default features are on - MongoDB and push notifications - which
@@ -162,8 +162,8 @@ COPY rust/crates/tc-server/src ./rust/crates/tc-server/src
 RUN set -eux; \
     find rust/crates -name '*.rs' -exec touch {} +; \
     cd rust; \
-    cargo build --release --locked -p tc-server --target "$(cat /triple)"; \
-    cp "target/$(cat /triple)/release/tc-server" /tc-server; \
+    cargo build --profile server --locked -p tc-server --target "$(cat /triple)"; \
+    cp "target/$(cat /triple)/server/tc-server" /tc-server; \
     ls -la /tc-server
 
 # ---------------------------------------------------------------------------------------

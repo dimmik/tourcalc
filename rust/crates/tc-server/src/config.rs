@@ -7,6 +7,9 @@
 pub struct Config {
     pub master_key: String,
     pub private_key_b64: String,
+    /// Whether a deployed build may sign tokens with [`DEVELOPMENT_KEY`] after all. Off:
+    /// see [`Config::signing_key_is_acceptable`].
+    pub allow_development_key: bool,
     pub token_valid_minutes: i64,
     pub seed_file: String,
     /// Where the built Blazor client lives, if it is to be served from here as well.
@@ -56,10 +59,12 @@ impl Config {
         Config {
             master_key: var("MasterKey").unwrap_or_default(),
             // The development key from appsettings.json, so `cargo run` works with the
-            // tokens the development server already handed out. A deployment sets its own,
-            // and the app refuses to start without one if this default is removed.
+            // tokens the development server already handed out. A deployment sets its own:
+            // see `signing_key_is_acceptable`, which keeps a real build from starting on
+            // this one.
             private_key_b64: var("AuthPrivateECDSAKey")
-                .unwrap_or_else(|| "aSXx0m1XH4K1GfIYR8mi7/XrSWGCH30Eqn074DhewZo=".to_owned()),
+                .unwrap_or_else(|| DEVELOPMENT_KEY.to_owned()),
+            allow_development_key: flag("AllowDevelopmentKey", false),
             token_valid_minutes: var("TokenValidTimeInMinutes")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(180 * 60 * 24),
@@ -87,6 +92,33 @@ impl Config {
             push_private_key: var("PushNotificationPrivateKey").unwrap_or_default(),
             push_contact: var("PushNotificationMailto").unwrap_or_default(),
         }
+    }
+}
+
+/// The signing key from the repository's appsettings.json - known, therefore, to anybody who
+/// has read the repository.
+pub const DEVELOPMENT_KEY: &str = "aSXx0m1XH4K1GfIYR8mi7/XrSWGCH30Eqn074DhewZo=";
+
+impl Config {
+    /// Whether this server may start with the key it has.
+    ///
+    /// A token signed with the development key is a token anybody can make, master ones
+    /// included. On a desk that is the point - `cargo run` accepts the tokens the development
+    /// server handed out. On a deployment it is every tour, open to whoever looks, and the
+    /// only symptom is that everything works. So a build stamped as anything but a local
+    /// one (`BUILD_TYPE=na`) refuses it, whether it came as the default or was set to the
+    /// same value, unless `AllowDevelopmentKey=true` says that is really meant.
+    pub fn signing_key_is_acceptable(&self) -> Result<(), String> {
+        let local = self.build_type == "na";
+        if self.private_key_b64 != DEVELOPMENT_KEY || local || self.allow_development_key {
+            return Ok(());
+        }
+        Err(format!(
+            "this build ({}) would sign tokens with the development key from the repository, \
+             which anybody can use to sign in as administrator. Set AuthPrivateECDSAKey to a \
+             key of its own, or AllowDevelopmentKey=true if that is really intended",
+            self.build_type
+        ))
     }
 }
 
