@@ -194,6 +194,30 @@
             line-height: 1.45;
         }
 
+        /* A person somebody else pays for, among the chips of a form: dashed and quieter,
+           so the people who usually pay stand out - and still a chip you can press. */
+        .tcn-pchip.is-child {
+            border-style: dashed;
+            border-color: var(--tcn-border, #e2e8f0);
+            background: transparent;
+            color: var(--tcn-muted, #5b6472);
+            font-size: 12.5px;
+            padding: 3px 10px 3px 4px;
+        }
+        .tcn-pchip.is-child > .tcn-avatar { transform: scale(.86); opacity: .8; }
+        .tcn-pchip.is-child:hover {
+            border-color: var(--tcn-primary, #4f46e5);
+            background: var(--tcn-primary-soft, #eef2ff);
+            color: var(--tcn-text, #111827);
+        }
+        /* Chosen is chosen, whoever it is. */
+        .tcn-pchip.is-child.is-on {
+            background: var(--tcn-primary, #4f46e5);
+            border-color: var(--tcn-primary, #4f46e5);
+            color: #fff;
+        }
+        .tcn-pchip.is-child.is-on > .tcn-avatar { opacity: 1; }
+
         /* How the chosen people share an expense, in the form's More options. */
         .tcw-splitway { display: inline-flex; gap: 6px; }
         .tcw-splitway-opt {

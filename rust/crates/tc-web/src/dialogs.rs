@@ -238,7 +238,14 @@ pub fn SpendingDialog(
                             let mine = id.clone();
                             let child = p.parent.is_some();
                             view! {
+                                // Somebody paid for by another - a child, usually - is the
+                                // quiet one on both rows: it is rare for them to be the
+                                // payer, and on a tour of ten with four of them, all
+                                // fourteen looking alike is what makes the row hard to read.
+                                // Quiet, not out of reach: it does happen, and the chip
+                                // works like any other.
                                 <button type="button" class="tcn-pchip"
+                                        class:is-child=child
                                         class:is-on=move || from.get() == mine
                                         on:click=move |_| from.set(id.clone())>
                                     <crate::tour::Avatar name=p.name.clone() />
@@ -277,6 +284,7 @@ pub fn SpendingDialog(
                                 let child = p.parent.is_some();
                                 view! {
                                     <button type="button" class="tcn-pchip"
+                                            class:is-child=child
                                             class:is-on=move || to.get().contains(&mine)
                                             on:click={
                                                 let id = id.clone();
