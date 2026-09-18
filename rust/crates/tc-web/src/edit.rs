@@ -409,32 +409,13 @@ pub fn put_person(tour: &Tour, draft: &PersonDraft) -> Tour {
     next
 }
 
-/// Removes a person, and everything that would now point at nobody.
+/// Removes a person - unless an expense still holds them, and then nothing changes.
 ///
-/// A spending they paid for cannot stay - it would be money from nowhere - and neither can
-/// they remain on the receiving end of one, or in somebody's "paid for by".
+/// The screen asks before recording this (see `tc_core::removal`), so a refusal here is
+/// the rare case of a queued removal replayed onto a tour where somebody has since recorded
+/// an expense paid by them: that expense is kept, and so are they.
 pub fn remove_person(tour: &Tour, id: &PersonId) -> Tour {
-    let mut next = tour.clone();
-    next.persons.retain(|p| &p.id != id);
-    for p in next.persons.iter_mut() {
-        if p.parent.as_ref() == Some(id) {
-            p.parent = None;
-        }
-    }
-    next.spendings
-        .retain(|s| &s.from != id && s.kind != Kind::Planned);
-    for s in next.spendings.iter_mut() {
-        if let Split::Equally(to) | Split::ByWeight(to) = &mut s.split {
-            to.retain(|p| p != id);
-        }
-    }
-    // A spending for nobody in particular is a spending for everybody.
-    for s in next.spendings.iter_mut() {
-        if matches!(&s.split, Split::Equally(to) | Split::ByWeight(to) if to.is_empty()) {
-            s.split = Split::Everyone;
-        }
-    }
-    next
+    tc_core::removal::without_person(tour, id).unwrap_or_else(|| tour.clone())
 }
 
 // --- the tour itself ----------------------------------------------------------------------

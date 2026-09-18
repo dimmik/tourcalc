@@ -559,7 +559,16 @@ async fn save(state: &Shared, previous: &Tour, mut next: Tour) -> Result<(), Box
                 )
                     .into_response(),
             )
-        })
+        })?;
+
+    // Told to whoever is subscribed, as a save from the app is: an expense typed on a text
+    // page is no less news to the people waiting for it.
+    if let Some(what) = change {
+        let told = crate::news::describe(previous, &next)
+            .unwrap_or_else(|| format!("{} : {what}", next.name));
+        state.announce(previous.id.as_str(), told);
+    }
+    Ok(())
 }
 
 // --- people -------------------------------------------------------------------------------
@@ -831,36 +840,33 @@ pub async fn person_delete(
         Err(response) => return *response,
     };
 
-    // The same rules the app applies: what they paid for goes, and nobody is left pointing
-    // at somebody who is no longer there.
-    let next = crate::text::pages::without_person(&loaded.tour, &PersonId::new(person));
+    // The same rule the app applies: somebody an expense still holds stays, and the reader
+    // is told which expenses and what to do about them.
+    let person = PersonId::new(person);
+    let Some(next) = tc_core::removal::without_person(&loaded.tour, &person) else {
+        let name = loaded
+            .tour
+            .person(&person)
+            .map(|p| p.name.clone())
+            .unwrap_or_default();
+        let why = tc_core::removal::what_holds(&loaded.tour, &person).explain(&name);
+        return (
+            axum::http::StatusCode::CONFLICT,
+            page(
+                "Not removed",
+                &format!(
+                    "<h1>Not removed</h1><p>{}</p><p><a href=\"/t/{id}/people\">Back to the \
+                     people</a> · <a href=\"/t/{id}/spend\">Expenses</a></p>",
+                    esc(&why)
+                ),
+            ),
+        )
+            .into_response();
+    };
     match save(&state, &loaded.tour, next).await {
         Ok(()) => Redirect::to(&format!("/t/{id}/people")).into_response(),
         Err(response) => *response,
     }
-}
-
-/// A tour with one person, and everything that would now point at nobody, removed.
-pub fn without_person(tour: &Tour, id: &PersonId) -> Tour {
-    let mut next = tour.clone();
-    next.persons.retain(|p| &p.id != id);
-    for p in next.persons.iter_mut() {
-        if p.parent.as_ref() == Some(id) {
-            p.parent = None;
-        }
-    }
-    next.spendings
-        .retain(|s| &s.from != id && s.kind != Kind::Planned);
-    for s in next.spendings.iter_mut() {
-        if let Split::Equally(to) | Split::ByWeight(to) = &mut s.split {
-            to.retain(|p| p != id);
-        }
-        // A spending for nobody in particular is a spending for everybody.
-        if matches!(&s.split, Split::Equally(to) | Split::ByWeight(to) if to.is_empty()) {
-            s.split = Split::Everyone;
-        }
-    }
-    next
 }
 
 // --- expenses -----------------------------------------------------------------------------
