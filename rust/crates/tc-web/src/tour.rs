@@ -370,10 +370,18 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     // Which tab is open lives here, above the screen that is rebuilt whenever the tour is
     // reloaded - which happens after every edit. Kept inside, it meant that saving an
     // expense answered by throwing the reader back to Balance.
-    let tab = RwSignal::new(tab_of(landing));
+    // An address that names a tab wins; otherwise the tab this tour was last on, and only
+    // then the one it opens on.
+    let asked_for = !matches!(landing, crate::Landing::Unsaid);
+    let left_on = (!asked_for).then(|| tab_left_on(&id)).flatten();
+    let tab = RwSignal::new(left_on.unwrap_or_else(|| tab_of(landing)));
     // Whether that was an answer or a placeholder. The app settles this once and leaves it:
     // a reader who has moved to another tab does not want the next refresh moving them back.
-    let tab_settled = RwSignal::new(!matches!(landing, crate::Landing::Unsaid));
+    let tab_settled = RwSignal::new(asked_for || left_on.is_some());
+    {
+        let id = id.clone();
+        Effect::new(move |_| leaving_tab(&id, tab.get()));
+    }
     let settle_tab = move |tour: &Tour| {
         if !tab_settled.get_untracked() {
             tab.set(opens_on(tour));
@@ -1886,6 +1894,33 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
             }}
         </div>
     }
+}
+
+thread_local! {
+    /// Which tab the reader was on, and which tour it was.
+    ///
+    /// Above the page rather than in it, because switching between the roomy and the small
+    /// interface builds the page again from nothing - and did it by putting the reader back
+    /// on Expenses. Somebody who opens Balance and switches interface to read it wants
+    /// Balance in the other one, not the expense list.
+    ///
+    /// Only for as long as the app is open: a reload starts the tour where it opens.
+    static LAST_TAB: std::cell::RefCell<Option<(String, Tab)>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// The tab this tour was left on, if it is still the tour that was left.
+fn tab_left_on(tour: &str) -> Option<Tab> {
+    LAST_TAB.with(|last| {
+        last.borrow()
+            .as_ref()
+            .filter(|(was, _)| was == tour)
+            .map(|(_, tab)| *tab)
+    })
+}
+
+fn leaving_tab(tour: &str, tab: Tab) {
+    LAST_TAB.with(|last| *last.borrow_mut() = Some((tour.to_owned(), tab)));
 }
 
 /// Which tab an address asks for.
