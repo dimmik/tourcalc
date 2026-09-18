@@ -124,9 +124,23 @@ impl Sifting {
     }
 }
 
-/// A cheap "did anything actually change" stamp. The app's fingerprint, field for field:
-/// counts and totals catch any real edit, and nothing here needs to catch more than that.
+/// What says whether the server's tour has changed: its `StateGUID`, which every save moves.
+///
+/// The fingerprint below is the app's, and it misses any edit that keeps the counts and the
+/// total - a new description, another payer, a date - so a refresh that had just brought
+/// one in answered "nothing newer". It stays for a tour with no state, which only a tour
+/// never saved by a server can be.
 fn fingerprint(tour: &Tour) -> String {
+    let state = tc_core::extras::str_of(&tour.extras, tc_core::extras::STATE);
+    if state.is_empty() {
+        counts_and_totals(tour)
+    } else {
+        state
+    }
+}
+
+/// The app's own "did anything actually change" stamp, field for field.
+fn counts_and_totals(tour: &Tour) -> String {
     let total: i64 = tour.spendings.iter().map(|s| s.amount.0).sum();
     format!(
         "{}|{}|{}|{}|{}|{}|{}|{}",
@@ -301,6 +315,8 @@ fn CurrencyPicker(tour: Tour, apply: Callback<Operation>) -> impl IntoView {
 /// teaches people to ignore it, and then it cannot tell them the one thing that matters.
 #[component]
 fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -> impl IntoView {
+    let tour_for_status = tour_id.clone();
+    let tour_for_buttons = StoredValue::new(tour_id.clone());
     view! {
         // What is waiting is a fact about this device, not about the last request: it is
         // read from the queue, and the queue says when it changes. Tied to the request, the
@@ -321,10 +337,77 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                 0..=3 => waiting.join(", "),
                 n => format!("{}, and {} more", waiting[..3].join(", "), n - 3),
             };
+            // The server has said no often enough that nothing sends these by itself any
+            // more: the reader decides whether to try again or let them go.
+            if let Some(refused) = queue::refused(&tour_id).filter(|r| r.given_up()) {
+                let count = waiting.len();
+                return view! {
+                    <div class="tcn-section" style="padding-bottom:0">
+                        <div class="tcn-errors tcw-wraps">
+                            {format!(
+                                "The server did not take {}: {what}. It said: {}",
+                                if count == 1 { "this edit".to_owned() } else { format!("these {count} edits") },
+                                refused.why
+                            )}
+                            <div class="tcw-refused-actions">
+                                <button type="button" class="tcn-btn tcn-btn-sm"
+                                        on:click=move |_| {
+                                            queue::not_refused(&tour_for_buttons.get_value());
+                                            reload.run(true);
+                                        }>
+                                    "Try again"
+                                </button>
+                                <button type="button" class="tcn-btn tcn-btn-sm"
+                                        on:click=move |_| {
+                                            let sure = web_sys::window()
+                                                .and_then(|w| w.confirm_with_message(
+                                                    "Throw away the edits that were not sent? \
+                                                     They exist only on this device."
+                                                ).ok())
+                                                .unwrap_or(false);
+                                            if sure {
+                                                queue::discard(&tour_for_buttons.get_value());
+                                                reload.run(true);
+                                            }
+                                        }>
+                                    "Discard them"
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }.into_any();
+            }
             view! {
                 <div class="tcn-section" style="padding-bottom:0">
                     <div class="tcn-chip tcn-chip-amber tcw-wraps">
                         {format!("Saved here, waiting to be sent: {what}")}
+                    </div>
+                </div>
+            }.into_any()
+        }}
+        // Edits that reached the server after what they edited had been deleted there.
+        // The delete stood; this says so once, until dismissed.
+        {move || {
+            queue::changes();
+            let lost = queue::lost(&tour_for_buttons.get_value());
+            if lost.is_empty() {
+                return ().into_any();
+            }
+            let what = match lost.len() {
+                1 => format!("{} was deleted by somebody else, so your edit to it was dropped.", lost[0]),
+                _ => format!(
+                    "{} were deleted by somebody else, so your edits to them were dropped.",
+                    lost.join(", ")
+                ),
+            };
+            view! {
+                <div class="tcn-section" style="padding-bottom:0">
+                    <div class="tcn-chip tcn-chip-amber tcw-wraps">
+                        {what}
+                        <button type="button" class="tcw-others-close" aria-label="Dismiss"
+                                on:click=move |_| queue::set_lost(&tour_for_buttons.get_value(), None)>
+                            "×"
+                        </button>
                     </div>
                 </div>
             }.into_any()
@@ -342,6 +425,8 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
             Status::Idle | Status::Synced | Status::Checking | Status::Waiting(_) => {
                 ().into_any()
             }
+            // Said above, with what to do about it.
+            Status::Failed(_) if queue::given_up(&tour_for_status) => ().into_any(),
             Status::Failed(why) => view! {
                 <div class="tcn-section" style="padding-bottom:0">
                     <div class="tcn-errors">
@@ -697,10 +782,34 @@ fn TourView(
     let title = tour.name.clone();
 
     // Deleting is the one edit with no dialog, so it does its own asking.
+    let tour_for_delete = StoredValue::new(tour.clone());
     let delete = Callback::new(move |what: Removal| {
         let question = match &what {
             Removal::Spending(s) => format!("Delete '{}'?", s.description),
-            Removal::Person(p) => format!("Delete '{}'?", p.name),
+            Removal::Person(p) => {
+                // Somebody an expense still holds is not removed - see tc_core::removal -
+                // and the reader is told which expenses, rather than asked a question whose
+                // answer would be refused.
+                let tour = tour_for_delete.get_value();
+                let holds = tc_core::removal::what_holds(&tour, &p.id);
+                if !holds.is_empty() {
+                    if let Some(w) = web_sys::window() {
+                        let _ = w.alert_with_message(&holds.explain(&p.name));
+                    }
+                    return;
+                }
+                match tc_core::removal::shared_in(&tour, &p.id) {
+                    0 => format!("Delete '{}'?", p.name),
+                    1 => format!(
+                        "Delete '{}'? Their part of 1 shared expense goes to the others on it.",
+                        p.name
+                    ),
+                    n => format!(
+                        "Delete '{}'? Their part of {n} shared expenses goes to the others on them.",
+                        p.name
+                    ),
+                }
+            }
         };
         let confirmed = web_sys::window()
             .and_then(|w| w.confirm_with_message(&question).ok())
