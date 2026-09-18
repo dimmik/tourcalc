@@ -222,6 +222,30 @@ impl TourStore for MongoStore {
             .collect()
     }
 
+    async fn count(
+        &self,
+        codes: Option<&[String]>,
+        allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
+    ) -> usize {
+        // Counted by the database when the question is about particular codes - which is
+        // every time it is asked, since an administrator is never counted. Without codes the
+        // filter alone cannot say who may see what, so that case reads them as `list` does.
+        let Some(codes) = codes else {
+            return self.list(None, allowed).await.len();
+        };
+        let filter = doc! {
+            "IsVersion": { "$ne": true },
+            tc_core::extras::ACCESS_CODE: { "$in": codes.to_vec() },
+        };
+        match self.tours.count_documents(filter).await {
+            Ok(n) => n as usize,
+            Err(e) => {
+                tracing::error!("MongoDB count failed: {e}");
+                self.list(Some(codes), allowed).await.len()
+            }
+        }
+    }
+
     async fn access_codes(&self, ids: &[String]) -> Vec<(String, String)> {
         // Just the code: these are tours somebody subscribed to, and reading them whole to
         // look at one field would make the tour list pay for every spending in them.

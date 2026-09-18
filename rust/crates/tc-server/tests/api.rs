@@ -760,3 +760,129 @@ async fn the_old_clients_service_worker_is_taken_off_the_air() {
         "and it leaves the new client's own caches alone: {body}"
     );
 }
+
+// --- found in the review of 2026-09-18 ----------------------------------------------------
+
+/// Whether a record is somebody's history is the store's to say. A live tour sent back
+/// marked as a version used to be stored that way: gone from the list, and every later save
+/// refused as "not editable".
+#[tokio::test]
+async fn a_save_cannot_turn_a_tour_into_a_version() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    tour["IsVersion"] = true.into();
+    tour["VersionFor_Id"] = "zscph2y".into();
+    let (status, _) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let stored = fetch_tour(&app, &token, "zscph2y").await;
+    assert_eq!(stored["IsVersion"], serde_json::Value::Bool(false));
+    assert!(stored.get("VersionFor_Id").is_none_or(|v| v.is_null()));
+
+    // Still a tour: in the list, and open to the next save.
+    let (_, list) = get(&app, "/api/Tour/all/suggested", Some(&token)).await;
+    assert!(list.contains("zscph2y"), "{list}");
+    let mut again = stored.clone();
+    again["Name"] = "saved after".into();
+    let (status, body) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(again)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+}
+
+/// An administrator's new tour goes where the administrator said, and nowhere by default.
+#[tokio::test]
+async fn an_administrator_names_the_pile_a_new_tour_goes_into() {
+    let app = app();
+    let admin = token_for_admin(&app).await;
+    let body = serde_json::json!({ "Name": "A copy", "Persons": [], "Spendings": [] });
+
+    // No code: refused, rather than filed under md5("-") where nobody would look.
+    let (status, _) = send(&app, "POST", "/api/Tour/add/-", Some(&admin), Some(body.clone())).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // The code as a tour carries it - already hashed, in whatever case - lands in that pile.
+    let (status, id) = send(
+        &app,
+        "POST",
+        &format!("/api/Tour/add/{}/md5", CODE.to_lowercase()),
+        Some(&admin),
+        Some(body),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let token = token_for_code(&app).await;
+    let made = fetch_tour(&app, &token, &id).await;
+    assert_eq!(made["AccessCodeMD5"], CODE);
+}
+
+/// A share link's hash is the stored one in upper case; lower case must open the same pile.
+#[tokio::test]
+async fn a_hashed_code_in_lower_case_is_the_same_code() {
+    let app = app();
+    let (status, token) = get(
+        &app,
+        &format!("/api/Auth/token/code/{}/md5", CODE.to_lowercase()),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = get(&app, "/api/Tour/zscph2y", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+/// A login that no longer holds is told apart from nobody, so the client can ask for the
+/// code again instead of showing an empty list.
+#[tokio::test]
+async fn a_token_that_does_not_verify_is_a_401() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    // Signed with another key - what every token becomes when the server's key changes.
+    let other = tc_server::auth::Signer_::from_base64("Z2yT1Qm0sR6d9bHq1v7xZ3cN8kP5wE2jL4aU0iO6yTs=")
+        .expect("a key");
+    let foreign = other.issue(
+        "code",
+        &tc_server::auth::AuthData::for_code_md5(CODE.to_owned()),
+        60,
+    );
+    let (status, body) = get(&app, "/api/Tour/all/suggested", Some(&foreign)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{body}");
+
+    // Expired.
+    let signer = tc_server::auth::Signer_::from_base64(DEV_KEY).unwrap();
+    let old = signer.issue(
+        "code",
+        &tc_server::auth::AuthData::for_code_md5(CODE.to_owned()),
+        -10,
+    );
+    let (status, body) = get(&app, "/api/Tour/zscph2y", Some(&old)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(body.contains("expired"), "{body}");
+
+    // Garbage, too; and the good one still works.
+    let (status, _) = get(&app, "/api/Tour/zscph2y", Some("not-a-token")).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = get(&app, "/api/Tour/zscph2y", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+/// A deployed build does not start on the key everybody can read.
+#[test]
+fn a_deployed_build_refuses_the_development_key() {
+    let mut cfg = tc_server::config::Config::from_env();
+    cfg.private_key_b64 = tc_server::config::DEVELOPMENT_KEY.to_owned();
+
+    cfg.build_type = "na".into();
+    assert!(cfg.signing_key_is_acceptable().is_ok(), "fine on a desk");
+
+    cfg.build_type = "prodR (prod)".into();
+    assert!(cfg.signing_key_is_acceptable().is_err());
+
+    cfg.allow_development_key = true;
+    assert!(cfg.signing_key_is_acceptable().is_ok(), "when said out loud");
+
+    cfg.allow_development_key = false;
+    cfg.private_key_b64 = "Z2yT1Qm0sR6d9bHq1v7xZ3cN8kP5wE2jL4aU0iO6yTs=".into();
+    assert!(cfg.signing_key_is_acceptable().is_ok());
+}

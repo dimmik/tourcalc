@@ -52,6 +52,16 @@ pub trait TourStore: Send + Sync {
         codes: Option<&[String]>,
         allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
     ) -> Vec<Arc<Tour>>;
+    /// How many tours [`TourStore::list`] would answer with. For the rules about how many
+    /// tours a code may hold, which need a number and not the tours: the default reads them
+    /// all, spendings and all, to count them; a database should count.
+    async fn count(
+        &self,
+        codes: Option<&[String]>,
+        allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
+    ) -> usize {
+        self.list(codes, allowed).await.len()
+    }
     /// The access code of each of these tours that exists, as `(id, code)`.
     ///
     /// For deciding who may hear about a tour without reading it: the tour list asks which

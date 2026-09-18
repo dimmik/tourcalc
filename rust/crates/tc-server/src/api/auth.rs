@@ -27,7 +27,13 @@ pub async fn token(
                 return Err(ApiError::NotAuthenticated("Wrong Master Key".into()));
             }
         }
-        "code" => AuthData::for_code_md5(if already_md5 { key } else { code_md5(&key) }),
+        // Upper case, as the store writes it: a share link typed or pasted in lower case
+        // would otherwise give a token for a pile that does not exist.
+        "code" => AuthData::for_code_md5(if already_md5 {
+            key.to_uppercase()
+        } else {
+            code_md5(&key)
+        }),
         _ => {
             return Err(ApiError::NotAuthenticated(
                 "Wrong scope. Please try 'code' or 'admin'.".into(),

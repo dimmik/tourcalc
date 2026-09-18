@@ -471,3 +471,29 @@ async fn a_list_is_narrowed_by_the_database() {
 fn ids(tours: &[std::sync::Arc<Tour>]) -> Vec<&str> {
     tours.iter().map(|t| t.id.as_str()).collect()
 }
+
+/// The rule on how many tours a code may hold asks for a number, and the database counts
+/// rather than handing every tour over to be counted.
+#[tokio::test]
+async fn tours_are_counted_by_code() {
+    let store = store_or_skip!("tours_are_counted_by_code");
+    let tour = fixture();
+    let code = fields::access_code(&tour);
+
+    store.store(tour.clone()).await;
+    let mut another = tour.clone();
+    another.id = TourId::new("another");
+    store.store(another).await;
+    // A version is history, not a tour of the code.
+    let version = tc_server::api::write::version_of(&tour, "kept".into());
+    store.store(version).await;
+    let mut elsewhere = tour.clone();
+    elsewhere.id = TourId::new("elsewhere");
+    fields::set(&mut elsewhere, fields::ACCESS_CODE, "SOMEBODY ELSE".into());
+    store.store(elsewhere).await;
+
+    let codes = vec![code.clone()];
+    let count = store.count(Some(&codes), &|_| true).await;
+    assert_eq!(count, 2);
+    assert_eq!(count, store.list(Some(&codes), &|_| true).await.len());
+}

@@ -72,6 +72,14 @@ pub async fn update(
                 "You are trying to override newer version of tour ({stored_state})"
             )));
         }
+        // Whether a record is somebody's history is the store's to say, never the body's.
+        // A live tour sent back with `IsVersion: true` - a client's mistake, an imported
+        // JSON - used to be written as given: it dropped out of the list and every later
+        // save was refused as "not editable", with no way back short of the database.
+        if !fields::is_version(&stored) {
+            fields::set(&mut incoming, fields::IS_VERSION, false.into());
+            fields::remove(&mut incoming, fields::VERSION_FOR);
+        }
     }
 
     // The id and the access code come from what is stored, never from the body.
@@ -159,21 +167,45 @@ pub fn version_of(previous: &Tour, comment: String) -> Tour {
 
 /// `POST /api/Tour/add/{accessCode}` - create a tour and answer with its new id.
 pub async fn add(
+    state: State<Shared>,
+    auth: Bearer,
+    Path(code): Path<String>,
+    body: Json<serde_json::Value>,
+) -> Result<String, ApiError> {
+    add_under(state, auth, code, None, body).await
+}
+
+/// `POST /api/Tour/add/{md5}/md5` - the same, with the code already hashed.
+///
+/// What an administrator's client has at hand when it clones a tour or restores a version:
+/// the tour's own `AccessCodeMD5`, not the code it was made from. Hashing that again filed
+/// the copy under md5(md5), where nobody would ever find it.
+pub async fn add_md5(
+    state: State<Shared>,
+    auth: Bearer,
+    Path((code, _)): Path<(String, String)>,
+    body: Json<serde_json::Value>,
+) -> Result<String, ApiError> {
+    add_under(state, auth, code, Some(()), body).await
+}
+
+async fn add_under(
     State(state): State<Shared>,
     Bearer(auth): Bearer,
-    Path(code): Path<String>,
+    code: String,
+    already_md5: Option<()>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<String, ApiError> {
     // An administrator may open a new pile; everybody else may only add to one that already
     // has something in it. Otherwise a stray code would quietly become a new account.
-    let mine: Vec<_> = state
-        .store
-        .list(auth.codes_to_search().as_deref(), &|t: &Tour| {
-            auth.may_see(&fields::access_code(t))
-        })
-        .await;
     if !auth.is_master {
-        if mine.is_empty() {
+        let mine = state
+            .store
+            .count(auth.codes_to_search().as_deref(), &|t: &Tour| {
+                auth.may_see(&fields::access_code(t))
+            })
+            .await;
+        if mine == 0 {
             return Err(ApiError::Forbidden(
                 "Only admin can create first tour for a code".into(),
             ));
@@ -181,7 +213,7 @@ pub async fn add(
         // A limit on how many tours one code may hold, off by default. An administrator is
         // not subject to it, which is the point of asking one.
         let most = state.max_tours_per_code;
-        if most >= 0 && mine.len() as i64 >= most {
+        if most >= 0 && mine as i64 >= most {
             return Err(ApiError::Forbidden(format!(
                 "You can create up to {most} tours per code. To add more please ask administrator"
             )));
@@ -189,7 +221,20 @@ pub async fn add(
     }
 
     let target_code = if auth.is_master {
-        crate::auth::code_md5(&code)
+        // The code names the pile the tour goes into, so an administrator has to name one.
+        // The client used to send "-" when it had none at hand, and the tour went into the
+        // pile of md5("-") - created, and at once invisible to everybody who looked for it.
+        let code = code.trim();
+        if code.is_empty() || code == "-" {
+            return Err(ApiError::BadRequest(
+                "Which access code should the tour be filed under?".into(),
+            ));
+        }
+        if already_md5.is_some() {
+            code.to_uppercase()
+        } else {
+            crate::auth::code_md5(code)
+        }
     } else {
         auth.access_codes()
             .next()
@@ -226,11 +271,11 @@ pub async fn delete(
     if !auth.is_master {
         let mine = state
             .store
-            .list(auth.codes_to_search().as_deref(), &|t: &Tour| {
-            auth.may_see(&fields::access_code(t))
-        })
+            .count(auth.codes_to_search().as_deref(), &|t: &Tour| {
+                auth.may_see(&fields::access_code(t))
+            })
             .await;
-        if mine.len() <= 1 {
+        if mine <= 1 {
             return Err(ApiError::Forbidden(
                 "Only admin can delete last tour for a code".into(),
             ));

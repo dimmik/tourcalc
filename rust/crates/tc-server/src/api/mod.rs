@@ -29,6 +29,7 @@ pub fn routes(state: Shared) -> Router {
             get(tour::one).patch(write::update).delete(write::delete),
         )
         .route("/api/Tour/add/{code}", axum::routing::post(write::add))
+        .route("/api/Tour/add/{code}/{md5}", axum::routing::post(write::add_md5))
         .route("/api/Tour/{id}/versions", get(tour::versions))
         .route("/api/Tour/{id}/state", get(tour::state_of))
         .route("/api/Subscription/publickey", get(subscription::public_key))
@@ -160,9 +161,8 @@ async fn log_headers(headers: axum::http::HeaderMap) -> String {
 /// The C# has an interface here with two implementations, and the one it is wired to is
 /// `VoidLogStorage` - it stores nothing and answers with nothing. Reproducing the empty
 /// answer is reproducing the behaviour; reproducing the unused implementation behind it
-/// would not be. Administrators only, like the original.
-async fn log_logs(Bearer(auth): Bearer) -> axum::Json<Vec<serde_json::Value>> {
-    let _ = auth.is_master;
+/// would not be.
+async fn log_logs() -> axum::Json<Vec<serde_json::Value>> {
     axum::Json(Vec::new())
 }
 
@@ -228,7 +228,7 @@ pub mod chrono_lite {
 pub struct Bearer(pub crate::auth::AuthData);
 
 impl FromRequestParts<Shared> for Bearer {
-    type Rejection = std::convert::Infallible;
+    type Rejection = ApiError;
 
     async fn from_request_parts(
         parts: &mut Parts,
@@ -243,13 +243,18 @@ impl FromRequestParts<Shared> for Bearer {
                 scheme.eq_ignore_ascii_case("bearer").then_some(rest.trim())
             });
 
-        // No token, or a bad one, is not an error: it is simply nobody. The app is meant to
-        // be opened by anyone with a link, and it shows a login screen rather than a 401.
+        // No token is not an error: it is simply nobody. The app is meant to be opened by
+        // anyone with a link, and it shows a login screen rather than a 401.
+        //
+        // A token that does not verify is different, and is a 401. It used to be nobody as
+        // well, and then an expired login - 180 days, by default - or every login at once
+        // after the key was changed looked like "you have no tours" and "this tour is
+        // gone" instead of "sign in again". The ASP.NET server answers 401 here too.
         let auth = match token {
-            Some(t) => state.signer.verify(t).unwrap_or_else(|why| {
+            Some(t) => state.signer.verify(t).map_err(|why| {
                 tracing::debug!("rejecting token: {why}");
-                crate::auth::AuthData::default()
-            }),
+                ApiError::NotAuthenticated(format!("The login is not valid any more: {why}"))
+            })?,
             None => crate::auth::AuthData::default(),
         };
         Ok(Bearer(auth))
