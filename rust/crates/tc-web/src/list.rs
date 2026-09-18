@@ -344,6 +344,48 @@ pub fn TourListPage() -> impl IntoView {
                 }
             }
         }}
+
+        // Edits waiting for a tour that is not in this list - deleted by somebody, or not
+        // opened by this code - have no row to hang "not sent yet" on. Without this line they
+        // were on the device and nowhere on screen.
+        {move || {
+            crate::queue::changes();
+            let Load::Ready(tours) = state.get() else {
+                return ().into_any();
+            };
+            let orphans: Vec<(String, String)> = crate::queue::tours_with_pending()
+                .into_iter()
+                .filter(|id| !tours.iter().any(|t| t.id.as_str() == id))
+                .map(|id| {
+                    let name = crate::queue::cached(&id)
+                        .map(|t| t.name)
+                        .filter(|n| !n.trim().is_empty())
+                        .unwrap_or_else(|| id.clone());
+                    (id, name)
+                })
+                .collect();
+            if orphans.is_empty() {
+                return ().into_any();
+            }
+            let title = match orphans.len() {
+                1 => "Edits waiting for 1 tour that is not in your list:".to_owned(),
+                n => format!("Edits waiting for {n} tours that are not in your list:"),
+            };
+            view! {
+                <div class="tcn-section">
+                    <div class="tcn-chip tcn-chip-amber tcw-wraps">
+                        {title}
+                        {orphans
+                            .into_iter()
+                            .map(|(id, name)| view! {
+                                " " <a href=format!("/tour/{id}")>{name}</a>
+                            })
+                            .collect_view()}
+                        " — open it to send them again or discard them."
+                    </div>
+                </div>
+            }.into_any()
+        }}
     }
 }
 

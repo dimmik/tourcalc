@@ -16,11 +16,25 @@
 # Both compilers come from Debian. An earlier version fetched a musl cross-toolchain from
 # musl.cc, which works from a desk and did not work from a GitHub runner - that host is one
 # person's server and does not answer everybody. A build should not depend on it.
+#
+# The build image is pinned by digest, in both stages below. `rust:1-bookworm` is moved on
+# every Rust release and every Debian update - several times a month - and a new base
+# invalidates every cached layer on top of it: the next build compiles every dependency
+# for two architectures and for wasm again, seven or eight minutes instead of three,
+# whatever the commit changed. Found exactly that way, when a commit touching two source
+# files took nine minutes because the tag had moved twenty minutes earlier. Nothing of this
+# image reaches the one that ships (that is distroless, with a static binary in it), so
+# being a few weeks behind costs nothing.
+#
+# To move to a newer Rust, replace both lines with the tag's current digest:
+#   docker buildx imagetools inspect rust:1-bookworm    # the "Digest:" line
+# and expect one long build afterwards.
 
 # ---------------------------------------------------------------------------------------
 # The browser side.
 # ---------------------------------------------------------------------------------------
-FROM --platform=$BUILDPLATFORM rust:1-bookworm AS client
+# Rust 1.98.1
+FROM --platform=$BUILDPLATFORM rust:1-bookworm@sha256:ae1a730a949f727611a5c684e1e26e5a9bb9885b34f65a442744ca8a61c86ca5 AS client
 
 # The exact version this was developed against. Trunk publishes built binaries, and taking
 # one is a minute rather than the several `cargo install trunk` spends compiling it.
@@ -97,7 +111,8 @@ RUN trunk build --release \
 # ---------------------------------------------------------------------------------------
 # The server, cross-compiled.
 # ---------------------------------------------------------------------------------------
-FROM --platform=$BUILDPLATFORM rust:1-bookworm AS server
+# Rust 1.98.1
+FROM --platform=$BUILDPLATFORM rust:1-bookworm@sha256:ae1a730a949f727611a5c684e1e26e5a9bb9885b34f65a442744ca8a61c86ca5 AS server
 
 ARG TARGETARCH
 WORKDIR /src

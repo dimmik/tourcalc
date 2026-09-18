@@ -1,0 +1,33 @@
+# Where the temporary things live: a push to beta/** publishes `beta-latest`.
+#
+# "BETA" first in the name, because the name is what the subject of GitHub's e-mail starts
+# with. The steps are in docker-publish-rust.yml, shared with rust-prod.yml.
+name: BETA · Rust image
+
+on:
+  push:
+    branches: ['beta/**']
+    # See rust-prod.yml.
+    paths-ignore:
+      - '**.md'
+      - '.vscode/**'
+      - '.gitignore'
+      - '.gitattributes'
+  # By hand, from any branch - which publishes the beta tags, never prod's: nobody means to
+  # publish the release by pressing a button on a working branch.
+  workflow_dispatch:
+
+# Per branch and per kind: a push to one beta branch cancels its own older build, and never
+# a build of prod - not even one started by hand on the prod branch.
+concurrency:
+  group: tourcalc-rust-beta-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    uses: ./.github/workflows/docker-publish-rust.yml
+    with:
+      kind: beta
+    permissions:
+      contents: read
+      packages: write

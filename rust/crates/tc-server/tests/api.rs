@@ -886,3 +886,30 @@ fn a_deployed_build_refuses_the_development_key() {
     cfg.private_key_b64 = "Z2yT1Qm0sR6d9bHq1v7xZ3cN8kP5wE2jL4aU0iO6yTs=".into();
     assert!(cfg.signing_key_is_acceptable().is_ok());
 }
+
+/// With versions editable, a version can be written to - and stays a version of its tour.
+#[tokio::test]
+async fn an_editable_version_stays_a_version() {
+    let app = app_with(|s| s.version_editable = true);
+    let token = token_for_code(&app).await;
+
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    tour["Name"] = "changed, so a version is kept".into();
+    send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+    let (_, body) = get(&app, "/api/Tour/zscph2y/versions", Some(&token)).await;
+    let list: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let vid = list["Tours"][0]["GUID"].as_str().unwrap().to_owned();
+
+    let mut version = fetch_tour(&app, &token, &vid).await;
+    version["IsVersion"] = false.into();
+    version["VersionFor_Id"] = "".into();
+    version["VersionComment"] = "edited".into();
+    let (status, body) = send(&app, "PATCH", &format!("/api/Tour/{vid}"), Some(&token), Some(version)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let stored = fetch_tour(&app, &token, &vid).await;
+    assert_eq!(stored["IsVersion"], serde_json::Value::Bool(true));
+    assert_eq!(stored["VersionFor_Id"], "zscph2y");
+    let (_, list) = get(&app, "/api/Tour/all/suggested", Some(&token)).await;
+    assert!(!list.contains(&vid), "not in the list of tours");
+}

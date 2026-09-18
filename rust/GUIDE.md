@@ -115,7 +115,7 @@ TC_TEST_MONGO=mongodb://127.0.0.1:27017 \
 ```
 
 Без `TC_TEST_MONGO` монговские тесты не падают, а тихо ничего не делают — так что зелёный
-прогон без базы ничего про базу не доказывает. В CI (`docker-publish-rust.yml`) у джобы свой
+прогон без базы ничего про базу не доказывает. В CI (`docker-publish-rust.yml`, его зовут `rust-prod.yml` и `rust-beta.yml`) у джобы свой
 `mongo:7`, и там они гоняются всегда.
 
 Сервер собирается своим профилем: `cargo build --profile server -p tc-server`, бинарник — в
@@ -542,8 +542,10 @@ worker кэшируются. Что реально загружено, видн�
 
 ```mermaid
 graph LR
-    prod["push в prod"] --> ci["GitHub Actions<br/>docker-publish-rust.yml"]
-    beta["push в beta/**"] --> ci
+    prod["push в prod"] --> wprod["rust-prod.yml<br/>PROD · Rust image"]
+    beta["push в beta/**"] --> wbeta["rust-beta.yml<br/>BETA · Rust image"]
+    wprod --> ci["docker-publish-rust.yml<br/>общие шаги"]
+    wbeta --> ci
     ci --> tests["cargo test --workspace"]
     tests --> build["сборка образа<br/>amd64 + arm64"]
     build --> tprod["ghcr.io/…:latest<br/>+ :prod-ГГГГММДД-ЧЧММСС"]
@@ -552,6 +554,8 @@ graph LR
     tbeta --> pod
 ```
 
+- Два workflow-обёртки над одним общим: у каждого своё имя, и тема письма GitHub о
+  сборке начинается с `PROD` или `BETA`, а не с общего имени и ветки в хвосте.
 - Ветка `prod` собирает **растовый** образ и публикует его как `latest` — просто `latest`,
   без упоминания языка: сервер следит за этим именем навсегда, а чем оно внутри сделано,
   видно на странице сборки и в заголовке `X-Tourcalc-Version`.

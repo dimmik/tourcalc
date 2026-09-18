@@ -1,0 +1,31 @@
+# The release: a push to prod publishes `latest`.
+#
+# "PROD" first in the name, because the name is what the subject of GitHub's e-mail starts
+# with. The steps are in docker-publish-rust.yml, shared with rust-beta.yml.
+name: PROD · Rust image
+
+on:
+  push:
+    branches: ['prod']
+    # A commit that cannot change the image does not need eight minutes of one. Prose and
+    # editor settings are not in the image - the .dockerignore keeps them out of the build
+    # context too, so a build from them would be the same image under a new tag.
+    paths-ignore:
+      - '**.md'
+      - '.vscode/**'
+      - '.gitignore'
+      - '.gitattributes'
+
+# A newer push to prod cancels the build of the older one; a beta build is never touched.
+concurrency:
+  group: tourcalc-rust-prod-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    uses: ./.github/workflows/docker-publish-rust.yml
+    with:
+      kind: prod
+    permissions:
+      contents: read
+      packages: write

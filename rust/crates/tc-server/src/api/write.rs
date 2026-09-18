@@ -76,7 +76,18 @@ pub async fn update(
         // A live tour sent back with `IsVersion: true` - a client's mistake, an imported
         // JSON - used to be written as given: it dropped out of the list and every later
         // save was refused as "not editable", with no way back short of the database.
-        if !fields::is_version(&stored) {
+        //
+        // And the other way round: with `TourVersionEditable` on, a version may be written
+        // to, but it stays a version of the same tour. Otherwise a body saying
+        // `IsVersion: false` turned somebody's history into a tour of its own.
+        if fields::is_version(&stored) {
+            fields::set(&mut incoming, fields::IS_VERSION, true.into());
+            fields::set(
+                &mut incoming,
+                fields::VERSION_FOR,
+                fields::str_of(&stored, fields::VERSION_FOR).into(),
+            );
+        } else {
             fields::set(&mut incoming, fields::IS_VERSION, false.into());
             fields::remove(&mut incoming, fields::VERSION_FOR);
         }
