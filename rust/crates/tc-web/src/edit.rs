@@ -67,6 +67,15 @@ pub struct SpendingDraft {
     /// is what an edit that never touched the field should do.
     #[serde(default)]
     pub currency_id: String,
+    /// Whether this edits an expense that was already there, as opposed to adding one.
+    ///
+    /// Replayed onto a tour where that expense is gone - somebody deleted it while this
+    /// edit waited for a network - an edit is dropped rather than bringing the expense back.
+    /// Without it the two cases looked alike: "no spending with this id" was taken to mean
+    /// "not added yet", and a deleted taxi fare returned with the edit. False when read from
+    /// an edit queued before the field existed, which is how those were treated anyway.
+    #[serde(default)]
+    pub editing: bool,
 }
 
 fn by_weight() -> bool {
@@ -104,6 +113,7 @@ impl SpendingDraft {
             // in euro, what somebody is typing in is almost certainly euro too. The app
             // starts a new expense the same way.
             currency_id: tour.currency().id.as_str().to_owned(),
+            editing: false,
         }
     }
 
@@ -131,6 +141,7 @@ impl SpendingDraft {
             date: spending.day().unwrap_or_default().to_owned(),
             colour: tc_core::extras::str_of(&spending.extras, COLOUR),
             currency_id: spending.currency.id.as_str().to_owned(),
+            editing: true,
         }
     }
 
@@ -236,6 +247,8 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
             existing.split = split;
             set_currency(existing, tour, &draft.currency_id);
         }
+        // Not there, and it was: somebody else deleted it. Their delete stands.
+        None if draft.editing => return tour.clone(),
         // Not there: this is the add. Replaying it again finds the spending and updates it
         // instead of adding a second one.
         None => {
@@ -349,6 +362,9 @@ pub struct PersonDraft {
     pub name: String,
     pub weight: i32,
     pub parent: Option<PersonId>,
+    /// Whether this edits somebody already in the tour. See [`SpendingDraft::editing`].
+    #[serde(default)]
+    pub editing: bool,
 }
 
 impl PersonDraft {
@@ -359,6 +375,7 @@ impl PersonDraft {
             // A whole share. The app's default, and the reason weights are in hundredths.
             weight: 100,
             parent: None,
+            editing: false,
         }
     }
 
@@ -368,6 +385,7 @@ impl PersonDraft {
             name: p.name.clone(),
             weight: p.weight,
             parent: p.parent.clone(),
+            editing: true,
         }
     }
 
@@ -397,6 +415,8 @@ pub fn put_person(tour: &Tour, draft: &PersonDraft) -> Tour {
             existing.weight = draft.weight;
             existing.parent = draft.parent.clone();
         }
+        // Removed by somebody else while this waited: their removal stands.
+        None if draft.editing => return tour.clone(),
         None => next.persons.push(Person {
             id,
             name: draft.name.trim().to_owned(),
@@ -409,32 +429,13 @@ pub fn put_person(tour: &Tour, draft: &PersonDraft) -> Tour {
     next
 }
 
-/// Removes a person, and everything that would now point at nobody.
+/// Removes a person - unless an expense still holds them, and then nothing changes.
 ///
-/// A spending they paid for cannot stay - it would be money from nowhere - and neither can
-/// they remain on the receiving end of one, or in somebody's "paid for by".
+/// The screen asks before recording this (see `tc_core::removal`), so a refusal here is
+/// the rare case of a queued removal replayed onto a tour where somebody has since recorded
+/// an expense paid by them: that expense is kept, and so are they.
 pub fn remove_person(tour: &Tour, id: &PersonId) -> Tour {
-    let mut next = tour.clone();
-    next.persons.retain(|p| &p.id != id);
-    for p in next.persons.iter_mut() {
-        if p.parent.as_ref() == Some(id) {
-            p.parent = None;
-        }
-    }
-    next.spendings
-        .retain(|s| &s.from != id && s.kind != Kind::Planned);
-    for s in next.spendings.iter_mut() {
-        if let Split::Equally(to) | Split::ByWeight(to) = &mut s.split {
-            to.retain(|p| p != id);
-        }
-    }
-    // A spending for nobody in particular is a spending for everybody.
-    for s in next.spendings.iter_mut() {
-        if matches!(&s.split, Split::Equally(to) | Split::ByWeight(to) if to.is_empty()) {
-            s.split = Split::Everyone;
-        }
-    }
-    next
+    tc_core::removal::without_person(tour, id).unwrap_or_else(|| tour.clone())
 }
 
 // --- the tour itself ----------------------------------------------------------------------
@@ -679,6 +680,7 @@ mod split_tests {
             date: "2021-08-14".into(),
             colour: String::new(),
             currency_id: t.currency().id.as_str().to_owned(),
+            editing: false,
         }
     }
 

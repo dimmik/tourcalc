@@ -47,6 +47,23 @@ pub enum Operation {
 }
 
 impl Operation {
+    /// What this edit was about, if carrying it out onto `tour` would drop it because
+    /// somebody else deleted the thing it edits - see [`SpendingDraft::editing`].
+    pub fn lost_on(&self, tour: &Tour) -> Option<String> {
+        match self {
+            Operation::PutSpending(d) if d.editing => {
+                let id = d.id.as_ref()?;
+                (!tour.spendings.iter().any(|s| &s.id == id))
+                    .then(|| format!("“{}”", short(&d.description)))
+            }
+            Operation::PutPerson(d) if d.editing => {
+                let id = d.id.as_ref()?;
+                (!tour.persons.iter().any(|p| &p.id == id)).then(|| short(&d.name))
+            }
+            _ => None,
+        }
+    }
+
     /// The tour as it would be with this operation carried out.
     pub fn apply(&self, tour: &Tour) -> Tour {
         match self {
@@ -120,6 +137,101 @@ fn tour_key(tour: &str) -> String {
 
 fn stamp_key(tour: &str) -> String {
     format!("__tcw_tour_at_{tour}")
+}
+
+fn refused_key(tour: &str) -> String {
+    format!("__tcw_refused_{tour}")
+}
+
+/// How many times in a row the server may refuse a queue before it stops being retried by
+/// itself. A refusal is an answer, not a missing network - the tour is gone, the login no
+/// longer covers it, the server will not take the tour as it is - and asking again every
+/// twenty seconds for ever changes nothing. Three, so that one odd answer is not the end.
+pub const GIVE_UP_AFTER: u32 = 3;
+
+/// The server's last refusal of this tour's queue, and how many in a row there have been.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct Refused {
+    pub times: u32,
+    pub why: String,
+}
+
+impl Refused {
+    /// Whether to stop sending this queue until somebody says otherwise.
+    pub fn given_up(&self) -> bool {
+        self.times >= GIVE_UP_AFTER
+    }
+}
+
+/// How the server has answered this tour's queue lately; `None` when it has not refused.
+pub fn refused(tour: &str) -> Option<Refused> {
+    let text = storage()?.get_item(&refused_key(tour)).ok().flatten()?;
+    serde_json::from_str(&text).ok()
+}
+
+/// Whether sending this tour's queue has been given up on. See [`GIVE_UP_AFTER`].
+pub fn given_up(tour: &str) -> bool {
+    refused(tour).is_some_and(|r| r.given_up())
+}
+
+/// Notes one more refusal.
+pub fn was_refused(tour: &str, why: &str) {
+    let Some(s) = storage() else { return };
+    let mut r = refused(tour).unwrap_or_default();
+    r.times = r.times.saturating_add(1);
+    r.why = why.to_owned();
+    if let Ok(text) = serde_json::to_string(&r) {
+        let _ = s.set_item(&refused_key(tour), &text);
+    }
+    changed();
+}
+
+/// Forgets the refusals: the queue went through, was thrown away, or is to be tried again.
+pub fn not_refused(tour: &str) {
+    let Some(s) = storage() else { return };
+    if s.get_item(&refused_key(tour)).ok().flatten().is_some() {
+        let _ = s.remove_item(&refused_key(tour));
+        changed();
+    }
+}
+
+fn lost_key(tour: &str) -> String {
+    format!("__tcw_lost_{tour}")
+}
+
+/// Edits that were dropped when they reached the server, because what they edited had
+/// been deleted there in the meantime - by name, for the line that says so.
+pub fn lost(tour: &str) -> Vec<String> {
+    storage()
+        .and_then(|s| s.get_item(&lost_key(tour)).ok().flatten())
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+/// Adds to what [`lost`] says; `None` forgets it, once the reader has seen it.
+pub fn set_lost(tour: &str, what: Option<&[String]>) {
+    let Some(s) = storage() else { return };
+    match what {
+        Some(names) if !names.is_empty() => {
+            let mut all = lost(tour);
+            all.extend(names.iter().cloned());
+            if let Ok(text) = serde_json::to_string(&all) {
+                let _ = s.set_item(&lost_key(tour), &text);
+            }
+        }
+        Some(_) => return,
+        None => {
+            let _ = s.remove_item(&lost_key(tour));
+        }
+    }
+    changed();
+}
+
+/// Throws away what is waiting for this tour - what the reader asks for when the server
+/// will not take it.
+pub fn discard(tour: &str) {
+    not_refused(tour);
+    set_pending(tour, &[]);
 }
 
 /// One key for the whole list, not one per tour: it is a screen, not a set of documents.
@@ -298,6 +410,7 @@ mod tests {
             date: "2021-08-14".into(),
             colour: String::new(),
             currency_id: t.currency().id.as_str().to_owned(),
+            editing: false,
         })
     }
 
@@ -381,5 +494,36 @@ mod tests {
             .find(|s| s.id.as_str() == "same")
             .expect("still there");
         assert_eq!(found.amount.0, 900);
+    }
+
+    /// An edit made while somebody else deleted the expense does not bring it back.
+    #[test]
+    fn an_edit_of_something_deleted_meanwhile_is_dropped() {
+        let base = tour();
+        let victim = base.spendings[0].clone();
+        let mut edit = SpendingDraft::of(&victim);
+        edit.amount = Cents(123);
+        let op = Operation::PutSpending(edit);
+
+        // Somebody else deleted it first.
+        let theirs = Operation::RemoveSpending(victim.id.clone()).apply(&base);
+        assert!(op.lost_on(&theirs).is_some(), "said to be lost");
+        let after = op.apply(&theirs);
+        assert!(!after.spendings.iter().any(|s| s.id == victim.id), "the delete stood");
+
+        // On a tour that still has it, the edit is an edit.
+        assert!(op.lost_on(&base).is_none());
+        let edited = op.apply(&base);
+        let found = edited.spendings.iter().find(|s| s.id == victim.id).expect("there");
+        assert_eq!(found.amount.0, 123);
+    }
+
+    /// An add is not an edit: queued twice, or replayed, it still adds.
+    #[test]
+    fn an_add_is_never_lost() {
+        let base = tour();
+        let op = add("brand-new", 500);
+        assert!(op.lost_on(&base).is_none());
+        assert!(op.apply(&base).spendings.iter().any(|s| s.id.as_str() == "brand-new"));
     }
 }

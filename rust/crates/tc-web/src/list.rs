@@ -99,7 +99,7 @@ pub fn TourListPage() -> impl IntoView {
 
         busy.set(true);
         spawn_local(async move {
-            match api::add_tour(body, &code).await {
+            match api::add_tour(body, api::Pile::Typed(&code)).await {
                 Ok(_id) => {
                     adding.set(false);
                     new_name.set(String::new());
@@ -148,9 +148,10 @@ pub fn TourListPage() -> impl IntoView {
                     obj.insert("Spendings".into(), serde_json::json!([]));
                 }
             }
-            // No access code: an ordinary reader gets their own, which is where the
-            // original came from anyway.
-            match api::add_tour(body, "").await {
+            // Next to the original: an ordinary reader's copy goes under their own code
+            // whatever is asked, and an administrator's under the original's.
+            let pile = tc_core::extras::str_of(&tour.extras, tc_core::extras::ACCESS_CODE);
+            match api::add_tour(body, api::Pile::Hashed(&pile)).await {
                 Ok(_) => load.run(()),
                 Err(e) => trouble.set(e),
             }
@@ -418,9 +419,14 @@ fn Row(
                     <span class="tcn-chip tcn-chip-amber"
                           title="Saved on this device and not yet sent to the server">
                         {let waiting = waiting.clone();
-                         move || match waiting() {
-                            1 => "1 not sent yet".to_owned(),
-                            n => format!("{n} not sent yet"),
+                         let id = tour.id.as_str().to_owned();
+                         // Refused by the server and no longer retried: open the tour to
+                         // see why and decide.
+                         move || match (waiting(), crate::queue::given_up(&id)) {
+                            (1, true) => "1 not accepted".to_owned(),
+                            (n, true) => format!("{n} not accepted"),
+                            (1, false) => "1 not sent yet".to_owned(),
+                            (n, false) => format!("{n} not sent yet"),
                         }}
                     </span>
                 </Show>

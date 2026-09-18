@@ -1,8 +1,8 @@
 //! Tourcalc's client, in Rust.
 //!
-//! Phase 3: read-only, and deliberately the same screens the Blazor client shows, reusing
-//! its stylesheet unchanged. If the two look alike, that is the point - what is being
-//! measured is what the browser has to download to get there, not a new design.
+//! The same screens the Blazor client shows, on its stylesheet, and working without a
+//! network: edits are queued on the device and sent when the server can be reached (see
+//! `queue` and `sync`).
 
 mod accent;
 mod api;
@@ -274,8 +274,15 @@ fn send_what_is_waiting(route: ReadSignal<Route>) {
             Some(Route::Tour(id, _)) => Some(id),
             _ => None,
         };
+        // Nobody signed in: every answer would be "who are you?". The queue waits for the
+        // code to be typed again.
+        if !api::signed_in() {
+            return;
+        }
         for tour in queue::tours_with_pending() {
-            if Some(&tour) == open.as_ref() {
+            // The open tour is its page's to send; one the server keeps refusing waits for
+            // the reader to decide (see `queue::GIVE_UP_AFTER`).
+            if Some(&tour) == open.as_ref() || queue::given_up(&tour) {
                 continue;
             }
             leptos::task::spawn_local(async move {
@@ -378,6 +385,9 @@ fn App() -> impl IntoView {
     // Whether anybody is signed in on this device. A signal rather than a check in the
     // view, so that signing in or out redraws without a reload.
     let signed_in = RwSignal::new(api::signed_in());
+    // And a request that finds the login gone takes the reader to the sign-in screen,
+    // instead of to an empty list that says they have no tours.
+    api::reports_sign_in_on(signed_in);
 
     // What the bar is about. Somebody who is not signed in is shown none of it: the tour
     // they were in before is not theirs to be reminded of until the code is typed again.

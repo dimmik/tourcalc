@@ -30,6 +30,15 @@ jobs:
       contents: read
       packages: write
 
+    # A database for the tests of the MongoDB store - the only ones that check the documents
+    # this server writes are the documents the C# reads. Without it they skip themselves,
+    # which is what they did here until now: passing, and proving nothing.
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -83,8 +92,8 @@ jobs:
         id: extract_branch
 
       # The tests are the reason to trust the image; the image itself takes seven or eight
-      # minutes, so they are the cheap half of the build. Everything but the database ones:
-      # those need a mongod, which this job has not got.
+      # minutes, so they are the cheap half of the build. The database ones included: the
+      # job has a mongod of its own, above.
       # The tests compile the whole workspace, and on a fresh runner that means six hundred
       # crates from nothing every time. This keeps cargo's registry and the test build
       # between runs, keyed on Cargo.lock: unchanged dependencies are restored rather than
@@ -96,6 +105,8 @@ jobs:
           workspaces: rust
 
       - name: Test
+        env:
+          TC_TEST_MONGO: mongodb://127.0.0.1:27017
         run: |
           cd rust
           cargo test --locked --workspace

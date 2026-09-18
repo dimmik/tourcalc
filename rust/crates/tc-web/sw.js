@@ -12,7 +12,7 @@
 const CACHE = 'tcw-v1';
 
 // Which notification handling this copy has, for a test to be sure which copy answered.
-self.TC_NOTIFY = 4;
+self.TC_NOTIFY = 5;
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
@@ -24,6 +24,10 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(req.url);
     if (url.origin !== self.location.origin) return;
     if (url.pathname.startsWith('/api/')) return;
+    // The text pages are the server's, not the app's: a document of their own for every
+    // address. Kept as "the app" they became what this device showed offline in place of
+    // it - and the app, what it showed in place of them.
+    if (url.pathname === '/t' || url.pathname.startsWith('/t/')) return;
 
     // Opening a link: prefer the network, so a new build is picked up, and fall back to the
     // page we kept. Every route is the same document - the app reads the path itself.
@@ -31,8 +35,10 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             fetch(req)
                 .then((resp) => {
-                    const copy = resp.clone();
-                    caches.open(CACHE).then((c) => c.put('/', copy));
+                    if (resp.ok) {
+                        const copy = resp.clone();
+                        event.waitUntil(keepThePage(copy));
+                    }
                     return resp;
                 })
                 .catch(() => caches.match('/').then((hit) => hit || offlinePage()))
@@ -58,8 +64,37 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-/// The name of anything the build has renamed after its contents.
-const HASHED = /-[0-9a-f]{8,}\.[a-z0-9]+$/;
+/// The name of anything the build has renamed after its contents. `_bg` is wasm-bindgen's:
+/// `tc-web-<hash>_bg.wasm`. Without it the wasm - the one file that matters - never matched,
+/// and was asked of the network on every start like any file that keeps its name.
+const HASHED = /-[0-9a-f]{8,}(_bg)?\.[a-z0-9]+$/;
+
+/// Anything that belongs to one build: a hashed file, or a file in a hashed directory.
+const BUILT = /-[0-9a-f]{8,}(_bg)?(\.[a-z0-9]+$|\/)/;
+
+/// Keeps the app's page for offline use, and lets go of the builds it no longer names.
+///
+/// Every build's wasm - a megabyte or so - used to stay here for good: its name is its
+/// contents, so nothing ever replaced it, and a phone that had seen thirty deploys carried
+/// thirty of them. The page names the files of the build it belongs to; anything renamed by
+/// the build and not named there is an older build's.
+async function keepThePage(resp) {
+    const page = await resp.clone().text();
+    const cache = await caches.open(CACHE);
+    await cache.put('/', resp);
+
+    // Every address in the page with a build's hash in it: the wasm and its glue, the
+    // stylesheets, and the snippets, whose hash is in the directory rather than the file.
+    const named = new Set(page.match(/\/[\w./-]*-[0-9a-f]{8,}[\w./-]*/g) || []);
+    // A page that names no wasm is not the app's page - an error page from a proxy, say -
+    // and is no guide to what is current.
+    if (![...named].some((n) => n.endsWith('_bg.wasm'))) return;
+
+    for (const req of await cache.keys()) {
+        const path = new URL(req.url).pathname;
+        if (BUILT.test(path) && !named.has(path)) await cache.delete(req);
+    }
+}
 
 function fromNetwork(req) {
     return fetch(req).then((resp) => {

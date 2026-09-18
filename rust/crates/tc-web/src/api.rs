@@ -38,6 +38,44 @@ pub fn signed_in() -> bool {
     token().is_some()
 }
 
+thread_local! {
+    /// The app's "somebody is signed in", so that a request finding the login gone can say
+    /// so to the screen. Set once by the app; absent in a test.
+    static SIGNED_IN: std::cell::Cell<Option<leptos::prelude::RwSignal<bool>>> =
+        const { std::cell::Cell::new(None) };
+    /// Whether the sign-in screen is up because a login ran out, rather than because
+    /// nobody had signed in.
+    static EXPIRED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Hands this module the app's sign-in signal. Called once, by the app.
+pub fn reports_sign_in_on(signal: leptos::prelude::RwSignal<bool>) {
+    SIGNED_IN.with(|s| s.set(Some(signal)));
+}
+
+/// The server has refused the token - it expired, or the server's key changed. Forgets it,
+/// puts the sign-in screen up, and answers with the words to show.
+///
+/// Only the token goes. What is waiting to be sent stays: typing the same code again picks
+/// up where the reader left off, and the edits go out then.
+pub fn expired() -> Failed {
+    use leptos::prelude::*;
+    if let Some(s) = storage() {
+        let _ = s.remove_item(TOKEN_KEY);
+    }
+    EXPIRED.with(|e| e.set(true));
+    if let Some(signal) = SIGNED_IN.with(|s| s.get()) {
+        signal.try_set(false);
+    }
+    "The login has expired. Enter the access code again.".into()
+}
+
+/// Whether the last sign-out was a login running out. Asked once, by the sign-in screen,
+/// which then says so instead of greeting a stranger.
+pub fn take_expired() -> bool {
+    EXPIRED.with(|e| e.replace(false))
+}
+
 /// Forgets the token. Nothing on the server to tell: it never knew.
 pub fn log_out() {
     if let Some(s) = storage() {
@@ -133,6 +171,9 @@ pub async fn log_in_with_md5(code_md5: &str) -> Result<(), Failed> {
     Ok(())
 }
 
+/// What a read says when the server has no such tour for this login.
+pub const NOT_FOUND: &str = "no such tour, or the link is for a different access code";
+
 /// Whether a failure was the network rather than the server.
 pub fn looks_offline(message: &str) -> bool {
     message.contains("could not reach the server")
@@ -152,7 +193,8 @@ async fn get(url: &str) -> Result<String, Failed> {
             .text()
             .await
             .map_err(|e| format!("could not read the answer: {e}")),
-        404 => Err("no such tour, or the link is for a different access code".into()),
+        404 => Err(NOT_FOUND.into()),
+        401 => Err(expired()),
         s => Err(format!("the server answered {s}")),
     }
 }
@@ -185,17 +227,39 @@ pub async fn tour_state(id: &str) -> Result<String, Failed> {
 /// is enough to name and count them and no more; the balances shown there are the ones the
 /// server worked out.
 pub async fn tours() -> Result<Vec<Tour>, Failed> {
-    let body = get("/api/Tour/all/suggested?from=0&count=50").await?;
-    let value: serde_json::Value =
-        serde_json::from_str(&body).map_err(|e| format!("could not read the list: {e}"))?;
-    let items = value
-        .get("Tours")
-        .and_then(|t| t.as_array())
-        .ok_or("the list came back in an unexpected shape")?;
-    Ok(items
-        .iter()
-        .filter_map(|v| Tour::from_json(&v.to_string()).ok())
-        .collect())
+    // A page at a time, until the server says that was all. One page of fifty used to be
+    // the whole list, and an administrator with more saw the first fifty and no word that
+    // anything was missing.
+    const PAGE: usize = 200;
+    let mut all = Vec::new();
+    loop {
+        let body = get(&format!(
+            "/api/Tour/all/suggested?from={}&count={PAGE}",
+            all.len()
+        ))
+        .await?;
+        let value: serde_json::Value =
+            serde_json::from_str(&body).map_err(|e| format!("could not read the list: {e}"))?;
+        let items = value
+            .get("Tours")
+            .and_then(|t| t.as_array())
+            .ok_or("the list came back in an unexpected shape")?;
+        let total = value
+            .get("TotalCount")
+            .and_then(|t| t.as_u64())
+            .unwrap_or(0) as usize;
+        let before = all.len();
+        all.extend(
+            items
+                .iter()
+                .filter_map(|v| Tour::from_json(&v.to_string()).ok()),
+        );
+        // An empty page ends it too, whatever the total says: a list that shrank while it
+        // was being read must not be asked for forever.
+        if items.is_empty() || before + items.len() >= total {
+            return Ok(all);
+        }
+    }
 }
 
 /// Sends the whole tour back.
@@ -227,6 +291,7 @@ pub async fn save_tour(tour: &Tour) -> Result<(), SaveError> {
     match resp.status() {
         200 => Ok(()),
         409 => Err(SaveError::Conflict),
+        401 => Err(SaveError::Other(expired())),
         404 => Err(SaveError::Other(
             "This tour is gone, or the login no longer covers it.".into(),
         )),
@@ -257,12 +322,30 @@ pub async fn versions(id: &str) -> Result<Vec<Tour>, Failed> {
         .collect())
 }
 
-/// Adds a whole tour, as JSON. What restoring a version and cloning both do.
-pub async fn add_tour(body: serde_json::Value, code: &str) -> Result<String, Failed> {
-    let mut req = Request::post(&format!(
-        "/api/Tour/add/{}",
-        if code.is_empty() { "-" } else { code }
-    ));
+/// Which access code a new tour is filed under.
+///
+/// Only an administrator's request is read for it - everybody else's tours go under their
+/// own code whatever the address says - but an administrator's has to name one, and it
+/// matters which form it is in.
+pub enum Pile<'a> {
+    /// A code somebody typed: the server hashes it.
+    Typed(&'a str),
+    /// A tour's own `AccessCodeMD5`, for a copy that goes next to it. Hashing that again
+    /// used to file the copy under md5(md5), where nobody would ever see it.
+    Hashed(&'a str),
+}
+
+/// Adds a whole tour, as JSON. What creating, cloning and restoring a version all do.
+pub async fn add_tour(body: serde_json::Value, pile: Pile<'_>) -> Result<String, Failed> {
+    // "-" stands in for "none": a reader's request is not read for it, and an administrator
+    // who names none is told so.
+    let url = match pile {
+        Pile::Typed(code) if code.trim().is_empty() => "/api/Tour/add/-".to_owned(),
+        Pile::Typed(code) => format!("/api/Tour/add/{}", urlencode(code.trim())),
+        Pile::Hashed(md5) if md5.trim().is_empty() => "/api/Tour/add/-".to_owned(),
+        Pile::Hashed(md5) => format!("/api/Tour/add/{}/md5", urlencode(md5.trim())),
+    };
+    let mut req = Request::post(&url);
     if let Some(t) = token() {
         req = req.header("Authorization", &format!("bearer {t}"));
     }
@@ -280,7 +363,9 @@ pub async fn add_tour(body: serde_json::Value, code: &str) -> Result<String, Fai
             .await
             .map(|s| s.trim().to_owned())
             .map_err(|e| format!("could not read the answer: {e}")),
+        401 => Err(expired()),
         403 => Err("Only an administrator can start the first tour under a code.".into()),
+        400 => Err(resp.text().await.unwrap_or_else(|_| "The server answered 400".into())),
         s => Err(format!("The server answered {s}")),
     }
 }
@@ -297,6 +382,7 @@ pub async fn delete_tour(id: &str) -> Result<(), Failed> {
         .map_err(|e| format!("could not reach the server: {e}"))?;
     match resp.status() {
         200 => Ok(()),
+        401 => Err(expired()),
         403 => Err(
             "The last tour under an access code can only be deleted by an administrator.".into(),
         ),
@@ -368,6 +454,7 @@ async fn post_subscription(what: &str, sub: &PushSubscription) -> Result<String,
             .text()
             .await
             .map_err(|e| format!("could not read the answer: {e}")),
+        401 => Err(expired()),
         s => Err(format!("The server answered {s}")),
     }
 }

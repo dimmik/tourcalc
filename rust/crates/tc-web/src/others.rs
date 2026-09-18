@@ -48,6 +48,9 @@ pub struct Others {
     pub news: RwSignal<Option<String>>,
     /// The expenses to point out, briefly.
     pub touched: RwSignal<Vec<String>>,
+    /// The server has no such tour any more - somebody deleted it, or the login no longer
+    /// covers it. Said until the reader leaves, since nothing done here can be saved.
+    pub gone: RwSignal<bool>,
     /// Set by a fetch this module asked for: the copy that was on screen before it, so what
     /// changed can be said once the new one lands. Also what makes that load fetch-only.
     pub before: StoredValue<Option<Tour>>,
@@ -70,6 +73,7 @@ impl Others {
             behind: RwSignal::new(false),
             news: RwSignal::new(None),
             touched: RwSignal::new(Vec::new()),
+            gone: RwSignal::new(false),
             before: StoredValue::new(None),
             base: StoredValue::new(None),
             said: StoredValue::new(0),
@@ -203,10 +207,20 @@ impl Others {
         spawn_local(async move {
             let now = api::tour_state(&id).await;
             self.asking.try_set_value(false);
-            let Ok(now) = now else {
+            let now = match now {
+                Ok(now) => {
+                    self.gone.try_set(false);
+                    now
+                }
+                // Deleted while it was open. Without this the page kept saying "from server
+                // · 3 min ago" until the next edit ran into the same answer.
+                Err(e) if e == api::NOT_FOUND => {
+                    self.gone.try_set(true);
+                    return;
+                }
                 // Offline, or the server is down: nothing to learn, and the freshness line
                 // already says so when it matters.
-                return;
+                Err(_) => return,
             };
 
             if now.is_empty() || now == known {
@@ -268,6 +282,7 @@ impl Others {
         status: RwSignal<Status>,
     ) -> bool {
         if queue::pending(id).is_empty()
+            || queue::given_up(id)
             || self.saving.try_get_untracked().unwrap_or(0) > 0
             || self.loading.try_get_untracked() == Some(true)
         {
@@ -343,6 +358,15 @@ impl Others {
 #[component]
 pub fn OthersLine(others: Others) -> impl IntoView {
     view! {
+        <Show when=move || others.gone.get()>
+            <div class="tcw-others" role="alert">
+                <span class="tcw-others-text">
+                    "This tour is not on the server any more — somebody deleted it, or this \
+                     login no longer opens it. Nothing done here can be saved."
+                </span>
+                <a class="tcn-btn tcn-btn-sm" href="/">"My tours"</a>
+            </div>
+        </Show>
         <Show when=move || others.news.get().is_some() && !others.behind.get()>
             <div class="tcw-others" role="status">
                 <span class="tcw-others-text">

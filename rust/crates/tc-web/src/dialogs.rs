@@ -148,6 +148,7 @@ pub fn SpendingDialog(
         // `SpendingDraft::id`.
         if d.id.is_none() {
             d.id = Some(tc_core::SpendingId::new(edit::new_id()));
+            d.editing = false;
         }
         on_apply.run(Operation::PutSpending(d));
     };
@@ -562,6 +563,7 @@ pub fn PersonDialog(
         }
         if d.id.is_none() {
             d.id = Some(PersonId::new(edit::new_id()));
+            d.editing = false;
         }
         on_apply.run(Operation::PutPerson(d));
     };
@@ -984,7 +986,7 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
                     obj.insert("VersionFor_Id".into(), "".into());
                 }
 
-                match api::add_tour(body, &code).await {
+                match api::add_tour(body, api::Pile::Hashed(&code)).await {
                     Ok(_) => note.set("Restored as a new tour — it is in your list.".into()),
                     Err(e) => note.set(e),
                 }

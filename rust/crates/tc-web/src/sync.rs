@@ -68,13 +68,18 @@ pub async fn push(tour_id: &str) -> (Option<Tour>, Status) {
             Err(e) if api::looks_offline(&e) => {
                 return (queue::cached(tour_id), Status::Waiting(ops.len()));
             }
-            Err(e) => return (queue::cached(tour_id), Status::Failed(e)),
+            Err(e) => {
+                refused(tour_id, &e);
+                return (queue::cached(tour_id), Status::Failed(e));
+            }
         };
 
-        let next = replay(&ops, &server);
+        let (next, lost) = replay_saying_what_was_lost(&ops, &server);
 
         match api::save_tour(&next).await {
             Ok(()) => {
+                queue::not_refused(tour_id);
+                queue::set_lost(tour_id, Some(&lost));
                 queue::set_pending(tour_id, &[]);
                 // Read back rather than assume: the server assigns the new state id, and
                 // the next save has to carry it.
@@ -94,7 +99,10 @@ pub async fn push(tour_id: &str) -> (Option<Tour>, Status) {
                 queue::cache(&server);
                 return (Some(server), Status::Waiting(ops.len()));
             }
-            Err(SaveError::Other(e)) => return (Some(server), Status::Failed(e)),
+            Err(SaveError::Other(e)) => {
+                refused(tour_id, &e);
+                return (Some(server), Status::Failed(e));
+            }
         }
     }
 
@@ -104,6 +112,14 @@ pub async fn push(tour_id: &str) -> (Option<Tour>, Status) {
             "Could not save: the tour kept changing underneath ({MAX_ROUNDS} tries)."
         )),
     )
+}
+
+/// Notes that the server said no to this queue - unless what it said no to was the login,
+/// which is not the queue's fault: signing in again sends it as it is.
+fn refused(tour_id: &str, why: &str) {
+    if api::signed_in() {
+        queue::was_refused(tour_id, why);
+    }
 }
 
 thread_local! {
@@ -146,9 +162,18 @@ pub async fn fetch(tour_id: &str) -> (Option<Tour>, Status) {
     }
 }
 
-/// The tour with every queued operation carried out, in the order they were made.
-fn replay(ops: &[Operation], base: &Tour) -> Tour {
-    ops.iter().fold(base.clone(), |acc, op| op.apply(&acc))
+/// The tour with every queued operation carried out, in the order they were made - and the
+/// edits that came to nothing because somebody else had deleted what they edited.
+///
+/// Checked against the tour as it stands when each edit's turn comes, not against the
+/// server's: an edit of an expense added earlier in the same queue is not lost.
+fn replay_saying_what_was_lost(ops: &[Operation], base: &Tour) -> (Tour, Vec<String>) {
+    let mut lost = Vec::new();
+    let tour = ops.iter().fold(base.clone(), |acc, op| {
+        lost.extend(op.lost_on(&acc));
+        op.apply(&acc)
+    });
+    (tour, lost)
 }
 
 /// Records an edit and tries to send it.

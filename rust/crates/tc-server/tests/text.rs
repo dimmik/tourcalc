@@ -471,3 +471,27 @@ async fn the_expense_list_starts_with_the_newest() {
         "the new expense is the first row, not the last: {first}"
     );
 }
+
+/// Somebody who paid for something is not removed: the money stays, and the page says
+/// which expenses hold them.
+#[tokio::test]
+async fn somebody_who_paid_is_not_removed() {
+    let app = app();
+    let cookie = signed_in(&app).await;
+
+    // Андрей paid for the tickets there.
+    let refused = go(
+        &app,
+        "POST",
+        &format!("/t/{TOUR}/people/delete/kwl66wa"),
+        &cookie,
+        Some(""),
+    )
+    .await;
+    assert_eq!(refused.status, StatusCode::CONFLICT);
+    assert!(refused.body.contains("cannot be removed yet"), "{}", refused.body);
+    assert!(refused.body.contains("билеты туда"), "{}", refused.body);
+
+    let people = go(&app, "GET", &format!("/t/{TOUR}/people"), &cookie, None).await;
+    assert!(people.body.contains("Андрей"));
+}
