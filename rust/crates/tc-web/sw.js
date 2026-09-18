@@ -11,6 +11,9 @@
 
 const CACHE = 'tcw-v1';
 
+// Which notification handling this copy has, for a test to be sure which copy answered.
+self.TC_NOTIFY = 4;
+
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
@@ -103,26 +106,70 @@ self.addEventListener('push', (event) => {
             // rather than ten, which is what somebody watching a busy tour wants.
             tag: tourId ? `tc-${tourId}` : 'tc',
             renotify: true,
-            data: { tourId },
+            data: { tourId, message },
         })
     );
 });
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const tourId = (event.notification.data || {}).tourId;
+    const data = event.notification.data || {};
+    const tourId = data.tourId;
     const target = tourId ? `/tour/${tourId}` : '/';
+    const showing = (client) => {
+        try {
+            const path = new URL(client.url).pathname;
+            return path === target || path.startsWith(`${target}/`);
+        } catch (e) {
+            return false;
+        }
+    };
 
-    // Bring an open tab to the front rather than opening a second one.
+    // Coming to the front is the browser's to allow, and it does not always: in a window
+    // it will not focus, the tour should still open.
+    const bringToFront = async (client) => {
+        try {
+            if ('focus' in client) await client.focus();
+        } catch (e) {}
+    };
+
     event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-            for (const client of clients) {
-                if (client.url.includes(target) && 'focus' in client) return client.focus();
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
+            // The window the reader is looking at, or the one that looks like it is on the
+            // tour, or whichever there is.
+            //
+            // `client.url` is the address the window was *loaded* at: moving between screens
+            // inside the app changes the address bar without telling the worker, so a window
+            // that has walked from one tour to another still looks as if it were on the
+            // first. It is worth a guess and not worth a decision - which is why what
+            // follows asks the app rather than reading this.
+            const first = clients.find((c) => c.focused) || clients.find(showing) || clients[0];
+            if (!first) return self.clients.openWindow(target);
+            await bringToFront(first);
+
+            // Tell the app where to go rather than moving its window there. `navigate()` is
+            // refused for a window this worker does not control - which is why a
+            // notification used to bring the app to the front and leave it wherever it was
+            // - and even when it works it reloads the whole app. The app knows how to go to
+            // a tour without any of that, and how not to throw away a form somebody is in
+            // the middle of.
+            const told = new Promise((resolve) => {
+                const channel = new MessageChannel();
+                channel.port1.onmessage = () => resolve(true);
+                first.postMessage({ tc: 'open-tour', tourId, message: data.message || '' }, [channel.port2]);
+                // A page loaded before this worker existed does not listen; after a moment,
+                // do it the old way, which may still be refused, and then there is nothing
+                // more to try.
+                setTimeout(() => resolve(false), 600);
+            });
+            if (await told) return undefined;
+            // Nobody listening: a page from before this worker. It may be on the tour
+            // already - all this has to go on is the address it was loaded at.
+            if (showing(first)) return undefined;
+            if ('navigate' in first) {
+                return first.navigate(target).then((c) => c && c.focus(), () => undefined);
             }
-            if (clients.length && 'navigate' in clients[0]) {
-                return clients[0].navigate(target).then((c) => c && c.focus());
-            }
-            return self.clients.openWindow(target);
+            return undefined;
         })
     );
 });

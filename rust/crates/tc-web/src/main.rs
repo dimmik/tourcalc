@@ -111,6 +111,67 @@ fn route_of(path: &str) -> Route {
     }
 }
 
+/// Whether a form is open somewhere on screen - a new expense, an edit, the currencies.
+///
+/// Above every page, because what must not disturb a half-typed form is not always on the
+/// same page: a tapped notification about another tour would otherwise throw it away.
+#[derive(Clone, Copy)]
+pub struct Editing(pub RwSignal<bool>);
+
+/// A tour the reader was asked to open - by tapping a notification - and what changed in it.
+/// Set only while a form is open; otherwise the app simply goes there.
+type AskedToOpen = RwSignal<Option<(String, String)>>;
+
+/// Listens for the service worker saying which tour a tapped notification was about.
+///
+/// The worker used to move the window there itself, which a browser refuses for a window it
+/// does not control - so a notification brought the app to the front and left it on
+/// whatever screen it was on. Going there from inside the app also keeps what is on screen:
+/// no reload, and a form somebody is in the middle of is asked about rather than thrown
+/// away.
+fn listen_for_the_worker(set_route: WriteSignal<Route>, editing: RwSignal<bool>, asked: AskedToOpen) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let container = window.navigator().service_worker();
+    use wasm_bindgen::JsCast;
+    let heard = wasm_bindgen::closure::Closure::<dyn FnMut(web_sys::MessageEvent)>::new(
+        move |event: web_sys::MessageEvent| {
+            let data = event.data();
+            let field = |name: &str| {
+                js_sys::Reflect::get(&data, &name.into())
+                    .ok()
+                    .and_then(|v| v.as_string())
+                    .unwrap_or_default()
+            };
+            if field("tc") != "open-tour" {
+                return;
+            }
+            // Somebody heard it, so the worker does not fall back to reloading the app.
+            if let Ok(port) = event.ports().get(0).dyn_into::<web_sys::MessagePort>() {
+                let _ = port.post_message(&wasm_bindgen::JsValue::from_str("ok"));
+            }
+            let tour = field("tourId");
+            if tour.is_empty() {
+                return;
+            }
+            // Already reading it: the notification has done its job by bringing the app
+            // to the front.
+            if matches!(current_route(), Route::Tour(open, _) if open == tour) {
+                return;
+            }
+            if editing.get_untracked() {
+                asked.set(Some((tour, field("message"))));
+            } else {
+                go(&format!("/tour/{tour}"), set_route);
+            }
+        },
+    )
+    .into_js_value();
+    let _ = container.add_event_listener_with_callback("message", heard.unchecked_ref());
+    // Never removed: it lives as long as the app does.
+}
+
 /// Moves to another screen without reloading the page.
 fn go(route_to: &str, set_route: WriteSignal<Route>) {
     if let Some(w) = web_sys::window() {
@@ -278,6 +339,12 @@ fn App() -> impl IntoView {
     queue::reports_changes_on(RwSignal::new(0));
     send_what_is_waiting(route);
 
+    // A tapped notification, and whether the screen may move to it right now.
+    let editing = Editing(RwSignal::new(false));
+    provide_context(editing);
+    let asked_to_open: AskedToOpen = RwSignal::new(None);
+    listen_for_the_worker(set_route, editing.0, asked_to_open);
+
     // Whether the narrow-screen menu is open. On a wide screen there is no menu: the same
     // controls are simply a row, and this signal never does anything.
     let menu = RwSignal::new(false);
@@ -392,6 +459,33 @@ fn App() -> impl IntoView {
                 </div>
             </header>
             <version::UpdateBar />
+            // A notification tapped while a form is open: the screen stays where it is and
+            // says where it could go, so nothing half-typed is thrown away for it.
+            <Show when=move || asked_to_open.get().is_some()>
+                <div class="tcw-asked" role="status">
+                    <span class="tcw-asked-text">
+                        {move || {
+                            let (_, what) = asked_to_open.get().unwrap_or_default();
+                            if what.is_empty() {
+                                "A tour you are notified about has changed.".to_owned()
+                            } else {
+                                what
+                            }
+                        }}
+                    </span>
+                    <button type="button" class="tcw-asked-open"
+                            on:click=move |_| {
+                                if let Some((tour, _)) = asked_to_open.get_untracked() {
+                                    asked_to_open.set(None);
+                                    go(&format!("/tour/{tour}"), set_route);
+                                }
+                            }>
+                        "Open"
+                    </button>
+                    <button type="button" class="tcw-others-close" aria-label="Dismiss"
+                            on:click=move |_| asked_to_open.set(None)>"×"</button>
+                </div>
+            </Show>
             <main class="tcn-main">
                 {move || match (signed_in.get(), route.get()) {
                     // Nothing is readable without a code, so the sign-in screen stands in

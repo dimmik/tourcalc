@@ -422,6 +422,13 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         }
     };
 
+    // Leaving the tour closes whatever was open on it.
+    if let Some(editing) = use_context::<crate::Editing>() {
+        on_cleanup(move || {
+            editing.0.try_set(false);
+        });
+    }
+
     // Who else is changing this tour: asked while the page is open, see `others`. Owned
     // here, above the view that every load rebuilds, and handed down as context.
     let others = crate::others::Others::new();
@@ -596,9 +603,19 @@ fn TourView(
     // The page above has to know when a form is open, to keep somebody else's change from
     // replacing the tour under it.
     let others = use_context::<crate::others::Others>();
-    if let Some(o) = others {
-        Effect::new(move |_| o.editing.set(dialog.with(|d| d.is_some())));
-    }
+    // The page above needs it to keep somebody else's change from replacing the tour under
+    // an open form; the app above that needs it for a tapped notification, which would
+    // otherwise walk out of the form and take what is typed in it with it.
+    let editing = use_context::<crate::Editing>();
+    Effect::new(move |_| {
+        let open = dialog.with(|d| d.is_some());
+        if let Some(o) = others {
+            o.editing.set(open);
+        }
+        if let Some(e) = editing {
+            e.0.set(open);
+        }
+    });
 
     // A link straight to "record an expense" opens with the dialog already up: that is what
     // the app's own /tour/x/spending/add does, and it is how the button on a phone's home
