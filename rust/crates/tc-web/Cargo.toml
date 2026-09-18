@@ -18,6 +18,8 @@ web-sys = { version = "0.3", features = [
     "PushManager", "PushSubscription", "PushSubscriptionOptionsInit", "PushSubscriptionJson",
     # Copying a tour to the clipboard, with the old textarea trick as the fallback.
     "Clipboard", "Document", "HtmlDocument", "HtmlTextAreaElement", "Element",
+    # A tapped notification: the worker tells the app which tour to open.
+    "MessageEvent", "MessagePort",
 ] }
 console_error_panic_hook = "0.1"
 serde = { version = "1", features = ["derive"] }

@@ -235,6 +235,43 @@
             color: #fff;
         }
 
+        /* A notification tapped while a form is open: where the app could go, waiting for
+           the form to be finished with. */
+        .tcw-asked {
+            /* Over the form it is about: that form fills the screen, and a line underneath
+               it would be a message nobody sees. */
+            position: fixed;
+            top: calc(8px + env(safe-area-inset-top, 0px));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1200;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: max-content;
+            max-width: min(560px, calc(100vw - 24px));
+            padding: 8px 12px;
+            border-radius: 12px;
+            background: #1e1b4b;
+            color: #fff;
+            font-size: 14px;
+            line-height: 1.35;
+            box-shadow: 0 8px 28px rgba(15, 23, 42, .3);
+        }
+        .tcw-asked-text { flex: 1 1 auto; overflow-wrap: anywhere; }
+        .tcw-asked-open {
+            flex: none;
+            padding: 3px 12px;
+            border: 1px solid rgba(255, 255, 255, .6);
+            border-radius: 999px;
+            background: transparent;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .tcw-asked-open:hover { background: rgba(255, 255, 255, .18); }
+
         /* Somebody else changed the open tour. Over everything, a form included - that is
            where "what you save goes on top of it" matters - and clear of the + Spend button. */
         .tcw-others {
