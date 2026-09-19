@@ -151,8 +151,21 @@ pub fn PeopleTab(
     let kids_open: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
     let sheet: RwSignal<Option<(Which, Person)>> = RwSignal::new(None);
     // One line per person, whether or not they are opened out. For a long list on a small
-    // screen, where the roomy card is three people to a screenful.
-    let compact = RwSignal::new(false);
+    // screen, where the roomy card is three people to a screenful. Remembered for this tour
+    // on this device: it used to be forgotten on every edit, since this tab is rebuilt
+    // whenever the tour is, and a reader of a long list switched it on again and again.
+    let compact = RwSignal::new(crate::settings::compact_people(tour.id.as_str()));
+    {
+        let id = tour.id.as_str().to_owned();
+        Effect::new(move |was: Option<bool>| {
+            let now = compact.get();
+            // Not on the first run: that is the value just read, not a choice.
+            if was.is_some_and(|was| was != now) {
+                crate::settings::remember_compact_people(&id, now);
+            }
+            now
+        });
+    }
     let search = RwSignal::new(String::new());
 
     let fams = families(&tour);

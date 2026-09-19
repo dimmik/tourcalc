@@ -100,6 +100,32 @@ pub fn remember_check_seconds(seconds: u32) {
     }
 }
 
+fn compact_key(tour: &str) -> String {
+    format!("__tcw_compact_{tour}")
+}
+
+/// Whether this tour's People tab is drawn one line per person on this device.
+///
+/// Per tour, because it is a property of the list and not of the reader: a trip of thirty
+/// wants it, a weekend of four does not. Per device, because it is about the screen.
+pub fn compact_people(tour: &str) -> bool {
+    storage()
+        .and_then(|s| s.get_item(&compact_key(tour)).ok().flatten())
+        .is_some_and(|v| v == "1")
+}
+
+/// Remembers the choice. Only "on" is written: the default takes no room, and a device
+/// that has seen fifty tours does not keep fifty keys saying "no".
+pub fn remember_compact_people(tour: &str, compact: bool) {
+    if let Some(s) = storage() {
+        let _ = if compact {
+            s.set_item(&compact_key(tour), "1")
+        } else {
+            s.remove_item(&compact_key(tour))
+        };
+    }
+}
+
 /// The settings every screen reads, and the one place they are written.
 pub type Shared = RwSignal<Settings>;
 
