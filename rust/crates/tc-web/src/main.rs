@@ -7,6 +7,7 @@
 mod accent;
 mod api;
 mod dialogs;
+mod drafts;
 mod edit;
 mod explain;
 mod help;

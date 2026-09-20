@@ -1046,12 +1046,21 @@ fn TourView(
         {move || {
             let tour = tour_for_dialog.clone();
             dialog.get().map(|d| match d {
-                Dialog::Spending(draft) => view! {
-                    <SpendingDialog tour=tour draft=draft on_close=close on_apply=apply />
-                }.into_any(),
-                Dialog::Person(draft) => view! {
-                    <PersonDialog tour=tour draft=draft on_close=close on_apply=apply />
-                }.into_any(),
+                Dialog::Spending(draft) => {
+                    // A blank new expense opens where the last one was left off.
+                    let (draft, carried) = crate::drafts::carry_spending(&tour, draft);
+                    view! {
+                        <SpendingDialog tour=tour draft=draft carried_over=carried
+                                        on_close=close on_apply=apply />
+                    }.into_any()
+                }
+                Dialog::Person(draft) => {
+                    let (draft, carried) = crate::drafts::carry_person(&tour, draft);
+                    view! {
+                        <PersonDialog tour=tour draft=draft carried_over=carried
+                                      on_close=close on_apply=apply />
+                    }.into_any()
+                }
                 Dialog::Tour(draft) => view! {
                     <TourDialog draft=draft on_close=close on_apply=apply />
                 }.into_any(),

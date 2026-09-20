@@ -123,7 +123,7 @@ fn short(s: &str) -> String {
     }
 }
 
-fn storage() -> Option<web_sys::Storage> {
+pub(crate) fn storage() -> Option<web_sys::Storage> {
     web_sys::window()?.local_storage().ok().flatten()
 }
 
