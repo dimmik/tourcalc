@@ -89,7 +89,7 @@ fn families(tour: &Tour) -> Vec<Family> {
 
 /// Which of the three figures a sheet is explaining.
 #[derive(Clone, Copy, PartialEq)]
-enum Which {
+pub enum Which {
     Paid,
     Charged,
     Balance,
@@ -134,9 +134,56 @@ fn meaningful(amount: Cents, too_small: Cents) -> Cents {
     }
 }
 
+/// What the reader has done to the People tab: whose card is open, whose family is showing,
+/// which sheet of numbers is up, the search box, and whether the list is drawn compact.
+///
+/// Owned by the tour page rather than by this tab, for the reason [`crate::tour::Sifting`]
+/// is: the screen below the page is rebuilt after every edit, and a card that saving an
+/// expense folds back up is a card nobody can read while editing.
+#[derive(Clone, Copy)]
+pub struct People {
+    /// Who is opened out, and whose family is showing - by id, since the list is rebuilt on
+    /// every edit and a position means nothing across two versions of a tour.
+    pub open: RwSignal<Vec<String>>,
+    pub kids_open: RwSignal<Vec<String>>,
+    pub sheet: RwSignal<Option<(Which, Person)>>,
+    /// One line per person, whether or not they are opened out. For a long list on a small
+    /// screen, where the roomy card is three people to a screenful. Remembered for this tour
+    /// on this device.
+    pub compact: RwSignal<bool>,
+    pub search: RwSignal<String>,
+}
+
+impl People {
+    pub fn new(tour_id: &str) -> People {
+        let compact = RwSignal::new(crate::settings::compact_people(tour_id));
+        {
+            let id = tour_id.to_owned();
+            Effect::new(move |was: Option<bool>| {
+                let now = compact.get();
+                // Not on the first run: that is the value just read, not a choice.
+                if was.is_some_and(|was| was != now) {
+                    crate::settings::remember_compact_people(&id, now);
+                }
+                now
+            });
+        }
+        People {
+            open: RwSignal::new(Vec::new()),
+            kids_open: RwSignal::new(Vec::new()),
+            sheet: RwSignal::new(None),
+            compact,
+            search: RwSignal::new(String::new()),
+        }
+    }
+}
+
 #[component]
 pub fn PeopleTab(
     tour: Tour,
+    /// What the reader has opened and typed here. Owned by the page above, which is not
+    /// rebuilt when the tour is saved.
+    people: People,
     /// Every suggested payment, family ones included: what somebody hands over at settle-up
     /// is not the same number as what they owe, and both are shown.
     transfers: Vec<Transfer>,
@@ -144,29 +191,13 @@ pub fn PeopleTab(
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
 ) -> impl IntoView {
-    // Which people are opened out, and which families have their members showing. Ids
-    // rather than indices: the list is rebuilt on every edit, and a position means nothing
-    // across two versions of a tour.
-    let open: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
-    let kids_open: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
-    let sheet: RwSignal<Option<(Which, Person)>> = RwSignal::new(None);
-    // One line per person, whether or not they are opened out. For a long list on a small
-    // screen, where the roomy card is three people to a screenful. Remembered for this tour
-    // on this device: it used to be forgotten on every edit, since this tab is rebuilt
-    // whenever the tour is, and a reader of a long list switched it on again and again.
-    let compact = RwSignal::new(crate::settings::compact_people(tour.id.as_str()));
-    {
-        let id = tour.id.as_str().to_owned();
-        Effect::new(move |was: Option<bool>| {
-            let now = compact.get();
-            // Not on the first run: that is the value just read, not a choice.
-            if was.is_some_and(|was| was != now) {
-                crate::settings::remember_compact_people(&id, now);
-            }
-            now
-        });
-    }
-    let search = RwSignal::new(String::new());
+    let People {
+        open,
+        kids_open,
+        sheet,
+        compact,
+        search,
+    } = people;
 
     let fams = families(&tour);
     let count = tour.persons.len();

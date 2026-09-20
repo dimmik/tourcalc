@@ -476,6 +476,8 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
 
     // What the reader has filtered the list down to, owned here for the same reason.
     let sifting = Sifting::new();
+    // And the same for the People tab: whose card is open, what is in its search box.
+    let people_state = crate::people::People::new(&id);
 
     let refresh = Refresh {
         busy: RwSignal::new(false),
@@ -665,7 +667,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
             }.into_any(),
             Load::Ready(tour) => view! {
                 <TourView tour=tour reload=load status=status landing=landing tab=tab
-                          refresh=refresh sifting=sifting />
+                          refresh=refresh sifting=sifting people=people_state />
             }.into_any(),
         }}
     }
@@ -684,6 +686,8 @@ fn TourView(
     refresh: Refresh,
     /// What the list and the ring are filtered to, likewise owned above.
     sifting: Sifting,
+    /// What is open and typed on the People tab, likewise owned above.
+    people: crate::people::People,
 ) -> impl IntoView {
     // Every avatar on this screen can now tell one Дима from another.
     provide_context(crate::ui::Peers(
@@ -785,7 +789,7 @@ fn TourView(
         .map(|t| tour.convert(t.amount, &t.currency))
         .sum();
 
-    let people = tour.persons.len();
+    let how_many_people = tour.persons.len();
     let expenses = real.len();
     let title = tour.name.clone();
 
@@ -968,7 +972,7 @@ fn TourView(
                             let t = tour_for_explain.clone();
                             Callback::new(move |()| crate::explain::total_spent(&t))
                         } />
-                <Metric label="People" value=people.to_string() unit=String::new()
+                <Metric label="People" value=how_many_people.to_string() unit=String::new()
                         what={
                             let t = tour_for_explain2.clone();
                             Callback::new(move |()| crate::explain::people(&t))
@@ -993,7 +997,7 @@ fn TourView(
 
         <nav class="tcn-tabs" role="tablist" aria-label="Tour sections">
             <TabButton tab=tab mine=Tab::Balance label="Balance" count=Some(between.len()) />
-            <TabButton tab=tab mine=Tab::People label="People" count=Some(people) />
+            <TabButton tab=tab mine=Tab::People label="People" count=Some(how_many_people) />
             <TabButton tab=tab mine=Tab::Expenses label="Expenses" count=Some(expenses) />
             <TabButton tab=tab mine=Tab::Stats label="Stats" count=None />
         </nav>
@@ -1005,7 +1009,8 @@ fn TourView(
         </Show>
 
         <Show when=move || tab.get() == Tab::People>
-            <PeopleTab tour=tour_for_people.clone() transfers=all_transfers.clone()
+            <PeopleTab tour=tour_for_people.clone() people=people
+                       transfers=all_transfers.clone()
                        unit=unit_people.clone() dialog=dialog delete=delete />
         </Show>
 
