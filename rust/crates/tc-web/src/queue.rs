@@ -378,6 +378,37 @@ pub fn forget_list() {
     }
 }
 
+/// Everything this device kept about somebody's tours: the cached copies, the queues, the
+/// refusals, the dropped edits, the compact lists, the remembered list itself.
+///
+/// For the way out. A login that ran out keeps all of this on purpose - typing the same code
+/// again sends what is waiting - but somebody pressing "log out" is leaving the device, and
+/// what they leave behind is the next person's to find. Their own settings (the accent, how
+/// often to check) are not theirs to lose and stay.
+pub fn forget_everything() {
+    let Some(s) = storage() else { return };
+    const MINE: &[&str] = &[
+        "__tcw_tour_",
+        "__tcw_tour_at_",
+        "__tcw_queue_",
+        "__tcw_refused_",
+        "__tcw_lost_",
+        "__tcw_compact_",
+    ];
+    let mut doomed = Vec::new();
+    for i in 0..s.length().unwrap_or(0) {
+        let Ok(Some(key)) = s.key(i) else { continue };
+        if MINE.iter().any(|prefix| key.starts_with(prefix)) {
+            doomed.push(key);
+        }
+    }
+    for key in doomed {
+        let _ = s.remove_item(&key);
+    }
+    forget_list();
+    changed();
+}
+
 /// The tour as the reader should see it: what the server last said, plus everything that
 /// has not reached it yet.
 pub fn with_pending(tour: &Tour) -> Tour {

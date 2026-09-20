@@ -497,3 +497,61 @@ async fn tours_are_counted_by_code() {
     assert_eq!(count, 2);
     assert_eq!(count, store.list(Some(&codes), &|_| true).await.len());
 }
+
+/// A page is asked of the database, not cut out of everything it holds.
+#[tokio::test]
+async fn a_page_of_the_list_comes_back_in_order() {
+    let store = store_or_skip!("a_page_of_the_list_comes_back_in_order");
+    let tour = fixture();
+    let code = fields::access_code(&tour);
+    for id in ["aaa", "bbb", "ccc", "ddd"] {
+        let mut one = tour.clone();
+        one.id = TourId::new(id);
+        store.store(one).await;
+    }
+    // A version of one of them, which belongs to nobody's list.
+    store
+        .store(tc_server::api::write::version_of(&tour, "kept".into()))
+        .await;
+
+    let codes = vec![code];
+    let (first, total) = store.page(Some(&codes), &|_| true, 0, 2).await;
+    assert_eq!(total, 4, "the count is of tours, not of versions");
+    let (second, _) = store.page(Some(&codes), &|_| true, 2, 2).await;
+    let ids: Vec<&str> = first
+        .iter()
+        .chain(second.iter())
+        .map(|t| t.id.as_str())
+        .collect();
+    assert_eq!(ids, ["aaa", "bbb", "ccc", "ddd"]);
+
+    // Past the end is empty, not an error.
+    let (nothing, total) = store.page(Some(&codes), &|_| true, 10, 2).await;
+    assert!(nothing.is_empty());
+    assert_eq!(total, 4);
+}
+
+/// The versions of a tour are read without what is in them: the screen shows dates and a
+/// line of text, and a version is a whole copy of the tour.
+#[tokio::test]
+async fn versions_are_read_without_their_contents() {
+    let store = store_or_skip!("versions_are_read_without_their_contents");
+    let tour = fixture();
+    assert!(!tour.spendings.is_empty(), "the fixture has expenses");
+    store.store(tour.clone()).await;
+    for comment in ["first", "second"] {
+        store
+            .store(tc_server::api::write::version_of(&tour, comment.into()))
+            .await;
+    }
+
+    let (kept, total) = store.versions(&tour.id, 0, 10).await;
+    assert_eq!(total, 2);
+    assert_eq!(kept.len(), 2);
+    for v in &kept {
+        assert!(v.spendings.is_empty(), "the expenses stayed in the database");
+        assert!(v.persons.is_empty());
+        assert!(!fields::str_of(v, fields::VERSION_COMMENT).is_empty());
+        assert_eq!(fields::str_of(v, fields::VERSION_FOR), tour.id.as_str());
+    }
+}

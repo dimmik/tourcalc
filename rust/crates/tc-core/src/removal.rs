@@ -113,6 +113,14 @@ pub fn shared_in(tour: &Tour, id: &PersonId) -> usize {
         .count()
 }
 
+/// How many people call this person their parent - they leave the family when it goes.
+pub fn children_of(tour: &Tour, id: &PersonId) -> usize {
+    tour.persons
+        .iter()
+        .filter(|p| p.parent.as_ref() == Some(id))
+        .count()
+}
+
 /// The tour without this person, or `None` when something still holds them (see
 /// [`what_holds`]) - in which case nothing is changed at all.
 ///
@@ -213,6 +221,16 @@ mod tests {
             .spendings
             .iter()
             .all(|s| recipients(s).is_none_or(|to| !to.contains(&who))));
+    }
+
+    #[test]
+    fn the_family_is_counted_before_it_is_broken_up() {
+        let mut t = tour();
+        let head = t.persons[0].id.clone();
+        t.persons[1].parent = Some(head.clone());
+        t.persons[2].parent = Some(head.clone());
+        assert_eq!(children_of(&t, &head), 2);
+        assert_eq!(children_of(&t, &t.persons[1].id.clone()), 0);
     }
 
     #[test]

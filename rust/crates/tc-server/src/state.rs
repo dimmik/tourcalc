@@ -94,9 +94,7 @@ impl AppState {
 
     /// Records a wake-up, dropping the oldest when the list is full.
     pub fn woke_up(&self) {
-        let Ok(mut list) = self.wakeups.write() else {
-            return;
-        };
+        let mut list = crate::lock::write(&self.wakeups);
         if list.len() >= WAKEUPS_TO_KEEP {
             list.remove(0);
         }

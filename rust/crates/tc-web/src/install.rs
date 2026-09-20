@@ -184,15 +184,21 @@ pub fn InstallSetting() -> impl IntoView {
     // The offer does not always arrive before this screen does - the browser weighs it up
     // in its own time - so the answer is asked for again while the page is open rather
     // than settled once and left wrong.
-    leptos::prelude::set_interval(
+    // And taken down with the screen: Settings is left as often as it is opened.
+    if let Ok(asking) = leptos::prelude::set_interval_with_handle(
         move || {
-            let fresh = state(on_the_device.get_untracked());
-            if fresh != now.get_untracked() {
-                now.set(fresh);
+            let Some(was) = now.try_get_untracked() else {
+                return;
+            };
+            let fresh = state(on_the_device.try_get_untracked().unwrap_or(false));
+            if fresh != was {
+                now.try_set(fresh);
             }
         },
         std::time::Duration::from_millis(1200),
-    );
+    ) {
+        on_cleanup(move || asking.clear());
+    }
     let outcome: RwSignal<Option<&'static str>> = RwSignal::new(None);
     // Asked for whether it is needed or not, because it is needed exactly when nobody can
     // ask for it: on somebody else's phone, with no way to look inside.

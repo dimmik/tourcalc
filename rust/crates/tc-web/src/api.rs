@@ -76,12 +76,16 @@ pub fn take_expired() -> bool {
     EXPIRED.with(|e| e.replace(false))
 }
 
-/// Forgets the token. Nothing on the server to tell: it never knew.
+/// Forgets the token, and everything this device kept about the tours it opened. Nothing on
+/// the server to tell: it never knew.
+///
+/// Deliberately more than [`expired`] does. Leaving on purpose is leaving a device; a login
+/// that simply ran out is the same person, and their unsent edits wait for them.
 pub fn log_out() {
     if let Some(s) = storage() {
         let _ = s.remove_item(TOKEN_KEY);
     }
-    crate::queue::forget_list();
+    crate::queue::forget_everything();
     crate::push::forget_bells();
 }
 
@@ -232,10 +236,13 @@ pub async fn tours() -> Result<Vec<Tour>, Failed> {
     // anything was missing.
     const PAGE: usize = 200;
     let mut all = Vec::new();
+    // What the server has handed over, which is not the same as what could be read: a tour
+    // this client cannot parse still takes up a place in the server's list, and counting by
+    // the parsed ones would ask for the next page one short and show a tour twice.
+    let mut handed_over = 0usize;
     loop {
         let body = get(&format!(
-            "/api/Tour/all/suggested?from={}&count={PAGE}",
-            all.len()
+            "/api/Tour/all/suggested?from={handed_over}&count={PAGE}"
         ))
         .await?;
         let value: serde_json::Value =
@@ -248,7 +255,7 @@ pub async fn tours() -> Result<Vec<Tour>, Failed> {
             .get("TotalCount")
             .and_then(|t| t.as_u64())
             .unwrap_or(0) as usize;
-        let before = all.len();
+        handed_over += items.len();
         all.extend(
             items
                 .iter()
@@ -256,7 +263,7 @@ pub async fn tours() -> Result<Vec<Tour>, Failed> {
         );
         // An empty page ends it too, whatever the total says: a list that shrank while it
         // was being read must not be asked for forever.
-        if items.is_empty() || before + items.len() >= total {
+        if items.is_empty() || handed_over >= total {
             return Ok(all);
         }
     }

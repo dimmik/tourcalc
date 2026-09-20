@@ -41,7 +41,10 @@ web-push-native = { version = "0.5", optional = true }
 http = { version = "1", optional = true }
 reqwest = { version = "0.12", optional = true, default-features = false, features = ["rustls-tls"] }
 bson = { version = "2", optional = true }
-futures-util = { version = "0.3", optional = true, default-features = false }
+# Streams, for reading a cursor and for sending several notifications at once. Pure Rust
+# and always built: it is what the driver hands out and what keeps one slow push service
+# from holding up everybody else's notification.
+futures-util = { version = "0.3", default-features = false }
 
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -57,6 +60,6 @@ http-body-util = "0.1"
 # that otherwise has none; `--no-default-features` gets that build back.
 default = ["mongo", "push"]
 # Storage in MongoDB. Costs the pure-Rust build - see the note by the dependency.
-mongo = ["dep:mongodb", "dep:bson", "dep:futures-util"]
+mongo = ["dep:mongodb", "dep:bson"]
 # Actually delivering push notifications. Without it they are stored, counted and logged.
 push = ["dep:web-push-native", "dep:http", "dep:reqwest"]

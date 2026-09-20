@@ -1,0 +1,55 @@
+# Throws away the build caches of branches that no longer exist.
+#
+# The repository's Actions cache is capped at 10 GB, and a Rust image build writes about a
+# gigabyte of layers per branch plus another 0.6 GB of compiled test build. With half a
+# dozen merged beta branches still holding theirs, the cap is reached and GitHub starts
+# evicting by age - which one day throws out the layer the next build needed, and that build
+# takes nine minutes instead of three for no reason anybody can see.
+#
+# Deleting a branch is the moment its caches stop being useful, so that is when they go.
+name: Tidy caches
+
+on:
+  delete:
+  # And by hand, to clear what the branches deleted before this existed left behind.
+  workflow_dispatch:
+
+permissions:
+  # Caches are part of Actions, and removing one is a write.
+  actions: write
+  contents: read
+
+jobs:
+  tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: The branch that was just deleted
+        if: github.event_name == 'delete' && github.event.ref_type == 'branch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          REF: refs/heads/${{ github.event.ref }}
+        run: |
+          set -eu
+          ids=$(gh cache list --ref "$REF" --limit 100 --json id --jq '.[].id')
+          echo "${ids:-nothing to delete} for $REF"
+          for id in $ids; do gh cache delete "$id"; done
+
+      - name: Everything left by branches that are gone
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          # What still exists, as full refs. A cache on a pull-request ref or a tag is left
+          # alone: this is about branches that were merged and deleted.
+          gh api --paginate repos/{owner}/{repo}/branches --jq '.[].name' \
+            | sed 's|^|refs/heads/|' | sort > /tmp/alive
+          gh cache list --limit 100 --json id,ref --jq '.[] | [.id, .ref] | @tsv' > /tmp/caches
+          while IFS=$'\t' read -r id ref; do
+            case "$ref" in
+              refs/heads/*) grep -qxF "$ref" /tmp/alive || { echo "deleting $id ($ref)"; gh cache delete "$id"; } ;;
+              *) ;;
+            esac
+          done < /tmp/caches

@@ -95,6 +95,8 @@ impl WebPush {
     }
 }
 
+use futures_util::StreamExt;
+
 #[async_trait::async_trait]
 impl Notifier for WebPush {
     fn public_key(&self) -> &str {
@@ -107,23 +109,34 @@ impl Notifier for WebPush {
         tour_id: &str,
         message: &str,
     ) -> Vec<Subscription> {
-        let mut finished = Vec::new();
         if subscribers.is_empty() {
-            return finished;
+            return Vec::new();
         }
         let payload = WebPush::payload(tour_id, message);
 
-        for sub in subscribers {
-            match self.prepare(&sub, &payload) {
-                Ok(request) => {
-                    if self.deliver(&sub, request).await == Delivery::Gone {
-                        finished.push(sub);
+        // Several at a time rather than one after another: a phone whose push service is
+        // slow used to hold up everybody else's notification, and a busy tour would have a
+        // second round of the same errand starting before the first had finished. Eight is
+        // enough to make a group of twenty prompt and small enough not to look like a flood
+        // to the services themselves.
+        const AT_ONCE: usize = 8;
+        futures_util::stream::iter(subscribers.into_iter().map(|sub| {
+            let payload = payload.clone();
+            async move {
+                match self.prepare(&sub, &payload) {
+                    Ok(request) => (self.deliver(&sub, request).await == Delivery::Gone)
+                        .then_some(sub),
+                    Err(e) => {
+                        tracing::warn!("could not prepare a notification for {}: {e}", sub.url);
+                        None
                     }
                 }
-                Err(e) => tracing::warn!("could not prepare a notification for {}: {e}", sub.url),
             }
-        }
-        finished
+        }))
+        .buffer_unordered(AT_ONCE)
+        .filter_map(|finished| async move { finished })
+        .collect()
+        .await
     }
 }
 
@@ -177,8 +190,12 @@ impl WebPush {
     #[cfg(feature = "push")]
     async fn deliver(&self, sub: &Subscription, request: http::Request<Vec<u8>>) -> Delivery {
         // Delivery is deliberately best-effort: a push service that is down, or a
-        // subscription the browser has withdrawn, must not fail somebody's save.
-        let client = reqwest::Client::new();
+        // subscription the browser has withdrawn, must not fail somebody's save. The
+        // timeout is what keeps "down" from meaning "this errand never ends".
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .unwrap_or_default();
         let (parts, body) = request.into_parts();
         let mut send = client.post(parts.uri.to_string()).body(body);
         for (name, value) in parts.headers.iter() {
