@@ -46,6 +46,9 @@ export function tcw_started() {
     window.tcwStarted = true;
     const boot = document.getElementById('tcw-boot');
     if (boot) boot.remove();
+    // The one automatic reload the boot screen allows itself is spent per start, not per
+    // tab: see index.html.
+    try { sessionStorage.removeItem('tcwRetried'); } catch (e) {}
 }
 "#)]
 extern "C" {

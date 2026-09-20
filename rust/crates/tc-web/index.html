@@ -683,9 +683,25 @@
             const up = () => window.tcwStarted === true;
             let told = false;
 
+            // One reload of its own before it asks for one. A cold start that did not
+            // finish is usually a fetch that hung on a radio still waking up, and the
+            // second attempt has the service worker's copy to answer with - which is
+            // exactly what the reader would have got by pressing the button, a minute
+            // later and having been told the app is broken. Once only, remembered for
+            // this tab: an app that cannot start must not reload itself for ever.
+            const RETRIED = 'tcwRetried';
+            let tried = false;
+            try { tried = sessionStorage.getItem(RETRIED) === '1'; } catch (e) {}
+
             const tell = () => {
                 if (up() || told || !boot) return;
                 told = true;
+                if (!tried) {
+                    try { sessionStorage.setItem(RETRIED, '1'); } catch (e) {}
+                    why.textContent = 'Still starting — trying once more…';
+                    location.reload();
+                    return;
+                }
                 why.textContent = 'Tourcalc did not start. It may have been asked for while ' +
                     'this device had no connection.';
                 again.hidden = false;

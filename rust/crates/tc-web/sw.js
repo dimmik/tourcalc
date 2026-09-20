@@ -12,7 +12,7 @@
 const CACHE = 'tcw-v1';
 
 // Which notification handling this copy has, for a test to be sure which copy answered.
-self.TC_NOTIFY = 5;
+self.TC_NOTIFY = 8;
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
@@ -29,27 +29,30 @@ self.addEventListener('fetch', (event) => {
     // it - and the app, what it showed in place of them.
     if (url.pathname === '/t' || url.pathname.startsWith('/t/')) return;
 
-    // Opening a link: prefer the network, so a new build is picked up, and fall back to the
-    // page we kept. Every route is the same document - the app reads the path itself.
+    // Opening a link: ask the network, because a new build is picked up that way - but not
+    // for longer than PATIENCE, and only while there is nothing kept to answer with.
+    // Every route is the same document; the app reads the path itself.
     if (req.mode === 'navigate') {
         event.respondWith(
-            fetch(req)
-                .then((resp) => {
-                    if (resp.ok) {
-                        const copy = resp.clone();
-                        event.waitUntil(keepThePage(copy));
-                    }
+            soonest(
+                event,
+                fetch(req).then((resp) => {
+                    if (resp.ok) event.waitUntil(keepThePage(resp.clone()));
                     return resp;
-                })
-                .catch(() => caches.match('/').then((hit) => hit || offlinePage()))
+                }),
+                '/'
+            ).then((resp) => resp || offlinePage())
         );
         return;
     }
 
-    // The build renames what it compiles - `tc-web-163cb1d9…_bg.wasm` - so a file with a
-    // hash in its name can only ever mean one thing, and a hit is always the right answer.
-    if (HASHED.test(url.pathname)) {
-        event.respondWith(caches.match(req).then((hit) => hit || fromNetwork(req)));
+    // The build renames what it compiles - `tc-web-163cb1d9…_bg.wasm`, and the little
+    // JavaScript snippets under `snippets/tc-web-c46545c0…/` - so a file whose name or
+    // whose directory carries a hash can only ever mean one thing, and a hit is always the
+    // right answer. The snippets were left out of this at first, and they are what a cold
+    // start waited for on a slow radio: a dozen files, each asked of the network.
+    if (BUILT.test(url.pathname)) {
+        event.respondWith(kept(req).then((hit) => hit || fromNetwork(req)));
         return;
     }
 
@@ -60,9 +63,67 @@ self.addEventListener('fetch', (event) => {
     // page went on being handed the *old* app's manifest out of this cache. So the network
     // is asked first, and the copy kept here is what answers when there is no network.
     event.respondWith(
-        fromNetwork(req).catch(() => caches.match(req).then((hit) => hit || Response.error()))
+        soonest(event, fromNetwork(req), req).then((resp) => resp || Response.error())
     );
 });
+
+/// What this device has kept for a request, **whatever the response says it varies by**.
+///
+/// The server compresses and mirrors CORS, so every answer carries
+/// `Vary: origin, …, accept-encoding`, and a cache lookup honours that: it compares headers
+/// the browser writes for itself and JavaScript never sees, and a miss looks exactly like
+/// "not cached". That is what it was - the wasm sat in the cache and was fetched again on
+/// every start, half a minute of it on a slow radio. These files are named after their own
+/// contents, so one URL is one answer and there is nothing for a `Vary` to choose between.
+function kept(request) {
+    return caches.match(request, { ignoreVary: true, ignoreSearch: false });
+}
+
+/// How long a cold start waits for the network before it uses what this device already has.
+///
+/// The app is installed on phones, and a phone puts it away: the system drops it from
+/// memory, and opening it again is a cold start on a radio that is still waking up, often
+/// against a server that has itself been asleep. Waiting on that start meant "Starting…"
+/// for as long as the network took - once long enough for the app to give up and ask to be
+/// reloaded by hand. Two and a half seconds is longer than any answer that is coming, and
+/// shorter than anybody's patience.
+const PATIENCE = 2500;
+
+/// The network's answer, or what is in the cache if the network is slower than [`PATIENCE`].
+///
+/// The request is never abandoned: whichever answer is shown, the fetch runs on and its
+/// answer is kept, so the next start has it. Answers `undefined` when the network fails and
+/// there is nothing kept - the caller says what to do about that.
+function soonest(event, fetching, key) {
+    return kept(key).then(
+        (hit) =>
+            new Promise((resolve) => {
+                let answered = false;
+                const answer = (resp) => {
+                    if (!answered && resp) {
+                        answered = true;
+                        resolve(resp);
+                    }
+                    return answered;
+                };
+                // Nothing kept: there is nothing to be impatient with.
+                const timer = hit ? setTimeout(() => answer(hit.clone()), PATIENCE) : 0;
+                event.waitUntil(
+                    fetching.then(
+                        (resp) => {
+                            clearTimeout(timer);
+                            if (!answer(resp)) return resp;
+                        },
+                        () => {
+                            clearTimeout(timer);
+                            // The network said no, which is an answer: use what we kept.
+                            if (!answer(hit && hit.clone())) resolve(undefined);
+                        }
+                    )
+                );
+            })
+    );
+}
 
 /// The name of anything the build has renamed after its contents. `_bg` is wasm-bindgen's:
 /// `tc-web-<hash>_bg.wasm`. Without it the wasm - the one file that matters - never matched,
