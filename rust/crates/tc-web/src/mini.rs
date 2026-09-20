@@ -1127,6 +1127,9 @@ pub fn MiniDialogs(
 pub fn MiniList(
     tours: Vec<Tour>,
     search: RwSignal<String>,
+    /// What the list is ordered by, chosen in either interface and shared by both.
+    order_by: RwSignal<crate::list::Order>,
+    downwards: RwSignal<bool>,
     show_archived: RwSignal<bool>,
     adding: RwSignal<bool>,
     new_name: RwSignal<String>,
@@ -1164,6 +1167,33 @@ pub fn MiniList(
             <Show when=move || busy.get()>
                 <span class="tcm-saving">"saving…"</span>
             </Show>
+        </div>
+
+        // The same four keys the roomy list has, in this one's own buttons.
+        <div class="tcm-bar tcm-order">
+            {crate::list::Order::ALL
+                .into_iter()
+                .map(|which| {
+                    let (down, up) = which.ways();
+                    view! {
+                        <button type="button" class="tcm-btn"
+                                class:is-on=move || order_by.get() == which
+                                title=move || if order_by.get() == which && downwards.get() {
+                                    format!("{down} — tap for {up}")
+                                } else if order_by.get() == which {
+                                    format!("{up} — tap for {down}")
+                                } else {
+                                    format!("order by: {down}")
+                                }
+                                on:click=move |_| crate::list::choose(order_by, downwards, which)>
+                            {which.label().to_lowercase()}
+                            <Show when=move || order_by.get() == which>
+                                {move || if downwards.get() { " ↓" } else { " ↑" }}
+                            </Show>
+                        </button>
+                    }
+                })
+                .collect_view()}
         </div>
 
         <Show when=move || adding.get()>
