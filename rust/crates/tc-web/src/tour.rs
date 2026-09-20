@@ -810,16 +810,26 @@ fn TourView(
                     }
                     return;
                 }
+                // What goes with them, in the order somebody would notice it: the money
+                // first, then the family.
+                let mut also = Vec::new();
                 match tc_core::removal::shared_in(&tour, &p.id) {
+                    0 => {}
+                    1 => also.push(
+                        "their part of 1 shared expense goes to the others on it".to_owned(),
+                    ),
+                    n => also.push(format!(
+                        "their part of {n} shared expenses goes to the others on them"
+                    )),
+                }
+                match tc_core::removal::children_of(&tour, &p.id) {
+                    0 => {}
+                    1 => also.push("1 person leaves their family".to_owned()),
+                    n => also.push(format!("{n} people leave their family")),
+                }
+                match also.len() {
                     0 => format!("Delete '{}'?", p.name),
-                    1 => format!(
-                        "Delete '{}'? Their part of 1 shared expense goes to the others on it.",
-                        p.name
-                    ),
-                    n => format!(
-                        "Delete '{}'? Their part of {n} shared expenses goes to the others on them.",
-                        p.name
-                    ),
+                    _ => format!("Delete '{}'? Then {}.", p.name, also.join(", and ")),
                 }
             }
         };
