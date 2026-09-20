@@ -235,6 +235,53 @@
             color: #fff;
         }
 
+        /* Whether this browser is current: a dot in the header that opens into a word
+           when the answer arrives, and shrinks back. Its colours are the app's own. */
+        .tcw-vmark {
+            display: inline-flex;
+            align-items: center;
+            gap: 0;
+            border: 0;
+            background: transparent;
+            padding: 4px 2px;
+            cursor: pointer;
+            border-radius: 999px;
+            flex: 0 0 auto;
+        }
+        .tcw-vmark-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .55);
+            flex: 0 0 auto;
+        }
+        .tcw-vmark.is-latest .tcw-vmark-dot { background: #22c55e; }
+        .tcw-vmark.is-stale .tcw-vmark-dot { background: #f59e0b; }
+        .tcw-vmark.is-unknown .tcw-vmark-dot { background: rgba(255, 255, 255, .5); }
+        .tcw-vmark-word {
+            /* Width rather than display, so that it grows and shrinks rather than jumping
+               the header about. */
+            max-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            font-size: 11px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: #fff;
+            opacity: 0;
+            transition: max-width .25s ease, opacity .25s ease, margin-left .25s ease;
+        }
+        .tcw-vmark.is-open .tcw-vmark-word {
+            max-width: 7rem;
+            opacity: .95;
+            margin-left: 6px;
+        }
+        .tcw-vmark.is-stale .tcw-vmark-word { color: #fde68a; }
+        .tcw-vmark.is-latest .tcw-vmark-word { color: #bbf7d0; }
+        @media (prefers-reduced-motion: reduce) {
+            .tcw-vmark-word { transition: none; }
+        }
+
         /* What to do about edits the server keeps refusing. */
         .tcw-refused-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
         /* A notification tapped while a form is open: where the app could go, waiting for

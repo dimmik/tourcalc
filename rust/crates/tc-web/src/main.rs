@@ -334,6 +334,9 @@ fn App() -> impl IntoView {
     accent::apply(&settings.get_untracked().accent);
     provide_context(settings);
 
+    // Asked once by the mark in the header, shown there and on the bar under it.
+    provide_context(version::Stale(RwSignal::new(false)));
+
     let (route, set_route) = signal(current_route());
     intercept_links(set_route);
 
@@ -427,6 +430,8 @@ fn App() -> impl IntoView {
         <div class="tcn-shell" class:tcm-shell=move || mode.get() == mode::UiMode::Mini>
             <header class="tcn-topbar">
                 <a class="tcn-brand" href="/" title="Tour list">"🧭"</a>
+                // Whether this browser is running the client the server hands out.
+                <version::VersionMark />
                 <a class="tcn-topbar-title" class:tcw-back=move || stepped_aside.get()
                    href=move || named_at_the_top.get().href()
                    title=move || {

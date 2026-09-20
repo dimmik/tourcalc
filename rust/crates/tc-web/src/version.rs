@@ -111,34 +111,121 @@ pub fn is_stale(server: &Deployment, running: &Option<String>) -> Option<bool> {
     Some(server.client != running)
 }
 
-/// The bar that finds you: one line, only when there is something to do about it.
+/// Whether the server hands out a newer client than this browser is running.
+///
+/// One question, one answer, two places that show it: the mark in the header asks, and the
+/// bar under it - which is the one with a button on it - reads. Provided by the app, so
+/// that neither of them has to know about the other.
+#[derive(Clone, Copy)]
+pub struct Stale(pub RwSignal<bool>);
+
+/// What the mark in the header is saying.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Mark {
+    /// Nobody has answered yet - the first second or so after the app starts.
+    Asking,
+    /// This browser is running what the server hands out.
+    Latest,
+    /// The server has a newer client than this browser is running.
+    Stale,
+    /// The server did not answer, which is not the same as "current" and must not look
+    /// like it.
+    Unknown,
+}
+
+impl Mark {
+    fn word(self) -> &'static str {
+        match self {
+            Mark::Asking => "checking…",
+            Mark::Latest => "latest",
+            Mark::Stale => "update",
+            Mark::Unknown => "can't tell",
+        }
+    }
+
+    fn why(self) -> &'static str {
+        match self {
+            Mark::Asking => "Asking the server which client it hands out…",
+            Mark::Latest => "This browser is running the client the server hands out. Click to ask again.",
+            Mark::Stale => "The server hands out a newer client than this browser is running. Click to throw away the cached copy and reload.",
+            Mark::Unknown => "The server did not say which client it hands out. Click to ask again.",
+        }
+    }
+}
+
+/// How long the mark says its word out loud before shrinking back to a dot. Long enough to
+/// be read by somebody who has just opened the app, short enough not to sit in the way.
+const SAID: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// Whether this browser is current, in the corner of the header.
+///
+/// A dot, always there, in the app's three colours: green for current, amber for "there is
+/// a newer one", grey for "the server did not answer". It opens into a word when the answer
+/// first arrives - opening the app is when the question is asked - and shrinks back to the
+/// dot, except when there is something to do about it. Before this, the only answer the app
+/// gave was the amber bar below, which said nothing at all when everything was in order.
 #[component]
-pub fn UpdateBar() -> impl IntoView {
-    let stale = RwSignal::new(false);
+pub fn VersionMark() -> impl IntoView {
+    let mark = RwSignal::new(Mark::Asking);
+    let open = RwSignal::new(false);
+    // Read here and not inside the check: `use_context` answers for the owner that is
+    // running, and by the time the server has answered there is none - the bar would never
+    // have heard a thing.
+    let bar = use_context::<Stale>().map(|s| s.0);
+    // Which question this answer belongs to, so that a timer from an old one cannot shut a
+    // newer answer's word.
+    let asked = StoredValue::new(0u32);
+
     let check = move || {
+        let n = asked.get_value() + 1;
+        asked.set_value(n);
         spawn_local(async move {
             let running = running_client();
-            if let Some(server) = deployment().await {
-                if is_stale(&server, &running) == Some(true) {
-                    stale.set(true);
-                }
+            let now = match deployment().await {
+                Some(server) => match is_stale(&server, &running) {
+                    Some(true) => Mark::Stale,
+                    Some(false) => Mark::Latest,
+                    None => Mark::Unknown,
+                },
+                None => Mark::Unknown,
+            };
+            if asked.try_get_value() != Some(n) {
+                return;
+            }
+            // Said out loud when it is news: the first answer, or one that differs from what
+            // the dot has been showing. Coming back to the tab every few minutes should not
+            // set the header talking each time.
+            let news = mark.try_get_untracked() != Some(now);
+            mark.try_set(now);
+            if let Some(bar) = bar {
+                bar.try_set(now == Mark::Stale);
+            }
+            if news {
+                open.try_set(true);
+                set_timeout(
+                    move || {
+                        // "Update" stays open: it is the one that asks for something.
+                        if asked.try_get_value() == Some(n)
+                            && mark.try_get_untracked() != Some(Mark::Stale)
+                        {
+                            open.try_set(false);
+                        }
+                    },
+                    SAID,
+                );
             }
         });
     };
     check();
 
-    // And again whenever somebody comes back to the tab. Since navigating stopped reloading
-    // the page, a check that runs once per document runs about as often as the browser is
-    // restarted - which for an app kept open on a phone is never. Coming back to it is the
-    // moment a person is about to use it, and one small request is a fair price for not
-    // handing them a stale screen.
+    // And again whenever somebody comes back to the tab, for the reason the bar below gives.
     if let Some(document) = web_sys::window().and_then(|w| w.document()) {
         let on_visible = wasm_bindgen::closure::Closure::<dyn FnMut(web_sys::Event)>::new(
             move |_: web_sys::Event| {
                 let visible = web_sys::window()
                     .and_then(|w| w.document())
                     .is_some_and(|d| !d.hidden());
-                if visible && !stale.get_untracked() {
+                if visible {
                     check();
                 }
             },
@@ -150,6 +237,38 @@ pub fn UpdateBar() -> impl IntoView {
         );
         on_visible.forget();
     }
+
+    view! {
+        <button type="button" class="tcw-vmark"
+                class:is-latest=move || mark.get() == Mark::Latest
+                class:is-stale=move || mark.get() == Mark::Stale
+                class:is-unknown=move || matches!(mark.get(), Mark::Unknown | Mark::Asking)
+                class:is-open=move || open.get()
+                title=move || mark.get().why()
+                aria-label=move || mark.get().why()
+                on:click=move |_| {
+                    if mark.get_untracked() == Mark::Stale {
+                        update_now();
+                    } else {
+                        // Say the answer out loud again, whatever it turns out to be.
+                        mark.set(Mark::Asking);
+                        open.set(true);
+                        check();
+                    }
+                }>
+            <span class="tcw-vmark-dot"></span>
+            <span class="tcw-vmark-word">{move || mark.get().word()}</span>
+        </button>
+    }
+}
+
+/// The bar that finds you: one line, only when there is something to do about it.
+#[component]
+pub fn UpdateBar() -> impl IntoView {
+    // What the mark in the header found out; it is the one that asks.
+    let stale = use_context::<Stale>()
+        .map(|s| s.0)
+        .unwrap_or_else(|| RwSignal::new(false));
 
     view! {
         // The app's own shape for "something is off and here is the button", borrowed from
