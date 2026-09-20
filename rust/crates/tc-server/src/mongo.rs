@@ -166,8 +166,25 @@ impl MongoStore {
         }
     }
 
+    /// Which tours a list is about: never a version, and - when the caller's codes are
+    /// known - only theirs. Without it every list request reads every tour in the database,
+    /// whole, to keep the handful that belong to the reader. The C# hands the same
+    /// condition to the driver.
+    fn list_filter(&self, codes: Option<&[String]>) -> Document {
+        let mut filter = doc! { "IsVersion": { "$ne": true } };
+        if let Some(codes) = codes {
+            filter.insert(tc_core::extras::ACCESS_CODE, doc! { "$in": codes.to_vec() });
+        }
+        filter
+    }
+
     async fn all(&self, filter: Document) -> Vec<Arc<Tour>> {
-        let found = match self.tours.find(filter).await {
+        self.all_without(filter, Document::new()).await
+    }
+
+    /// The same, leaving out the fields the caller has no use for.
+    async fn all_without(&self, filter: Document, projection: Document) -> Vec<Arc<Tour>> {
+        let found = match self.tours.find(filter).projection(projection).await {
             Ok(cursor) => cursor.try_collect::<Vec<Document>>().await,
             Err(e) => {
                 tracing::error!("MongoDB read failed: {e}");
@@ -204,22 +221,57 @@ impl TourStore for MongoStore {
         codes: Option<&[String]>,
         allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
     ) -> Vec<Arc<Tour>> {
-        // Versions are that tour's history and never appear in a list. The filter is on the
-        // database side because a tour with a long history would otherwise be read whole,
-        // once per version, to be thrown away here.
-        let mut filter = doc! { "IsVersion": { "$ne": true } };
-        // And on the access code, when the answer is about one code: without it every list
-        // request reads every tour in the database - all of them, whole, spendings and all -
-        // to keep the handful that belong to the reader. The C# hands the same condition to
-        // the driver and lets the database do it; so does this now.
-        if let Some(codes) = codes {
-            filter.insert(tc_core::extras::ACCESS_CODE, doc! { "$in": codes.to_vec() });
-        }
-        self.all(filter)
+        self.all(self.list_filter(codes))
             .await
             .into_iter()
             .filter(|t| allowed(t))
             .collect()
+    }
+
+    async fn page(
+        &self,
+        codes: Option<&[String]>,
+        allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
+        from: usize,
+        count: usize,
+    ) -> (Vec<Arc<Tour>>, usize) {
+        let filter = self.list_filter(codes);
+        let total = match self.tours.count_documents(filter.clone()).await {
+            Ok(n) => n as usize,
+            Err(e) => {
+                tracing::error!("MongoDB count failed: {e}");
+                return (Vec::new(), 0);
+            }
+        };
+        // Sorted by `_id` because a page has to mean the same thing twice: without an order
+        // the database is free to answer in any, and two pages could share a tour and miss
+        // another. The ids are what the C# sorts a list by as well.
+        let found = match self
+            .tours
+            .find(filter)
+            .sort(doc! { "_id": 1 })
+            .skip(from as u64)
+            .limit(count as i64)
+            .await
+        {
+            Ok(cursor) => cursor.try_collect::<Vec<Document>>().await,
+            Err(e) => {
+                tracing::error!("MongoDB read failed: {e}");
+                return (Vec::new(), total);
+            }
+        };
+        let page = match found {
+            Ok(docs) => docs
+                .iter()
+                .filter_map(|d| to_tour(d).map(Arc::new))
+                .filter(|t| allowed(t))
+                .collect(),
+            Err(e) => {
+                tracing::error!("MongoDB read failed: {e}");
+                Vec::new()
+            }
+        };
+        (page, total)
     }
 
     async fn count(
@@ -347,8 +399,21 @@ impl TourStore for MongoStore {
     }
 
     async fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize) {
+        // Without what is in them: a version is a whole copy of the tour, and the screen
+        // that lists them shows a date and a line of text. A tour saved a hundred times
+        // used to be read back a hundred times over, spendings and all, to draw ten rows.
+        //
+        // The sorting and the paging stay here rather than in the database, because the
+        // field they go by is written in two spellings (see `fields`) and one `sort` cannot
+        // follow both. What is read is now small enough for that to be cheap.
+        let filter = doc! {
+            "$or": [
+                { "IsVersion": true, "VersionFor_Id": id.as_str() },
+                { "isVersion": true, "versionFor_Id": id.as_str() },
+            ]
+        };
         let mut mine = self
-            .all(doc! { "IsVersion": true, "VersionFor_Id": id.as_str() })
+            .all_without(filter, doc! { "Spendings": 0, "Persons": 0, "spendings": 0, "persons": 0 })
             .await;
 
         mine.sort_by(|a, b| {

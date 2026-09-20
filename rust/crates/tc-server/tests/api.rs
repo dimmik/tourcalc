@@ -913,3 +913,38 @@ async fn an_editable_version_stays_a_version() {
     let (_, list) = get(&app, "/api/Tour/all/suggested", Some(&token)).await;
     assert!(!list.contains(&vid), "not in the list of tours");
 }
+
+/// The list comes back a page at a time, and says how many there are in all.
+#[tokio::test]
+async fn the_list_is_asked_for_in_pages() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let all: serde_json::Value = {
+        let (_, body) = get(&app, "/api/Tour/all/suggested?from=0&count=100", Some(&token)).await;
+        serde_json::from_str(&body).unwrap()
+    };
+    let total = all["TotalCount"].as_u64().unwrap() as usize;
+    assert!(total >= 3, "the seed has tours to page through: {total}");
+
+    let mut seen: Vec<String> = Vec::new();
+    for from in (0..total).step_by(2) {
+        let (_, body) = get(
+            &app,
+            &format!("/api/Tour/all/suggested?from={from}&count=2"),
+            Some(&token),
+        )
+        .await;
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(page["TotalCount"].as_u64().unwrap() as usize, total);
+        assert_eq!(page["From"].as_u64().unwrap() as usize, from);
+        for t in page["Tours"].as_array().unwrap() {
+            seen.push(t["GUID"].as_str().unwrap().to_owned());
+        }
+    }
+    assert_eq!(seen.len(), total, "every tour once, none twice");
+    let mut sorted = seen.clone();
+    sorted.sort();
+    sorted.dedup();
+    assert_eq!(sorted.len(), seen.len(), "no tour on two pages: {seen:?}");
+}

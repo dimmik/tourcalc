@@ -98,22 +98,26 @@ pub async fn all_suggested(
         None => auth.codes_to_search(),
     };
 
-    let visible = state
+    // A page, asked of the store as a page: every tour the caller may see is, for an
+    // administrator, every tour there is, and the list screen shows fifty of them.
+    let (visible, total) = state
         .store
-        .list(search.as_deref(), &|t: &Tour| {
-            let code = access_code_of(t);
-            match &wanted_code {
-                Some(c) => code == c,
-                None => auth.may_see(code),
-            }
-        })
+        .page(
+            search.as_deref(),
+            &|t: &Tour| {
+                let code = access_code_of(t);
+                match &wanted_code {
+                    Some(c) => code == c,
+                    None => auth.may_see(code),
+                }
+            },
+            paging.from,
+            paging.count,
+        )
         .await;
 
-    let total = visible.len();
     let page: Vec<serde_json::Value> = visible
         .iter()
-        .skip(paging.from)
-        .take(paging.count)
         .map(|tour| {
             let transfers = tc_core::suggest_settlement(tour).unwrap_or_default();
             let balances = tc_core::calculate(tour, tc_core::Options::default());

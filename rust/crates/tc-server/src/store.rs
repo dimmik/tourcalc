@@ -52,6 +52,24 @@ pub trait TourStore: Send + Sync {
         codes: Option<&[String]>,
         allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
     ) -> Vec<Arc<Tour>>;
+    /// One page of [`TourStore::list`], and how many tours there are in all.
+    ///
+    /// For the list screen, which shows a page at a time. The default reads every tour the
+    /// caller may see and throws away all but the page; a database should ask for the page
+    /// and count the rest, because "every tour the caller may see" is, for an administrator,
+    /// every tour there is.
+    async fn page(
+        &self,
+        codes: Option<&[String]>,
+        allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
+        from: usize,
+        count: usize,
+    ) -> (Vec<Arc<Tour>>, usize) {
+        let all = self.list(codes, allowed).await;
+        let total = all.len();
+        (all.into_iter().skip(from).take(count).collect(), total)
+    }
+
     /// How many tours [`TourStore::list`] would answer with. For the rules about how many
     /// tours a code may hold, which need a number and not the tours: the default reads them
     /// all, spendings and all, to count them; a database should count.
