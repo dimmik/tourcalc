@@ -274,42 +274,73 @@ impl TourStore for MongoStore {
         from: usize,
         count: usize,
     ) -> (Vec<Arc<Tour>>, usize) {
+        // Two reads, both small. The first asks for nothing but each tour's id and the day
+        // it was made, which is what the order is by - newest first, as the C# list was.
+        //
+        // The order cannot be left to the database: `sort` matches one spelling of a field,
+        // and three of the tours in the seed - and whatever else the C# wrote in its
+        // camelCase years - spell every field the other way. It cannot be left out either:
+        // without an order two pages can share a tour and miss another. So the ids are put
+        // in order here, where both spellings are read, and only the page is fetched whole.
         let filter = self.list_filter(codes);
-        let total = match self.tours.count_documents(filter.clone()).await {
-            Ok(n) => n as usize,
+        let mut order: Vec<(String, String)> = match self
+            .tours
+            .find(filter)
+            .projection(doc! {
+                "_id": 1,
+                tc_core::extras::CREATED_AT: 1,
+                "dateCreated": 1,
+            })
+            .await
+        {
+            Ok(cursor) => match cursor.try_collect::<Vec<Document>>().await {
+                Ok(docs) => docs
+                    .iter()
+                    .filter_map(|d| {
+                        let id = d.get_str("_id").ok()?.to_owned();
+                        let made = d
+                            .iter()
+                            .find(|(k, _)| k.eq_ignore_ascii_case(tc_core::extras::CREATED_AT))
+                            .map(|(_, v)| stamp_of(v))
+                            .unwrap_or_default();
+                        Some((made, id))
+                    })
+                    .collect(),
+                Err(e) => {
+                    tracing::error!("MongoDB read failed: {e}");
+                    return (Vec::new(), 0);
+                }
+            },
             Err(e) => {
-                tracing::error!("MongoDB count failed: {e}");
+                tracing::error!("MongoDB read failed: {e}");
                 return (Vec::new(), 0);
             }
         };
-        // Sorted by `_id` because a page has to mean the same thing twice: without an order
-        // the database is free to answer in any, and two pages could share a tour and miss
-        // another. The ids are what the C# sorts a list by as well.
-        let found = match self
-            .tours
-            .find(filter)
-            .sort(doc! { "_id": 1 })
-            .skip(from as u64)
-            .limit(count as i64)
+        // Newest first; a tour with no date made is oldest, and the id breaks a tie so that
+        // the same page is the same page twice.
+        order.sort_by(|a, b| b.cmp(a));
+        let total = order.len();
+
+        let wanted: Vec<String> = order
+            .into_iter()
+            .skip(from)
+            .take(count)
+            .map(|(_, id)| id)
+            .collect();
+        if wanted.is_empty() {
+            return (Vec::new(), total);
+        }
+        let mut found: std::collections::HashMap<String, Arc<Tour>> = self
+            .all(doc! { "_id": { "$in": wanted.clone() } })
             .await
-        {
-            Ok(cursor) => cursor.try_collect::<Vec<Document>>().await,
-            Err(e) => {
-                tracing::error!("MongoDB read failed: {e}");
-                return (Vec::new(), total);
-            }
-        };
-        let page = match found {
-            Ok(docs) => docs
-                .iter()
-                .filter_map(|d| to_tour(d).map(Arc::new))
-                .filter(|t| allowed(t))
-                .collect(),
-            Err(e) => {
-                tracing::error!("MongoDB read failed: {e}");
-                Vec::new()
-            }
-        };
+            .into_iter()
+            .map(|t| (t.id.as_str().to_owned(), t))
+            .collect();
+        let page = wanted
+            .iter()
+            .filter_map(|id| found.remove(id))
+            .filter(|t| allowed(t))
+            .collect();
         (page, total)
     }
 
@@ -627,6 +658,17 @@ pub fn to_tour(document: &Document) -> Option<Tour> {
         obj.remove("_id");
     }
     Tour::from_json(&value.to_string()).ok()
+}
+
+/// A stored date as the text it is compared by. Mongo holds `DateCreated` as a BSON date
+/// where this server wrote it and as a string where the C# did; both sort as text once the
+/// date is written the ISO way round.
+fn stamp_of(value: &bson::Bson) -> String {
+    match value {
+        bson::Bson::String(s) => s.clone(),
+        bson::Bson::DateTime(d) => d.try_to_rfc3339_string().unwrap_or_default(),
+        other => other.to_string(),
+    }
 }
 
 /// A tour as a document to store.

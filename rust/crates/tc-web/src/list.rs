@@ -11,6 +11,152 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 use tc_core::{Cents, Tour};
 
+/// What the tour list is ordered by.
+///
+/// The server answers newest first, which is the order this starts on and the one the app
+/// has always had. The rest are for a list long enough that "where is it" is a real
+/// question: the tour somebody touched this morning, a name they half remember, the trip
+/// that cost the most.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Order {
+    /// The day the tour was made.
+    Made,
+    /// The last time anybody saved it - which the stored state id begins with.
+    Changed,
+    Name,
+    /// Everything spent on it, as the row shows.
+    Spent,
+}
+
+impl Order {
+    pub fn label(self) -> &'static str {
+        match self {
+            Order::Made => "New",
+            Order::Changed => "Touched",
+            Order::Name => "Name",
+            Order::Spent => "Spent",
+        }
+    }
+
+    /// What each way round means for this key, said in the button's title.
+    pub fn ways(self) -> (&'static str, &'static str) {
+        match self {
+            Order::Made => ("newest first", "oldest first"),
+            Order::Changed => ("changed most recently first", "longest untouched first"),
+            Order::Name => ("Z to A", "A to Z"),
+            Order::Spent => ("biggest first", "smallest first"),
+        }
+    }
+
+    fn stored(self) -> &'static str {
+        match self {
+            Order::Made => "made",
+            Order::Changed => "changed",
+            Order::Name => "name",
+            Order::Spent => "spent",
+        }
+    }
+
+    fn of(text: &str) -> Option<Order> {
+        match text {
+            "made" => Some(Order::Made),
+            "changed" => Some(Order::Changed),
+            "name" => Some(Order::Name),
+            "spent" => Some(Order::Spent),
+            _ => None,
+        }
+    }
+
+    pub const ALL: [Order; 4] = [Order::Made, Order::Changed, Order::Name, Order::Spent];
+}
+
+/// Presses a key: the one already on turns round, another takes over pointing the way its
+/// first meaning does. Remembered for this device either way.
+pub fn choose(by: RwSignal<Order>, downwards: RwSignal<bool>, which: Order) {
+    if by.get_untracked() == which {
+        downwards.update(|d| *d = !*d);
+    } else {
+        by.set(which);
+        downwards.set(true);
+    }
+    crate::settings::remember_tour_order(by.get_untracked().stored(), downwards.get_untracked());
+}
+
+/// Everything spent on a tour, from what the server worked out for the list.
+fn spent_on(tour: &Tour) -> i64 {
+    tour.persons
+        .iter()
+        .filter_map(|p| p.extras.0.get("SpentInCents").and_then(|v| v.as_i64()))
+        .sum()
+}
+
+/// When a tour was last saved. The state id is written "2026-09-20 10:00:00 .a1b2…", so the
+/// front of it is a time, and comparing two of them as text compares two times.
+fn touched_at(tour: &Tour) -> String {
+    tc_core::extras::str_of(&tour.extras, tc_core::extras::STATE)
+}
+
+fn made_at(tour: &Tour) -> String {
+    tc_core::extras::str_of(&tour.extras, tc_core::extras::CREATED_AT)
+}
+
+/// Puts the list in order. `downwards` is the first way round in [`Order::ways`].
+pub fn order_tours(tours: &mut [Tour], by: Order, downwards: bool) {
+    // The id last, so that two tours made the same day do not swap places between draws.
+    match by {
+        Order::Made => tours.sort_by(|a, b| {
+            (made_at(a), a.id.as_str()).cmp(&(made_at(b), b.id.as_str()))
+        }),
+        Order::Changed => tours.sort_by(|a, b| {
+            (touched_at(a), a.id.as_str()).cmp(&(touched_at(b), b.id.as_str()))
+        }),
+        Order::Name => tours.sort_by(|a, b| {
+            (a.name.to_lowercase(), a.id.as_str()).cmp(&(b.name.to_lowercase(), b.id.as_str()))
+        }),
+        Order::Spent => tours.sort_by(|a, b| {
+            (spent_on(a), a.id.as_str()).cmp(&(spent_on(b), b.id.as_str()))
+        }),
+    }
+    if downwards {
+        tours.reverse();
+    }
+}
+
+/// The buttons that choose it, in both interfaces: one per key, and pressing the one that
+/// is already on turns it round - the same gesture the expense list has.
+#[component]
+pub fn OrderPicker(by: RwSignal<Order>, downwards: RwSignal<bool>) -> impl IntoView {
+    view! {
+        <div class="tcw-order">
+            {Order::ALL
+                .into_iter()
+                .map(|which| {
+                    let (down, up) = which.ways();
+                    view! {
+                        <button type="button" class="tcn-btn tcn-btn-sm"
+                                class:tcn-btn-primary=move || by.get() == which
+                                title=move || {
+                                    if by.get() == which && downwards.get() {
+                                        format!("{down} — click for {up}")
+                                    } else if by.get() == which {
+                                        format!("{up} — click for {down}")
+                                    } else {
+                                        format!("Order by: {down}")
+                                    }
+                                }
+                                on:click=move |_| choose(by, downwards, which)>
+                            {which.label()}
+                            <Show when=move || by.get() == which>
+                                {move || if downwards.get() { " ↓" } else { " ↑" }}
+                            </Show>
+                        </button>
+                    }
+                })
+                .collect_view()}
+        </div>
+    }
+}
+
 #[component]
 pub fn TourListPage() -> impl IntoView {
     let (state, set_state) = signal(Load::Loading);
@@ -202,6 +348,14 @@ pub fn TourListPage() -> impl IntoView {
         });
     });
 
+    // How the list is ordered, remembered on this device. The server already answers newest
+    // first, so that is where this starts and what it means for nobody to have chosen.
+    let (stored_by, stored_way) = crate::settings::tour_order()
+        .and_then(|(by, way)| Order::of(&by).map(|by| (by, way)))
+        .unwrap_or((Order::Made, true));
+    let order_by = RwSignal::new(stored_by);
+    let downwards = RwSignal::new(stored_way);
+
     // The small interface carries its own bar and its own create form, so the roomy ones
     // are not drawn at all - which is a thing a screenshot catches and a driver does not:
     // the rows were right and the page had two of everything above them.
@@ -230,6 +384,7 @@ pub fn TourListPage() -> impl IntoView {
                            on:change=move |ev| show_archived.set(event_target_checked(&ev)) />
                     "Show archived"
                 </label>
+                <OrderPicker by=order_by downwards=downwards />
             </div>
 
             <Show when=move || adding.get()>
@@ -287,14 +442,19 @@ pub fn TourListPage() -> impl IntoView {
                     </p>
                 </div>
             }.into_any(),
-            Load::Ready(tours) if mode.get() == crate::mode::UiMode::Mini => view! {
+            Load::Ready(mut tours) if mode.get() == crate::mode::UiMode::Mini => {
+                order_tours(&mut tours, order_by.get(), downwards.get());
+                view! {
                 <crate::mini::MiniList tours=tours search=search show_archived=show_archived
+                                       order_by=order_by downwards=downwards
                                        adding=adding new_name=new_name new_code=new_code
                                        new_json=new_json busy=busy
                                        create=create bells=bells
                                        remove=remove clone_it=clone copy_json=copy_json />
-            }.into_any(),
-            Load::Ready(tours) => {
+                }.into_any()
+            }
+            Load::Ready(mut tours) => {
+                order_tours(&mut tours, order_by.get(), downwards.get());
                 let needle = search.get().trim().to_lowercase();
                 let shown: Vec<Tour> = tours
                     .into_iter()
@@ -549,5 +709,83 @@ async fn copy_to_clipboard(text: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err("This browser would not let the page copy it.".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tour(id: &str, name: &str, made: &str, touched: &str, spent: i64) -> Tour {
+        let mut t = Tour::from_json(include_str!("../../../fixtures/zscph2y.tour.json"))
+            .expect("fixture");
+        t.id = tc_core::TourId::new(id);
+        t.name = name.to_owned();
+        tc_core::extras::set(&mut t.extras, tc_core::extras::CREATED_AT, made.into());
+        tc_core::extras::set(&mut t.extras, tc_core::extras::STATE, touched.into());
+        // What the list is told each person spent; the row adds them up.
+        for (i, p) in t.persons.iter_mut().enumerate() {
+            let theirs = if i == 0 { spent } else { 0 };
+            p.extras.0.insert("SpentInCents".into(), theirs.into());
+        }
+        t
+    }
+
+    fn some() -> Vec<Tour> {
+        vec![
+            tour("a", "Альпы", "2021-06-01", "2026-09-20 10:00:00 .aa", 300),
+            tour("b", "Байкал", "2026-01-01", "2021-07-01 10:00:00 .bb", 100),
+            tour("c", "carpathians", "2024-03-03", "2024-03-03 10:00:00 .cc", 200),
+        ]
+    }
+
+    fn ids(tours: &[Tour]) -> Vec<&str> {
+        tours.iter().map(|t| t.id.as_str()).collect()
+    }
+
+    #[test]
+    fn newest_first_is_what_the_list_opens_on() {
+        let mut tours = some();
+        order_tours(&mut tours, Order::Made, true);
+        assert_eq!(ids(&tours), ["b", "c", "a"]);
+        order_tours(&mut tours, Order::Made, false);
+        assert_eq!(ids(&tours), ["a", "c", "b"], "and the other way round");
+    }
+
+    #[test]
+    fn the_other_keys_order_by_what_they_say() {
+        let mut tours = some();
+        order_tours(&mut tours, Order::Changed, true);
+        assert_eq!(ids(&tours), ["a", "c", "b"], "saved most recently first");
+
+        order_tours(&mut tours, Order::Spent, true);
+        assert_eq!(ids(&tours), ["a", "c", "b"], "biggest first");
+
+        order_tours(&mut tours, Order::Name, false);
+        // Plain Unicode order, so Latin comes before Cyrillic and case does not decide:
+        // "carpathians", then "Альпы", then "Байкал".
+        assert_eq!(ids(&tours), ["c", "a", "b"]);
+    }
+
+    /// Two tours made the same day do not swap places between one draw and the next.
+    #[test]
+    fn a_tie_is_broken_the_same_way_every_time() {
+        let mut tours = vec![
+            tour("y", "One", "2026-01-01", "x", 0),
+            tour("x", "Two", "2026-01-01", "x", 0),
+        ];
+        order_tours(&mut tours, Order::Made, true);
+        let first = ids(&tours).join(",");
+        order_tours(&mut tours, Order::Made, true);
+        assert_eq!(ids(&tours).join(","), first);
+    }
+
+    /// What is remembered is read back as the same choice.
+    #[test]
+    fn a_stored_key_reads_back() {
+        for which in Order::ALL {
+            assert_eq!(Order::of(which.stored()), Some(which));
+        }
+        assert_eq!(Order::of("whatever"), None);
     }
 }

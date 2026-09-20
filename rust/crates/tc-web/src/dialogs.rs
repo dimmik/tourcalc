@@ -30,6 +30,33 @@ fn Modal(
     // Somebody else's change, said inside the form it is waiting for: a line over the
     // screen would sit on top of this form's own buttons.
     let others = use_context::<crate::others::Others>();
+
+    // Escape closes it, wherever the cursor is. A dialog with a text box in it swallows
+    // every key that lands in the box, so the listener goes on the document and is taken
+    // off with the dialog - the same thing the × and the mask do, and the thing a keyboard
+    // expects of any window that covers the screen.
+    if let Some(document) = web_sys::window().and_then(|w| w.document()) {
+        use wasm_bindgen::JsCast;
+        let escape = leptos::__reexports::send_wrapper::SendWrapper::new(
+            wasm_bindgen::closure::Closure::<dyn FnMut(web_sys::KeyboardEvent)>::new(
+                move |ev: web_sys::KeyboardEvent| {
+                    if ev.key() == "Escape" {
+                        on_close.run(());
+                    }
+                },
+            ),
+        );
+        let _ = document
+            .add_event_listener_with_callback("keydown", escape.as_ref().unchecked_ref());
+        let document = leptos::__reexports::send_wrapper::SendWrapper::new(document);
+        on_cleanup(move || {
+            let _ = document.remove_event_listener_with_callback(
+                "keydown",
+                escape.as_ref().unchecked_ref(),
+            );
+        });
+    }
+
     view! {
         <div class="tcn-modal"
              // Closing on *click* and not on mousedown: releasing the button over the mask
@@ -55,6 +82,10 @@ fn Modal(
 pub fn SpendingDialog(
     tour: Tour,
     draft: SpendingDraft,
+    /// Whether this draft is what somebody was typing when they last left the form, rather
+    /// than a fresh one. The form says so, and offers to start blank.
+    #[prop(optional)]
+    carried_over: bool,
     on_close: Callback<()>,
     /// Where the finished edit goes. The dialog does not save: it says what was meant, and
     /// the page writes that down and gets it to the server when it can.
@@ -126,18 +157,57 @@ pub fn SpendingDialog(
     };
 
     let base = draft.clone();
-    let submit = move |_| {
+    // The form as it stands, whether it is being saved or left behind. Cloned rather than
+    // shared: it holds nothing but signals, which are `Copy`.
+    let current = std::sync::Arc::new(move || {
         let mut d = base.clone();
-        d.description = description.get();
-        d.category = category.get();
-        d.amount = Cents(amount.get().trim().parse::<i64>().unwrap_or(0));
-        d.from = PersonId::new(from.get());
-        d.everyone = everyone.get();
-        d.by_weight = by_weight.get();
-        d.to = to.get();
-        d.date = date.get();
-        d.colour = colour.get();
-        d.currency_id = currency.get();
+        d.description = description.get_untracked();
+        d.category = category.get_untracked();
+        d.amount = Cents(amount.get_untracked().trim().parse::<i64>().unwrap_or(0));
+        d.from = PersonId::new(from.get_untracked());
+        d.everyone = everyone.get_untracked();
+        d.by_weight = by_weight.get_untracked();
+        d.to = to.get_untracked();
+        d.date = date.get_untracked();
+        d.colour = colour.get_untracked();
+        d.currency_id = currency.get_untracked();
+        d
+    });
+
+    // Left without saving, what was typed stays on the device - see `crate::drafts`. Only
+    // for a new expense: an edit that was abandoned is the expense as it already is.
+    let tour_id = StoredValue::new(tour.id.as_str().to_owned());
+    let blank = StoredValue::new(SpendingDraft::new(&tour));
+    let carried = RwSignal::new(carried_over);
+    let close = Callback::new({
+        let current = current.clone();
+        move |()| {
+            if !editing {
+                crate::drafts::keep_spending(&tour_id.get_value(), &current());
+            }
+            on_close.run(());
+        }
+    });
+    // Starting blank: the form as a new expense opens, and the kept draft forgotten.
+    let start_blank = move |_| {
+        let fresh = blank.get_value();
+        description.set(fresh.description.clone());
+        category.set(fresh.category.clone());
+        amount.set(String::new());
+        from.set(fresh.from.as_str().to_owned());
+        everyone.set(fresh.everyone);
+        by_weight.set(fresh.by_weight);
+        to.set(fresh.to.clone());
+        date.set(edit::today());
+        colour.set(fresh.colour.clone());
+        currency.set(fresh.currency_id.clone());
+        errors.set(Vec::new());
+        crate::drafts::forget_spending(&tour_id.get_value());
+        carried.set(false);
+    };
+
+    let submit = move |_| {
+        let mut d = current();
 
         let wrong = d.problems();
         if !wrong.is_empty() {
@@ -150,6 +220,7 @@ pub fn SpendingDialog(
             d.id = Some(tc_core::SpendingId::new(edit::new_id()));
             d.editing = false;
         }
+        crate::drafts::forget_spending(&tour_id.get_value());
         on_apply.run(Operation::PutSpending(d));
     };
 
@@ -174,7 +245,7 @@ pub fn SpendingDialog(
                     </div>
                 </Show>
                 <span style="flex:1 1 auto"></span>
-                <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>"Cancel"</button>
+                <button type="button" class="tcn-btn" on:click=move |_| close.run(())>"Cancel"</button>
                 <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit.clone()>
                     "Save"
                 </button>
@@ -183,7 +254,16 @@ pub fn SpendingDialog(
     };
 
     view! {
-        <Modal title=title.to_owned() on_close=on_close footer=footer>
+        <Modal title=title.to_owned() on_close=close footer=footer>
+            // Picked up from the last time this form was open and left.
+            <Show when=move || carried.get()>
+                <div class="tcn-chip tcn-chip-amber tcw-wraps tcw-carried">
+                    "Carried over from what you were typing."
+                    <button type="button" class="tcn-btn tcn-btn-sm" on:click=start_blank>
+                        "Start blank"
+                    </button>
+                </div>
+            </Show>
             <div class="tcn-amount">
                 <div class="tcn-label">"Amount"</div>
                 <div class="tcn-amount-row">
@@ -513,6 +593,9 @@ pub fn SpendingDialog(
 pub fn PersonDialog(
     tour: Tour,
     draft: PersonDraft,
+    /// As in [`SpendingDialog`]: this is what was being typed when the form was last left.
+    #[prop(optional)]
+    carried_over: bool,
     on_close: Callback<()>,
     on_apply: Callback<Operation>,
 ) -> impl IntoView {
@@ -550,12 +633,38 @@ pub fn PersonDialog(
     ];
 
     let base = draft.clone();
-    let submit = move |_| {
+    let current = std::sync::Arc::new(move || {
         let mut d = base.clone();
-        d.name = name.get();
-        d.weight = weight.get().trim().parse::<i32>().unwrap_or(0);
-        let p = parent.get();
+        d.name = name.get_untracked();
+        d.weight = weight.get_untracked().trim().parse::<i32>().unwrap_or(0);
+        let p = parent.get_untracked();
         d.parent = (!p.is_empty()).then(|| PersonId::new(p));
+        d
+    });
+
+    let tour_id = StoredValue::new(tour.id.as_str().to_owned());
+    let carried = RwSignal::new(carried_over);
+    let close = Callback::new({
+        let current = current.clone();
+        move |()| {
+            if !editing {
+                crate::drafts::keep_person(&tour_id.get_value(), &current());
+            }
+            on_close.run(());
+        }
+    });
+    let start_blank = move |_| {
+        let fresh = PersonDraft::new();
+        name.set(fresh.name.clone());
+        weight.set(fresh.weight.to_string());
+        parent.set(String::new());
+        error.set(String::new());
+        crate::drafts::forget_person(&tour_id.get_value());
+        carried.set(false);
+    };
+
+    let submit = move |_| {
+        let mut d = current();
 
         if let Some(why) = d.problem() {
             error.set(why.to_owned());
@@ -565,6 +674,7 @@ pub fn PersonDialog(
             d.id = Some(PersonId::new(edit::new_id()));
             d.editing = false;
         }
+        crate::drafts::forget_person(&tour_id.get_value());
         on_apply.run(Operation::PutPerson(d));
     };
 
@@ -582,7 +692,7 @@ pub fn PersonDialog(
                     </div>
                 </Show>
                 <span style="flex:1 1 auto"></span>
-                <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>"Cancel"</button>
+                <button type="button" class="tcn-btn" on:click=move |_| close.run(())>"Cancel"</button>
                 <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit.clone()>
                     {if editing { "Save" } else { "Add person" }}
                 </button>
@@ -591,7 +701,15 @@ pub fn PersonDialog(
     };
 
     view! {
-        <Modal title=title.to_owned() on_close=on_close footer=footer>
+        <Modal title=title.to_owned() on_close=close footer=footer>
+            <Show when=move || carried.get()>
+                <div class="tcn-chip tcn-chip-amber tcw-wraps tcw-carried">
+                    "Carried over from what you were typing."
+                    <button type="button" class="tcn-btn tcn-btn-sm" on:click=start_blank>
+                        "Start blank"
+                    </button>
+                </div>
+            </Show>
             <div class="tcn-field">
                 <div class="tcn-label">"Name"</div>
                 <div class="tcn-namerow">

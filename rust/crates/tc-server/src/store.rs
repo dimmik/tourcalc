@@ -251,6 +251,25 @@ impl TourStore for InMemoryStore {
         Ok(())
     }
 
+    async fn page(
+        &self,
+        codes: Option<&[String]>,
+        allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
+        from: usize,
+        count: usize,
+    ) -> (Vec<Arc<Tour>>, usize) {
+        // The same order the database answers in: newest first by the day it was made, with
+        // the id to break a tie. A list that reads one way against MongoDB and another way
+        // against the seed file is a list nobody can check.
+        let mut all = self.list(codes, allowed).await;
+        all.sort_by(|a, b| {
+            let made = |t: &Arc<Tour>| crate::fields::str_of(t, crate::fields::CREATED_AT);
+            (made(b), b.id.as_str().to_owned()).cmp(&(made(a), a.id.as_str().to_owned()))
+        });
+        let total = all.len();
+        (all.into_iter().skip(from).take(count).collect(), total)
+    }
+
     async fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize) {
         let tours = crate::lock::read(&self.tours);
 

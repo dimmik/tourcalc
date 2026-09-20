@@ -100,6 +100,23 @@ pub fn remember_check_seconds(seconds: u32) {
     }
 }
 
+const ORDER_KEY: &str = "__tcw_tourorder";
+
+/// How the tour list was last put in order on this device: the key, and whether the biggest
+/// or newest is first. Free text, because what it means belongs to the list and not here.
+pub fn tour_order() -> Option<(String, bool)> {
+    let text = storage()?.get_item(ORDER_KEY).ok().flatten()?;
+    let (by, way) = text.split_once(':')?;
+    Some((by.to_owned(), way == "down"))
+}
+
+pub fn remember_tour_order(by: &str, downwards: bool) {
+    if let Some(s) = storage() {
+        let way = if downwards { "down" } else { "up" };
+        let _ = s.set_item(ORDER_KEY, &format!("{by}:{way}"));
+    }
+}
+
 fn compact_key(tour: &str) -> String {
     format!("__tcw_compact_{tour}")
 }

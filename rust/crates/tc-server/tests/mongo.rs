@@ -504,9 +504,15 @@ async fn a_page_of_the_list_comes_back_in_order() {
     let store = store_or_skip!("a_page_of_the_list_comes_back_in_order");
     let tour = fixture();
     let code = fields::access_code(&tour);
-    for id in ["aaa", "bbb", "ccc", "ddd"] {
+    for (id, made) in [
+        ("aaa", "2026-01-04T00:00:00"),
+        ("bbb", "2026-01-03T00:00:00"),
+        ("ccc", "2026-01-02T00:00:00"),
+        ("ddd", "2026-01-01T00:00:00"),
+    ] {
         let mut one = tour.clone();
         one.id = TourId::new(id);
+        fields::set(&mut one, fields::CREATED_AT, made.into());
         store.store(one).await;
     }
     // A version of one of them, which belongs to nobody's list.
@@ -523,7 +529,7 @@ async fn a_page_of_the_list_comes_back_in_order() {
         .chain(second.iter())
         .map(|t| t.id.as_str())
         .collect();
-    assert_eq!(ids, ["aaa", "bbb", "ccc", "ddd"]);
+    assert_eq!(ids, ["aaa", "bbb", "ccc", "ddd"], "newest first, and a page is a page");
 
     // Past the end is empty, not an error.
     let (nothing, total) = store.page(Some(&codes), &|_| true, 10, 2).await;
@@ -554,4 +560,38 @@ async fn versions_are_read_without_their_contents() {
         assert!(!fields::str_of(v, fields::VERSION_COMMENT).is_empty());
         assert_eq!(fields::str_of(v, fields::VERSION_FOR), tour.id.as_str());
     }
+}
+
+/// The list is newest first, whichever way the tour spells its fields.
+#[tokio::test]
+async fn the_list_puts_the_newest_tour_first() {
+    let store = store_or_skip!("the_list_puts_the_newest_tour_first");
+    let tour = fixture();
+    let code = fields::access_code(&tour);
+    for (id, made) in [
+        ("older", "2021-06-01T10:00:00"),
+        ("newest", "2026-09-20T10:00:00"),
+        ("middle", "2024-01-01T10:00:00"),
+    ] {
+        let mut one = tour.clone();
+        one.id = TourId::new(id);
+        fields::set(&mut one, fields::CREATED_AT, made.into());
+        store.store(one).await;
+    }
+    // And one the C# wrote before it was capitalised, with no date at all.
+    let mut ancient = tour.clone();
+    ancient.id = TourId::new("ancient");
+    fields::remove(&mut ancient, fields::CREATED_AT);
+    store.store(ancient).await;
+
+    let codes = vec![code];
+    let (page, total) = store.page(Some(&codes), &|_| true, 0, 10).await;
+    assert_eq!(total, 4);
+    let ids: Vec<&str> = page.iter().map(|t| t.id.as_str()).collect();
+    assert_eq!(ids, ["newest", "middle", "older", "ancient"]);
+
+    // And a page of it is the same order, cut.
+    let (second, _) = store.page(Some(&codes), &|_| true, 2, 2).await;
+    let ids: Vec<&str> = second.iter().map(|t| t.id.as_str()).collect();
+    assert_eq!(ids, ["older", "ancient"]);
 }
