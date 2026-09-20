@@ -487,11 +487,19 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     };
     // The wording of "3 min ago" has to keep up with the clock, and nothing else on this
     // page changes to make it. Half a minute is the app's interval.
+    //
+    // Taken down with the page. Without `on_cleanup` every tour ever opened left a timer
+    // behind, waking the tab to bump a signal of a screen that is gone - four tours, four
+    // timers, still ticking on the tour list.
     let tick = refresh.tick;
-    leptos::prelude::set_interval(
-        move || tick.update(|t| *t = t.wrapping_add(1)),
+    if let Ok(clock) = leptos::prelude::set_interval_with_handle(
+        move || {
+            tick.try_update(|t| *t = t.wrapping_add(1));
+        },
         std::time::Duration::from_secs(30),
-    );
+    ) {
+        on_cleanup(move || clock.clear());
+    }
 
     // A tour opened on this device before is drawn from what we have, at once, and the
     // server is asked in the background - the way the app itself does it. Waiting for the
