@@ -171,10 +171,10 @@ impl InMemoryStore {
     /// owns it, and the tour list came back two entries short.
     pub fn put(&self, tour: Tour) {
         let id = tour.id.clone();
-        let mut tours = self.tours.write().expect("store lock");
+        let mut tours = crate::lock::write(&self.tours);
         if !tours.contains_key(&id) {
             tours.insert(id.clone(), Arc::new(tour));
-            self.order.write().expect("store lock").push(id);
+            crate::lock::write(&self.order).push(id);
         }
     }
 
@@ -183,7 +183,7 @@ impl InMemoryStore {
     /// Unused while the server is read-only; here because it is the other half of the point
     /// this module makes, and it is three lines.
     pub fn update(&self, id: &TourId, f: impl FnOnce(&mut Tour)) -> bool {
-        let mut tours = self.tours.write().expect("store lock");
+        let mut tours = crate::lock::write(&self.tours);
         match tours.get_mut(id) {
             Some(arc) => {
                 f(Arc::make_mut(arc));
@@ -194,7 +194,7 @@ impl InMemoryStore {
     }
 
     pub fn len(&self) -> usize {
-        self.tours.read().expect("store lock").len()
+        crate::lock::read(&self.tours).len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -212,7 +212,7 @@ impl TourStore for InMemoryStore {
         version_of: &(dyn for<'a> Fn(&'a Tour) -> Option<Tour> + Sync),
     ) -> Result<(), Stale> {
         // One write lock around read, compare, and both writes. Nothing can interleave.
-        let mut tours = self.tours.write().expect("store lock");
+        let mut tours = crate::lock::write(&self.tours);
 
         // The Arc is cloned - a counter bump, not a tour - so that the map is free to be
         // written to while the previous state is still in hand for the version.
@@ -225,7 +225,7 @@ impl TourStore for InMemoryStore {
         if let Some(version) = version_of(&stored) {
             let vid = version.id.clone();
             if tours.insert(vid.clone(), Arc::new(version)).is_none() {
-                self.order.write().expect("store lock").push(vid);
+                crate::lock::write(&self.order).push(vid);
             }
         }
 
@@ -234,16 +234,14 @@ impl TourStore for InMemoryStore {
     }
 
     async fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize) {
-        let tours = self.tours.read().expect("store lock");
+        let tours = crate::lock::read(&self.tours);
 
         // Walked in the order they were written, not in whatever order the map holds them:
         // two versions of the same tour can share a timestamp to the second, and then the
         // map's order is the only thing deciding which of them is "newest" - which is to say
         // nothing is.
-        let mut mine: Vec<Arc<Tour>> = self
-            .order
-            .read()
-            .expect("store lock")
+        let order = crate::lock::read(&self.order);
+        let mut mine: Vec<Arc<Tour>> = order
             .iter()
             .rev()
             .filter_map(|i| tours.get(i))
@@ -268,16 +266,16 @@ impl TourStore for InMemoryStore {
 
     async fn store(&self, tour: Tour) {
         let id = tour.id.clone();
-        let mut tours = self.tours.write().expect("store lock");
+        let mut tours = crate::lock::write(&self.tours);
         if tours.insert(id.clone(), Arc::new(tour)).is_none() {
-            self.order.write().expect("store lock").push(id);
+            crate::lock::write(&self.order).push(id);
         }
     }
 
     async fn remove(&self, id: &TourId) -> bool {
-        let mut tours = self.tours.write().expect("store lock");
+        let mut tours = crate::lock::write(&self.tours);
         if tours.remove(id).is_some() {
-            self.order.write().expect("store lock").retain(|i| i != id);
+            crate::lock::write(&self.order).retain(|i| i != id);
             true
         } else {
             false
@@ -287,7 +285,7 @@ impl TourStore for InMemoryStore {
     async fn get(&self, id: &TourId) -> Option<Arc<Tour>> {
         // `.cloned()` on an Option<&Arc<Tour>> clones the Arc - a counter bump - and not
         // the tour behind it. This is the line the C# spends a JSON round trip on.
-        self.tours.read().expect("store lock").get(id).cloned()
+        crate::lock::read(&self.tours).get(id).cloned()
     }
 
     async fn list(
@@ -296,10 +294,8 @@ impl TourStore for InMemoryStore {
         allowed: &(dyn for<'a> Fn(&'a Tour) -> bool + Sync),
     ) -> Vec<Arc<Tour>> {
         // Nothing to narrow: everything is already in hand.
-        let tours = self.tours.read().expect("store lock");
-        self.order
-            .read()
-            .expect("store lock")
+        let tours = crate::lock::read(&self.tours);
+        crate::lock::read(&self.order)
             .iter()
             .filter_map(|id| tours.get(id))
             .filter(|t| !crate::fields::is_version(t))

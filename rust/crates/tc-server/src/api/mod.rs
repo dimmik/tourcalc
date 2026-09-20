@@ -106,11 +106,11 @@ async fn info_start(
     axum::extract::State(state): axum::extract::State<Shared>,
 ) -> axum::Json<serde_json::Value> {
     let stamp = |t: std::time::SystemTime| chrono_lite::Utc::from(t).to_string();
-    let wakeups: Vec<String> = state
-        .wakeups
-        .read()
-        .map(|w| w.iter().copied().map(stamp).collect())
-        .unwrap_or_default();
+    let wakeups: Vec<String> = crate::lock::read(&state.wakeups)
+        .iter()
+        .copied()
+        .map(stamp)
+        .collect();
 
     axum::Json(serde_json::json!({
         "startTime": stamp(state.started),

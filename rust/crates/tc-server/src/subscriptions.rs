@@ -52,7 +52,7 @@ pub struct InMemorySubscriptions {
 #[async_trait::async_trait]
 impl SubscriptionStore for InMemorySubscriptions {
     async fn add(&self, tour: &str, sub: Subscription) {
-        let mut all = self.by_tour.write().expect("subscriptions lock");
+        let mut all = crate::lock::write(&self.by_tour);
         let mine = all.entry(tour.to_owned()).or_default();
         // Subscribing twice from the same browser is one subscription, not two - otherwise
         // every reopened tab would add another copy of the same notification.
@@ -64,38 +64,26 @@ impl SubscriptionStore for InMemorySubscriptions {
     }
 
     async fn remove(&self, tour: &str, sub: &Subscription) {
-        if let Some(mine) = self
-            .by_tour
-            .write()
-            .expect("subscriptions lock")
-            .get_mut(tour)
-        {
+        if let Some(mine) = crate::lock::write(&self.by_tour).get_mut(tour) {
             mine.retain(|s| !s.is_same(sub));
         }
     }
 
     async fn has(&self, tour: &str, sub: &Subscription) -> bool {
-        self.by_tour
-            .read()
-            .expect("subscriptions lock")
+        crate::lock::read(&self.by_tour)
             .get(tour)
             .is_some_and(|mine| mine.iter().any(|s| s.is_same(sub)))
     }
 
     async fn for_tour(&self, tour: &str) -> Vec<Subscription> {
-        self.by_tour
-            .read()
-            .expect("subscriptions lock")
+        crate::lock::read(&self.by_tour)
             .get(tour)
             .cloned()
             .unwrap_or_default()
     }
 
     async fn tours_of(&self, sub: &Subscription) -> Vec<String> {
-        let mut tours: Vec<String> = self
-            .by_tour
-            .read()
-            .expect("subscriptions lock")
+        let mut tours: Vec<String> = crate::lock::read(&self.by_tour)
             .iter()
             .filter(|(_, mine)| mine.iter().any(|s| s.is_same(sub)))
             .map(|(tour, _)| tour.clone())
