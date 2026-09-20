@@ -75,11 +75,14 @@ pub async fn mine(
 /// what changed, so that is a leak; checking costs the one lookup the handler would do
 /// anyway.
 async fn seen_by(state: &Shared, auth: &crate::auth::AuthData, tour: &str) -> Result<(), ApiError> {
+    // `state_of` rather than `get`: it answers with the access code and the state id, which
+    // in a database is two fields rather than a whole tour with every expense in it. The
+    // bell on a tour page asks this on every open.
     state
         .store
-        .get(&tc_core::TourId::new(tour.to_owned()))
+        .state_of(&tc_core::TourId::new(tour.to_owned()))
         .await
-        .filter(|t| auth.may_see(&crate::fields::access_code(t)))
+        .filter(|(code, _)| auth.may_see(code))
         .map(|_| ())
         .ok_or_else(|| ApiError::NotFound(format!("no tour with id {tour}")))
 }

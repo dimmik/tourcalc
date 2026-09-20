@@ -115,6 +115,7 @@ impl MongoStore {
             .find_one(doc! { "_id": "none" })
             .await
             .map_err(|e| format!("MongoDB is not answering: {e}"))?;
+        store.make_sure_of_the_indexes().await;
         Ok(store)
     }
 
@@ -156,6 +157,44 @@ impl MongoStore {
     }
 
     /// Subscriptions, in the collection the C# writes them to, on this same connection.
+    /// The indexes every query here depends on, created if they are not there.
+    ///
+    /// `create_index` on an index that exists does nothing, so this runs on every start and
+    /// costs one round trip. Without it a new database - a move, a second instance, a
+    /// restore from a dump - answers every list by reading every tour, and nothing says so:
+    /// it is simply slow, in a way that looks like the network.
+    async fn make_sure_of_the_indexes(&self) {
+        use mongodb::IndexModel;
+        let tours = [
+            // The list: this code's tours, versions excluded.
+            doc! { tc_core::extras::ACCESS_CODE: 1, "IsVersion": 1 },
+            // A tour's own history.
+            doc! { "VersionFor_Id": 1 },
+        ];
+        for keys in tours {
+            let named = format!("{keys:?}");
+            if let Err(e) = self
+                .tours
+                .create_index(IndexModel::builder().keys(keys).build())
+                .await
+            {
+                // Not fatal: a reader without rights to create indexes still serves tours,
+                // slowly, and saying so is more use than refusing to start.
+                tracing::warn!("could not create the index on {named}: {e}");
+            }
+        }
+        let subscriptions = self.subscriptions().subscriptions;
+        for keys in [doc! { "TourId": 1 }, doc! { "Subscription.Url": 1 }] {
+            let named = format!("{keys:?}");
+            if let Err(e) = subscriptions
+                .create_index(IndexModel::builder().keys(keys).build())
+                .await
+            {
+                tracing::warn!("could not create the index on {named}: {e}");
+            }
+        }
+    }
+
     pub fn subscriptions(&self) -> MongoSubscriptions {
         MongoSubscriptions {
             // "NSubscriptions" is the C#'s own name for it.
@@ -437,7 +476,7 @@ impl TourStore for MongoStore {
 /// `NSubscriptions`, keyed by nothing in particular - it looks them up by the pair. Same
 /// shape both ways, so the two servers can hand the collection back and forth.
 pub struct MongoSubscriptions {
-    subscriptions: Collection<Document>,
+    pub(crate) subscriptions: Collection<Document>,
 }
 
 impl MongoSubscriptions {
