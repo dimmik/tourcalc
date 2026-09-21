@@ -127,6 +127,13 @@ jobs:
              BUILD_COMMIT=${{ github.sha }}
           # Rust compiles the world on a cold start; without this every push pays for it
           # again. `mode=max` keeps the intermediate stages too, which is where the time is.
+          #
+          # `ignore-error` because a cache is an optimisation and never a result. Writing to
+          # it failed once with "error writing layer blob: not_found" - the caches of this
+          # branch had been deleted half an hour earlier, when the branch itself was (see
+          # tidy-caches.yml) - and took a perfectly good image down with it. The next build
+          # was fine, which is exactly what a flake looks like and exactly what must not
+          # decide whether a build passes.
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
           labels: io.containers.autoupdate=registry
