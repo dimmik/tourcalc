@@ -224,9 +224,28 @@ fn MiniBalance(
         let tour = tour.clone();
         move |id: &PersonId| name_of(tour.person(id))
     };
-    let balances = settlement_summary(&tour, &all_transfers, crate::settings::threshold(&tour));
+    let threshold = crate::settings::threshold(&tour);
+    let balances = settlement_summary(&tour, &all_transfers, threshold);
     let has_real = tour.spendings.iter().any(|s| s.kind == Kind::Real);
     let empty = between.is_empty();
+    // The payments the screen leaves out for being too small. Named here for the same
+    // reason as in the roomy interface: without them "square" and a balance of 70 read as
+    // a contradiction.
+    let dust: Vec<&Transfer> = {
+        let (_, between_all) = tc_core::split_family(&all_transfers);
+        between_all
+            .into_iter()
+            .filter(|t| {
+                let shown = tour.convert(t.amount, &t.currency);
+                shown.0 != 0 && shown.abs() <= threshold
+            })
+            .collect()
+    };
+    let dust_total: Cents = dust
+        .iter()
+        .map(|t| tour.convert(t.amount, &t.currency).abs())
+        .sum();
+    let dust_count = dust.len();
     let family_count = family.len();
 
     let name_for_balances = name.clone();
@@ -240,6 +259,11 @@ fn MiniBalance(
                 <div class="tcm-empty">
                     "Everyone is square."
                     {(!has_real).then_some(" Add the first expense and the split shows up here.")}
+                    {(has_real && dust_count > 0).then(|| format!(
+                        " What is left is {dust_count} under {} each, {} in all — the figure                          in the balances below.",
+                        money(threshold),
+                        money(dust_total),
+                    ))}
                 </div>
             }.into_any()
         } else {
