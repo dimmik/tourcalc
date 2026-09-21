@@ -595,3 +595,41 @@ async fn the_list_puts_the_newest_tour_first() {
     let ids: Vec<&str> = second.iter().map(|t| t.id.as_str()).collect();
     assert_eq!(ids, ["older", "ancient"]);
 }
+
+/// A tour written before `StateGUID` existed can still be saved.
+///
+/// The soft lock is a filter on that field, and in MongoDB a missing field does not equal
+/// the empty string - so every save of a 2022 tour matched nothing, was read as "somebody
+/// else saved first", and came back 409 for ever.
+#[tokio::test]
+async fn a_tour_with_no_state_can_be_saved() {
+    let store = store_or_skip!("a_tour_with_no_state_can_be_saved");
+    let mut tour = fixture();
+    fields::remove(&mut tour, fields::STATE);
+    store.store(tour.clone()).await;
+    assert_eq!(fields::str_of(&store.get(&tour.id).await.unwrap(), fields::STATE), "");
+
+    // What the handler does: it presents the state it read, which is nothing at all.
+    let mut next = tour.clone();
+    next.name = "Renamed at last".into();
+    fields::set(&mut next, fields::STATE, "2026-09-21 10:00:00 .abc".into());
+    store
+        .replace(&tour.id, "", next, &|_| None)
+        .await
+        .expect("saved");
+
+    let stored = store.get(&tour.id).await.expect("still there");
+    assert_eq!(stored.name, "Renamed at last");
+    assert_eq!(
+        fields::str_of(&stored, fields::STATE),
+        "2026-09-21 10:00:00 .abc",
+        "and it has a state from now on"
+    );
+
+    // And the lock still locks: a save that carries no state must not overwrite one that
+    // has one by now.
+    let mut third = tour.clone();
+    third.name = "Should not happen".into();
+    assert!(store.replace(&tour.id, "", third, &|_| None).await.is_err());
+    assert_eq!(store.get(&tour.id).await.unwrap().name, "Renamed at last");
+}

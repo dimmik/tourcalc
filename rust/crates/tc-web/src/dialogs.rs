@@ -1041,7 +1041,7 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
     {
         let id = tour.id.as_str().to_owned();
         spawn_local(async move {
-            state.set(Some(api::versions(&id).await));
+            state.set(Some(api::versions(&id).await.map_err(|e| e.said)));
         });
     }
 
@@ -1075,7 +1075,7 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
                 let whole = match api::tour(version.id.as_str()).await {
                     Ok(t) => t,
                     Err(e) => {
-                        note.set(e);
+                        note.set(e.to_string());
                         busy.set(false);
                         return;
                     }
@@ -1106,7 +1106,7 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
 
                 match api::add_tour(body, api::Pile::Hashed(&code)).await {
                     Ok(_) => note.set("Restored as a new tour — it is in your list.".into()),
-                    Err(e) => note.set(e),
+                    Err(e) => note.set(e.to_string()),
                 }
                 busy.set(false);
             });

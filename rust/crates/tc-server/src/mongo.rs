@@ -439,7 +439,7 @@ impl TourStore for MongoStore {
         let matched = self
             .tours
             .replace_one(
-                doc! { "_id": id.as_str(), "StateGUID": expected_state },
+                still_at(id.as_str(), expected_state),
                 document,
             )
             .await
@@ -658,6 +658,36 @@ pub fn to_tour(document: &Document) -> Option<Tour> {
         obj.remove("_id");
     }
     Tour::from_json(&value.to_string()).ok()
+}
+
+/// The soft lock as a filter: which documents count as "still the state the caller read".
+///
+/// Not simply `{ StateGUID: expected }`, for two reasons, both of them old tours. A tour
+/// written before this field existed has no `StateGUID` at all, and in MongoDB a missing
+/// field does not equal `""` - so every save of such a tour matched nothing, was read as
+/// somebody else having saved first, and came back 409 for ever. And a tour the C# wrote in
+/// its camelCase years spells the field `stateGUID`, which is a different field again.
+fn still_at(id: &str, expected: &str) -> Document {
+    // Nothing read means nothing stored: the tour must still have no state in either
+    // spelling. Written as two conditions rather than one list, so that a tour which *has*
+    // a state cannot be overwritten by a save that carries none.
+    let missing = |field: &str| {
+        doc! { "$or": [
+            { field: { "$exists": false } },
+            { field: "" },
+            { field: bson::Bson::Null },
+        ] }
+    };
+    if expected.is_empty() {
+        return doc! {
+            "_id": id,
+            "$and": [ missing("StateGUID"), missing("stateGUID") ],
+        };
+    }
+    doc! {
+        "_id": id,
+        "$or": [ { "StateGUID": expected }, { "stateGUID": expected } ],
+    }
 }
 
 /// A stored date as the text it is compared by. Mongo holds `DateCreated` as a BSON date

@@ -214,7 +214,7 @@ impl Others {
                 }
                 // Deleted while it was open. Without this the page kept saying "from server
                 // · 3 min ago" until the next edit ran into the same answer.
-                Err(e) if e == api::NOT_FOUND => {
+                Err(e) if e.why.refusal() == Some(404) => {
                     self.gone.try_set(true);
                     return;
                 }

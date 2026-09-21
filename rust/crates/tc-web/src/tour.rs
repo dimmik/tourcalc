@@ -57,13 +57,18 @@ pub enum Dialog {
 
 /// How old what is on screen is, and a way to ask for newer.
 ///
-/// How the last refresh went. The app's four states, and its wording.
+/// How the last refresh went.
+///
+/// A failure carries what kind it was. "The server did not answer" and "the server answered
+/// 409" are not the same news: the first is the network and waiting may fix it, the second
+/// is the server saying no to this very request, and a tour that could not be saved read as
+/// a tour nobody could reach.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Outcome {
     None,
     Updated,
     UpToDate,
-    Failed,
+    Failed(crate::api::Trouble),
 }
 
 /// Everything the freshness line needs, owned by the page so that it survives the redraw
@@ -124,6 +129,15 @@ impl Sifting {
     }
 }
 
+/// What went wrong behind a status, for the line that has to say it.
+fn trouble_in(status: &Status) -> crate::api::Trouble {
+    match status {
+        Status::Failed(f) => f.why,
+        // Waiting is the network by definition, and nothing else here is a failure at all.
+        _ => crate::api::Trouble::Unreachable,
+    }
+}
+
 /// What says whether the server's tour has changed: its `StateGUID`, which every save moves.
 ///
 /// The fingerprint below is the app's, and it misses any edit that keeps the counts and the
@@ -170,6 +184,24 @@ fn ago(stored_at: f64) -> String {
     }
 }
 
+/// What went wrong, in the words the line has room for.
+///
+/// The three answers are different things to do about it: wait (nobody answered), look
+/// (the server refused this request and will refuse it again), or wait differently (the
+/// server itself is in trouble, and the request was fine).
+fn said_of(why: crate::api::Trouble) -> String {
+    use crate::api::Trouble;
+    match why {
+        Trouble::Unreachable => "server did not answer".to_owned(),
+        Trouble::Ours => "could not read the server's answer".to_owned(),
+        Trouble::Answered(404) => "this tour is not on the server".to_owned(),
+        Trouble::Answered(409) => "the server would not take the change (409)".to_owned(),
+        Trouble::Answered(403) => "the server would not allow it (403)".to_owned(),
+        Trouble::Answered(code) if code >= 500 => format!("the server is in trouble ({code})"),
+        Trouble::Answered(code) => format!("the server refused it ({code})"),
+    }
+}
+
 /// "from server · 3 min ago", and what to say instead when the server did not answer.
 ///
 /// The app answers the question a reader has when the numbers look wrong - "am I looking at
@@ -187,8 +219,8 @@ fn Freshness(refresh: Refresh) -> impl IntoView {
         match refresh.outcome.get() {
             Outcome::Updated => ("✓ new data received".to_owned(), "is-ok"),
             Outcome::UpToDate => ("✓ server has nothing newer".to_owned(), "is-ok"),
-            Outcome::Failed => (
-                "✕ server did not answer — showing the local copy".to_owned(),
+            Outcome::Failed(why) => (
+                format!("✕ {} — showing the local copy", said_of(why)),
                 "is-bad",
             ),
             Outcome::None if refresh.stale.get() => {
@@ -427,7 +459,7 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
             }
             // Said above, with what to do about it.
             Status::Failed(_) if queue::given_up(&tour_for_status) => ().into_any(),
-            Status::Failed(why) => view! {
+            Status::Failed(why) => { let why = why.to_string(); view! {
                 <div class="tcn-section" style="padding-bottom:0">
                     <div class="tcn-errors">
                         {why}
@@ -437,7 +469,7 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                         </button>
                     </div>
                 </div>
-            }.into_any(),
+            }.into_any() }
         }}
     }
 }
@@ -576,6 +608,8 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                     sync::push(&id).await
                 };
                 let answered = matches!(st, Status::Idle | Status::Synced);
+                // What went wrong, kept before the status is handed over to the screen.
+                let why = trouble_in(&st);
                 status.set(st);
 
                 if let Some(t) = &tour {
@@ -585,7 +619,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                     }
                     if asked {
                         refresh.outcome.set(if !answered {
-                            Outcome::Failed
+                            Outcome::Failed(why)
                         } else if fingerprint(t) == before {
                             Outcome::UpToDate
                         } else {
@@ -598,7 +632,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                     refresh.stale.set(!answered);
                 } else {
                     if asked {
-                        refresh.outcome.set(Outcome::Failed);
+                        refresh.outcome.set(Outcome::Failed(why));
                     }
                     refresh.stale.set(true);
                 }
@@ -640,7 +674,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                 // Then the verdict fades and the line goes back to saying where the copy
                 // came from. A failure deserves a longer look than a success.
                 let mine = refresh.outcome.get_untracked();
-                let shown = if mine == Outcome::Failed { 5000 } else { 2200 };
+                let shown = if matches!(mine, Outcome::Failed(_)) { 5000 } else { 2200 };
                 leptos::prelude::set_timeout(
                     move || {
                         if refresh.outcome.get_untracked() == mine {
@@ -2411,6 +2445,35 @@ pub fn Avatar(name: String) -> impl IntoView {
         <span class="tcn-avatar tcn-avatar-sm" style=format!("background:{}", avatar_colour(&name))>
             {initials(&name)}
         </span>
+    }
+}
+
+#[cfg(test)]
+mod what_went_wrong {
+    use super::said_of;
+    use crate::api::Trouble;
+
+    /// Each kind says something a reader can act on, and no two say the same thing.
+    #[test]
+    fn every_kind_of_trouble_says_its_own_thing() {
+        let said = [
+            said_of(Trouble::Unreachable),
+            said_of(Trouble::Answered(404)),
+            said_of(Trouble::Answered(409)),
+            said_of(Trouble::Answered(500)),
+            said_of(Trouble::Answered(418)),
+            said_of(Trouble::Ours),
+        ];
+        let mut sorted = said.to_vec();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(sorted.len(), said.len(), "no two read alike: {said:?}");
+
+        assert!(said[0].contains("did not answer"));
+        assert!(said[1].contains("not on the server"));
+        assert!(said[2].contains("409"));
+        assert!(said[3].contains("in trouble"));
+        assert!(said[4].contains("refused"));
     }
 }
 

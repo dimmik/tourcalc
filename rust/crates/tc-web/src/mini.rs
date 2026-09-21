@@ -152,7 +152,9 @@ pub fn MiniTour(
                         Status::Checking => "local copy, asking…".to_owned(),
                         Status::Waiting(0) => "local copy".to_owned(),
                         Status::Waiting(n) => format!("{n} waiting to be sent"),
-                        Status::Failed(_) => "server did not answer".to_owned(),
+                        // Short, but not the same word for every kind of trouble: see
+                        // `tour::said_of` for the roomy version.
+                        Status::Failed(f) => f.why.shortly(),
                     }}
                 </span>
                 <span class="tcm-spacer"></span>
