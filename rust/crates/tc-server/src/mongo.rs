@@ -146,6 +146,12 @@ impl MongoStore {
 
     /// Empties the collections. Tests only, and it does what it says - subscriptions
     /// included, or a test that runs twice finds what the first run left.
+    /// Puts a document in as it stands, for the tests that are about what is already in
+    /// somebody's database rather than about what this server writes.
+    pub async fn raw_insert_for_tests(&self, document: Document) {
+        let _ = self.tours.insert_one(document).await;
+    }
+
     pub async fn wipe_everything_for_tests(&self) {
         let _ = self.tours.delete_many(doc! {}).await;
         let _ = self
@@ -283,11 +289,15 @@ impl TourStore for MongoStore {
         // without an order two pages can share a tour and miss another. So the ids are put
         // in order here, where both spellings are read, and only the page is fetched whole.
         let filter = self.list_filter(codes);
-        let mut order: Vec<(String, String)> = match self
+        let mut order: Vec<(String, String, String)> = match self
             .tours
             .find(filter)
             .projection(doc! {
                 "_id": 1,
+                "GUID": 1,
+                "Id": 1,
+                "guid": 1,
+                "id": 1,
                 tc_core::extras::CREATED_AT: 1,
                 "dateCreated": 1,
             })
@@ -297,13 +307,22 @@ impl TourStore for MongoStore {
                 Ok(docs) => docs
                     .iter()
                     .filter_map(|d| {
-                        let id = d.get_str("_id").ok()?.to_owned();
+                        let key = d.get_str("_id").ok()?.to_owned();
+                        let field = |name: &str| {
+                            d.iter()
+                                .find(|(k, _)| k.eq_ignore_ascii_case(name))
+                                .and_then(|(_, v)| v.as_str())
+                                .map(|s| s.to_owned())
+                        };
+                        // The tour's own id, which is what a link points at and what the
+                        // reader sees as "this tour"; `_id` is the document's.
+                        let tour = field("GUID").or_else(|| field("Id")).unwrap_or_else(|| key.clone());
                         let made = d
                             .iter()
                             .find(|(k, _)| k.eq_ignore_ascii_case(tc_core::extras::CREATED_AT))
                             .map(|(_, v)| stamp_of(v))
                             .unwrap_or_default();
-                        Some((made, id))
+                        Some((made, tour, key))
                     })
                     .collect(),
                 Err(e) => {
@@ -319,26 +338,43 @@ impl TourStore for MongoStore {
         // Newest first; a tour with no date made is oldest, and the id breaks a tie so that
         // the same page is the same page twice.
         order.sort_by(|a, b| b.cmp(a));
+        // One row per tour, not per document. A database can hold two documents that call
+        // themselves the same tour - a copy made without a new id, a restore from long ago -
+        // and counting those separately is what put the same tour on the list two and three
+        // times: the page came back short (the second copy folded into the first), the count
+        // said there were more, and the client asked for the rest.
+        let mut seen = std::collections::HashSet::new();
+        order.retain(|(_, tour, _)| seen.insert(tour.clone()));
         let total = order.len();
 
         let wanted: Vec<String> = order
             .into_iter()
             .skip(from)
             .take(count)
-            .map(|(_, id)| id)
+            .map(|(_, _, key)| key)
             .collect();
         if wanted.is_empty() {
             return (Vec::new(), total);
         }
-        let mut found: std::collections::HashMap<String, Arc<Tour>> = self
-            .all(doc! { "_id": { "$in": wanted.clone() } })
-            .await
-            .into_iter()
-            .map(|t| (t.id.as_str().to_owned(), t))
+        // Read by document id and put back in the order asked for. Keyed by `_id` and not
+        // by the tour's own id, because those are not always the same string.
+        let docs = match self.tours.find(doc! { "_id": { "$in": wanted.clone() } }).await {
+            Ok(cursor) => cursor.try_collect::<Vec<Document>>().await.unwrap_or_default(),
+            Err(e) => {
+                tracing::error!("MongoDB read failed: {e}");
+                Vec::new()
+            }
+        };
+        let mut found: std::collections::HashMap<String, Arc<Tour>> = docs
+            .iter()
+            .filter_map(|d| {
+                let key = d.get_str("_id").ok()?.to_owned();
+                Some((key, Arc::new(to_tour(d)?)))
+            })
             .collect();
         let page = wanted
             .iter()
-            .filter_map(|id| found.remove(id))
+            .filter_map(|key| found.remove(key))
             .filter(|t| allowed(t))
             .collect();
         (page, total)

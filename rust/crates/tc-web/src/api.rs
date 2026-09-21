@@ -337,11 +337,14 @@ pub async fn tours() -> Result<Vec<Tour>, Failed> {
             .and_then(|t| t.as_u64())
             .unwrap_or(0) as usize;
         handed_over += items.len();
-        all.extend(
-            items
-                .iter()
-                .filter_map(|v| Tour::from_json(&v.to_string()).ok()),
-        );
+        // One row per tour, whatever the pages contain: a tour that arrives twice is one
+        // tour, and two cards pointing at the same place are worse than a missing one. The
+        // server counts by tour as well; this is the belt to that pair of braces.
+        for tour in items.iter().filter_map(|v| Tour::from_json(&v.to_string()).ok()) {
+            if !all.iter().any(|seen: &Tour| seen.id == tour.id) {
+                all.push(tour);
+            }
+        }
         // An empty page ends it too, whatever the total says: a list that shrank while it
         // was being read must not be asked for forever.
         if items.is_empty() || handed_over >= total {
