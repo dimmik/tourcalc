@@ -44,7 +44,7 @@ pub fn SignIn(on_done: Callback<()>) -> impl IntoView {
             match outcome {
                 Ok(()) => on_done.run(()),
                 Err(e) => {
-                    error.set(e);
+                    error.set(e.to_string());
                     busy.set(false);
                 }
             }

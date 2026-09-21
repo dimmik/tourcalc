@@ -26,8 +26,9 @@ pub enum Status {
     Checking,
     /// This many edits are still waiting, because there is no network.
     Waiting(usize),
-    /// Something went wrong that waiting will not fix.
-    Failed(String),
+    /// Something went wrong that waiting will not fix - and what kind of wrong it was, so
+    /// that "nobody answered" and "the server said no" do not read the same.
+    Failed(api::Failed),
 }
 
 /// The number of times a save may be beaten by somebody else before giving up.
@@ -108,17 +109,18 @@ pub async fn push(tour_id: &str) -> (Option<Tour>, Status) {
 
     (
         queue::cached(tour_id),
-        Status::Failed(format!(
-            "Could not save: the tour kept changing underneath ({MAX_ROUNDS} tries)."
+        Status::Failed(api::Failed::answered(
+            409,
+            format!("Could not save: the tour kept changing underneath ({MAX_ROUNDS} tries)."),
         )),
     )
 }
 
 /// Notes that the server said no to this queue - unless what it said no to was the login,
 /// which is not the queue's fault: signing in again sends it as it is.
-fn refused(tour_id: &str, why: &str) {
+fn refused(tour_id: &str, why: &api::Failed) {
     if api::signed_in() {
-        queue::was_refused(tour_id, why);
+        queue::was_refused(tour_id, &why.said);
     }
 }
 

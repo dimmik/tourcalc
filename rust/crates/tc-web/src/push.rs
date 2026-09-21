@@ -329,7 +329,7 @@ async fn turn_on(tour_id: &str) -> Result<(), Failure> {
 
     // The server's VAPID public key: the browser encrypts to it, so a notification can only
     // come from whoever holds the other half.
-    let key = api::push_public_key().await.map_err(Failure::NoAnswer)?;
+    let key = api::push_public_key().await.map_err(|e| Failure::NoAnswer(e.to_string()))?;
     if key.trim().is_empty() {
         return Err(Failure::Refused(
             "this server has no notification keys configured".into(),
@@ -360,7 +360,7 @@ async fn turn_on(tour_id: &str) -> Result<(), Failure> {
 
     api::push_subscribe(tour_id, &subscription)
         .await
-        .map_err(Failure::NoAnswer)
+        .map_err(|e| Failure::NoAnswer(e.to_string()))
 }
 
 async fn turn_off(tour_id: &str) -> Result<(), Failure> {
@@ -371,7 +371,7 @@ async fn turn_off(tour_id: &str) -> Result<(), Failure> {
     // this origin, so it is dropped only when nothing wants it.
     api::push_unsubscribe(tour_id, &subscription)
         .await
-        .map_err(Failure::NoAnswer)
+        .map_err(|e| Failure::NoAnswer(e.to_string()))
 }
 
 /// Reads the browser's subscription object into the shape the server stores.

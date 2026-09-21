@@ -187,7 +187,7 @@ pub fn TourListPage() -> impl IntoView {
                 // use than an error page, and the tours in it still open.
                 Err(e) => {
                     if !matches!(state.get_untracked(), Load::Ready(_)) {
-                        set_state.set(Load::Failed(e));
+                        set_state.set(Load::Failed(e.to_string()));
                     }
                 }
             }
@@ -253,7 +253,7 @@ pub fn TourListPage() -> impl IntoView {
                     new_json.set(String::new());
                     load.run(());
                 }
-                Err(e) => trouble.set(e),
+                Err(e) => trouble.set(e.to_string()),
             }
             busy.set(false);
         });
@@ -271,7 +271,7 @@ pub fn TourListPage() -> impl IntoView {
             let whole = match api::tour(tour.id.as_str()).await {
                 Ok(t) => t,
                 Err(e) => {
-                    trouble.set(e);
+                    trouble.set(e.to_string());
                     busy.set(false);
                     return;
                 }
@@ -299,7 +299,7 @@ pub fn TourListPage() -> impl IntoView {
             let pile = tc_core::extras::str_of(&tour.extras, tc_core::extras::ACCESS_CODE);
             match api::add_tour(body, api::Pile::Hashed(&pile)).await {
                 Ok(_) => load.run(()),
-                Err(e) => trouble.set(e),
+                Err(e) => trouble.set(e.to_string()),
             }
             busy.set(false);
         });
@@ -312,7 +312,7 @@ pub fn TourListPage() -> impl IntoView {
             let whole = match api::tour(tour.id.as_str()).await {
                 Ok(t) => t,
                 Err(e) => {
-                    trouble.set(e);
+                    trouble.set(e.to_string());
                     return;
                 }
             };
@@ -326,7 +326,7 @@ pub fn TourListPage() -> impl IntoView {
             };
             match copy_to_clipboard(&text).await {
                 Ok(()) => trouble.set("Copied — the JSON is on the clipboard.".into()),
-                Err(e) => trouble.set(e),
+                Err(e) => trouble.set(e.to_string()),
             }
         });
     });
@@ -343,7 +343,7 @@ pub fn TourListPage() -> impl IntoView {
         spawn_local(async move {
             match api::delete_tour(tour.id.as_str()).await {
                 Ok(()) => load.run(()),
-                Err(e) => trouble.set(e),
+                Err(e) => trouble.set(e.to_string()),
             }
         });
     });
