@@ -145,6 +145,15 @@ pub async fn all_suggested(
                     "SuggestedPaymentsCount".into(),
                     serde_json::json!(transfers.len()),
                 );
+                // What the tour cost, worked out here because the list is answered without
+                // the spendings and the client has nothing left to add up. Summing what
+                // each person paid out - which is what it did - counts the paybacks too,
+                // and the list then disagreed with the tour's own screen. Not a field the
+                // C# knows; it ignores what it does not read.
+                obj.insert(
+                    "TotalSpentInCents".into(),
+                    serde_json::json!(tc_core::spent_on_expenses(tour).0),
+                );
             }
             value
         })

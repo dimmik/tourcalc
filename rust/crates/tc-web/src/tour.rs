@@ -803,13 +803,9 @@ fn TourView(
         String::new()
     };
 
-    let total_spent: Cents = tour
-        .spendings
-        .iter()
-        // What the app counts as spending: a payback has no category and is not an expense.
-        .filter(|s| !s.category.trim().is_empty() && s.kind.counts(false))
-        .map(|s| tour.amount_in_current(s))
-        .sum();
+    // What the app counts as spending - a payback is not an expense - worked out by the
+    // same function the list's figure comes from, so the two cannot drift apart.
+    let total_spent: Cents = tc_core::spent_on_expenses(&tour);
 
     let real: Vec<Spending> = tour
         .spendings

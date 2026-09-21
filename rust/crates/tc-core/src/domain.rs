@@ -195,6 +195,18 @@ pub struct Tour {
     pub extras: Extras,
 }
 
+impl Spending {
+    /// Whether this is the app's own record of one person handing money to another - a
+    /// payback, or a transfer inside a family - rather than something somebody bought.
+    ///
+    /// The mark is an empty category: the forms always ask for one, and the settlement
+    /// writes these without. See [`crate::calc::is_an_expense`], which is what everything
+    /// else should ask.
+    pub fn description_of_a_payback(&self) -> bool {
+        self.category.trim().is_empty()
+    }
+}
+
 impl Tour {
     pub fn person(&self, id: &PersonId) -> Option<&Person> {
         self.persons.iter().find(|p| &p.id == id)

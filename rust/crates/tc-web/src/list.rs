@@ -563,11 +563,20 @@ fn Row(
     // The list carries what the server already worked out, in `SpentInCents` on each
     // person. It is not modelled by tc-core - the arithmetic recomputes it rather than
     // trusting it - so it is read out of the fields that came along for the ride.
+    // What the tour cost, as the server worked it out - the same figure the tour's own
+    // screen shows. An older server does not send it; then this falls back to what it
+    // always did, which adds the paybacks in and reads a little high.
     let spent: i64 = tour
-        .persons
-        .iter()
-        .filter_map(|p| p.extras.0.get("SpentInCents").and_then(|v| v.as_i64()))
-        .sum();
+        .extras
+        .0
+        .get("TotalSpentInCents")
+        .and_then(|v| v.as_i64())
+        .unwrap_or_else(|| {
+            tour.persons
+                .iter()
+                .filter_map(|p| p.extras.0.get("SpentInCents").and_then(|v| v.as_i64()))
+                .sum()
+        });
 
     let currency = if tour.currencies.len() > 1 {
         tour.currency().name.clone()

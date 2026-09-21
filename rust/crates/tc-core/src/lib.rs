@@ -16,9 +16,9 @@ pub mod news;
 pub mod removal;
 
 pub use calc::{
-    balances_after, breakdown, calculate, settlement_for, share, settlement_summary, split_family,
-    suggest_settlement, will_pay, Balances, Breakdown, CalcError, Line, Options, PersonBalance,
-    Transfer, MINIMUM_MEANINGFUL,
+    balances_after, breakdown, calculate, is_an_expense, settlement_for, settlement_summary, share,
+    spent_on_expenses, split_family, suggest_settlement, will_pay, Balances, Breakdown, CalcError,
+    Line, Options, PersonBalance, Transfer, MINIMUM_MEANINGFUL,
 };
 pub use domain::{extras, Currency, Extras, Kind, Person, Spending, Split, Tour};
 pub use ids::{CurrencyId, PersonId, SpendingId, TourId};
