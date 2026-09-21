@@ -1252,7 +1252,9 @@ pub fn MiniList(
             let shown: Vec<Tour> = tours
                 .iter()
                 .filter(|t| {
+                    // Searching finds the archived ones too; see the roomy list.
                     show_archived.get()
+                        || !needle.is_empty()
                         || !tc_core::extras::bool_of(&t.extras, tc_core::extras::ARCHIVED)
                 })
                 .filter(|t| {

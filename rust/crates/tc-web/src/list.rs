@@ -461,7 +461,13 @@ pub fn TourListPage() -> impl IntoView {
                     // Archived tours are out of the way until asked for - that is what
                     // archiving is.
                     .filter(|t| {
+                        // Archiving is about the default list, not about the search: asking
+                        // for a name by typing it is asking for that tour, and answering
+                        // "nothing matches" because it was archived two years ago is a lie
+                        // the reader has no way to see through. Each row says "archived"
+                        // for itself.
                         show_archived.get()
+                            || !needle.is_empty()
                             || !tc_core::extras::bool_of(&t.extras, tc_core::extras::ARCHIVED)
                     })
                     .filter(|t| {
