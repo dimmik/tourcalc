@@ -948,3 +948,65 @@ async fn the_list_is_asked_for_in_pages() {
     sorted.dedup();
     assert_eq!(sorted.len(), seen.len(), "no tour on two pages: {seen:?}");
 }
+
+/// The list says what a tour cost, and that is not the same as what everybody paid out:
+/// a payback is money moving between two people, and counting it made the list read high.
+#[tokio::test]
+async fn the_list_says_what_the_tour_cost_without_the_paybacks() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let before: serde_json::Value = {
+        let (_, body) = get(&app, "/api/Tour/all/suggested?count=100", Some(&token)).await;
+        serde_json::from_str(&body).unwrap()
+    };
+    let mine = |list: &serde_json::Value| -> (i64, i64) {
+        let t = list["Tours"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["GUID"] == "zscph2y")
+            .expect("the tour is in the list")
+            .clone();
+        let paid: i64 = t["Persons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["SpentInCents"].as_i64().unwrap_or(0))
+            .sum();
+        (t["TotalSpentInCents"].as_i64().expect("the total is there"), paid)
+    };
+    let (cost, paid) = mine(&before);
+    assert!(cost > 0);
+    // The seed tour already has paybacks in it, and that is the whole point: what the tour
+    // cost is less than what its people have handed over between them.
+    assert!(
+        cost < paid,
+        "a tour with paybacks costs less than the sum of what everybody paid: {cost} vs {paid}"
+    );
+
+    // Somebody settles up: a spending with no category, which is how the app writes that.
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    let people = tour["Persons"].as_array().unwrap().clone();
+    let payback = serde_json::json!({
+        "GUID": "a-payback",
+        "Description": "X 'Вася' -> 'Петя'",
+        "Type": "",
+        "AmountInCents": 5_000,
+        "Currency": tour["Spendings"][0]["Currency"],
+        "FromGuid": people[0]["GUID"],
+        "ToGuid": [people[1]["GUID"]],
+        "ToAll": false,
+    });
+    tour["Spendings"].as_array_mut().unwrap().push(payback);
+    let (status, body) = send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let after: serde_json::Value = {
+        let (_, body) = get(&app, "/api/Tour/all/suggested?count=100", Some(&token)).await;
+        serde_json::from_str(&body).unwrap()
+    };
+    let (cost_now, paid_now) = mine(&after);
+    assert_eq!(cost_now, cost, "the tour did not become more expensive");
+    assert_eq!(paid_now, paid + 5_000, "but somebody did hand over money");
+}

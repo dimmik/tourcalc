@@ -63,11 +63,8 @@ pub fn MiniTour(
         .filter(|s| s.kind.counts(false))
         .cloned()
         .collect();
-    let total_spent: Cents = real
-        .iter()
-        .filter(|s| !s.category.trim().is_empty())
-        .map(|s| tour.amount_in_current(s))
-        .sum();
+    // The same question the roomy screen and the tour list ask, asked in one place.
+    let total_spent: Cents = tc_core::spent_on_expenses(&tour);
     let left: Cents = between
         .iter()
         .map(|t| tour.convert(t.amount, &t.currency))
@@ -726,7 +723,7 @@ fn MiniExpenses(
 
             let counted: Cents = shown
                 .iter()
-                .filter(|s| !s.category.trim().is_empty())
+                .filter(|s| !s.description_of_a_payback())
                 .map(|s| tour.amount_in_current(s))
                 .sum();
 
@@ -968,7 +965,7 @@ fn MiniStats(tour: Tour, unit: String) -> impl IntoView {
     let counted: Vec<Spending> = tour
         .spendings
         .iter()
-        .filter(|s| s.kind.counts(false) && !s.category.trim().is_empty())
+        .filter(|s| tc_core::is_an_expense(s))
         .cloned()
         .collect();
     let total: Cents = counted.iter().map(|s| tour.amount_in_current(s)).sum();

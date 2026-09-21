@@ -106,6 +106,32 @@ pub struct Options {
     pub with_planned: bool,
 }
 
+/// Whether this is somebody's expense, as opposed to money moving between two people.
+///
+/// A payback and a transfer inside a family are stored as spendings - they are how the app
+/// records "Паша gave Валя 47 026" - but they buy nothing and belong in no total: counting
+/// them would say a trip cost more the more often people settled up on the way. They are
+/// told apart by having no category, which is what the app has always done and what the
+/// screens inside a tour do.
+///
+/// Drafts that are not counted, and the payments the settlement proposes, are out as well.
+pub fn is_an_expense(spending: &Spending) -> bool {
+    spending.kind.counts(false) && !spending.description_of_a_payback()
+}
+
+/// What a tour cost: every expense, in the currency the tour is read in.
+///
+/// The one figure the tour screen shows at the top, and the one the list should show beside
+/// the tour's name - they used to be worked out in two different places and disagreed, the
+/// list adding the paybacks in because it was summing what each person had paid out.
+pub fn spent_on_expenses(tour: &Tour) -> Cents {
+    tour.spendings
+        .iter()
+        .filter(|s| is_an_expense(s))
+        .map(|s| tour.amount_in_current(s))
+        .sum()
+}
+
 /// Adds up a tour.
 ///
 /// Borrows the tour and owns nothing of it; returns a fresh `Balances`.
@@ -755,5 +781,64 @@ impl Transfer {
             currency: s.currency.clone(),
             description: s.description.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod what_a_tour_cost {
+    use super::*;
+    use crate::{Kind, Split};
+
+    fn tour() -> Tour {
+        Tour::from_json(include_str!("../../../fixtures/hs3huvy.tour.json")).expect("fixture")
+    }
+
+    /// A payback is how the app writes down "he gave her the money", not a thing anybody
+    /// bought: it must not make the trip look more expensive.
+    #[test]
+    fn paybacks_are_not_part_of_what_a_tour_cost() {
+        let mut t = tour();
+        let before = spent_on_expenses(&t);
+        assert!(before.0 > 0, "the fixture has expenses");
+
+        let mut payback = t.spendings[0].clone();
+        payback.id = crate::SpendingId::new("a-payback");
+        payback.description = "X 'Паша' -> 'Валя'".into();
+        payback.category = String::new();
+        payback.amount = Cents(47_026);
+        payback.split = Split::Equally(vec![t.persons[1].id.clone()]);
+        t.spendings.push(payback);
+
+        assert_eq!(spent_on_expenses(&t), before, "the total did not move");
+        // And what each person paid out - which is what the balances are made of - did.
+        let after = calculate(&t, Options::default());
+        let paid: i64 = after.per_person.iter().map(|b| b.spent.0).sum();
+        assert!(paid > before.0, "a payback is still money leaving somebody's pocket");
+    }
+
+    /// The settlement's own proposals are not expenses either.
+    #[test]
+    fn what_is_only_proposed_is_not_counted() {
+        let mut t = tour();
+        let before = spent_on_expenses(&t);
+        let mut planned = t.spendings[0].clone();
+        planned.id = crate::SpendingId::new("proposed");
+        planned.kind = Kind::Planned;
+        planned.amount = Cents(1_000_000);
+        t.spendings.push(planned);
+        assert_eq!(spent_on_expenses(&t), before);
+    }
+
+    /// The figure is in the currency the tour is being read in, like every other total.
+    #[test]
+    fn it_is_in_the_currency_on_screen() {
+        let t = tour();
+        let by_hand: Cents = t
+            .spendings
+            .iter()
+            .filter(|s| is_an_expense(s))
+            .map(|s| t.amount_in_current(s))
+            .sum();
+        assert_eq!(spent_on_expenses(&t), by_hand);
     }
 }

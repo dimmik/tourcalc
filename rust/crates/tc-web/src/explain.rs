@@ -272,10 +272,9 @@ fn name_of(tour: &Tour, id: &PersonId) -> String {
         .unwrap_or_else(|| "n/a".to_owned())
 }
 
-/// What counts as spending: an entry with a category that is not an uncounted draft. A
-/// payback has no category, which is exactly how the arithmetic tells it from an expense.
+/// What counts as spending; see `tc_core::is_an_expense`, which is where the rule lives.
 fn counts_as_spending(s: &Spending) -> bool {
-    s.kind.counts(false) && !s.category.trim().is_empty()
+    tc_core::is_an_expense(s)
 }
 
 /// Total spent: what was added up, by category, and what was left out.
@@ -809,7 +808,7 @@ pub fn uncounted(tour: &Tour, rows: &[Spending]) -> Explanation {
     // created the debt was recorded.
     let settling: Vec<&&Spending> = out
         .iter()
-        .filter(|s| s.category.trim().is_empty())
+        .filter(|s| s.description_of_a_payback())
         .collect();
     let drafts: Vec<&&Spending> = out
         .iter()
