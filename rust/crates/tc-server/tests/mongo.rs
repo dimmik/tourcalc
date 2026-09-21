@@ -633,3 +633,88 @@ async fn a_tour_with_no_state_can_be_saved() {
     assert!(store.replace(&tour.id, "", third, &|_| None).await.is_err());
     assert_eq!(store.get(&tour.id).await.unwrap().name, "Renamed at last");
 }
+
+/// Forty tours, asked for the way the client asks: one page, then the next until the total
+/// is reached. Nothing may come back twice, and nothing may go missing.
+#[tokio::test]
+async fn paging_a_long_list_shows_every_tour_once() {
+    let store = store_or_skip!("paging_a_long_list_shows_every_tour_once");
+    let tour = fixture();
+    let code = fields::access_code(&tour);
+    for i in 0..40 {
+        let mut one = tour.clone();
+        one.id = TourId::new(format!("tour-{i:02}"));
+        // Half of them made on the same day, so ties are part of the test.
+        fields::set(
+            &mut one,
+            fields::CREATED_AT,
+            format!("2026-01-{:02}T00:00:00", (i / 2) + 1).into(),
+        );
+        store.store(one).await;
+    }
+    let codes = vec![code];
+
+    for page_size in [7, 40, 200] {
+        let mut seen: Vec<String> = Vec::new();
+        let mut from = 0;
+        loop {
+            let (page, total) = store.page(Some(&codes), &|_| true, from, page_size).await;
+            assert_eq!(total, 40, "the count is of tours");
+            if page.is_empty() {
+                break;
+            }
+            from += page.len();
+            seen.extend(page.iter().map(|t| t.id.as_str().to_owned()));
+            if from >= total {
+                break;
+            }
+        }
+        let mut once = seen.clone();
+        once.sort();
+        once.dedup();
+        assert_eq!(seen.len(), 40, "by {page_size}: every tour came back");
+        assert_eq!(once.len(), seen.len(), "by {page_size}: and none of them twice");
+    }
+}
+
+/// Two documents that call themselves the same tour - a `_id` of their own, one `GUID`
+/// between them - are one row in the list, not two links to the same place.
+#[tokio::test]
+async fn two_documents_with_one_guid_are_one_tour() {
+    let store = store_or_skip!("two_documents_with_one_guid_are_one_tour");
+    let tour = fixture();
+    let code = fields::access_code(&tour);
+    store.store(tour.clone()).await;
+
+    // What a copy made by something that did not give it a new GUID looks like: its own
+    // `_id`, the same `Id`/`GUID` inside.
+    let mut twin = tc_server::mongo::to_document(&tour).expect("a document");
+    twin.insert("_id", "a-second-document");
+    store.raw_insert_for_tests(twin).await;
+
+    let codes = vec![code];
+    let (page, total) = store.page(Some(&codes), &|_| true, 0, 50).await;
+    let ids: Vec<&str> = page.iter().map(|t| t.id.as_str()).collect();
+    assert_eq!(ids, ["zscph2y"], "one row, not two");
+    assert_eq!(
+        total, 1,
+        "and the count says one - a count of documents made the client ask for the rest, \
+         and the rest was the same tour again"
+    );
+
+    // The client pages until it has as many as the count promised. That loop must end.
+    let mut seen: Vec<String> = Vec::new();
+    let mut from = 0;
+    loop {
+        let (page, total) = store.page(Some(&codes), &|_| true, from, 50).await;
+        if page.is_empty() {
+            break;
+        }
+        from += page.len();
+        seen.extend(page.iter().map(|t| t.id.as_str().to_owned()));
+        if from >= total {
+            break;
+        }
+    }
+    assert_eq!(seen, ["zscph2y"], "the reader sees the tour once: {seen:?}");
+}
