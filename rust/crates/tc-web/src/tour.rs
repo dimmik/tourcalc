@@ -2188,7 +2188,36 @@ fn BalanceTab(
     };
     // The whole settlement, dust and all: `settlement_summary` applies the app's own
     // rule for what counts and what is too small to mention.
-    let rows = settlement_summary(&tour, &all_for_summary, crate::settings::threshold(&tour));
+    let threshold = crate::settings::threshold(&tour);
+    let rows = settlement_summary(&tour, &all_for_summary, threshold);
+    // What the settlement worked out and the screen does not show: payments smaller than
+    // the threshold. They are why a tour can say "everyone is settled up" and still have
+    // somebody sitting on a balance - the balance adds them up, the list leaves them out,
+    // and side by side that reads as a contradiction. So they are named.
+    let dust: Vec<Transfer> = {
+        let (_, between_all) = tc_core::split_family(&all_for_summary);
+        between_all
+            .into_iter()
+            .filter(|t| {
+                let shown = tour.convert(t.amount, &t.currency);
+                shown.0 != 0 && shown.abs() <= threshold
+            })
+            .cloned()
+            .collect()
+    };
+    let dust_total: Cents = dust
+        .iter()
+        .map(|t| tour.convert(t.amount, &t.currency).abs())
+        .sum();
+    let dust_rows = dust.clone();
+    let dust_open = RwSignal::new(false);
+    // Its own copies, because the block that draws them outlives the one that names them.
+    let tour_for_dust = tour.clone();
+    let names_for_dust = {
+        let tour = tour.clone();
+        move |id: &PersonId| name_of(tour.person(id))
+    };
+    let unit_for_dust = unit.clone();
     let balances_for_bal = tc_core::calculate(&tour, tc_core::Options::default());
     let tour_for_bal = tour.clone();
     let all_for_bal = all_for_summary.clone();
@@ -2206,13 +2235,49 @@ fn BalanceTab(
                             <div class="tcn-allsettled-icon">"🎉"</div>
                             <div class="tcn-allsettled-title">"Everyone is settled up"</div>
                             <div class="tcn-allsettled-sub">
-                                {if has_real {
-                                    "No payments are left between the participants."
+                                {if !has_real {
+                                    "Add the first expense and the split will show up here.".to_owned()
+                                } else if dust.is_empty() {
+                                    "No payments are left between the participants.".to_owned()
                                 } else {
-                                    "Add the first expense and the split will show up here."
+                                    // The balances below are not zero, and this is why -
+                                    // as long as there are any. A reader who has raised the
+                                    // threshold high enough has none, and then there is
+                                    // nothing to point at.
+                                    format!(
+                                        "What is left is too small to chase: {} under {} each, {} in all.{}",
+                                        match dust.len() {
+                                            1 => "one payment".to_owned(),
+                                            n => format!("{n} payments"),
+                                        },
+                                        money(threshold),
+                                        money(dust_total),
+                                        if rows.is_empty() {
+                                            ""
+                                        } else {
+                                            " That is what the balances below add up to."
+                                        },
+                                    )
                                 }}
                             </div>
+                            <Show when=move || !dust.is_empty()>
+                                <button type="button" class="tcn-btn tcn-btn-sm"
+                                        style="margin-top:10px"
+                                        on:click=move |_| dust_open.update(|o| *o = !*o)>
+                                    {move || if dust_open.get() {
+                                        "Hide the small ones"
+                                    } else {
+                                        "Show the small ones"
+                                    }}
+                                </button>
+                            </Show>
                         </div>
+                        <Show when=move || dust_open.get()>
+                            <div class="tcn-list" style="margin-top:12px">
+                                {transfer_rows(&tour_for_dust, &dust_rows, &names_for_dust,
+                                               &unit_for_dust, Some(apply))}
+                            </div>
+                        </Show>
                     }.into_any()
                 } else {
                     view! {

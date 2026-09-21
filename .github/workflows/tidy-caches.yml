@@ -7,6 +7,11 @@
 # takes nine minutes instead of three for no reason anybody can see.
 #
 # Deleting a branch is the moment its caches stop being useful, so that is when they go.
+#
+# One catch, found the hard way: a build that is already running can be exporting to those
+# caches, and buildx fails the whole build when the export does ("error writing layer blob:
+# not_found"). The image build therefore exports with `ignore-error=true`; see
+# docker-publish-rust.yml.
 name: Tidy caches
 
 on:
