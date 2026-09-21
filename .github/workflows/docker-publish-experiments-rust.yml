@@ -30,7 +30,9 @@ jobs:
         id: current-time
         with:
           format: YYYYMMDD-HHmmss
-          utcOffset: "+03:00"
+          # UTC, said out loud by the `Z` the steps below add - see
+          # docker-publish-rust.yml.
+          utcOffset: "+00:00"
 
       # No QEMU: the server is cross-compiled and the wasm is architecture-independent, so
       # nothing in this build ever runs emulated. See the comments in tourcalc.rust.docker.
@@ -56,10 +58,10 @@ jobs:
           context: .
           file: tourcalc.rust.docker
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:experiments-rust,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:experiments-rust-${{ steps.current-time.outputs.formattedTime }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:experiments-rust,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:experiments-rust-${{ steps.current-time.outputs.formattedTime }}Z
           build-args: |
              BUILD_TYPE=experimentsR (${{ steps.extract_branch.outputs.branch }})
-             BUILD_ID=${{ steps.current-time.outputs.formattedTime }}
+             BUILD_ID=${{ steps.current-time.outputs.formattedTime }}Z
              BUILD_COMMIT=${{ github.sha }}
           # Rust compiles the world on a cold start; without this every push pays for it
           # again. `mode=max` keeps the intermediate stages too, which is where the time is.

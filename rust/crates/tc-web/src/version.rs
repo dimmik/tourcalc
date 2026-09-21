@@ -15,6 +15,10 @@
 //!   tell you that.
 //!
 //! Only the first has a button, because it is the only one a reader can do anything about.
+//!
+//! The date is back, in the mark in the header - but next to the answer to the first
+//! question rather than instead of it. A colour saying "current" and a date saying *how*
+//! current are two different facts, and the date on its own never was the second one.
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -137,6 +141,7 @@ impl Mark {
     fn word(self) -> &'static str {
         match self {
             Mark::Asking => "checking…",
+            // Only when there is no date to put there instead; see `word` in `VersionMark`.
             Mark::Latest => "latest",
             Mark::Stale => "update",
             Mark::Unknown => "can't tell",
@@ -151,6 +156,74 @@ impl Mark {
             Mark::Unknown => "The server did not say which client it hands out. Click to ask again.",
         }
     }
+}
+
+/// What a build stamp with no zone on it means.
+///
+/// Stamps written before 2026-09-21 are `YYYYMMDD-HHmmss` and nothing else, on +03:00 -
+/// which was where the author lived, and which the stamp never said. They are still on the
+/// dated tags of every image published until then, so a rollback still has to be readable;
+/// new ones end in `Z` and need no guessing. Nothing new is ever written on this offset.
+const BEFORE_THE_Z: &str = "+03:00";
+
+/// The build stamp as an instant: `20260921-143012Z` → `2026-09-21T14:30:12Z`.
+///
+/// `None` for anything that is not that shape - a build from somebody's machine says `dev`.
+pub fn build_iso(build: &str) -> Option<String> {
+    let (stamp, zone) = match build.strip_suffix('Z') {
+        Some(stamp) => (stamp, "Z"),
+        None => (build, BEFORE_THE_Z),
+    };
+    let (date, time) = stamp.split_once('-')?;
+    if date.len() != 8 || time.len() != 6 {
+        return None;
+    }
+    if !date.bytes().chain(time.bytes()).all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    Some(format!(
+        "{}-{}-{}T{}:{}:{}{zone}",
+        &date[..4],
+        &date[4..6],
+        &date[6..],
+        &time[..2],
+        &time[2..4],
+        &time[4..],
+    ))
+}
+
+/// An instant in milliseconds, or `None` when the string is not one.
+fn moment(iso: &str) -> Option<f64> {
+    let millis = js_sys::Date::parse(iso);
+    (!millis.is_nan()).then_some(millis)
+}
+
+/// When the running build was built, and failing that, when the server started.
+///
+/// Two different answers to "how old is this?", and the second is the weaker one: a restart
+/// is not a deploy. It is here because a server built by hand has no build stamp at all, and
+/// "since 14:41" still beats saying nothing.
+fn built_at(server: &Deployment) -> Option<f64> {
+    build_iso(&server.build)
+        .as_deref()
+        .and_then(moment)
+        .or_else(|| moment(&server.started))
+}
+
+/// The date the header says when this browser is current: "21.09 14:30", in the reader's own
+/// clock.
+///
+/// Without the year, which is the one part a reader of the *latest* build never needs, and
+/// the header has no room for.
+fn short_stamp(millis: f64) -> String {
+    let d = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(millis));
+    format!(
+        "{:02}.{:02} {:02}:{:02}",
+        d.get_date(),
+        d.get_month() + 1,
+        d.get_hours(),
+        d.get_minutes()
+    )
 }
 
 /// How long the mark says its word out loud before shrinking back to a dot. Long enough to
@@ -168,6 +241,10 @@ const SAID: std::time::Duration = std::time::Duration::from_secs(3);
 pub fn VersionMark() -> impl IntoView {
     let mark = RwSignal::new(Mark::Asking);
     let open = RwSignal::new(false);
+    // What the server said last time it was asked, kept so that the mark can say *when* this
+    // build was built rather than the word "latest" - the colour of the dot already says
+    // that much, and a date says something the colour cannot.
+    let server = RwSignal::new(None::<Deployment>);
     // Read here and not inside the check: `use_context` answers for the owner that is
     // running, and by the time the server has answered there is none - the bar would never
     // have heard a thing.
@@ -181,8 +258,9 @@ pub fn VersionMark() -> impl IntoView {
         asked.set_value(n);
         spawn_local(async move {
             let running = running_client();
-            let now = match deployment().await {
-                Some(server) => match is_stale(&server, &running) {
+            let said = deployment().await;
+            let now = match &said {
+                Some(there) => match is_stale(there, &running) {
                     Some(true) => Mark::Stale,
                     Some(false) => Mark::Latest,
                     None => Mark::Unknown,
@@ -192,6 +270,7 @@ pub fn VersionMark() -> impl IntoView {
             if asked.try_get_value() != Some(n) {
                 return;
             }
+            server.try_set(said);
             // Said out loud when it is news: the first answer, or one that differs from what
             // the dot has been showing. Coming back to the tab every few minutes should not
             // set the header talking each time.
@@ -238,14 +317,50 @@ pub fn VersionMark() -> impl IntoView {
         on_visible.forget();
     }
 
+    // What the mark opens into. When this browser is current, that is the date of the build
+    // it is running: "latest" repeats what the green dot has already said, and a date answers
+    // the question a reader actually has - is this from just now, or from Tuesday?
+    let word = move || match mark.get() {
+        Mark::Latest => server
+            .with(|s| s.as_ref().and_then(built_at))
+            .map(short_stamp)
+            .unwrap_or_else(|| Mark::Latest.word().to_owned()),
+        other => other.word().to_owned(),
+    };
+    // The long form, for the tooltip: both dates in full, because "built" and "running since"
+    // are different questions and the short word only has room for one of them.
+    let why = move || {
+        let detail = server.with(|s| {
+            let Some(s) = s.as_ref() else {
+                return String::new();
+            };
+            let built = build_iso(&s.build).as_deref().and_then(moment);
+            let started = moment(&s.started);
+            match (built, started) {
+                (Some(b), Some(r)) => format!(
+                    " Built {}, running since {}.",
+                    crate::ui::local_stamp(b),
+                    crate::ui::local_stamp(r)
+                ),
+                (Some(b), None) => format!(" Built {}.", crate::ui::local_stamp(b)),
+                (None, Some(r)) => format!(
+                    " Not built by the pipeline; running since {}.",
+                    crate::ui::local_stamp(r)
+                ),
+                (None, None) => String::new(),
+            }
+        });
+        format!("{}{detail}", mark.get().why())
+    };
+
     view! {
         <button type="button" class="tcw-vmark"
                 class:is-latest=move || mark.get() == Mark::Latest
                 class:is-stale=move || mark.get() == Mark::Stale
                 class:is-unknown=move || matches!(mark.get(), Mark::Unknown | Mark::Asking)
                 class:is-open=move || open.get()
-                title=move || mark.get().why()
-                aria-label=move || mark.get().why()
+                title=why
+                aria-label=why
                 on:click=move |_| {
                     if mark.get_untracked() == Mark::Stale {
                         update_now();
@@ -257,7 +372,7 @@ pub fn VersionMark() -> impl IntoView {
                     }
                 }>
             <span class="tcw-vmark-dot"></span>
-            <span class="tcw-vmark-word">{move || mark.get().word()}</span>
+            <span class="tcw-vmark-word">{word}</span>
         </button>
     }
 }
@@ -386,7 +501,18 @@ pub fn AboutBuild() -> impl IntoView {
                                         } else {
                                             format!(" · commit {}", &s.commit[..s.commit.len().min(7)])
                                         };
-                                        format!("{}{commit} · {}", s.build, s.build_type)
+                                        // The stamp is kept as it is written - it is half of
+                                        // the name of the image tag, and somebody rolling a
+                                        // deploy back needs to type it. The date in front of
+                                        // it is the same moment on the reader's own clock,
+                                        // which is the one they can compare with "just now".
+                                        let when = build_iso(&s.build)
+                                            .as_deref()
+                                            .and_then(moment)
+                                            .map(crate::ui::local_stamp)
+                                            .map(|w| format!("{w} · "))
+                                            .unwrap_or_default();
+                                        format!("{when}{}{commit} · {}", s.build, s.build_type)
                                     }}
                                 </div>
                             </div>
@@ -416,5 +542,36 @@ pub fn AboutBuild() -> impl IntoView {
                 </div>
             </div>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_build_stamp_becomes_an_instant() {
+        assert_eq!(
+            build_iso("20260921-143012Z").as_deref(),
+            Some("2026-09-21T14:30:12Z")
+        );
+    }
+
+    #[test]
+    fn a_stamp_from_before_the_z_is_read_on_the_offset_it_was_written_on() {
+        // Every image published up to 2026-09-21 is tagged this way, and rolling one back
+        // must not move its date by three hours.
+        assert_eq!(
+            build_iso("20260910-150000").as_deref(),
+            Some("2026-09-10T15:00:00+03:00")
+        );
+    }
+
+    #[test]
+    fn anything_that_is_not_a_build_stamp_has_no_date() {
+        // A build from somebody's machine, and a few shapes that are nearly right.
+        for not_a_stamp in ["dev", "", "20260921", "2026092-1143012", "2026092x-143012"] {
+            assert_eq!(build_iso(not_a_stamp), None, "{not_a_stamp}");
+        }
     }
 }

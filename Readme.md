@@ -249,7 +249,7 @@ reply — so almost all of it is tested without a token, a network, or a bot.
 | Tag | Built from | |
 |---|---|---|
 | `ghcr.io/dimmik/tourcalc:latest` | branch `prod` | **What a deployment follows.** |
-| `ghcr.io/dimmik/tourcalc:prod-YYYYMMDD-HHmmss` | branch `prod` | The same image, dated — what to roll back to. The date is what the app's build page shows. |
+| `ghcr.io/dimmik/tourcalc:prod-YYYYMMDD-HHmmssZ` | branch `prod` | The same image, dated — what to roll back to. The date is UTC, which is what the `Z` says, and the app shows it on the reader's own clock. Tags from before 2026-09-21 have no `Z` and are +03:00. |
 | `ghcr.io/dimmik/tourcalc:beta-latest` | branches `beta/**` | Where the temporary things live, with dated tags beside it as above. |
 | `ghcr.io/dimmik/tourcalc:blazor-latest` | by hand | The C# build. Was `prod`; now built from the Actions tab when it is wanted. |
 | `ghcr.io/dimmik/tourcalc:experiments-rust` | branches `experiments/**` | A working branch. |
