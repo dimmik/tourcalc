@@ -41,12 +41,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # When this build happened, for the dated tag and for `BUILD_ID`.
+      #
+      # In UTC, and the `Z` the steps below stick on the end says so - a stamp that names no
+      # zone is read as whatever the reader assumes, and this one used to be +03:00 because
+      # that was where the author lived. The client turns it into the reader's own clock
+      # (`build_iso` in version.rs), which it cannot do without knowing what it started from.
       - name: Get current time
         uses: josStorer/get-current-time@v2
         id: current-time
         with:
           format: YYYYMMDD-HHmmss
-          utcOffset: "+03:00"
+          utcOffset: "+00:00"
 
       # Which image this run is publishing, as the caller said.
       #
@@ -120,10 +126,10 @@ jobs:
           push: true
           # The moving tag is what a deployment follows; the dated one is what it can be
           # rolled back to, and what the build page names.
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.kind.outputs.moving }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.kind.outputs.dated }}-${{ steps.current-time.outputs.formattedTime }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.kind.outputs.moving }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.kind.outputs.dated }}-${{ steps.current-time.outputs.formattedTime }}Z
           build-args: |
              BUILD_TYPE=${{ steps.kind.outputs.type }} (${{ steps.extract_branch.outputs.branch }})
-             BUILD_ID=${{ steps.current-time.outputs.formattedTime }}
+             BUILD_ID=${{ steps.current-time.outputs.formattedTime }}Z
              BUILD_COMMIT=${{ github.sha }}
           # Rust compiles the world on a cold start; without this every push pays for it
           # again. `mode=max` keeps the intermediate stages too, which is where the time is.

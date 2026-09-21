@@ -158,19 +158,23 @@ impl Mark {
     }
 }
 
-/// The clock the pipeline writes `BUILD_ID` on.
+/// What a build stamp with no zone on it means.
 ///
-/// `docker-publish-rust.yml` stamps the build as `YYYYMMDD-HHmmss` with `utcOffset:
-/// "+03:00"`, and the stamp itself says nothing about that - so the offset has to live here
-/// as well. If the workflow's ever changes, this changes with it, or every build date in the
-/// header moves by the difference.
-const BUILT_ON: &str = "+03:00";
+/// Stamps written before 2026-09-21 are `YYYYMMDD-HHmmss` and nothing else, on +03:00 -
+/// which was where the author lived, and which the stamp never said. They are still on the
+/// dated tags of every image published until then, so a rollback still has to be readable;
+/// new ones end in `Z` and need no guessing. Nothing new is ever written on this offset.
+const BEFORE_THE_Z: &str = "+03:00";
 
-/// The build stamp as an instant, `20260921-143012` → `2026-09-21T14:30:12+03:00`.
+/// The build stamp as an instant: `20260921-143012Z` → `2026-09-21T14:30:12Z`.
 ///
 /// `None` for anything that is not that shape - a build from somebody's machine says `dev`.
 pub fn build_iso(build: &str) -> Option<String> {
-    let (date, time) = build.split_once('-')?;
+    let (stamp, zone) = match build.strip_suffix('Z') {
+        Some(stamp) => (stamp, "Z"),
+        None => (build, BEFORE_THE_Z),
+    };
+    let (date, time) = stamp.split_once('-')?;
     if date.len() != 8 || time.len() != 6 {
         return None;
     }
@@ -178,7 +182,7 @@ pub fn build_iso(build: &str) -> Option<String> {
         return None;
     }
     Some(format!(
-        "{}-{}-{}T{}:{}:{}{BUILT_ON}",
+        "{}-{}-{}T{}:{}:{}{zone}",
         &date[..4],
         &date[4..6],
         &date[6..],
@@ -497,7 +501,18 @@ pub fn AboutBuild() -> impl IntoView {
                                         } else {
                                             format!(" · commit {}", &s.commit[..s.commit.len().min(7)])
                                         };
-                                        format!("{}{commit} · {}", s.build, s.build_type)
+                                        // The stamp is kept as it is written - it is half of
+                                        // the name of the image tag, and somebody rolling a
+                                        // deploy back needs to type it. The date in front of
+                                        // it is the same moment on the reader's own clock,
+                                        // which is the one they can compare with "just now".
+                                        let when = build_iso(&s.build)
+                                            .as_deref()
+                                            .and_then(moment)
+                                            .map(crate::ui::local_stamp)
+                                            .map(|w| format!("{w} · "))
+                                            .unwrap_or_default();
+                                        format!("{when}{}{commit} · {}", s.build, s.build_type)
                                     }}
                                 </div>
                             </div>
@@ -537,8 +552,18 @@ mod tests {
     #[test]
     fn the_build_stamp_becomes_an_instant() {
         assert_eq!(
-            build_iso("20260921-143012").as_deref(),
-            Some("2026-09-21T14:30:12+03:00")
+            build_iso("20260921-143012Z").as_deref(),
+            Some("2026-09-21T14:30:12Z")
+        );
+    }
+
+    #[test]
+    fn a_stamp_from_before_the_z_is_read_on_the_offset_it_was_written_on() {
+        // Every image published up to 2026-09-21 is tagged this way, and rolling one back
+        // must not move its date by three hours.
+        assert_eq!(
+            build_iso("20260910-150000").as_deref(),
+            Some("2026-09-10T15:00:00+03:00")
         );
     }
 
