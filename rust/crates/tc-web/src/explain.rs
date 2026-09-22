@@ -514,7 +514,11 @@ pub fn person_balance(
         .get(&person.id)
         .map(|b| b.debt())
         .unwrap_or_default();
-    let family = tc_core::will_pay(tour, all_transfers, &person.id, Cents::ZERO);
+    // Read before the figure below it needs it: the same threshold decides which payments
+    // count *and* whether this person pays or collects. Zero here made the explanation
+    // disagree with the list of payments it was explaining. See `settlement_for`.
+    let too_small = crate::settings::threshold(tour);
+    let family = tc_core::will_pay(tour, all_transfers, &person.id, too_small);
 
     let kids: Vec<&Person> = tour
         .persons
@@ -536,7 +540,6 @@ pub fn person_balance(
     }
     facts.push(Fact::money("Hands over at settle-up", family).strong());
 
-    let too_small = crate::settings::threshold(tour);
     let mut note = if own.abs() <= too_small {
         format!(
             "Anything under {} counts as settled, so this shows as square.",

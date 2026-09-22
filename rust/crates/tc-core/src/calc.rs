@@ -520,7 +520,10 @@ pub fn settlement_summary(
         // Only people who settle up themselves: whoever is paid for by somebody else is
         // shown inside that person's family, not as a line of their own.
         .filter(|p| p.parent.is_none())
-        .map(|p| (p.id.clone(), will_pay(tour, transfers, &p.id, Cents::ZERO)))
+        // The same threshold the rows are then judged by. With zero here a single cent of
+        // rounding decided the *side* - and a person owed thousands came out as a payer of
+        // one cent, which the filter below then dropped from the list entirely.
+        .map(|p| (p.id.clone(), will_pay(tour, transfers, &p.id, ignore_below)))
         .filter(|(_, amount)| amount.abs() > ignore_below)
         .collect();
 
@@ -538,17 +541,21 @@ pub fn settlement_summary(
 ///
 /// The difference is the odd cent, and it is not academic. Dividing in whole cents can leave
 /// somebody who is plainly owed 5 055 with a two-cent payment to make. Netting calls them a
-/// creditor; the app calls them settled, because two cents is their entire obligation and
-/// nobody is going to hand it over. Which of the two readings is *better* is a matter of
-/// taste; which one the app uses is not, and two implementations of the same money that
-/// disagree are the thing this rewrite exists to avoid.
+/// creditor; this rule calls them a payer, because the question it asks is "anything to
+/// pay?" and two cents is an answer of yes.
 ///
-/// `ignore_below` is how much is too small to count, and it changes the answer rather than
-/// just tidying it. At zero - what a person's headline figure uses - the two-cent payment
-/// counts, and that person is "settled". At [`MINIMUM_MEANINGFUL`] - what the itemised view
-/// uses - it does not, so the same person is shown collecting 5 057. Both are in the app,
-/// deliberately: the headline says "nothing to do here", and the detail says what the money
-/// would be if you did it.
+/// `ignore_below` is what is too small to count, and it decides **both** halves: which
+/// payments are listed, and - because the side is chosen from those same payments - whether
+/// this person pays or collects at all. That is the whole of the parameter, and getting it
+/// wrong is how a tour ends up saying two different things at once.
+///
+/// **Pass the threshold the reader is shown, never zero.** At zero the two-cent payment
+/// counts, so somebody who is owed 15 628 is classified as a payer of two cents - which the
+/// display then rounds away, and calls them settled, on a screen that lists the 15 628
+/// coming to them. The app does exactly that (`AmountAPersonWillPay` in
+/// `TCalcCore/Logic/CalcUtilities.cs` passes `0`), and it is the one place this port
+/// knowingly departs from it: three of the four people owed money in a real tour were
+/// labelled "settled". See `review-2026-09-22.md`, section 0.
 ///
 /// The returned payments are borrowed from `transfers`, which is what the `'a` says: the
 /// list may not be dropped while these are still in hand. No copy is made to answer a
@@ -840,5 +847,87 @@ mod what_a_tour_cost {
             .map(|s| t.amount_in_current(s))
             .sum();
         assert_eq!(spent_on_expenses(&t), by_hand);
+    }
+}
+
+#[cfg(test)]
+mod which_side_of_the_settlement {
+    use super::*;
+
+    fn tour() -> Tour {
+        Tour::from_json(include_str!("../../../fixtures/hs3huvy.tour.json")).expect("fixture")
+    }
+
+    fn id_of(tour: &Tour, name: &str) -> PersonId {
+        tour.persons
+            .iter()
+            .find(|p| p.name == name)
+            .unwrap_or_else(|| panic!("no {name} in the fixture"))
+            .id
+            .clone()
+    }
+
+    /// Dividing in whole cents leaves crumbs. This tour's settlement has five real payments
+    /// and six of two cents each, and one of the crumbs is Паша's - who is owed 15 628.
+    ///
+    /// The crumb must not decide which side he is on. It used to: the side was chosen from
+    /// payments above *zero*, so he was a payer of two cents, and two cents then rounded
+    /// away into "settled" - on a screen listing the 15 628 coming to him.
+    #[test]
+    fn a_crumb_does_not_turn_somebody_who_is_owed_money_into_a_payer() {
+        let t = tour();
+        let all = suggest_settlement(&t).expect("a settlement");
+        let threshold = Cents(MINIMUM_MEANINGFUL);
+        let pasha = id_of(&t, "Паша");
+
+        let crumb = all
+            .iter()
+            .any(|x| x.from == pasha && t.convert(x.amount, &x.currency) <= threshold);
+        let coming: i64 = all
+            .iter()
+            .filter(|x| x.to == pasha && t.convert(x.amount, &x.currency) > threshold)
+            .map(|x| t.convert(x.amount, &x.currency).0)
+            .sum();
+        assert!(crumb, "the fixture is the one with the rounding crumbs");
+        assert!(coming > 15_000, "and real money comes the other way: {coming}");
+
+        assert_eq!(
+            will_pay(&t, &all, &pasha, threshold),
+            Cents(-coming),
+            "he collects what is coming to him, crumb or no crumb"
+        );
+    }
+
+    /// The two screens must not contradict each other: whoever is named in a payment worth
+    /// showing is named in the summary, on the side the payment puts them.
+    #[test]
+    fn the_summary_agrees_with_the_payments_it_summarises() {
+        let t = tour();
+        let all = suggest_settlement(&t).expect("a settlement");
+        let threshold = Cents(MINIMUM_MEANINGFUL);
+        let summary = settlement_summary(&t, &all, threshold);
+        let (_, between) = split_family(&all);
+
+        for payment in between
+            .iter()
+            .filter(|x| t.convert(x.amount, &x.currency) > threshold)
+        {
+            for (who, paying) in [(&payment.from, true), (&payment.to, false)] {
+                // Somebody paid for by another settles through them and has no line here.
+                if t.person(who).is_some_and(|p| p.parent.is_some()) {
+                    continue;
+                }
+                let row = summary.iter().find(|(id, _)| id == who);
+                let name = t.person(who).map(|p| p.name.clone()).unwrap_or_default();
+                let Some((_, amount)) = row else {
+                    panic!("{name} is in a payment of {} but not in the summary", payment.amount.0);
+                };
+                assert_eq!(
+                    amount.0 > 0,
+                    paying,
+                    "{name} is on the wrong side of the summary"
+                );
+            }
+        }
     }
 }
