@@ -452,10 +452,12 @@ fn PersonBlock(
 
     // What actually changes hands. For somebody who pays for others it carries their
     // people too, which is a different number from their own debt - hence both being shown.
-    // Zero, not the threshold: the headline says whether there is anything at all to
-    // do, and a two-cent payment counts as something to do - it is `meaningful` just
-    // below that then reports it as "settled".
-    let will_pay = meaningful(will_pay(&tour, &transfers, &person.id, Cents::ZERO), too_small);
+    //
+    // The reader's own threshold, not zero. Zero used to let a cent of rounding decide the
+    // side: a person owed 15 628 had a two-cent payment to make, was therefore a payer of
+    // two cents, and `meaningful` below turned that into "settled" - beside a Balance tab
+    // listing the 15 628 coming to them. See `settlement_for`.
+    let will_pay = meaningful(will_pay(&tour, &transfers, &person.id, too_small), too_small);
 
     // Somebody who is paid for hands nothing over themselves; showing them as "settled"
     // while they plainly owe something was confusing, so they show their own debt.

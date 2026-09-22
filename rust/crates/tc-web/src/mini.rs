@@ -506,7 +506,9 @@ fn MiniPerson(
             .map(|b| b.debt())
             .unwrap_or_default(),
     );
-    let settle = hush(will_pay(&tour, &all_transfers, &person.id, Cents::ZERO));
+    // The same threshold `hush` uses: with zero, a cent of rounding chose the side, and
+    // somebody owed thousands came out "settled". See `settlement_for` in tc-core.
+    let settle = hush(will_pay(&tour, &all_transfers, &person.id, too_small));
     // Somebody who is paid for hands nothing over themselves, so their own figure is the
     // honest one to show; everybody else settles for their whole family.
     let shown = if is_child { own } else { settle };

@@ -612,7 +612,15 @@ pub async fn people(
         let rows: String = order
             .iter()
             .map(|p| {
-                let settle = tc_core::will_pay(tour, &loaded.all_transfers, &p.id, Cents::ZERO);
+                // The threshold this page judges by, not zero: with zero a cent of
+                // rounding chose the side, and somebody owed thousands printed as
+                // settled. See `settlement_for` in tc-core.
+                let settle = tc_core::will_pay(
+                    tour,
+                    &loaded.all_transfers,
+                    &p.id,
+                    Cents(MINIMUM_MEANINGFUL),
+                );
                 let settle = if settle.abs().0 > MINIMUM_MEANINGFUL {
                     settle
                 } else {

@@ -359,17 +359,28 @@ fn breakdown_lines_point_at_real_spendings() {
     }
 }
 
-/// The balances list of a tour whose settlement leaves dust, against what the app shows.
+/// The balances list of a tour whose settlement leaves dust - **the one place this port
+/// deliberately disagrees with the app**.
 ///
-/// The companion to `balances_list_matches_the_app`, and the one that has an opinion: on
-/// this tour three people are owed real money *and* have a two-cent payment to make, and the
-/// app reports all three as settled. Netting what they pay against what they receive would
-/// list them as creditors of 5 055, 10 197 and 15 626 - plausible, tidy, and not what the
-/// reader sees in the app they already use.
+/// On this tour three people are owed real money *and* have a two-cent payment to make,
+/// because dividing in whole cents leaves crumbs. The app reports all three as settled: its
+/// `AmountAPersonWillPay` chooses the side from payments above *zero*
+/// (`GetPayOrReceiveSpendings(tr, p, 0)` in `TCalcCore/Logic/CalcUtilities.cs`), so a crumb
+/// makes somebody a payer, and the display then rounds the crumb away. Read off the running
+/// C# client, that list is:
 ///
-/// The numbers are read off the running C# client for this tour.
+/// ```text
+/// Женя К.  28 389      Дима Т.  3 403      Дима А.  -916
+/// ```
+///
+/// and Паша, Хомяк and Андрей - owed 15 628, 10 199 and 5 057 - are not in it at all, while
+/// the payment list on the same screen names them. We choose the side with the same
+/// threshold the rows are judged by, so the two agree. The crumbs leave the totals as well,
+/// which is why the figures below are two cents smaller than the app's.
+///
+/// See `review-2026-09-22.md`, section 0.
 #[test]
-fn dust_does_not_turn_a_creditor_into_a_line_item() {
+fn dust_does_not_decide_which_side_somebody_is_on() {
     let (_, tour, _) = cases()
         .into_iter()
         .find(|(name, _, _)| name == "hs3huvy")
@@ -389,11 +400,14 @@ fn dust_does_not_turn_a_creditor_into_a_line_item() {
     assert_eq!(
         named,
         vec![
-            ("Женя К.".to_owned(), 28_389),
-            ("Дима Т.".to_owned(), 3_403),
-            ("Дима А.".to_owned(), -916),
+            ("Женя К.".to_owned(), 28_387),
+            ("Дима Т.".to_owned(), 3_401),
+            ("Дима А.".to_owned(), -904),
+            ("Андрей".to_owned(), -5_057),
+            ("Хомяк".to_owned(), -10_199),
+            ("Паша".to_owned(), -15_628),
         ],
-        "three people owed money are settled: their whole obligation is two cents"
+        "everybody a payment names is here, on the side the payment puts them"
     );
 }
 
