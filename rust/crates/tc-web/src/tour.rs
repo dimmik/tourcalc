@@ -34,7 +34,7 @@ pub enum Load<T> {
     Failed(String),
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Tab {
     Balance,
     People,
@@ -2128,12 +2128,19 @@ pub fn tab_of(landing: crate::Landing) -> Tab {
 ///
 /// A tour being settled up opens on the payments, because that is the whole of what anybody
 /// is doing with it; any other one opens where expenses are added, because that is the whole
-/// of what anybody is doing with *it*. An archived tour is nobody's business to settle, so it
-/// is treated as an ordinary one. The app's rule, and its reasons.
+/// of what anybody is doing with *it*.
+///
+/// Archived does not come into it. The app asks
+/// `(RawTour.IsFinalizing && !RawTour.IsArchived)` (`TourPageNew.razor:339`), so an archived
+/// tour still being settled opened on the expenses - while the list beside it showed the
+/// amber "settling up" chip, which ignores archiving. Two screens, two answers about one
+/// tour, and the first person to meet it read the page as broken.
+///
+/// Here archiving means one thing only: **the tour is out of the default list**. Inside a
+/// tour it decides nothing; the badge in the header says it is archived and that is all.
+/// The second deliberate departure from the app, after the settlement threshold.
 pub fn opens_on(tour: &Tour) -> Tab {
-    let settling = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
-    let archived = tc_core::extras::bool_of(&tour.extras, tc_core::extras::ARCHIVED);
-    if settling && !archived {
+    if tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING) {
         Tab::Balance
     } else {
         Tab::Expenses
@@ -2544,6 +2551,25 @@ mod tests {
 
     fn tour() -> Tour {
         Tour::from_json(include_str!("../../../fixtures/zscph2y.tour.json")).expect("fixture")
+    }
+
+    fn flagged(archived: bool, settling: bool) -> Tour {
+        let mut t = tour();
+        tc_core::extras::set(&mut t.extras, tc_core::extras::ARCHIVED, archived.into());
+        tc_core::extras::set(&mut t.extras, tc_core::extras::FINALIZING, settling.into());
+        t
+    }
+
+    /// Archiving is about the list of tours and nothing else. A tour being settled up opens
+    /// on the payments whether or not it has been put away - the app checks both flags here
+    /// and lands an archived one on the expenses, while its own list still calls the tour
+    /// "settling up".
+    #[test]
+    fn archiving_does_not_decide_which_tab_a_tour_opens_on() {
+        assert_eq!(opens_on(&flagged(false, true)), Tab::Balance);
+        assert_eq!(opens_on(&flagged(true, true)), Tab::Balance, "archived as well");
+        assert_eq!(opens_on(&flagged(true, false)), Tab::Expenses);
+        assert_eq!(opens_on(&flagged(false, false)), Tab::Expenses);
     }
 
     /// The app's chip row reads "бухать/вино … Гнездо/ещё … Треш и угар". A byte-order sort

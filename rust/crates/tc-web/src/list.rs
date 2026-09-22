@@ -555,6 +555,35 @@ pub fn TourListPage() -> impl IntoView {
     }
 }
 
+/// What the list says about a tour's settlement, if anything.
+///
+/// The chip is about the tour's *state*, not its arithmetic. A tour nobody has put into
+/// settle-up mode says nothing at all, however its balances happen to stand: everyone may be
+/// square today because each of them paid a hundred, and tomorrow somebody buys dinner. The
+/// question a list is scanned for is "is this trip finished?", and only a tour being settled
+/// up is answering it.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Settle {
+    /// Being settled up, and there is nothing left to hand over.
+    Square,
+    /// Being settled up, with this much still to go - `None` from a server too old to
+    /// work it out, which leaves the chip saying only that the tour is being settled.
+    Owing(Option<i64>),
+}
+
+pub fn settle_state(settling: bool, left: Option<i64>) -> Option<Settle> {
+    if !settling {
+        return None;
+    }
+    Some(match left {
+        Some(0) => Settle::Square,
+        Some(left) if left > 0 => Settle::Owing(Some(left)),
+        // A negative figure would mean the settlement owes somebody money, which it cannot;
+        // treat it the way an unknown one is treated rather than printing nonsense.
+        _ => Settle::Owing(None),
+    })
+}
+
 #[component]
 fn Row(
     tour: Tour,
@@ -584,6 +613,15 @@ fn Row(
                 .sum()
         });
 
+    // What is still owed between the participants, as the server worked it out. `None` from
+    // a server too old to send it - and then the row says nothing rather than guessing, since
+    // the list is answered without the spendings and there is nothing here to add up.
+    let left_to_settle: Option<i64> = tour
+        .extras
+        .0
+        .get("LeftToSettleInCents")
+        .and_then(|v| v.as_i64());
+
     let currency = if tour.currencies.len() > 1 {
         tour.currency().name.clone()
     } else {
@@ -610,6 +648,7 @@ fn Row(
     // which one is asking for something to be done. The app marks it here, the small
     // interface marks it, and this list did not.
     let settling = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
+    let state = settle_state(settling, left_to_settle);
 
     view! {
         <div class="tcn-tour" class:is-archived=move || archived>
@@ -620,12 +659,21 @@ fn Row(
             <div class="tcn-tour-meta">
                 <span>{people} " people"</span>
                 <span>"·"</span>
-                {settling.then(|| view! {
-                    <span class="tcn-chip tcn-chip-amber"
-                          title="Everyone can see what to pay whom">
-                        "settling up"
-                    </span>
-                })}
+                {match state {
+                    Some(Settle::Owing(_)) => view! {
+                        <span class="tcn-chip tcn-chip-amber"
+                              title="Everyone can see what to pay whom">
+                            "settling up"
+                        </span>
+                    }.into_any(),
+                    Some(Settle::Square) => view! {
+                        <span class="tcn-chip tcn-chip-green"
+                              title="Everybody has paid: nothing is left to hand over">
+                            "all square"
+                        </span>
+                    }.into_any(),
+                    None => ().into_any(),
+                }}
                 {archived.then(|| view! {
                     <span class="tcn-chip" title="Hidden from the default list">"archived"</span>
                 })}
@@ -651,6 +699,18 @@ fn Row(
                     {money(Cents(spent))}
                     {(!currency.is_empty()).then(|| view! { "\u{a0}" {currency} })}
                 </span>
+                // How much of it is still owed, beside the chip that says so.
+                {match state {
+                    Some(Settle::Owing(Some(left))) => view! {
+                        // The dot earns its keep here: two money figures side by side, and
+                        // without it they read as one number in two halves.
+                        <span>"·"</span>
+                        <span title="Still to be handed over between the participants">
+                            {money(Cents(left))} " to settle"
+                        </span>
+                    }.into_any(),
+                    _ => ().into_any(),
+                }}
             </div>
             <div class="tcn-tour-actions">
                 <button type="button" class="tcn-btn tcn-btn-sm"
@@ -730,6 +790,31 @@ async fn copy_to_clipboard(text: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The chip says what state the tour is in, not what its balances happen to be.
+    #[test]
+    fn a_tour_nobody_is_settling_up_says_nothing() {
+        // Even when it is square: everyone may have paid a hundred each, and tomorrow
+        // somebody buys dinner.
+        assert_eq!(settle_state(false, Some(0)), None);
+        assert_eq!(settle_state(false, Some(15_628)), None);
+        assert_eq!(settle_state(false, None), None);
+    }
+
+    #[test]
+    fn a_tour_being_settled_says_how_much_is_left_or_that_there_is_none() {
+        assert_eq!(settle_state(true, Some(0)), Some(Settle::Square));
+        assert_eq!(settle_state(true, Some(138)), Some(Settle::Owing(Some(138))));
+    }
+
+    /// An older server does not work the figure out; the chip still says the tour is being
+    /// settled, which is what it said before the figure existed.
+    #[test]
+    fn without_a_figure_the_chip_still_says_it_is_being_settled() {
+        assert_eq!(settle_state(true, None), Some(Settle::Owing(None)));
+        // The settlement cannot owe anybody money; a negative reads as "not known".
+        assert_eq!(settle_state(true, Some(-5)), Some(Settle::Owing(None)));
+    }
 
     fn tour(id: &str, name: &str, made: &str, touched: &str, spent: i64) -> Tour {
         let mut t = Tour::from_json(include_str!("../../../fixtures/zscph2y.tour.json"))
