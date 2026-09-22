@@ -154,6 +154,22 @@ pub async fn all_suggested(
                     "TotalSpentInCents".into(),
                     serde_json::json!(tc_core::spent_on_expenses(tour).0),
                 );
+                // And what is still owed between the participants - the tour's own
+                // "left to settle", worked out by the same rule: payments between people
+                // rather than inside a family, and only the ones worth chasing.
+                // `SuggestedPaymentsCount` beside it cannot answer this: it counts the
+                // crumbs that whole-cent division leaves, so a tour where everybody is
+                // square still reports six payments.
+                //
+                // Also not a field the C# knows, and it ignores what it does not read.
+                let (_, between) = tc_core::split_family(&transfers);
+                let too_small = tour.min_meaningful(tc_core::MINIMUM_MEANINGFUL);
+                let left: tc_core::Cents = between
+                    .iter()
+                    .map(|t| tour.convert(t.amount, &t.currency))
+                    .filter(|a| a.abs() > too_small)
+                    .sum();
+                obj.insert("LeftToSettleInCents".into(), serde_json::json!(left.0));
             }
             value
         })

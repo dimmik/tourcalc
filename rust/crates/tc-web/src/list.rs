@@ -584,6 +584,15 @@ fn Row(
                 .sum()
         });
 
+    // What is still owed between the participants, as the server worked it out. `None` from
+    // a server too old to send it - and then the row says nothing rather than guessing, since
+    // the list is answered without the spendings and there is nothing here to add up.
+    let left_to_settle: Option<i64> = tour
+        .extras
+        .0
+        .get("LeftToSettleInCents")
+        .and_then(|v| v.as_i64());
+
     let currency = if tour.currencies.len() > 1 {
         tour.currency().name.clone()
     } else {
@@ -651,6 +660,28 @@ fn Row(
                     {money(Cents(spent))}
                     {(!currency.is_empty()).then(|| view! { "\u{a0}" {currency} })}
                 </span>
+                // Whether the trip is over, in the sense that matters: is there still money
+                // to hand over? The tour's own screen says it as "left to settle"; from the
+                // list it was invisible, and the only way to find out was to open every tour
+                // in turn. Silent for a tour with nothing in it yet - an empty tour is not
+                // an example of everybody being square.
+                {match left_to_settle {
+                    Some(0) if spent > 0 => view! {
+                        <span class="tcn-chip tcn-chip-green"
+                              title="Nobody owes anybody anything">
+                            "settled up"
+                        </span>
+                    }.into_any(),
+                    Some(left) if left > 0 => view! {
+                        // The dot earns its keep here: two money figures side by side, and
+                        // without it they read as one number in two halves.
+                        <span>"·"</span>
+                        <span title="Still to be handed over between the participants">
+                            {money(Cents(left))} " to settle"
+                        </span>
+                    }.into_any(),
+                    _ => ().into_any(),
+                }}
             </div>
             <div class="tcn-tour-actions">
                 <button type="button" class="tcn-btn tcn-btn-sm"

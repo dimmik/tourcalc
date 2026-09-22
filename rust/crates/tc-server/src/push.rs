@@ -294,8 +294,13 @@ mod tests {
             authorization.starts_with("vapid t=") && authorization.contains(", k="),
             "signed with VAPID: {authorization}"
         );
+        // Not "does not start with `{`": an aes128gcm body starts with sixteen bytes of
+        // random salt, so one run in 256 began with one and failed a test that had found
+        // nothing wrong. Asking whether the body *is* the payload is the same question
+        // without the dice.
+        assert!(!request.body().is_empty(), "there is a body");
         assert!(
-            !request.body().is_empty() && !request.body().starts_with(b"{"),
+            serde_json::from_slice::<serde_json::Value>(request.body()).is_err(),
             "the body is ciphertext and not the payload in the clear"
         );
     }

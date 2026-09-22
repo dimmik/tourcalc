@@ -1010,3 +1010,47 @@ async fn the_list_says_what_the_tour_cost_without_the_paybacks() {
     assert_eq!(cost_now, cost, "the tour did not become more expensive");
     assert_eq!(paid_now, paid + 5_000, "but somebody did hand over money");
 }
+
+/// The list says whether a tour is square, because that is what a reader scans it for -
+/// "have we finished with this trip?" - and it used to take opening every tour to find out.
+///
+/// Not `SuggestedPaymentsCount`, which is beside it and cannot answer: dividing in whole
+/// cents leaves crumbs, so a tour where everybody is square still has payments in it.
+#[tokio::test]
+async fn the_list_says_what_is_left_to_settle() {
+    let app = app();
+    let token = token_for_code(&app).await;
+
+    let left_of = |list: &serde_json::Value, id: &str| -> i64 {
+        list["Tours"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["GUID"] == id)
+            .unwrap_or_else(|| panic!("{id} is in the list"))["LeftToSettleInCents"]
+            .as_i64()
+            .expect("the figure is there")
+    };
+
+    let list: serde_json::Value = {
+        let (_, body) = get(&app, "/api/Tour/all/suggested?count=100", Some(&token)).await;
+        serde_json::from_str(&body).unwrap()
+    };
+    let before = left_of(&list, "zscph2y");
+    assert!(before > 0, "the seed tour has something left to settle");
+
+    // The same figure the tour's own screen works out, by the same rule: payments between
+    // people rather than inside a family, and only the ones worth chasing.
+    let tour = fetch_tour(&app, &token, "zscph2y").await;
+    let tour = tc_core::Tour::from_json(&tour.to_string()).expect("a tour");
+    let transfers = tc_core::suggest_settlement(&tour).expect("a settlement");
+    let (_, between) = tc_core::split_family(&transfers);
+    let too_small = tour.min_meaningful(tc_core::MINIMUM_MEANINGFUL);
+    let by_hand: i64 = between
+        .iter()
+        .map(|t| tour.convert(t.amount, &t.currency))
+        .filter(|a| a.abs() > too_small)
+        .map(|a| a.0)
+        .sum();
+    assert_eq!(before, by_hand, "the list and the tour screen agree");
+}
