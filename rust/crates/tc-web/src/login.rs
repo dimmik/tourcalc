@@ -8,6 +8,7 @@
 //! modal with nothing behind it and no way to dismiss is a trap, especially in a standalone
 //! window with no address bar.
 
+use crate::i18n::t;
 use crate::api;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -56,15 +57,15 @@ pub fn SignIn(on_done: Callback<()>) -> impl IntoView {
             <div class="tcn-signin-card">
                 <div class="tcn-signin-logo">"🧭"</div>
                 <h1 class="tcn-signin-title">"Tourcalc"</h1>
-                <p class="tcn-login-lead">"Enter the access code for your tour to continue."</p>
+                <p class="tcn-login-lead">{t().shell.login_lead}</p>
 
                 <Show when=move || !error.get().is_empty()>
                     <div class="tcn-errors">{move || error.get()}</div>
                 </Show>
 
                 <div class="tcn-field">
-                    <div class="tcn-label">"Access code"</div>
-                    <input class="tcn-input tcn-login-input" type="text" placeholder="your code"
+                    <div class="tcn-label">{t().shell.access_code}</div>
+                    <input class="tcn-input tcn-login-input" type="text" placeholder=t().shell.your_code
                            autocomplete="off" autocapitalize="off" spellcheck="false"
                            prop:disabled=move || busy.get()
                            prop:value=move || code.get()
@@ -79,12 +80,11 @@ pub fn SignIn(on_done: Callback<()>) -> impl IntoView {
                 <button type="button" class="tcn-btn tcn-btn-primary tcn-btn-block"
                         prop:disabled=move || busy.get() || code.get().trim().is_empty()
                         on:click=move |_| submit(())>
-                    {move || if busy.get() { "Logging in…" } else { "Log in" }}
+                    {move || if busy.get() { t().shell.logging_in } else { t().shell.log_in }}
                 </button>
 
                 <div class="tcn-hint" style="margin-top:12px">
-                    "No code at hand? Opening a tour link signs you in by itself — ask
-                     whoever shares the tour to send it again."
+                    {t().shell.no_code}
                 </div>
             </div>
         </div>

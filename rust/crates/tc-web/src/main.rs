@@ -11,6 +11,7 @@ mod drafts;
 mod edit;
 mod explain;
 mod help;
+mod i18n;
 mod icon;
 mod install;
 mod list;
@@ -30,11 +31,13 @@ mod tour;
 mod ui;
 mod version;
 
+use i18n::t;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
 fn main() {
     console_error_panic_hook::set_once();
+    i18n::mark_document();
     leptos::mount::mount_to_body(App);
     // The page carries a plain "Starting…" of its own, because until this line runs there
     // is nothing in the body at all - and a client that never starts would otherwise be a
@@ -383,8 +386,8 @@ fn App() -> impl IntoView {
         if let Some(document) = web_sys::window().and_then(|w| w.document()) {
             document.set_title(&match route.get() {
                 Route::Tour(..) => place.get().label(),
-                Route::Help => "Help · Tourcalc".to_owned(),
-                Route::Settings => "Settings · Tourcalc".to_owned(),
+                Route::Help => format!("{} · Tourcalc", t().shell.help_title),
+                Route::Settings => format!("{} · Tourcalc", t().shell.settings_title),
                 _ => "Tourcalc".to_owned(),
             });
         }
@@ -433,7 +436,7 @@ fn App() -> impl IntoView {
     view! {
         <div class="tcn-shell" class:tcm-shell=move || mode.get() == mode::UiMode::Mini>
             <header class="tcn-topbar">
-                <a class="tcn-brand" href="/" title="Tour list">"🧭"</a>
+                <a class="tcn-brand" href="/" title=t().shell.tour_list>"🧭"</a>
                 // Whether this browser is running the client the server hands out.
                 <version::VersionMark />
                 <a class="tcn-topbar-title" class:tcw-back=move || stepped_aside.get()
@@ -445,8 +448,8 @@ fn App() -> impl IntoView {
                     {move || named_at_the_top.get().label()}
                 </a>
                 // Only on a narrow screen, where the controls become the panel below.
-                <button type="button" class="tcn-iconbtn tcw-menu-btn" title="Menu"
-                        aria-label="Menu" aria-expanded=move || menu.get().to_string()
+                <button type="button" class="tcn-iconbtn tcw-menu-btn" title=t().shell.menu
+                        aria-label=t().shell.menu aria-expanded=move || menu.get().to_string()
                         on:click=move |_| menu.update(|m| *m = !*m)>
                     <icon::Icon name="more" />
                 </button>
@@ -458,15 +461,15 @@ fn App() -> impl IntoView {
                 <div class="tcn-topbar-actions" class:tcw-open=move || menu.get()
                      on:click=move |_| menu.set(false)>
                     <mode::ModeSwitch mode=mode />
-                    <a class="tcn-iconbtn" href="/help" title="What everything here means"
-                       aria-label="Help">
+                    <a class="tcn-iconbtn" href="/help" title=t().shell.help_hint
+                       aria-label=t().shell.help>
                         <icon::Icon name="help" />
                     </a>
-                    <a class="tcn-iconbtn" href="/settings" title="Settings" aria-label="Settings">
+                    <a class="tcn-iconbtn" href="/settings" title=t().shell.settings aria-label=t().shell.settings>
                         <icon::Icon name="settings" />
                     </a>
                     <Show when=move || signed_in.get()>
-                        <button type="button" class="tcn-iconbtn" title="Log out" aria-label="Log out"
+                        <button type="button" class="tcn-iconbtn" title=t().shell.log_out aria-label=t().shell.log_out
                                 on:click=move |_| {
                                     api::log_out();
                                     signed_in.set(false);
@@ -486,7 +489,7 @@ fn App() -> impl IntoView {
                         {move || {
                             let (_, what) = asked_to_open.get().unwrap_or_default();
                             if what.is_empty() {
-                                "A tour you are notified about has changed.".to_owned()
+                                t().shell.a_tour_changed.to_owned()
                             } else {
                                 what
                             }
@@ -499,9 +502,9 @@ fn App() -> impl IntoView {
                                     go(&format!("/tour/{tour}"), set_route);
                                 }
                             }>
-                        "Open"
+                        {t().shell.open}
                     </button>
-                    <button type="button" class="tcw-others-close" aria-label="Dismiss"
+                    <button type="button" class="tcw-others-close" aria-label=t().shell.dismiss
                             on:click=move |_| asked_to_open.set(None)>"×"</button>
                 </div>
             </Show>
@@ -510,7 +513,7 @@ fn App() -> impl IntoView {
                     // Nothing is readable without a code, so the sign-in screen stands in
                     // front of every route except the share link, which signs in by itself.
                     (false, Route::Goto(_, _)) => {
-                        view! { <div class="tcn-loading">"Signing in…"</div> }.into_any()
+                        view! { <div class="tcn-loading">{t().shell.signing_in}</div> }.into_any()
                     }
                     // Help is readable without a code: somebody who has just been handed a
                     // link and does not know what any of this is starts here.
@@ -528,7 +531,7 @@ fn App() -> impl IntoView {
                             }}
                         }.into_any(),
                         Route::Goto(_, _) => {
-                            view! { <div class="tcn-loading">"Signing in…"</div> }.into_any()
+                            view! { <div class="tcn-loading">{t().shell.signing_in}</div> }.into_any()
                         }
                         Route::Help => ().into_any(),
                         Route::Settings => view! {

@@ -6,6 +6,7 @@
 //! There is no Classic here. The C# keeps it working and untouched for the people who were
 //! using it before the redesign; a port has nobody in that position.
 
+use crate::i18n::t;
 use leptos::prelude::*;
 
 const KEY: &str = "__tc_ui_mode";
@@ -86,16 +87,16 @@ pub fn ModeSwitch(mode: RwSignal<UiMode>) -> impl IntoView {
         }
     };
     view! {
-        <span class="tcn-uiswitch" title="Switch the interface">
+        <span class="tcn-uiswitch" title=t().shell.switch_interface>
             <button type="button" class="tcn-uiswitch-opt"
                     class:is-active=move || mode.get() == UiMode::Full
-                    title="Full interface - the roomy view"
+                    title=t().shell.full_hint
                     on:click=pick(UiMode::Full)>
                 "Full"
             </button>
             <button type="button" class="tcn-uiswitch-opt"
                     class:is-active=move || mode.get() == UiMode::Mini
-                    title="Mini interface - one line per thing, for a small screen or a slow device"
+                    title=t().shell.mini_hint
                     on:click=pick(UiMode::Mini)>
                 "Mini"
             </button>

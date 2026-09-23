@@ -17,18 +17,17 @@ use crate::ui::{from_hsl, parse_hex, to_hsl};
 /// the gradient the sample is drawn in. The colours are here only to paint the samples -
 /// what a preset actually means lives in the stylesheet.
 pub const PRESETS: &[Preset] = &[
-    Preset { id: "indigo", label: "Indigo (default)", from: "#4f46e5", to: "#6d28d9" },
-    Preset { id: "blue", label: "Ocean", from: "#2563eb", to: "#226c91" },
-    Preset { id: "teal", label: "Teal", from: "#0f766e", to: "#226881" },
-    Preset { id: "green", label: "Forest", from: "#15803d", to: "#1b6a5a" },
-    Preset { id: "plum", label: "Plum", from: "#7e22ce", to: "#8d358d" },
-    Preset { id: "crimson", label: "Crimson", from: "#b91c1c", to: "#922a51" },
-    Preset { id: "graphite", label: "Graphite", from: "#475569", to: "#425367" },
+    Preset { id: "indigo", from: "#4f46e5", to: "#6d28d9" },
+    Preset { id: "blue", from: "#2563eb", to: "#226c91" },
+    Preset { id: "teal", from: "#0f766e", to: "#226881" },
+    Preset { id: "green", from: "#15803d", to: "#1b6a5a" },
+    Preset { id: "plum", from: "#7e22ce", to: "#8d358d" },
+    Preset { id: "crimson", from: "#b91c1c", to: "#922a51" },
+    Preset { id: "graphite", from: "#475569", to: "#425367" },
 ];
 
 pub struct Preset {
     pub id: &'static str,
-    pub label: &'static str,
     pub from: &'static str,
     pub to: &'static str,
 }
