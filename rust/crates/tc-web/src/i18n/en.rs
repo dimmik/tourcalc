@@ -3,6 +3,183 @@
 use super::*;
 
 pub const TEXTS: Texts = Texts {
+    balance: BalanceTexts {
+        all_settled: "Everyone is settled up",
+        first_expense: "Add the first expense and the split will show up here.",
+        no_payments_left: "No payments are left between the participants.",
+        dust: |n, under, total, below| format!(
+            "What is left is too small to chase: {} under {under} each, {total} in all.{}",
+            if n == 1 { "one payment".to_owned() } else { format!("{n} payments") },
+            if below { " That is what the balances below add up to." } else { "" }
+        ),
+        hide_small: "Hide the small ones",
+        show_small: "Show the small ones",
+        who_pays_whom: "Who pays whom",
+        not_paid_yet: "Nothing here is paid yet — these are the payments that would square \
+            everyone up.",
+        inside_families: " Inside families",
+        balances: "Balances",
+        gets_back: "gets money back",
+        owes_money: "owes money",
+        mark_paid_hint: "Record that this money has changed hands",
+        mark_paid_question: |from, to, amount| format!("Record that {from} paid {to} {amount}?"),
+        mark_paid: "Mark paid",
+        by_category: "By category",
+        by_person: "By person",
+        nothing_to_chart: "Nothing to chart yet",
+        nothing_to_chart_hint: "Expenses need a category before they show up in the statistics.",
+        totals: "Totals · ",
+        everything: "everything",
+        total: "Total",
+        per_person_w: |w| format!("Per person ({w} w)"),
+        per_person_day: "Per person per day",
+        over: "over ",
+        days: " days",
+        per_person: "Per person",
+        per_day: "Per day",
+    },
+    expenses: ExpenseTexts {
+        search: "Search by description, payer or category",
+        clear: "Clear",
+        date: "Date ",
+        amount: "Amount ",
+        clear_filter: "clear ×",
+        nothing_matches: "Nothing matches the filter",
+        count: |n| format!("{n} {}", en_plural(n as i64, "expense", "expenses")),
+        spent: "spent ",
+        from_to: ["from ", " to "],
+        filtered_out_of: "filtered out of ",
+        settling_up: "settling up",
+        draft: "draft",
+        drafts: "drafts",
+        uncounted: "uncounted",
+        months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        today: "Today",
+        yesterday: "Yesterday",
+        no_description: "(no description)",
+        inside_family: "inside family",
+        payback: "payback",
+        for_names: |names| format!("for {names}"),
+        for_n_of: |n, all| format!("for {n} of {all}"),
+        equally: "equally",
+        for_hint: |names| format!("For {names}. Tap for who carries how much."),
+        alone_hint: |name| format!("Charged to {name} alone."),
+        split_equally: " Split equally.",
+        details: "Details",
+        for_everyone: " · for everyone",
+        edit: "Edit",
+        entered_as: |amount, currency| format!("entered as {amount} {currency}"),
+        draft_counted: "draft, counted",
+        draft_not_counted: "draft, not counted",
+        everyone_by_weight: "everyone, by weight",
+        n_of_equally: |n, all| format!("{n} of {all}, equally"),
+        n_of_by_weight: |n, all| format!("{n} of {all}, by weight"),
+        paid: " paid · ",
+        each: "each",
+        not_in_it: "Not in it: ",
+    },
+    tour: TourTexts {
+        delete_expense: |what| format!("Delete '{what}'?"),
+        delete_person: |name| format!("Delete '{name}'?"),
+        delete_person_then: |name, also| format!("Delete '{name}'? Then {}.", also.join(", and ")),
+        shares_go: |n| if n == 1 {
+            "their part of 1 shared expense goes to the others on it".to_owned()
+        } else {
+            format!("their part of {n} shared expenses goes to the others on them")
+        },
+        leave_family: |n| if n == 1 {
+            "1 person leaves their family".to_owned()
+        } else {
+            format!("{n} people leave their family")
+        },
+        cannot_remove: |name, paid, only_for| {
+            let mut why = Vec::new();
+            if !paid.is_empty() {
+                why.push(format!(
+                    "{name} paid for {} {} ({})",
+                    paid.len(),
+                    en_plural(paid.len() as i64, "expense", "expenses"),
+                    quoted(paid, "no description", "more")
+                ));
+            }
+            if !only_for.is_empty() {
+                why.push(format!(
+                    "{} {} only for {name} ({})",
+                    only_for.len(),
+                    en_plural(only_for.len() as i64, "expense is", "expenses are"),
+                    quoted(only_for, "no description", "more")
+                ));
+            }
+            format!(
+                "{name} cannot be removed yet: {}. Change who paid or who it is for, or delete \
+                 those expenses, and then remove {name}.",
+                why.join(", and ")
+            )
+        },
+        edit_tour: "Edit the tour",
+        reload: "Reload from the server",
+        settling_hint: "The tour is being settled up",
+        settling: "settling up",
+        archived_hint: "The tour is archived and hidden from the default list",
+        archived: "archived",
+        currencies_hint: "Edit the currencies of this tour",
+        currencies: " currencies",
+        versions: "versions",
+        show_in_hint: "Only changes what you see - the tour itself is not touched",
+        show_in: "show amounts in",
+        total_spent: "Total spent",
+        people: "People",
+        expenses: "Expenses",
+        left_to_settle: "Left to settle",
+        sections: "Tour sections",
+        tab_balance: "Balance",
+        tab_people: "People",
+        tab_expenses: "Expenses",
+        tab_stats: "Stats",
+        spend: "+ Spend",
+    },
+    sync: SyncTexts {
+        just_now: "just now",
+        min_ago: |n| format!("{n} min ago"),
+        h_ago: |n| format!("{n} h ago"),
+        no_answer: "server did not answer",
+        unreadable: "could not read the server's answer",
+        not_on_server: "this tour is not on the server",
+        conflict: "the server would not take the change (409)",
+        forbidden: "the server would not allow it (403)",
+        server_trouble: |c| format!("the server is in trouble ({c})"),
+        refused: |c| format!("the server refused it ({c})"),
+        asking: "asking the server…",
+        new_data: "✓ new data received",
+        nothing_newer: "✓ server has nothing newer",
+        failed: |why| format!("✕ {why} — showing the local copy"),
+        stale: |ago| format!("⚠ local copy · {ago}"),
+        from_server: "from server",
+        local_copy: "local copy",
+        stale_hint: |when| format!("The server could not be reached. This is the copy stored on \
+            this device at {when}."),
+        share_hint: "Copy a link that opens this tour",
+        link_copied: "link copied",
+        share_link: "share link",
+        and_more: |first, n| format!("{first}, and {n} more"),
+        not_taken: |count, what, why| format!(
+            "The server did not take {}: {what}. It said: {why}",
+            if count == 1 { "this edit".to_owned() } else { format!("these {count} edits") }
+        ),
+        try_again: "Try again",
+        discard_question: "Throw away the edits that were not sent? They exist only on this device.",
+        discard: "Discard them",
+        waiting: |what| format!("Saved here, waiting to be sent: {what}"),
+        lost_one: |what| format!("{what} was deleted by somebody else, so your edit to it was dropped."),
+        lost_many: |what| format!("{what} were deleted by somebody else, so your edits to them were \
+            dropped."),
+        dismiss: "Dismiss",
+        offline: "Offline — showing what this device had last",
+        never_opened: "This tour has not been opened on this device before, and there is no \
+            connection to fetch it.",
+        loading: "Loading the tour…",
+        go_to_tours: "Go to my tours",
+    },
     dialogs: DialogTexts {
         cancel: "Cancel",
         save: "Save",

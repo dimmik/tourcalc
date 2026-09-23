@@ -152,8 +152,29 @@ pub fn en_plural(n: i64, one: &'static str, other: &'static str) -> &'static str
     }
 }
 
+/// Up to three descriptions in quotes, and how many more: “Ужин”, “Такси” and 2 more.
+pub fn quoted(what: &[String], blank: &str, more: &str) -> String {
+    const NAMED: usize = 3;
+    let names: Vec<String> = what
+        .iter()
+        .take(NAMED)
+        .map(|d| match d.trim() {
+            "" => format!("“{blank}”"),
+            d => format!("“{d}”"),
+        })
+        .collect();
+    match what.len().saturating_sub(NAMED) {
+        0 => names.join(", "),
+        n => format!("{} + {n} {more}", names.join(", ")),
+    }
+}
+
 /// Every text the interface shows, one field each. See the module note.
 pub struct Texts {
+    pub balance: BalanceTexts,
+    pub expenses: ExpenseTexts,
+    pub tour: TourTexts,
+    pub sync: SyncTexts,
     pub dialogs: DialogTexts,
     pub people: PeopleTexts,
     pub list: ListTexts,
@@ -557,6 +578,153 @@ pub struct DialogTexts {
     pub no_versions: &'static str,
     pub no_versions_note: &'static str,
     pub restore: &'static str,
+}
+
+/// Where the copy on screen came from, and what is waiting to be sent.
+pub struct SyncTexts {
+    pub just_now: &'static str,
+    pub min_ago: fn(i64) -> String,
+    pub h_ago: fn(i64) -> String,
+    pub no_answer: &'static str,
+    pub unreadable: &'static str,
+    pub not_on_server: &'static str,
+    pub conflict: &'static str,
+    pub forbidden: &'static str,
+    pub server_trouble: fn(u16) -> String,
+    pub refused: fn(u16) -> String,
+    pub asking: &'static str,
+    pub new_data: &'static str,
+    pub nothing_newer: &'static str,
+    pub failed: fn(&str) -> String,
+    pub stale: fn(&str) -> String,
+    pub from_server: &'static str,
+    pub local_copy: &'static str,
+    pub stale_hint: fn(&str) -> String,
+    pub share_hint: &'static str,
+    pub link_copied: &'static str,
+    pub share_link: &'static str,
+    pub and_more: fn(&str, usize) -> String,
+    pub not_taken: fn(usize, &str, &str) -> String,
+    pub try_again: &'static str,
+    pub discard_question: &'static str,
+    pub discard: &'static str,
+    pub waiting: fn(&str) -> String,
+    pub lost_one: fn(&str) -> String,
+    pub lost_many: fn(&str) -> String,
+    pub dismiss: &'static str,
+    pub offline: &'static str,
+    pub never_opened: &'static str,
+    pub loading: &'static str,
+    pub go_to_tours: &'static str,
+}
+
+/// A tour's page: its header, its tabs, and what deleting from it asks.
+pub struct TourTexts {
+    pub delete_expense: fn(&str) -> String,
+    pub delete_person: fn(&str) -> String,
+    pub delete_person_then: fn(&str, &[String]) -> String,
+    pub shares_go: fn(usize) -> String,
+    pub leave_family: fn(usize) -> String,
+    /// Why somebody cannot be removed: their name, what they paid, what is only for them.
+    pub cannot_remove: fn(&str, &[String], &[String]) -> String,
+    pub edit_tour: &'static str,
+    pub reload: &'static str,
+    pub settling_hint: &'static str,
+    pub settling: &'static str,
+    pub archived_hint: &'static str,
+    pub archived: &'static str,
+    pub currencies_hint: &'static str,
+    pub currencies: &'static str,
+    pub versions: &'static str,
+    pub show_in_hint: &'static str,
+    pub show_in: &'static str,
+    pub total_spent: &'static str,
+    pub people: &'static str,
+    pub expenses: &'static str,
+    pub left_to_settle: &'static str,
+    pub sections: &'static str,
+    pub tab_balance: &'static str,
+    pub tab_people: &'static str,
+    pub tab_expenses: &'static str,
+    pub tab_stats: &'static str,
+    pub spend: &'static str,
+}
+
+/// The Expenses tab and one expense's row.
+pub struct ExpenseTexts {
+    pub search: &'static str,
+    pub clear: &'static str,
+    pub date: &'static str,
+    pub amount: &'static str,
+    pub clear_filter: &'static str,
+    pub nothing_matches: &'static str,
+    pub count: fn(usize) -> String,
+    pub spent: &'static str,
+    pub from_to: [&'static str; 2],
+    pub filtered_out_of: &'static str,
+    pub settling_up: &'static str,
+    pub draft: &'static str,
+    pub drafts: &'static str,
+    pub uncounted: &'static str,
+    /// "Jan" … "Dec", as a day's heading writes the month.
+    pub months: [&'static str; 12],
+    pub today: &'static str,
+    pub yesterday: &'static str,
+    pub no_description: &'static str,
+    pub inside_family: &'static str,
+    pub payback: &'static str,
+    pub for_names: fn(&str) -> String,
+    pub for_n_of: fn(usize, usize) -> String,
+    pub equally: &'static str,
+    pub for_hint: fn(&str) -> String,
+    pub alone_hint: fn(&str) -> String,
+    pub split_equally: &'static str,
+    pub details: &'static str,
+    pub for_everyone: &'static str,
+    pub edit: &'static str,
+    pub entered_as: fn(&str, &str) -> String,
+    pub draft_counted: &'static str,
+    pub draft_not_counted: &'static str,
+    pub everyone_by_weight: &'static str,
+    pub n_of_equally: fn(usize, usize) -> String,
+    pub n_of_by_weight: fn(usize, usize) -> String,
+    pub paid: &'static str,
+    pub each: &'static str,
+    pub not_in_it: &'static str,
+}
+
+/// The Balance and Stats tabs.
+pub struct BalanceTexts {
+    pub all_settled: &'static str,
+    pub first_expense: &'static str,
+    pub no_payments_left: &'static str,
+    /// How many small payments, under what, how much in all, and whether the balances
+    /// below are made of them.
+    pub dust: fn(usize, &str, &str, bool) -> String,
+    pub hide_small: &'static str,
+    pub show_small: &'static str,
+    pub who_pays_whom: &'static str,
+    pub not_paid_yet: &'static str,
+    pub inside_families: &'static str,
+    pub balances: &'static str,
+    pub gets_back: &'static str,
+    pub owes_money: &'static str,
+    pub mark_paid_hint: &'static str,
+    pub mark_paid_question: fn(&str, &str, &str) -> String,
+    pub mark_paid: &'static str,
+    pub by_category: &'static str,
+    pub by_person: &'static str,
+    pub nothing_to_chart: &'static str,
+    pub nothing_to_chart_hint: &'static str,
+    pub totals: &'static str,
+    pub everything: &'static str,
+    pub total: &'static str,
+    pub per_person_w: fn(i64) -> String,
+    pub per_person_day: &'static str,
+    pub over: &'static str,
+    pub days: &'static str,
+    pub per_person: &'static str,
+    pub per_day: &'static str,
 }
 
 #[cfg(test)]

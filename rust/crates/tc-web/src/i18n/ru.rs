@@ -7,6 +7,185 @@
 use super::*;
 
 pub const TEXTS: Texts = Texts {
+    balance: BalanceTexts {
+        all_settled: "Все в расчёте",
+        first_expense: "Добавьте первую трату — и здесь появится, кто кому сколько.",
+        no_payments_left: "Между участниками не осталось платежей.",
+        dust: |n, under, total, below| format!(
+            "Остаток слишком мал, чтобы за ним гоняться: {n} {} меньше {under} каждый, всего \
+             {total}.{}",
+            ru_plural(n as i64, "платёж", "платежа", "платежей"),
+            if below { " Из них и складываются балансы ниже." } else { "" }
+        ),
+        hide_small: "Скрыть мелкие",
+        show_small: "Показать мелкие",
+        who_pays_whom: "Кто кому платит",
+        not_paid_yet: "Здесь ещё ничего не оплачено — это платежи, после которых все будут в \
+            расчёте.",
+        inside_families: " Внутри семей",
+        balances: "Балансы",
+        gets_back: "получает обратно",
+        owes_money: "должен внести",
+        mark_paid_hint: "Отметить, что деньги переданы",
+        mark_paid_question: |from, to, amount| format!("Записать платёж: {from} → {to}, {amount}?"),
+        mark_paid: "Оплачено",
+        by_category: "По категориям",
+        by_person: "По людям",
+        nothing_to_chart: "Пока нечего показать",
+        nothing_to_chart_hint: "Трата попадает в статистику, когда у неё есть категория.",
+        totals: "Итоги · ",
+        everything: "всё",
+        total: "Всего",
+        per_person_w: |w| format!("На человека ({w} w)"),
+        per_person_day: "На человека в день",
+        over: "за ",
+        days: " дн.",
+        per_person: "На человека",
+        per_day: "В день",
+    },
+    expenses: ExpenseTexts {
+        search: "Поиск по описанию, плательщику или категории",
+        clear: "Очистить",
+        date: "Дата ",
+        amount: "Сумма ",
+        clear_filter: "сбросить ×",
+        nothing_matches: "Под фильтр ничего не подходит",
+        count: |n| format!("{n} {}", ru_plural(n as i64, "трата", "траты", "трат")),
+        spent: "потрачено ",
+        from_to: ["с ", " по "],
+        filtered_out_of: "отобрано из ",
+        settling_up: "расчёт",
+        draft: "черновик",
+        drafts: "черновики",
+        uncounted: "не в счёт",
+        months: ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"],
+        today: "Сегодня",
+        yesterday: "Вчера",
+        no_description: "(без описания)",
+        inside_family: "внутри семьи",
+        payback: "возврат",
+        for_names: |names| format!("на {names}"),
+        for_n_of: |n, all| format!("на {n} из {all}"),
+        equally: "поровну",
+        for_hint: |names| format!("На {names}. Нажмите, чтобы увидеть, кто сколько несёт."),
+        alone_hint: |name| format!("Целиком на {name}."),
+        split_equally: " Поровну.",
+        details: "Подробности",
+        for_everyone: " · на всех",
+        edit: "Изменить",
+        entered_as: |amount, currency| format!("введено как {amount} {currency}"),
+        draft_counted: "черновик, учитывается",
+        draft_not_counted: "черновик, не учитывается",
+        everyone_by_weight: "на всех, по весу",
+        n_of_equally: |n, all| format!("{n} из {all}, поровну"),
+        n_of_by_weight: |n, all| format!("{n} из {all}, по весу"),
+        paid: " платит · ",
+        each: "каждый",
+        not_in_it: "Не участвуют: ",
+    },
+    tour: TourTexts {
+        delete_expense: |what| format!("Удалить «{what}»?"),
+        delete_person: |name| format!("Удалить участника «{name}»?"),
+        delete_person_then: |name, also| format!("Удалить участника «{name}»? Тогда {}.", also.join(", и ")),
+        shares_go: |n| format!(
+            "доля участника в {n} {} перейдёт к остальным участникам",
+            ru_plural(n as i64, "общей трате", "общих тратах", "общих тратах")
+        ),
+        leave_family: |n| format!(
+            "{n} {} из семьи",
+            ru_plural(n as i64, "человек выйдет", "человека выйдут", "человек выйдут")
+        ),
+        cannot_remove: |name, paid, only_for| {
+            let mut why = Vec::new();
+            if !paid.is_empty() {
+                why.push(format!(
+                    "{name} платит за {} {} ({})",
+                    paid.len(),
+                    ru_plural(paid.len() as i64, "трату", "траты", "трат"),
+                    quoted(paid, "без описания", "ещё")
+                ));
+            }
+            if !only_for.is_empty() {
+                why.push(format!(
+                    "{} {} только на {name} ({})",
+                    only_for.len(),
+                    ru_plural(only_for.len() as i64, "трата", "траты", "трат"),
+                    quoted(only_for, "без описания", "ещё")
+                ));
+            }
+            format!(
+                "Участника «{name}» пока нельзя удалить: {}. Поменяйте, кто платил или на кого \
+                 трата, или удалите эти траты — и тогда удаляйте.",
+                why.join(", и ")
+            )
+        },
+        edit_tour: "Изменить тур",
+        reload: "Обновить с сервера",
+        settling_hint: "Идёт расчёт по туру",
+        settling: "расчёт",
+        archived_hint: "Тур в архиве и скрыт из списка по умолчанию",
+        archived: "в архиве",
+        currencies_hint: "Изменить валюты тура",
+        currencies: " валюты",
+        versions: "версии",
+        show_in_hint: "Меняет только то, что видите вы, — сам тур не трогается",
+        show_in: "показывать в",
+        total_spent: "Потрачено",
+        people: "Людей",
+        expenses: "Трат",
+        left_to_settle: "Осталось рассчитать",
+        sections: "Разделы тура",
+        tab_balance: "Баланс",
+        tab_people: "Люди",
+        tab_expenses: "Траты",
+        tab_stats: "Статистика",
+        spend: "+ Трата",
+    },
+    sync: SyncTexts {
+        just_now: "только что",
+        min_ago: |n| format!("{n} мин назад"),
+        h_ago: |n| format!("{n} ч назад"),
+        no_answer: "сервер не ответил",
+        unreadable: "не удалось прочитать ответ сервера",
+        not_on_server: "этого тура нет на сервере",
+        conflict: "сервер не принял изменение (409)",
+        forbidden: "сервер не разрешил (403)",
+        server_trouble: |c| format!("у сервера проблемы ({c})"),
+        refused: |c| format!("сервер отказал ({c})"),
+        asking: "спрашиваем сервер…",
+        new_data: "✓ получены новые данные",
+        nothing_newer: "✓ на сервере ничего нового",
+        failed: |why| format!("✕ {why} — показана локальная копия"),
+        stale: |ago| format!("⚠ локальная копия · {ago}"),
+        from_server: "с сервера",
+        local_copy: "локальная копия",
+        stale_hint: |when| format!("Сервер недоступен. Это копия, сохранённая на устройстве \
+            {when}."),
+        share_hint: "Скопировать ссылку, которая открывает этот тур",
+        link_copied: "ссылка скопирована",
+        share_link: "поделиться",
+        and_more: |first, n| format!("{first} и ещё {n}"),
+        not_taken: |count, what, why| format!(
+            "Сервер не принял {}: {what}. Ответ: {why}",
+            if count == 1 {
+                "эту правку".to_owned()
+            } else {
+                format!("{count} {}", ru_plural(count as i64, "правку", "правки", "правок"))
+            }
+        ),
+        try_again: "Попробовать ещё раз",
+        discard_question: "Выбросить неотправленные правки? Они есть только на этом устройстве.",
+        discard: "Выбросить",
+        waiting: |what| format!("Сохранено здесь, ждёт отправки: {what}"),
+        lost_one: |what| format!("«{what}» кто-то удалил, поэтому ваша правка к нему отброшена."),
+        lost_many: |what| format!("{what} кто-то удалил, поэтому ваши правки к ним отброшены."),
+        dismiss: "Закрыть",
+        offline: "Нет сети — показано то, что было на устройстве",
+        never_opened: "Этот тур ещё не открывали на этом устройстве, а связи, чтобы его \
+            загрузить, нет.",
+        loading: "Загружаем тур…",
+        go_to_tours: "К моим турам",
+    },
     dialogs: DialogTexts {
         cancel: "Отмена",
         save: "Сохранить",
