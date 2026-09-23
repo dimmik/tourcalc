@@ -19,6 +19,7 @@
 //! tour must not change colour when you switch between them: the colour sequence, and the
 //! arithmetic that turns money into angles.
 
+use crate::i18n::t;
 use crate::ui::money;
 use leptos::prelude::*;
 use tc_core::Cents;
@@ -281,7 +282,7 @@ pub fn Composition(
                 <div class="tcn-chips" style="margin-bottom:10px">
                     <button type="button" class="tcn-chip tcn-filter-chip"
                             on:click=move |_| out.run(())>
-                        "↑ all of them"
+                        {t().chart.all_of_them}
                     </button>
                     <span class="tcn-chip is-on">{name}</span>
                 </div>
@@ -290,7 +291,7 @@ pub fn Composition(
             <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap">
                 <div class="tcw-ring" style="position:relative; flex:0 0 auto">
                     <svg viewBox="0 0 120 120" style="width:100%; height:100%; display:block"
-                         role="img" aria-label="What the money went on">
+                         role="img" aria-label=t().chart.what_money_went_on>
                         // The whole ring is redrawn when the choice changes, because the
                         // choice changes what the ring is made of: the chosen category is
                         // not one arc any more but one arc per thing inside it.
@@ -369,7 +370,7 @@ pub fn Composition(
                             {move || match chosen_amount() {
                                 Some((label, _, hundredths)) => format!(
                                     "{label} · {:.1}%", hundredths as f64 * 100.0 / 36000.0),
-                                None => format!("total {}", unit_centre.clone()),
+                                None => format!("{} {}", t().chart.total, unit_centre.clone()),
                             }}
                         </div>
                     </div>
@@ -441,8 +442,8 @@ pub fn Composition(
                                     {s.row.has_inside().then(|| view! {
                                         <button type="button" class="tcn-btn tcn-btn-sm"
                                                 style="flex:0 0 auto; padding:4px 7px"
-                                                title=format!("Show only {}", s.row.label)
-                                                aria-label=format!("Show only {}", s.row.label)
+                                                title=(t().chart.show_only)(&s.row.label)
+                                                aria-label=(t().chart.show_only)(&s.row.label)
                                                 on:click=move |_| into.run(inside.clone())>
                                             <crate::icon::Icon name="chevron-right" />
                                         </button>

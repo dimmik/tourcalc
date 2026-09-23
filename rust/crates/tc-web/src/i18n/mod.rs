@@ -154,6 +154,9 @@ pub fn en_plural(n: i64, one: &'static str, other: &'static str) -> &'static str
 
 /// Every text the interface shows, one field each. See the module note.
 pub struct Texts {
+    pub chart: ChartTexts,
+    pub checks: CheckTexts,
+    pub errors: ErrorTexts,
     pub others: OthersTexts,
     pub build: BuildTexts,
     pub device: DeviceTexts,
@@ -298,6 +301,61 @@ pub struct OthersTexts {
     pub waiting_what: fn(&str) -> String,
     pub waiting: &'static str,
     pub kept_changing: fn(usize) -> String,
+}
+
+/// What a request that went wrong says. The technical tail (`{e}`) is the browser's own
+/// words and stays as it comes.
+pub struct ErrorTexts {
+    pub expired: &'static str,
+    pub no_answer: &'static str,
+    pub unreadable: &'static str,
+    pub server_code: fn(u16) -> String,
+    pub refused_code: fn(u16) -> String,
+    pub conflict: &'static str,
+    pub no_connection: fn(&str) -> String,
+    pub unreachable: fn(&str) -> String,
+    pub cannot_read_token: fn(&str) -> String,
+    pub not_master_key: &'static str,
+    pub code_refused: &'static str,
+    pub server_answered: fn(u16) -> String,
+    pub code_refused_with: fn(u16) -> String,
+    pub not_found: &'static str,
+    pub cannot_read_answer: fn(&str) -> String,
+    pub cannot_read_tour: fn(&str) -> String,
+    pub cannot_read_list: fn(&str) -> String,
+    pub odd_list: &'static str,
+    pub cannot_write_tour: fn(&str) -> String,
+    pub cannot_build_request: fn(&str) -> String,
+    pub tour_gone: &'static str,
+    pub server_answered_detail: fn(u16, &str) -> String,
+    pub cannot_read_versions: fn(&str) -> String,
+    pub odd_versions: &'static str,
+    pub admin_first_tour: &'static str,
+    pub admin_last_tour: &'static str,
+    pub cannot_write_down: fn(&str) -> String,
+}
+
+/// What a form says is wrong before it will save.
+pub struct CheckTexts {
+    pub amount_zero: &'static str,
+    pub no_description: &'static str,
+    pub for_nobody: &'static str,
+    pub no_payer: &'static str,
+    pub no_name: &'static str,
+    pub no_weight: &'static str,
+    pub tour_no_name: &'static str,
+    pub tour_no_days: &'static str,
+    pub no_currency: &'static str,
+    pub rate_zero: fn(&str) -> String,
+    pub duplicate_currency: fn(&str) -> String,
+}
+
+/// The ring in Stats.
+pub struct ChartTexts {
+    pub all_of_them: &'static str,
+    pub what_money_went_on: &'static str,
+    pub total: &'static str,
+    pub show_only: fn(&str) -> String,
 }
 
 #[cfg(test)]

@@ -6,6 +6,7 @@
 //! rather than mutating in place: the caller keeps what it had until the server has agreed,
 //! and can put it back if it has not.
 
+use crate::i18n::t;
 use tc_core::{Cents, Kind, Person, PersonId, Spending, SpendingId, Split, Tour};
 
 /// A new id, in the style the app uses: short, lowercase, URL-safe.
@@ -157,16 +158,16 @@ impl SpendingDraft {
     pub fn problems(&self) -> Vec<&'static str> {
         let mut wrong = Vec::new();
         if self.amount.0 == 0 {
-            wrong.push("Amount should not be 0");
+            wrong.push(t().checks.amount_zero);
         }
         if self.description.trim().is_empty() {
-            wrong.push("Please specify what the money went for");
+            wrong.push(t().checks.no_description);
         }
         if !self.everyone && self.to.is_empty() {
-            wrong.push("Pick who this expense is for, or turn on “everyone”");
+            wrong.push(t().checks.for_nobody);
         }
         if self.from.as_str().is_empty() {
-            wrong.push("Pick who paid");
+            wrong.push(t().checks.no_payer);
         }
         wrong
     }
@@ -391,10 +392,10 @@ impl PersonDraft {
 
     pub fn problem(&self) -> Option<&'static str> {
         if self.name.trim().is_empty() {
-            return Some("A name, please.");
+            return Some(t().checks.no_name);
         }
         if self.weight <= 0 {
-            return Some("A weight has to be more than nothing.");
+            return Some(t().checks.no_weight);
         }
         None
     }
@@ -465,10 +466,10 @@ impl TourDraft {
 
     pub fn problem(&self) -> Option<&'static str> {
         if self.name.trim().is_empty() {
-            return Some("A tour needs a name.");
+            return Some(t().checks.tour_no_name);
         }
         if self.days <= 0 {
-            return Some("A tour lasts at least a day.");
+            return Some(t().checks.tour_no_days);
         }
         None
     }
@@ -525,18 +526,16 @@ impl CurrencyDraft {
 pub fn currency_problems(kept: &[CurrencyDraft]) -> Vec<String> {
     let mut problems = Vec::new();
     if kept.is_empty() {
-        problems.push("A tour needs at least one currency".to_owned());
+        problems.push(t().checks.no_currency.to_owned());
         return problems;
     }
     for c in kept.iter().filter(|c| c.rate <= 0) {
-        problems.push(format!("“{}” needs a worth above zero", c.name.trim()));
+        problems.push((t().checks.rate_zero)(c.name.trim()));
     }
     for (i, c) in kept.iter().enumerate() {
         let name = c.name.trim();
         if kept[..i].iter().any(|other| other.name.trim() == name) {
-            problems.push(format!(
-                "“{name}” is listed more than once — names have to be unique"
-            ));
+            problems.push((t().checks.duplicate_currency)(name));
         }
     }
     problems
