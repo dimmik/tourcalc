@@ -13,6 +13,7 @@
 //! [`tc_core::breakdown`] exists: the numbers have to be explainable, and an explanation
 //! that does not add up to the number above it is worse than none.
 
+use crate::i18n::t;
 use crate::edit::PersonDraft;
 use crate::icon::Icon;
 use crate::tour::{Dialog, Removal};
@@ -98,9 +99,9 @@ pub enum Which {
 impl Which {
     fn label(self) -> &'static str {
         match self {
-            Which::Paid => "Paid",
-            Which::Charged => "Charged",
-            Which::Balance => "Balance",
+            Which::Paid => t().people.paid,
+            Which::Charged => t().people.charged,
+            Which::Balance => t().people.balance,
         }
     }
 }
@@ -108,20 +109,20 @@ impl Which {
 /// A debt in words, so that a minus sign never has to be interpreted.
 fn direction(amount: Cents) -> &'static str {
     if amount.0 > 0 {
-        "owes"
+        t().people.owes
     } else if amount.0 < 0 {
-        "gets"
+        t().people.gets
     } else {
-        "settled"
+        t().people.settled
     }
 }
 
 /// The same, with the amount and its currency: what the chip on a card says.
 fn balance_words(amount: Cents, unit: &str) -> String {
     match amount.0 {
-        0 => "settled".to_owned(),
-        n if n > 0 => format!("owes {}", money_in(amount, unit)),
-        _ => format!("gets {}", money_in(Cents(-amount.0), unit)),
+        0 => t().people.settled.to_owned(),
+        n if n > 0 => format!("{} {}", t().people.owes, money_in(amount, unit)),
+        _ => format!("{} {}", t().people.gets, money_in(Cents(-amount.0), unit)),
     }
 }
 
@@ -221,16 +222,16 @@ pub fn PeopleTab(
             <div class="tcn-toolbar">
                 <button type="button" class="tcn-btn tcn-btn-primary"
                         on:click=move |_| dialog.set(Some(Dialog::Person(PersonDraft::new())))>
-                    "+ Add person"
+                    {t().people.add_person}
                 </button>
                 <Show when=move || { searchable }>
                     <div class="tcn-search">
                         <span class="tcn-search-icon">"🔎"</span>
-                        <input type="text" placeholder="Find a person"
+                        <input type="text" placeholder=t().people.find
                                prop:value=move || search.get()
                                on:input=move |ev| search.set(event_target_value(&ev)) />
                         <Show when=move || !search.get().is_empty()>
-                            <button type="button" class="tcn-search-clear" title="Clear"
+                            <button type="button" class="tcn-search-clear" title=t().people.clear
                                     on:click=move |_| search.set(String::new())>"✕"</button>
                         </Show>
                     </div>
@@ -238,9 +239,9 @@ pub fn PeopleTab(
                 <Show when=move || { count > 1 }>
                     <button type="button" class="tcn-btn tcn-btn-sm"
                             class:tcn-btn-primary=move || compact.get()
-                            title="One line per person — tap a line to open their numbers"
+                            title=t().people.compact_hint
                             on:click=move |_| compact.update(|c| *c = !*c)>
-                        "Compact"
+                        {t().people.compact}
                     </button>
                 </Show>
                 <Show when=move || { count > 1 }>
@@ -267,15 +268,15 @@ pub fn PeopleTab(
                                 }
                             }>
                         {move || if open.get().is_empty() && kids_open.get().is_empty() {
-                            "Expand all"
+                            t().people.expand_all
                         } else {
-                            "Collapse all"
+                            t().people.collapse_all
                         }}
                     </button>
                 </Show>
-                <span class="tcn-chip">{count} " people"</span>
+                <span class="tcn-chip">{(t().list.people)(count)}</span>
                 <span class="tcn-chip">
-                    "total weight "
+                    {t().people.total_weight} " "
                     <crate::explain::Explain what={
                         let t = tour_for_weight.clone();
                         Callback::new(move |()| crate::explain::total_weight(&t))
@@ -289,9 +290,9 @@ pub fn PeopleTab(
 
             <Show when=move || { count > 0 }>
                 <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
-                    <b>"Paid"</b>" — what they put in · "<b>"Charged"</b>
-                    " — what their part of the spending cost · "<b>"Balance"</b>
-                    " — the difference. Tap any of the three for the itemised list."
+                    <b>{t().people.paid}</b>{t().people.legend_paid}<b>{t().people.charged}</b>
+                    {t().people.legend_charged}<b>{t().people.balance}</b>
+                    {t().people.legend_balance}
                 </div>
             </Show>
         </div>
@@ -301,8 +302,8 @@ pub fn PeopleTab(
                 <div class="tcn-section">
                     <div class="tcn-empty">
                         <span class="tcn-empty-icon">"👥"</span>
-                        <div class="tcn-empty-title">"No participants yet"</div>
-                        <div>"Add everyone who takes part - then you can start recording expenses."</div>
+                        <div class="tcn-empty-title">{t().people.nobody_yet}</div>
+                        <div>{t().people.nobody_yet_hint}</div>
                     </div>
                 </div>
             }.into_any()
@@ -317,9 +318,9 @@ pub fn PeopleTab(
                                 return view! {
                                     <div class="tcn-empty">
                                         <div class="tcn-empty-title">
-                                            "Nobody here is called “" {search.get()} "”"
+                                            {(t().people.nobody_called)(&search.get())}
                                         </div>
-                                        <div>"Try a shorter piece of the name."</div>
+                                        <div>{t().people.shorter}</div>
                                     </div>
                                 }.into_any();
                             }
@@ -403,7 +404,7 @@ fn FamilyBlock(
                         on:click=toggle_kids.clone()>
                     <span>{move || if showing.get() { view!{<Icon name="chevron-down"/>} } else { view!{<Icon name="chevron-right"/>} }}</span>
                     <span class="tcn-familybar-names">{names.clone()}</span>
-                    <span class="tcn-familybar-note">"paid for by " {head_name.clone()}</span>
+                    <span class="tcn-familybar-note">{t().people.paid_for_by} " " {head_name.clone()}</span>
                 </button>
             </Show>
 
@@ -550,7 +551,7 @@ fn PersonBlock(
                                   <div class="tcn-person-name">{name}</div>
                                   <div class="tcn-person-meta" on:click=|ev| ev.stop_propagation()>
                                       <span>
-                                          "weight "
+                                          {t().people.weight} " "
                                           <crate::explain::Explain what={
                                               let t = tour_for_pweight.clone();
                                               let who = person_for_pweight.clone();
@@ -561,11 +562,11 @@ fn PersonBlock(
                                               <b>{weight}</b>
                                           </crate::explain::Explain>
                                       </span>
-                                      {paid_by.map(|n| view! { <span>"paid by " <b>{n}</b></span> })}
+                                      {paid_by.map(|n| view! { <span>{t().people.paid_by} " " <b>{n}</b></span> })}
                                       {(covers > 0).then(|| view! {
-                                          <span>"pays for " <b>{covers}</b></span>
-                                          <span title="The weight the family carries between them">
-                                              "family weight " <b>{family_weight}</b>
+                                          <span>{t().people.pays_for} " " <b>{covers}</b></span>
+                                          <span title=t().people.family_weight_hint>
+                                              {t().people.family_weight} " " <b>{family_weight}</b>
                                           </span>
                                       })}
                                   </div>
@@ -584,12 +585,12 @@ fn PersonBlock(
                                   </crate::explain::Explain>
                                   {split_family.then(|| view! {
                                       <span class="tcn-person-own"
-                                            title="Their own debt, before the people they pay for">
-                                          "own: " {balance_words(debt, &unit_for_stats.get_value())}
+                                            title=t().people.own_hint>
+                                          {t().people.own} " " {balance_words(debt, &unit_for_stats.get_value())}
                                       </span>
                                   })}
                               </div>
-                              <button type="button" class="tcn-person-fold" title="Collapse"
+                              <button type="button" class="tcn-person-fold" title=t().people.collapse
                                       on:click=move |ev| { ev.stop_propagation(); fold(ev); }>
                                   <Icon name="chevron-down" />
                               </button>
@@ -610,14 +611,14 @@ fn PersonBlock(
                             // says little while the people it covers are out of sight.
                             {if covers == 0 {
                                 view! {
-                                    <span class="tcn-person-meta" title=format!("Weight {weight}")>
+                                    <span class="tcn-person-meta" title=(t().people.weight_hint)(weight as i64)>
                                         "×" {weight}
                                     </span>
                                 }.into_any()
                             } else {
                                 view! {
                                     <span class="tcn-chip tcn-chip-kids"
-                                          title=format!("Pays for {covers}, {family_weight} of weight between them")>
+                                          title=(t().people.family_hint)(covers, family_weight as i64)>
                                         "👥" {covers} " ×" {family_weight}
                                     </span>
                                 }.into_any()
@@ -630,8 +631,8 @@ fn PersonBlock(
                     </button>
                     <button type="button"
                             class="tcn-btn tcn-btn-sm tcn-btn-primary tcn-person-spend"
-                            title=format!("Record an expense paid by {}", person.name)
-                            aria-label=format!("Record an expense paid by {}", person.name)
+                            title=(t().people.spend_for)(&person.name)
+                            aria-label=(t().people.spend_for)(&person.name)
                             on:click={
                                 let tour = tour_for_compact_spend.clone();
                                 let who = for_compact_spend.clone();
@@ -668,21 +669,21 @@ fn PersonBlock(
                                     dialog.set(Some(Dialog::Spending(draft)));
                                 }
                             }>
-                        "💸 Spend"
+                        {t().people.spend}
                     </button>
                     <button type="button" class="tcn-btn tcn-btn-sm"
                             on:click={
                                 let who = for_edit.clone();
                                 move |_| dialog.set(Some(Dialog::Person(PersonDraft::of(&who))))
                             }>
-                        "Edit"
+                        {t().people.edit}
                     </button>
                     <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
                             on:click={
                                 let who = for_delete.clone();
                                 move |_| delete.run(Removal::Person(who.clone()))
                             }>
-                        "Delete"
+                        {t().people.delete}
                     </button>
                 </div>
             </Show>
@@ -728,7 +729,7 @@ fn Stat(
                     .then(|| view! { <small>"\u{a0}" {unit.clone()}</small> })}
                 {own.map(|d| view! {
                     <span class="tcn-statbtn-note">
-                        "own: " {direction(d)} " "
+                        {t().people.own} " " {direction(d)} " "
                         {(!d.is_zero()).then(|| money_in(d.abs(), &unit))}
                     </span>
                 })}
@@ -759,19 +760,18 @@ fn BreakdownSheet(
         .unwrap_or_default();
 
     let title = match which {
-        Which::Paid => format!("{} paid {} {}", person.name, money(paid), unit),
-        Which::Charged => format!("{} was charged {} {}", person.name, money(charged), unit),
+        Which::Paid => (t().people.sheet_paid)(&person.name, &money_in(paid, &unit)),
+        Which::Charged => (t().people.sheet_charged)(&person.name, &money_in(charged, &unit)),
         Which::Balance => {
             // The itemised view ignores dust, which can flip somebody the card calls
             // "settled" into somebody collecting five thousand. Both are the app's.
             let owed = will_pay(&tour, &transfers, &person.id, crate::settings::threshold(&tour));
-            format!(
-                "{} will {} {} {}",
-                person.name,
-                if owed.0 >= 0 { "pay" } else { "collect" },
-                money(owed.abs()),
-                unit
-            )
+            let amount = money_in(owed.abs(), &unit);
+            if owed.0 >= 0 {
+                (t().people.sheet_will_pay)(&person.name, &amount)
+            } else {
+                (t().people.sheet_will_collect)(&person.name, &amount)
+            }
         }
     };
 
@@ -786,7 +786,7 @@ fn BreakdownSheet(
                         {letters}
                     </span>
                     <div class="tcn-sheet-title">{title}</div>
-                    <button type="button" class="tcn-sheet-x" title="Close"
+                    <button type="button" class="tcn-sheet-x" title=t().people.close
                             on:click=move |_| close.run(())><Icon name="close" /></button>
                 </div>
 
@@ -807,7 +807,7 @@ fn BreakdownSheet(
                 <div class="tcn-sheet-foot">
                     <span style="flex:1 1 auto"></span>
                     <button type="button" class="tcn-btn tcn-btn-primary"
-                            on:click=move |_| close.run(())>"Got it"</button>
+                            on:click=move |_| close.run(())>{t().people.got_it}</button>
                 </div>
             </div>
         </div>
@@ -824,7 +824,7 @@ fn Lines(
     charged: bool,
 ) -> impl IntoView {
     if lines.is_empty() {
-        return view! { <div class="tcn-empty">"Nothing recorded yet."</div> }.into_any();
+        return view! { <div class="tcn-empty">{t().people.nothing_recorded}</div> }.into_any();
     }
 
     let mut running = Cents::ZERO;
@@ -853,7 +853,7 @@ fn Lines(
                 .into_iter()
                 .map(|(line, whole, from, running)| {
                     let share = whole.filter(|w| charged && !w.is_zero()).map(|w| {
-                        format!("{:.1}% of {}", line.amount.0 as f64 * 100.0 / w.0 as f64, money(w))
+                        (t().people.share_of)(line.amount.0 as f64 * 100.0 / w.0 as f64, &money(w))
                     });
                     view! {
                         <div class="tcn-brk-row">
@@ -863,13 +863,13 @@ fn Lines(
                                     {(!line.category.trim().is_empty()).then(|| view! {
                                         <span class="tcn-chip tcn-chip-primary">{line.category}</span>
                                     })}
-                                    {from.map(|n| view! { <span>"from " <b>{n}</b></span> })}
+                                    {from.map(|n| view! { <span>{t().people.from} " " <b>{n}</b></span> })}
                                 </div>
                             </div>
                             <div class="tcn-brk-amt">
                                 {money(line.amount)} " " <small>{unit.clone()}</small>
                                 {share.map(|s| view! { <div class="tcn-brk-note">{s}</div> })}
-                                <div class="tcn-brk-note">"running " {money(running)}</div>
+                                <div class="tcn-brk-note">{t().people.running} " " {money(running)}</div>
                             </div>
                         </div>
                     }
@@ -907,7 +907,7 @@ fn SettleRows(tour: Tour, person: Person, transfers: Vec<Transfer>, unit: String
     view! {
         <div class="tcn-brk-summary" class:is-owing=move || paying class:is-owed=move || !paying>
             <div class="tcn-brk-summary-label">
-                {if paying { "Needs to pay" } else { "Will collect" }}
+                {if paying { t().people.needs_to_pay } else { t().people.will_collect }}
             </div>
             <div class="tcn-brk-summary-value">
                 {money(total)} " " <small>{unit.clone()}</small>
@@ -916,7 +916,7 @@ fn SettleRows(tour: Tour, person: Person, transfers: Vec<Transfer>, unit: String
 
         {if empty {
             view! {
-                <div class="tcn-empty" style="margin-top:10px">"Nothing left to settle."</div>
+                <div class="tcn-empty" style="margin-top:10px">{t().people.nothing_left}</div>
             }.into_any()
         } else {
             view! {
@@ -932,7 +932,7 @@ fn SettleRows(tour: Tour, person: Person, transfers: Vec<Transfer>, unit: String
                                               style=format!("background:{}", avatar_colour(&other))>
                                             {initials(&other)}
                                         </span>
-                                        {if paying { "to " } else { "from " }}<b>{other}</b>
+                                        {if paying { t().people.to } else { t().people.from }} " " <b>{other}</b>
                                     </div>
                                 </div>
                                 <div class="tcn-brk-amt">

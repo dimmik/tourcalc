@@ -154,6 +154,7 @@ pub fn en_plural(n: i64, one: &'static str, other: &'static str) -> &'static str
 
 /// Every text the interface shows, one field each. See the module note.
 pub struct Texts {
+    pub people: PeopleTexts,
     pub list: ListTexts,
     pub chart: ChartTexts,
     pub checks: CheckTexts,
@@ -419,6 +420,64 @@ pub struct ListTexts {
     pub copy_json: &'static str,
     pub delete: &'static str,
     pub cannot_copy: &'static str,
+}
+
+/// The People tab, and the words for a balance that Balance and Mini use too.
+///
+/// Russian has no neutral past tense for "paid", and a card cannot know whose name it is
+/// on; so the Russian words are nouns and present or future tenses, which are the same
+/// for everyone.
+pub struct PeopleTexts {
+    pub paid: &'static str,
+    pub charged: &'static str,
+    pub balance: &'static str,
+    pub owes: &'static str,
+    pub gets: &'static str,
+    pub settled: &'static str,
+    pub add_person: &'static str,
+    pub find: &'static str,
+    pub clear: &'static str,
+    pub compact_hint: &'static str,
+    pub compact: &'static str,
+    pub expand_all: &'static str,
+    pub collapse_all: &'static str,
+    pub total_weight: &'static str,
+    pub legend_paid: &'static str,
+    pub legend_charged: &'static str,
+    pub legend_balance: &'static str,
+    pub nobody_yet: &'static str,
+    pub nobody_yet_hint: &'static str,
+    pub nobody_called: fn(&str) -> String,
+    pub shorter: &'static str,
+    pub paid_for_by: &'static str,
+    pub weight: &'static str,
+    pub paid_by: &'static str,
+    pub pays_for: &'static str,
+    pub family_weight_hint: &'static str,
+    pub family_weight: &'static str,
+    pub own_hint: &'static str,
+    pub own: &'static str,
+    pub collapse: &'static str,
+    pub weight_hint: fn(i64) -> String,
+    pub family_hint: fn(usize, i64) -> String,
+    pub spend_for: fn(&str) -> String,
+    pub spend: &'static str,
+    pub edit: &'static str,
+    pub delete: &'static str,
+    pub sheet_paid: fn(&str, &str) -> String,
+    pub sheet_charged: fn(&str, &str) -> String,
+    pub sheet_will_pay: fn(&str, &str) -> String,
+    pub sheet_will_collect: fn(&str, &str) -> String,
+    pub close: &'static str,
+    pub got_it: &'static str,
+    pub nothing_recorded: &'static str,
+    pub share_of: fn(f64, &str) -> String,
+    pub from: &'static str,
+    pub running: &'static str,
+    pub needs_to_pay: &'static str,
+    pub will_collect: &'static str,
+    pub nothing_left: &'static str,
+    pub to: &'static str,
 }
 
 #[cfg(test)]
