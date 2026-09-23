@@ -1,0 +1,173 @@
+<article class="tcn-help">
+<details class="tcn-help-sec tcw-changes" id="changes">
+<summary>Change log</summary>
+
+<p class="tcw-changes-lead">
+    What changed in Tourcalc, when, and why — newest first. It starts on 8 September 2026,
+    when the app began to be rewritten from C#/Blazor into Rust; the first days are told in
+    broad strokes. Your tours, your access code and your links did not change: both versions
+    read the same database.
+</p>
+
+<h3>23 September 2026</h3>
+<ul>
+    <li><b>This change log.</b> What changed and why used to live only in the
+        developers' notes; a reader who found something looking different today had nobody
+        to ask.</li>
+    <li><b>“Copied” goes away by itself.</b> Copying a tour's JSON said so in the red
+        error box, and kept saying it until something else went wrong. It is now a green
+        line that disappears after a few seconds; the share button's “link copied” turns
+        back into “share link” the same way.</li>
+</ul>
+
+<h3>22 September 2026</h3>
+<ul>
+    <li><b>Somebody who is owed money is no longer called “settled”.</b> Dividing
+        expenses into whole cents leaves crumbs, and a two-cent crumb could put a person
+        who was owed 15 628 on the paying side — and then, since nobody chases two cents,
+        they showed as “settled” right next to a payment addressed to them. Which side
+        somebody is on is now decided with the same <b>Ignore debts smaller than</b>
+        threshold the screen uses to hide small amounts. This is the one place where the
+        figures deliberately differ from the old app: by the crumbs, and no more.</li>
+    <li><b>The tour list says how settling up is going.</b> A tour being settled up
+        shows an amber <b>settling up</b> with what is still to be paid, or a green
+        <b>all square</b> once nothing is left. A tour that is not being settled up shows
+        neither, whatever its balances: until the tour is over, being even is only a moment,
+        not a result.</li>
+    <li><b>Archiving only tidies the list.</b> An archived tour that is being settled up
+        used to open on its expenses; it now opens on the balances like any other tour
+        being settled up. Inside a tour the archive flag changes nothing.</li>
+</ul>
+
+<h3>21 September 2026</h3>
+<ul>
+    <li><b>The header says when this version was built,</b> in your own time zone, in
+        place of the word “latest” — the colour already said whether it is current.</li>
+    <li><b>The list's total is what the tour cost.</b> It used to add up everything
+        everybody paid out, paybacks included, so it disagreed with the tour's own
+        header.</li>
+    <li><b>“Everyone is settled up” says what is left when something is.</b> It could
+        sit above a balance with somebody collecting 70 — both true, because payments below
+        the threshold are hidden. The card now names those small payments, and a button
+        lists them with <b>Mark paid</b> for anyone who wants to square the pennies.</li>
+    <li><b>Searching the tour list finds archived tours too.</b></li>
+    <li><b>A tour no longer appears twice in the list.</b> A tour stored in two
+        documents was counted twice and the list kept loading “more” of the same
+        tour.</li>
+    <li><b>Very old tours can be saved again.</b> A tour from 2022 had no saved-state
+        marker, so every save looked like somebody else had saved first and was refused
+        forever.</li>
+    <li><b>The line under the tour name says which kind of trouble it was:</b> no
+        answer, the tour is not on the server, the server refused the change, or the
+        server is in trouble — instead of “the server did not answer” for all four.</li>
+</ul>
+
+<h3>20 September 2026</h3>
+<ul>
+    <li><b>The installed app opens from what the phone already has.</b> Opening it
+        after a while could show “Starting…” and give up: the saved copy was there but
+        never used, so everything was downloaded again over a sleepy mobile connection. Now
+        a slow network gets 2.5 seconds, and then the saved copy opens while the new one
+        loads in the background.</li>
+    <li><b>The header says whether this browser has the current version,</b> and one
+        click fetches it when it does not.</li>
+    <li><b>Escape closes a form, and closing a new one does not lose it.</b> Checking
+        something elsewhere — who paid last time, how the hotel is spelled — meant closing
+        the form and typing it all again. An unsaved new expense or person now waits on the
+        device for two hours and comes back in the next blank form, with an offer to start
+        blank instead.</li>
+    <li><b>The People tab keeps what you opened and typed</b> when somebody else's edit
+        arrives.</li>
+    <li><b>The tour list is newest first again,</b> and says what it is sorted by.</li>
+    <li><b>Logging out forgets this device's copies of your tours;</b> a login that
+        merely expired keeps them.</li>
+    <li><b>Long lists load in pages from the database,</b> so a large account's list
+        and a tour's history open quickly.</li>
+</ul>
+
+<h3>18–19 September 2026</h3>
+<ul>
+    <li><b>Tapping a notification opens the tour it is about,</b> even when the app is
+        already open somewhere else.</li>
+    <li><b>Switching between Full and Mini keeps you on the tab you were reading.</b></li>
+    <li><b>A person who still pays for, or shares, an expense cannot be deleted.</b> It
+        used to delete the expenses they paid for and turn “only for them” into “for
+        everybody”. Now it says which expenses hold them.</li>
+    <li><b>An expired login asks for the code again</b> instead of failing quietly; a
+        deleted tour stays deleted rather than being brought back by a waiting edit.</li>
+    <li><b>The list says when edits are waiting</b> for a tour it does not show, and
+        links to it.</li>
+    <li><b>The compact People view is remembered</b> for each tour on this device; it
+        used to switch off with every edit.</li>
+</ul>
+
+<h3>16–17 September 2026</h3>
+<ul>
+    <li><b>An open tour notices when somebody else changes it,</b> and shows the change
+        without a reload; changed rows light up for a moment. How often it checks is a
+        setting.</li>
+    <li><b>Edits made offline are sent as soon as the network is back,</b> wherever in
+        the app you are, not only on the next edit.</li>
+    <li><b>An expense unfolds to show who it is for</b> and how much each person
+        carries — in Full and in Mini.</li>
+    <li><b>An expense for some of the people is shared by weight again.</b></li>
+    <li><b>Two expenses that had the same id are two expenses again.</b> Saving one of
+        them — without changing anything — overwrote the other.</li>
+    <li><b>Notifications read like a person wrote them,</b> and the tour list rings the
+        bell for tours this device follows.</li>
+</ul>
+
+<h3>13–15 September 2026</h3>
+<ul>
+    <li><b>Help and Settings have a way back</b> to the tour you came from, instead of
+        the list and then the tour again.</li>
+    <li><b>Paybacks look like paybacks:</b> green, and transfers inside a family cyan, in
+        both lists, as in the old app.</li>
+    <li><b>The expense form and adding a person</b> work the way they did in the old
+        app.</li>
+    <li><b>Saving an expense no longer forgets what you were looking at.</b></li>
+    <li><b>The app can be installed on a phone's home screen</b> as an app with its own
+        icon, and says plainly when a browser will not allow it.</li>
+    <li><b>A page that cannot start says so</b> and offers a reload, instead of staying
+        blank.</li>
+    <li><b>The beta has a “b” on its icon,</b> so the beta and the real one are not
+        confused on a home screen.</li>
+</ul>
+
+<h3>10–11 September 2026</h3>
+<ul>
+    <li><b>Mini:</b> the same tours in a dense interface, one line per thing, for small
+        screens and long lists.</li>
+    <li><b>Explain:</b> every figure opens into how it was worked out — what was added,
+        what was left out and why. Always on.</li>
+    <li><b>Stats</b> with a chart you can click into, by category and by person.</li>
+    <li><b>Tour settings, currencies, history</b> with restore, <b>Mark paid</b>,
+        cloning, copying a tour as JSON, and two settings: the small-debt threshold and the
+        accent colour.</li>
+    <li><b>A tour opens where it is needed:</b> on the balances while it is being settled
+        up, on the expenses otherwise.</li>
+    <li><b>Moving between screens no longer reloads the app</b> — about seven times
+        faster.</li>
+    <li><b>This help page.</b></li>
+</ul>
+
+<h3>8–9 September 2026 — the rewrite</h3>
+<ul>
+    <li><b>The same app, rewritten in Rust.</b> The arithmetic was rebuilt first and
+        checked against the old app tour by tour, to the cent; then the server, which the
+        old app could not tell from its own; then this interface.</li>
+    <li><b>One calculation everywhere.</b> The screen, the server, the text pages and
+        the explanations all use the same code, so they cannot disagree.</li>
+    <li><b>About eleven times smaller to download</b> than the old app — 360 KB instead
+        of 4 MB.</li>
+    <li><b>Works offline.</b> Edits made without a network are kept on the device and
+        sent later; if somebody else changed the tour meanwhile, both sets of changes are
+        kept rather than one refused.</li>
+    <li><b>Two people saving at once can no longer both “win”:</b> one save is refused
+        and re-applied on top of the other.</li>
+    <li><b>A plain-text version</b> at <code>/t</code> for browsers without JavaScript
+        and for very bad connections, and <b>push notifications</b>.</li>
+</ul>
+
+</details>
+</article>

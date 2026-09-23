@@ -129,6 +129,31 @@
 
         /* "Copied" and its like: the error line's shape, in the colour of things that went
            right. It clears itself after a few seconds (`ui::Brief`); an error does not. */
+        /* The change log at the foot of Help: one folded help section. The summary takes
+           the look of the section's heading, with its own marker, so it reads as
+           something that opens. */
+        .tcw-changes > summary {
+            list-style: none;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 750;
+            letter-spacing: -.2px;
+        }
+        .tcw-changes > summary::-webkit-details-marker { display: none; }
+        .tcw-changes > summary::after {
+            content: "›";
+            display: inline-block;
+            margin-left: 8px;
+            color: var(--tcn-muted);
+            transition: transform .15s;
+        }
+        .tcw-changes[open] > summary::after { transform: rotate(90deg); }
+        .tcw-changes > summary:focus-visible { outline: 2px solid var(--tcn-primary, #4f46e5); outline-offset: 4px; border-radius: 4px; }
+        .tcw-changes-lead { margin-top: 10px !important; color: var(--tcn-muted); }
+        .tcw-changes ul { margin: 0 0 6px 0; padding-left: 20px; }
+        .tcw-changes li { margin-bottom: 6px; max-width: 62ch; }
+        @media (prefers-reduced-motion: reduce) { .tcw-changes > summary::after { transition: none; } }
+
         .tcw-done {
             margin-bottom: 14px;
             padding: 10px 12px;
