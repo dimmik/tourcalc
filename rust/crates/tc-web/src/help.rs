@@ -18,5 +18,10 @@ pub fn HelpPage() -> impl IntoView {
         // Where the app kept its build date. The question it was there to answer is asked
         // properly here instead - see `crate::version`.
         <crate::version::AboutBuild />
+        // What changed and why, newest first. Folded: it is for the reader who wonders
+        // why something looks different today, not for everybody who opens Help. Kept as
+        // markup for the same reason as the page above, and added to with every change a
+        // reader could notice - see CLAUDE.md.
+        <div class="tcn-main" inner_html=include_str!("changes.html")></div>
     }
 }
