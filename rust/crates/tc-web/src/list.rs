@@ -4,6 +4,7 @@
 //! so unlike the tour page there is nothing to calculate here: what each person spent has
 //! already been worked out server-side and travels with the tour.
 
+use crate::i18n::t;
 use crate::api;
 use crate::tour::Load;
 use crate::ui::money;
@@ -31,20 +32,20 @@ pub enum Order {
 impl Order {
     pub fn label(self) -> &'static str {
         match self {
-            Order::Made => "New",
-            Order::Changed => "Touched",
-            Order::Name => "Name",
-            Order::Spent => "Spent",
+            Order::Made => t().list.order_new,
+            Order::Changed => t().list.order_touched,
+            Order::Name => t().list.order_name,
+            Order::Spent => t().list.order_spent,
         }
     }
 
     /// What each way round means for this key, said in the button's title.
     pub fn ways(self) -> (&'static str, &'static str) {
         match self {
-            Order::Made => ("newest first", "oldest first"),
-            Order::Changed => ("changed most recently first", "longest untouched first"),
-            Order::Name => ("Z to A", "A to Z"),
-            Order::Spent => ("biggest first", "smallest first"),
+            Order::Made => (t().list.newest_first, t().list.oldest_first),
+            Order::Changed => (t().list.changed_first, t().list.untouched_first),
+            Order::Name => (t().list.z_to_a, t().list.a_to_z),
+            Order::Spent => (t().list.biggest_first, t().list.smallest_first),
         }
     }
 
@@ -137,11 +138,11 @@ pub fn OrderPicker(by: RwSignal<Order>, downwards: RwSignal<bool>) -> impl IntoV
                                 class:tcn-btn-primary=move || by.get() == which
                                 title=move || {
                                     if by.get() == which && downwards.get() {
-                                        format!("{down} — click for {up}")
+                                        (t().list.click_for)(down, up)
                                     } else if by.get() == which {
-                                        format!("{up} — click for {down}")
+                                        (t().list.click_for)(up, down)
                                     } else {
-                                        format!("Order by: {down}")
+                                        (t().list.order_by)(down)
                                     }
                                 }
                                 on:click=move |_| choose(by, downwards, which)>
@@ -238,7 +239,7 @@ pub fn TourListPage() -> impl IntoView {
                     v
                 }
                 Err(e) => {
-                    trouble.set(format!("That does not look like a tour: {e}"));
+                    trouble.set((t().list.not_a_tour)(&e.to_string()));
                     return;
                 }
             }
@@ -282,12 +283,12 @@ pub fn TourListPage() -> impl IntoView {
                 .ok()
                 .and_then(|j| serde_json::from_str::<serde_json::Value>(&j).ok())
             else {
-                trouble.set("could not read that tour".into());
+                trouble.set(t().list.cannot_read_tour.into());
                 busy.set(false);
                 return;
             };
             if let Some(obj) = body.as_object_mut() {
-                obj.insert("Name".into(), format!("clone of {}", tour.name).into());
+                obj.insert("Name".into(), (t().list.clone_of)(&tour.name).into());
                 for key in ["Id", "GUID", "StateGUID"] {
                     obj.remove(key);
                 }
@@ -323,18 +324,18 @@ pub fn TourListPage() -> impl IntoView {
             let mut copy = whole;
             copy.spendings.retain(|s| s.kind != tc_core::Kind::Planned);
             let Ok(text) = copy.to_json() else {
-                trouble.set("could not write that tour out".into());
+                trouble.set(t().list.cannot_write_tour.into());
                 return;
             };
             match copy_to_clipboard(&text).await {
-                Ok(()) => done.say("Copied — the JSON is on the clipboard."),
+                Ok(()) => done.say(t().list.copied),
                 Err(e) => trouble.set(e.to_string()),
             }
         });
     });
 
     let remove = Callback::new(move |tour: Tour| {
-        let question = format!("Delete '{}' and everything in it?", tour.name);
+        let question = (t().list.delete_question)(&tour.name);
         let confirmed = web_sys::window()
             .and_then(|w| w.confirm_with_message(&question).ok())
             .unwrap_or(false);
@@ -369,22 +370,22 @@ pub fn TourListPage() -> impl IntoView {
             <div class="tcn-toolbar">
                 <div class="tcn-search">
                     <span class="tcn-search-icon">"🔎"</span>
-                    <input type="text" placeholder="Search"
+                    <input type="text" placeholder=t().list.search
                            prop:value=move || search.get()
                            on:input=move |ev| search.set(event_target_value(&ev)) />
                     <Show when=move || !search.get().is_empty()>
-                        <button type="button" class="tcn-search-clear" title="Clear"
+                        <button type="button" class="tcn-search-clear" title=t().list.clear
                                 on:click=move |_| search.set(String::new())>"✕"</button>
                     </Show>
                 </div>
                 <button type="button" class="tcn-btn tcn-btn-primary"
                         on:click=move |_| adding.update(|a| *a = !*a)>
-                    "+ New tour"
+                    {t().list.new_tour}
                 </button>
                 <label class="tcn-switchline" style="margin:0 0 0 10px">
                     <input type="checkbox" prop:checked=move || show_archived.get()
                            on:change=move |ev| show_archived.set(event_target_checked(&ev)) />
-                    "Show archived"
+                    {t().list.show_archived}
                 </label>
                 <OrderPicker by=order_by downwards=downwards />
             </div>
@@ -392,32 +393,31 @@ pub fn TourListPage() -> impl IntoView {
             <Show when=move || adding.get()>
                 <div class="tcn-form">
                     <div class="tcn-field">
-                        <div class="tcn-field-label">"Tour name"</div>
-                        <input class="tcn-input" type="text" placeholder="Alps 2026"
+                        <div class="tcn-field-label">{t().list.tour_name}</div>
+                        <input class="tcn-input" type="text" placeholder=t().list.tour_name_example
                                prop:value=move || new_name.get()
                                on:input=move |ev| new_name.set(event_target_value(&ev)) />
                     </div>
                     <div class="tcn-field">
-                        <div class="tcn-field-label">"Tour JSON (optional)"</div>
+                        <div class="tcn-field-label">{t().list.tour_json}</div>
                         <textarea class="tcn-input" rows="3"
-                                  placeholder="paste an exported tour to start from it"
+                                  placeholder=t().list.tour_json_hint
                                   prop:value=move || new_json.get()
                                   on:input=move |ev| new_json.set(event_target_value(&ev))></textarea>
                     </div>
                     <div class="tcn-field">
-                        <div class="tcn-field-label">"Access code"</div>
+                        <div class="tcn-field-label">{t().list.access_code}</div>
                         <input class="tcn-input" type="text"
-                               placeholder="only an administrator may choose one"
+                               placeholder=t().list.access_code_hint
                                prop:value=move || new_code.get()
                                on:input=move |ev| new_code.set(event_target_value(&ev)) />
                         <div class="tcn-hint">
-                            "Left empty - and for anybody but an administrator, always - the
-                             tour joins the code you are signed in with."
+                            {t().list.access_code_note}
                         </div>
                     </div>
                     <button type="button" class="tcn-btn tcn-btn-primary"
                             prop:disabled=move || busy.get() on:click=move |_| create.run(())>
-                        "Create tour"
+                        {t().list.create}
                     </button>
                 </div>
             </Show>
@@ -439,13 +439,13 @@ pub fn TourListPage() -> impl IntoView {
 
         {move || match state.get() {
             Load::Loading => {
-                view! { <div class="tcn-loading">"Loading your tours…"</div> }.into_any()
+                view! { <div class="tcn-loading">{t().list.loading}</div> }.into_any()
             }
             Load::Failed(why) => view! {
                 <div class="tcn-section">
                     <div class="tcn-errors">{why}</div>
                     <p class="tcn-hint">
-                        "Opening a tour link signs you in - ask whoever shared the tour to send it again."
+                        {t().list.link_signs_in}
                     </p>
                 </div>
             }.into_any(),
@@ -492,7 +492,7 @@ pub fn TourListPage() -> impl IntoView {
                             <div class="tcn-empty">
                                 <span class="tcn-empty-icon">"🧭"</span>
                                 <div class="tcn-empty-title">
-                                    {if needle.is_empty() { "No tours yet" } else { "Nothing matches" }}
+                                    {if needle.is_empty() { t().list.no_tours } else { t().list.nothing_matches }}
                                 </div>
                             </div>
                         </div>
@@ -501,7 +501,7 @@ pub fn TourListPage() -> impl IntoView {
                     view! {
                         <div class="tcn-section">
                             <div class="tcn-section-title">
-                                "Your tours " <span class="tcn-count">{shown.len()}</span>
+                                {t().list.your_tours} " " <span class="tcn-count">{shown.len()}</span>
                             </div>
                             <div class="tcn-tourgrid">
                                 {shown
@@ -540,10 +540,7 @@ pub fn TourListPage() -> impl IntoView {
             if orphans.is_empty() {
                 return ().into_any();
             }
-            let title = match orphans.len() {
-                1 => "Edits waiting for 1 tour that is not in your list:".to_owned(),
-                n => format!("Edits waiting for {n} tours that are not in your list:"),
-            };
+            let title = (t().list.orphans)(orphans.len());
             view! {
                 <div class="tcn-section">
                     <div class="tcn-chip tcn-chip-amber tcw-wraps">
@@ -554,7 +551,7 @@ pub fn TourListPage() -> impl IntoView {
                                 " " <a href=format!("/tour/{id}")>{name}</a>
                             })
                             .collect_view()}
-                        " — open it to send them again or discard them."
+                        {t().list.orphans_tail}
                     </div>
                 </div>
             }.into_any()
@@ -660,45 +657,43 @@ fn Row(
                 <crate::push::ListBell bells=bells tour=tour.id.as_str().to_owned() />
             </a>
             <div class="tcn-tour-meta">
-                <span>{people} " people"</span>
+                <span>{(t().list.people)(people)}</span>
                 <span>"·"</span>
                 {match state {
                     Some(Settle::Owing(_)) => view! {
                         <span class="tcn-chip tcn-chip-amber"
-                              title="Everyone can see what to pay whom">
-                            "settling up"
+                              title=t().list.settling_hint>
+                            {t().list.settling}
                         </span>
                     }.into_any(),
                     Some(Settle::Square) => view! {
                         <span class="tcn-chip tcn-chip-green"
-                              title="Everybody has paid: nothing is left to hand over">
-                            "all square"
+                              title=t().list.square_hint>
+                            {t().list.square}
                         </span>
                     }.into_any(),
                     None => ().into_any(),
                 }}
                 {archived.then(|| view! {
-                    <span class="tcn-chip" title="Hidden from the default list">"archived"</span>
+                    <span class="tcn-chip" title=t().list.archived_hint>{t().list.archived}</span>
                 })}
                 <Show when={
                     let waiting = waiting.clone();
                     move || waiting() > 0
                 }>
                     <span class="tcn-chip tcn-chip-amber"
-                          title="Saved on this device and not yet sent to the server">
+                          title=t().list.waiting_hint>
                         {let waiting = waiting.clone();
                          let id = tour.id.as_str().to_owned();
                          // Refused by the server and no longer retried: open the tour to
                          // see why and decide.
                          move || match (waiting(), crate::queue::given_up(&id)) {
-                            (1, true) => "1 not accepted".to_owned(),
-                            (n, true) => format!("{n} not accepted"),
-                            (1, false) => "1 not sent yet".to_owned(),
-                            (n, false) => format!("{n} not sent yet"),
+                            (n, true) => (t().list.not_accepted)(n),
+                            (n, false) => (t().list.not_sent)(n),
                         }}
                     </span>
                 </Show>
-                <span title="Everything spent on this tour">
+                <span title=t().list.spent_hint>
                     {money(Cents(spent))}
                     {(!currency.is_empty()).then(|| view! { "\u{a0}" {currency} })}
                 </span>
@@ -708,8 +703,8 @@ fn Row(
                         // The dot earns its keep here: two money figures side by side, and
                         // without it they read as one number in two halves.
                         <span>"·"</span>
-                        <span title="Still to be handed over between the participants">
-                            {money(Cents(left))} " to settle"
+                        <span title=t().list.left_hint>
+                            {money(Cents(left))} " " {t().list.to_settle}
                         </span>
                     }.into_any(),
                     _ => ().into_any(),
@@ -721,26 +716,26 @@ fn Row(
                             let t = for_clone.clone();
                             move |_| clone_it.run((t.clone(), false))
                         }>
-                    "Clone"
+                    {t().list.clone}
                 </button>
                 <button type="button" class="tcn-btn tcn-btn-sm"
-                        title="The same people and currencies, none of the expenses"
+                        title=t().list.clone_bare_hint
                         on:click={
                             let t = for_clone_bare.clone();
                             move |_| clone_it.run((t.clone(), true))
                         }>
-                    "Clone w/o expenses"
+                    {t().list.clone_bare}
                 </button>
                 <button type="button" class="tcn-btn tcn-btn-sm"
                         on:click={
                             let t = for_json.clone();
                             move |_| copy_json.run(t.clone())
                         }>
-                    "Copy JSON"
+                    {t().list.copy_json}
                 </button>
                 <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
                         on:click=move |_| remove.run(for_delete.clone())>
-                    "Delete"
+                    {t().list.delete}
                 </button>
             </div>
         </div>
@@ -786,7 +781,7 @@ async fn copy_to_clipboard(text: &str) -> Result<(), String> {
     if copied {
         Ok(())
     } else {
-        Err("This browser would not let the page copy it.".into())
+        Err(t().list.cannot_copy.into())
     }
 }
 
