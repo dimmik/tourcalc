@@ -3,6 +3,95 @@
 use super::*;
 
 pub const TEXTS: Texts = Texts {
+    dialogs: DialogTexts {
+        cancel: "Cancel",
+        save: "Save",
+        carried: "Carried over from what you were typing.",
+        start_blank: "Start blank",
+        edit_expense: "Edit expense",
+        new_expense: "New expense",
+        amount: "Amount",
+        what_for: "What for",
+        what_for_example: "Dinner, tickets, taxi…",
+        paid_by: "Paid by",
+        split_between: "Split between",
+        everyone: "everyone",
+        shared_by_all: |n| format!("Shared by all {n} participants, by weight."),
+        pick_who: "Pick who this expense is for.",
+        selected: |n| format!("{n} selected"),
+        clear: "clear",
+        by_weight_note: "Shared by weight. Equal shares are under More options.",
+        equally_note: "In equal shares, whatever the weights. By weight is under More options.",
+        category: "Category",
+        new_category: "+ new",
+        last_used: "Last used — tap another one if it is wrong.",
+        category_name: "Category name",
+        add: "Add",
+        date: "Date",
+        date_note: "Only the day changes; an expense keeps its place among the ones entered \
+            the same day.",
+        more_options: " More options",
+        split_chosen: "Split the chosen people",
+        split_how: "How the chosen people share it",
+        by_weight: "by weight",
+        equally: "equally",
+        split_everyone_note: "For an expense for some of the people. One for everyone is always \
+            shared by weight; this is what it goes back to if “everyone” is switched off.",
+        split_weight_note: "Each person carries a share in proportion to their weight - the \
+            usual way.",
+        split_equal_note: "Everyone chosen carries the same amount, whatever their weight.",
+        colour: "Colour",
+        reset: "reset",
+        colour_note: "Marks an unusual expense - a group tax, an unexpected fine - so it \
+            catches the eye in the list.",
+        this_expense: "This expense",
+        weight_presets: ["Full · 100", "Teen · 50", "Child · 35", "Toddler · 25"],
+        edit_person: "Edit person",
+        add_person: "Add person",
+        name: "Name",
+        who_joins: "Who is joining?",
+        share: "Share of the common expenses",
+        custom: "custom",
+        share_note: "A full share is 100. Someone on 50 pays for half as much of everything \
+            shared. A custom 0 means they pay for nothing at all.",
+        paid_for_by: "Paid for by",
+        pays_for_self: "Pays for themselves",
+        paid_for_note: "Children and partners can be settled through one person instead of \
+            paying separately.",
+        edit_tour: "Edit tour",
+        days: "Length in days",
+        days_note: "What the per-day figures on the Stats tab divide by.",
+        settling: "Settling up ",
+        settling_note: "— everyone sees the payments to make",
+        archived: "Archived ",
+        archived_note: "— hidden from the default list",
+        currencies_of: |name| format!("Currencies of {name}"),
+        main_currency: "Main currency",
+        main_currency_note: "Totals and balances are calculated in this one. It is a property \
+            of the tour — changing it affects everyone. To change only what you see, use “show \
+            in” in the header instead.",
+        rates: "Rates",
+        rates_note: "“Worth” is what one unit is worth on any scale you like — only the ratio \
+            matters. If one euro is 118 dinars, put 100 next to the dinar and 11800 next to the \
+            euro.",
+        add_currency: "add a currency…",
+        worth: "worth",
+        remove: "Remove",
+        rename_note: "Renaming keeps the amounts: expenses stay attached to the currency they \
+            were entered in, whatever you call it now. Removing one does not — those expenses \
+            would be read in the main currency.",
+        restore_question: "Restore this version? The tour stays as it is — the version is added \
+            as a separate copy.",
+        cannot_read_version: "could not read that version",
+        restored_name: |name, when, comment| format!("{name} (v {when} before {comment})"),
+        restored: "Restored as a new tour — it is in your list.",
+        got_it: "Got it",
+        versions_of: |name| format!("Versions of “{name}”"),
+        loading_versions: "Loading versions…",
+        no_versions: "No versions yet",
+        no_versions_note: "A version is kept whenever a save changes something.",
+        restore: "Restore",
+    },
     people: PeopleTexts {
         paid: "Paid",
         charged: "Charged",
