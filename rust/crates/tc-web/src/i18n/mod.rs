@@ -217,6 +217,7 @@ pub struct ShellTexts {
     pub logging_in: &'static str,
     pub log_in: &'static str,
     pub no_code: &'static str,
+    pub expired: &'static str,
 }
 
 pub struct SettingsTexts {

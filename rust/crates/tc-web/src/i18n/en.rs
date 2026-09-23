@@ -741,6 +741,8 @@ pub const TEXTS: Texts = Texts {
         log_in: "Log in",
         no_code: "No code at hand? Opening a tour link signs you in by itself — ask whoever \
             shares the tour to send it again.",
+        expired: "The login has expired. Enter the access code again — edits not sent yet are \
+            kept and go out once you are signed in.",
     },
     settings: SettingsTexts {
         title: "Settings",

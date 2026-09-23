@@ -13,9 +13,10 @@
 
 use crate::ui::{from_hsl, parse_hex, to_hsl};
 
-/// The presets, in the order the app shows them: the name, the label, and the two ends of
+/// The presets, in the order the app shows them: the name, and the two ends of
 /// the gradient the sample is drawn in. The colours are here only to paint the samples -
-/// what a preset actually means lives in the stylesheet.
+/// what a preset actually means lives in the stylesheet, and what it is called in
+/// `i18n` (`settings.accent_names`, in this order).
 pub const PRESETS: &[Preset] = &[
     Preset { id: "indigo", from: "#4f46e5", to: "#6d28d9" },
     Preset { id: "blue", from: "#2563eb", to: "#226c91" },

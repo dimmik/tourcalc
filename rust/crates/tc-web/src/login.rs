@@ -19,9 +19,7 @@ pub fn SignIn(on_done: Callback<()>) -> impl IntoView {
     // Here because a login ran out, not because nobody had signed in: say so, or a reader
     // who was reading a tour a moment ago is greeted like a stranger.
     let error = RwSignal::new(if api::take_expired() {
-        "The login has expired. Enter the access code again — edits not sent yet are kept \
-         and go out once you are signed in."
-            .to_owned()
+        t().shell.expired.to_owned()
     } else {
         String::new()
     });

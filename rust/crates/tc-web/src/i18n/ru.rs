@@ -228,7 +228,7 @@ pub const TEXTS: Texts = Texts {
         inside_families: " Внутри семей",
         balances: "Балансы",
         gets_back: "получает обратно",
-        owes_money: "должен внести",
+        owes_money: "платит",
         mark_paid_hint: "Отметить, что деньги переданы",
         mark_paid_question: |from, to, amount| format!("Записать платёж: {from} → {to}, {amount}?"),
         mark_paid: "Оплачено",
@@ -756,6 +756,8 @@ pub const TEXTS: Texts = Texts {
         log_in: "Войти",
         no_code: "Кода нет под рукой? Ссылка на тур входит сама — попросите того, кто делится \
             туром, прислать её ещё раз.",
+        expired: "Вход истёк. Введите код доступа ещё раз — неотправленные правки сохранены и \
+            уйдут, как только вы войдёте.",
     },
     settings: SettingsTexts {
         title: "Настройки",
