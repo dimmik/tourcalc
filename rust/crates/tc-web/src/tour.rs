@@ -797,11 +797,7 @@ fn TourView(
         )
     };
 
-    let unit = if tour.currencies.len() > 1 {
-        tour.currency().name.clone()
-    } else {
-        String::new()
-    };
+    let unit = crate::ui::unit(&tour);
 
     // What the app counts as spending - a payback is not an expense - worked out by the
     // same function the list's figure comes from, so the two cannot drift apart.
@@ -2230,6 +2226,7 @@ fn BalanceTab(
     let all_for_bal = all_for_summary.clone();
     let has_real = tour.spendings.iter().any(|s| s.kind == Kind::Real);
     let names_for_rows = name_by.clone();
+    let unit_for_rows = unit.clone();
 
     view! {
         <div class="tcn-section">
@@ -2257,8 +2254,8 @@ fn BalanceTab(
                                             1 => "one payment".to_owned(),
                                             n => format!("{n} payments"),
                                         },
-                                        money(threshold),
-                                        money(dust_total),
+                                        crate::ui::money_in(threshold, &unit_for_dust),
+                                        crate::ui::money_in(dust_total, &unit_for_dust),
                                         if rows.is_empty() {
                                             ""
                                         } else {
@@ -2340,6 +2337,7 @@ fn BalanceTab(
                             .iter()
                             .map(|(who_id, amount)| {
                                 let who = names_for_rows(who_id);
+                                let unit_for_bal = unit_for_rows.clone();
                                 let owes = amount.0 > 0;
                                 let shown = amount.abs();
                                 let width = (shown.0 as f64 / scale as f64 * 100.0).round();
@@ -2361,6 +2359,7 @@ fn BalanceTab(
                                                 }>
                                                     {if owes { "owes " } else { "gets " }}
                                                     {money(shown)}
+                                                    {(!unit_for_bal.is_empty()).then(|| view! { <small>"\u{a0}" {unit_for_bal.clone()}</small> })}
                                                 </crate::explain::Explain>
                                             </span>
                                         </div>

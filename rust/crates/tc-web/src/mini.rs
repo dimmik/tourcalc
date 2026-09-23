@@ -69,11 +69,7 @@ pub fn MiniTour(
         .iter()
         .map(|t| tour.convert(t.amount, &t.currency))
         .sum();
-    let unit = if tour.currencies.len() > 1 {
-        tour.currency().name.clone()
-    } else {
-        String::new()
-    };
+    let unit = crate::ui::unit(&tour);
 
     let people = tour.persons.len();
     let expenses = real.len();
@@ -90,6 +86,7 @@ pub fn MiniTour(
     let all_transfers = transfers.clone();
     let transfers_for_people = transfers.clone();
     let unit_facts = unit.clone();
+    let unit_left = unit.clone();
     let unit_expenses = unit.clone();
     let unit_stats = unit.clone();
 
@@ -137,6 +134,7 @@ pub fn MiniTour(
                     view! {
                         <span title="What the suggested payments come to">
                             "left " <b class="tcm-money is-neg">{money(left)}</b>
+                            {(!unit_left.is_empty()).then(|| format!(" {unit_left}"))}
                         </span>
                     }.into_any()
                 }}
@@ -211,6 +209,12 @@ fn MiniTab(tab: RwSignal<Tab>, mine: Tab, label: String, count: Option<usize>) -
 
 // --- balance ------------------------------------------------------------------------------
 
+/// ", in RSD" after a caption: the one place a list of bare amounts says what they are in.
+fn in_unit(tour: &Tour) -> String {
+    let unit = crate::ui::unit(tour);
+    if unit.is_empty() { String::new() } else { format!(", in {unit}") }
+}
+
 #[component]
 fn MiniBalance(
     tour: Tour,
@@ -226,6 +230,9 @@ fn MiniBalance(
     };
     let threshold = crate::settings::threshold(&tour);
     let balances = settlement_summary(&tour, &all_transfers, threshold);
+    // The columns carry no unit of their own - a row of "RSD" would be half the row - so
+    // the caption above them names it, once.
+    let in_unit = in_unit(&tour);
     let has_real = tour.spendings.iter().any(|s| s.kind == Kind::Real);
     let empty = between.is_empty();
     // The payments the screen leaves out for being too small. Named here for the same
@@ -306,7 +313,7 @@ fn MiniBalance(
                 .collect_view();
             view! {
                 <div class="tcm-caption is-band">
-                    "who pays whom " <span class="tcm-count">{between.len()}</span>
+                    "who pays whom" {in_unit.clone()} " " <span class="tcm-count">{between.len()}</span>
                     <span class="tcm-spacer"></span>
                     <span class="tcm-hint">"tap ✓ to record"</span>
                 </div>
@@ -335,7 +342,7 @@ fn MiniBalance(
             let _ = &name_for_balances;
             view! {
                 <div class="tcm-caption is-band">
-                    "balances"
+                    "balances" {in_unit.clone()}
                     <span class="tcm-spacer"></span>
                     <span class="tcm-hh">"gets"</span><span class="tcm-hh">"owes"</span>
                 </div>
@@ -391,6 +398,7 @@ fn MiniPeople(
     // differ from it are worth marking.
     let common = common_weight(&tour);
     let balances = calculate(&tour, Options::default());
+    let in_unit = in_unit(&tour);
 
     view! {
         <div class="tcm-bar">
@@ -416,7 +424,7 @@ fn MiniPeople(
         } else {
             view! {
                 <div class="tcm-caption is-band">
-                    {count} " people"
+                    {count} " people" {in_unit.clone()}
                     <span class="tcm-spacer"></span>
                     <span class="tcm-hh">"gets"</span><span class="tcm-hh">"owes"</span>
                 </div>
