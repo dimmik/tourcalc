@@ -539,8 +539,8 @@ fn App() -> impl IntoView {
                         }.into_any(),
                         Route::Unknown(path) => view! {
                             <div class="tcn-section">
-                                <div class="tcn-errors">"Nothing here: " {path}</div>
-                                <a class="tcn-btn" href="/">"Go to my tours"</a>
+                                <div class="tcn-errors">{t().queue.nothing_here} {path}</div>
+                                <a class="tcn-btn" href="/">{t().queue.go_to_tours}</a>
                             </div>
                         }.into_any(),
                     },
