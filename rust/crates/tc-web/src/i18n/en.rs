@@ -3,6 +3,90 @@
 use super::*;
 
 pub const TEXTS: Texts = Texts {
+    others: OthersTexts {
+        changed_an_expense: "somebody changed an expense",
+        gone: "This tour is not on the server any more — somebody deleted it, or this login no \
+            longer opens it. Nothing done here can be saved.",
+        my_tours: "My tours",
+        updated: |w| format!("Updated: {w}"),
+        dismiss: "Dismiss",
+        waiting_what: |w| format!("Somebody changed this tour: {w}. What you save goes on top of it."),
+        waiting: "Somebody changed this tour. What you save goes on top of it.",
+        kept_changing: |n| format!("Could not save: the tour kept changing underneath ({n} tries)."),
+    },
+    build: BuildTexts {
+        checking: "checking…",
+        latest: "latest",
+        update: "update",
+        cant_tell: "can't tell",
+        why_asking: "Asking the server which client it hands out…",
+        why_latest: "This browser is running the client the server hands out. Click to ask again.",
+        why_stale: "The server hands out a newer client than this browser is running. Click to \
+            throw away the cached copy and reload.",
+        why_unknown: "The server did not say which client it hands out. Click to ask again.",
+        built_running: |b, r| format!(" Built {b}, running since {r}."),
+        built: |b| format!(" Built {b}."),
+        not_pipeline_running: |r| format!(" Not built by the pipeline; running since {r}."),
+        newer_on_server: "A newer version is on the server",
+        update_button: "Update",
+        this_build: "This build",
+        in_browser: "In this browser",
+        client_file: |f| format!("client file {f} — a hash of the compiled client, not a commit"),
+        not_trunk: "not known — this page was not built by trunk",
+        on_server: "On the server",
+        no_answer: "the server did not answer",
+        asking: "asking…",
+        server_newer: |f| format!("client file {f} — newer than the one this browser is running, \
+            so this browser is holding an old copy"),
+        server_same: |f| format!("client file {f} — the same one, so this browser is current"),
+        server_unknown: "the client it serves is not known",
+        built_title: "Built",
+        not_by_pipeline: "not by the pipeline — this is a build from somebody's machine",
+        commit: "commit",
+        running_since: "Running since",
+        running_since_desc: " — when this container last started. If the build above is not \
+            the one you pushed, nothing here has been restarted with it yet.",
+        throw_away: "Throw away the cached copy and reload",
+        ask_again: "Ask the server again",
+    },
+    device: DeviceTexts {
+        installing: "Installing — the app will appear beside your others.",
+        install_dismissed: "Not this time. The offer stays until the page is reloaded.",
+        install_gone: "The browser has withdrawn the offer. Reload the page and try again.",
+        install_failed: "The browser would not open the install dialogue.",
+        install: "Install on this device",
+        install_desc: "Tourcalc as an app of its own: its own window with no address bar, its own \
+            icon, and everything it has already downloaded, so it opens without a network.",
+        installed_here: "Already installed — this is the installed app.",
+        installed_elsewhere: "Already on this device — open it from the home screen rather than \
+            here. A browser that has it installed stops offering to install it, which is why \
+            there is no button.",
+        by_hand_before: "On iPhone and iPad it is done from the share menu: ",
+        by_hand_menu: "Share → Add to Home Screen",
+        by_hand_after: ". Safari does not let a page ask.",
+        not_offered: "This browser is not offering it. Three reasons are possible: it does not \
+            install web apps at all; it has not decided yet, and this line follows it when it \
+            does; or the app is on this device already — a browser that has it installed stops \
+            offering, so look for Tourcalc on the home screen before looking for a bug.",
+        checked_here: "Checked here — ",
+        install_button: "Install",
+        cannot_install: "Cannot install",
+        bell_on_hint: "This device gets a push when someone changes this tour. Click to stop.",
+        bell_off_hint: "This device is not notified about this tour. Click to get a push when \
+            someone changes it.",
+        bell_checking_hint: "Finding out whether this device is notified…",
+        bell_unknown_hint: "Could not find out whether this device is notified — the server did \
+            not answer. Click to ask again.",
+        bell_refused_hint: "The browser or the server said no — click to try again",
+        bell_on: "🔔 notified",
+        bell_off: "🔕 not notified",
+        bell_checking: "⏳ checking…",
+        bell_unknown: "❔ can't tell",
+        bell_refused: "🔕 not allowed",
+        ring_on: "This device is notified when the tour changes",
+        ring_off: "This device is not notified about this tour",
+        ring_unknown: "Could not find out whether this device is notified",
+    },
     shell: ShellTexts {
         tour_list: "Tour list",
         back_to_tours: "Back to your tours",

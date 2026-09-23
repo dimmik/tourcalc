@@ -10,6 +10,7 @@
 //! or whether something in it is simply broken. So the setting says one of those three
 //! things out loud, and a button is only one of the three.
 
+use crate::i18n::t;
 use leptos::prelude::*;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -216,10 +217,10 @@ pub fn InstallSetting() -> impl IntoView {
                 mark_installed();
             }
             outcome.set(Some(match answer.as_str() {
-                "accepted" => "Installing — the app will appear beside your others.",
-                "dismissed" => "Not this time. The offer stays until the page is reloaded.",
-                "gone" => "The browser has withdrawn the offer. Reload the page and try again.",
-                _ => "The browser would not open the install dialogue.",
+                "accepted" => t().device.installing,
+                "dismissed" => t().device.install_dismissed,
+                "gone" => t().device.install_gone,
+                _ => t().device.install_failed,
             }));
             now.set(state(on_the_device.get_untracked()));
         });
@@ -228,42 +229,32 @@ pub fn InstallSetting() -> impl IntoView {
     view! {
         <div class="tcn-setrow">
             <div class="tcn-settext">
-                <div class="tcn-setname">"Install on this device"</div>
-                <div class="tcn-setdesc">
-                    "Tourcalc as an app of its own: its own window with no address bar, its
-                     own icon, and everything it has already downloaded, so it opens without
-                     a network."
-                </div>
+                <div class="tcn-setname">{t().device.install}</div>
+                <div class="tcn-setdesc">{t().device.install_desc}</div>
                 // Only until something has actually happened: after a press, what the
                 // browser answered is the news, and the standing explanation underneath it
                 // would be answering a question nobody is asking any more.
                 {move || if outcome.get().is_some() { ().into_any() } else { match now.get() {
                     State::Installed => view! {
                         <div class="tcn-hint" style="margin-top:6px">
-                            "Already installed — this is the installed app."
+                            {t().device.installed_here}
                         </div>
                     }.into_any(),
                     State::Elsewhere => view! {
                         <div class="tcn-hint" style="margin-top:6px">
-                            "Already on this device — open it from the home screen rather
-                             than here. A browser that has it installed stops offering to
-                             install it, which is why there is no button."
+                            {t().device.installed_elsewhere}
                         </div>
                     }.into_any(),
                     State::ByHand => view! {
                         <div class="tcn-hint" style="margin-top:6px">
-                            "On iPhone and iPad it is done from the share menu: "
-                            <b>"Share → Add to Home Screen"</b>
-                            ". Safari does not let a page ask."
+                            {t().device.by_hand_before}
+                            <b>{t().device.by_hand_menu}</b>
+                            {t().device.by_hand_after}
                         </div>
                     }.into_any(),
                     State::No => view! {
                         <div class="tcn-hint" style="margin-top:6px">
-                            "This browser is not offering it. Three reasons are possible:
-                             it does not install web apps at all; it has not decided yet, and
-                             this line follows it when it does; or the app is on this device
-                             already — a browser that has it installed stops offering, so
-                             look for Tourcalc on the home screen before looking for a bug."
+                            {t().device.not_offered}
                         </div>
                     }.into_any(),
                     State::Offered => ().into_any(),
@@ -275,19 +266,19 @@ pub fn InstallSetting() -> impl IntoView {
                 // wrong and a row of diagnostics is clutter.
                 <Show when=move || now.get() == State::No && !checks.get().is_empty()>
                     <div class="tcn-hint" style="margin-top:6px; opacity:.75">
-                        "Checked here — " {move || checks.get()}
+                        {t().device.checked_here} {move || checks.get()}
                     </div>
                 </Show>
             </div>
             {move || match now.get() {
                 State::Offered => view! {
                     <button type="button" class="tcn-btn tcn-btn-primary" on:click=ask>
-                        "Install"
+                        {t().device.install_button}
                     </button>
                 }.into_any(),
                 // Not an empty space: a reader who sees nothing cannot tell "this browser
                 // will not" from "the button is broken".
-                _ => view! { <span class="tcn-chip">"Cannot install"</span> }.into_any(),
+                _ => view! { <span class="tcn-chip">{t().device.cannot_install}</span> }.into_any(),
             }}
         </div>
     }

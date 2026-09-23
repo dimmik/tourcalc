@@ -154,6 +154,9 @@ pub fn en_plural(n: i64, one: &'static str, other: &'static str) -> &'static str
 
 /// Every text the interface shows, one field each. See the module note.
 pub struct Texts {
+    pub others: OthersTexts,
+    pub build: BuildTexts,
+    pub device: DeviceTexts,
     pub shell: ShellTexts,
     pub settings: SettingsTexts,
 }
@@ -216,6 +219,85 @@ pub struct SettingsTexts {
     pub explain_desc: &'static str,
     pub how_it_counts: &'static str,
     pub how_it_counts_desc: &'static str,
+}
+
+/// Installing the app, and the bell that subscribes this device to a tour.
+pub struct DeviceTexts {
+    pub installing: &'static str,
+    pub install_dismissed: &'static str,
+    pub install_gone: &'static str,
+    pub install_failed: &'static str,
+    pub install: &'static str,
+    pub install_desc: &'static str,
+    pub installed_here: &'static str,
+    pub installed_elsewhere: &'static str,
+    pub by_hand_before: &'static str,
+    pub by_hand_menu: &'static str,
+    pub by_hand_after: &'static str,
+    pub not_offered: &'static str,
+    pub checked_here: &'static str,
+    pub install_button: &'static str,
+    pub cannot_install: &'static str,
+    pub bell_on_hint: &'static str,
+    pub bell_off_hint: &'static str,
+    pub bell_checking_hint: &'static str,
+    pub bell_unknown_hint: &'static str,
+    pub bell_refused_hint: &'static str,
+    pub bell_on: &'static str,
+    pub bell_off: &'static str,
+    pub bell_checking: &'static str,
+    pub bell_unknown: &'static str,
+    pub bell_refused: &'static str,
+    pub ring_on: &'static str,
+    pub ring_off: &'static str,
+    pub ring_unknown: &'static str,
+}
+
+/// Which version is running: the mark in the bar, and the block at the foot of Help.
+pub struct BuildTexts {
+    pub checking: &'static str,
+    pub latest: &'static str,
+    pub update: &'static str,
+    pub cant_tell: &'static str,
+    pub why_asking: &'static str,
+    pub why_latest: &'static str,
+    pub why_stale: &'static str,
+    pub why_unknown: &'static str,
+    pub built_running: fn(&str, &str) -> String,
+    pub built: fn(&str) -> String,
+    pub not_pipeline_running: fn(&str) -> String,
+    pub newer_on_server: &'static str,
+    pub update_button: &'static str,
+    pub this_build: &'static str,
+    pub in_browser: &'static str,
+    pub client_file: fn(&str) -> String,
+    pub not_trunk: &'static str,
+    pub on_server: &'static str,
+    pub no_answer: &'static str,
+    pub asking: &'static str,
+    pub server_newer: fn(&str) -> String,
+    pub server_same: fn(&str) -> String,
+    pub server_unknown: &'static str,
+    pub built_title: &'static str,
+    pub not_by_pipeline: &'static str,
+    pub commit: &'static str,
+    pub running_since: &'static str,
+    pub running_since_desc: &'static str,
+    pub throw_away: &'static str,
+    pub ask_again: &'static str,
+}
+
+/// Somebody else's change arriving on an open tour. What changed is said by `tc_core::news`,
+/// in English, the same words the notification uses; only the frame around it is here.
+pub struct OthersTexts {
+    pub changed_an_expense: &'static str,
+    pub gone: &'static str,
+    pub my_tours: &'static str,
+    pub updated: fn(&str) -> String,
+    pub dismiss: &'static str,
+    pub waiting_what: fn(&str) -> String,
+    pub waiting: &'static str,
+    pub kept_changing: fn(usize) -> String,
 }
 
 #[cfg(test)]

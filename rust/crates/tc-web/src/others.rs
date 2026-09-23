@@ -22,6 +22,7 @@
 //! way to add an expense twice. It fetches, and it keeps out of the way of any save or
 //! load already in flight.
 
+use crate::i18n::t;
 use crate::api;
 use crate::queue;
 use crate::sync::Status;
@@ -314,7 +315,7 @@ impl Others {
         if text.is_none() && touched.is_empty() {
             return;
         }
-        let text = text.or_else(|| Some("somebody changed an expense".to_owned()));
+        let text = text.or_else(|| Some(t().others.changed_an_expense.to_owned()));
         self.announce(text, touched);
     }
 
@@ -361,18 +362,17 @@ pub fn OthersLine(others: Others) -> impl IntoView {
         <Show when=move || others.gone.get()>
             <div class="tcw-others" role="alert">
                 <span class="tcw-others-text">
-                    "This tour is not on the server any more — somebody deleted it, or this \
-                     login no longer opens it. Nothing done here can be saved."
+                    {t().others.gone}
                 </span>
-                <a class="tcn-btn tcn-btn-sm" href="/">"My tours"</a>
+                <a class="tcn-btn tcn-btn-sm" href="/">{t().others.my_tours}</a>
             </div>
         </Show>
         <Show when=move || others.news.get().is_some() && !others.behind.get()>
             <div class="tcw-others" role="status">
                 <span class="tcw-others-text">
-                    {move || format!("Updated: {}", others.news.get().unwrap_or_default())}
+                    {move || (t().others.updated)(&others.news.get().unwrap_or_default())}
                 </span>
-                <button type="button" class="tcw-others-close" aria-label="Dismiss"
+                <button type="button" class="tcw-others-close" aria-label=t().others.dismiss
                         on:click=move |_| others.news.set(None)>"×"</button>
             </div>
         </Show>
@@ -387,8 +387,8 @@ pub fn WaitingLine(others: Others) -> impl IntoView {
         <Show when=move || others.behind.get()>
             <div class="tcw-others-waiting" role="status">
                 {move || match others.news.get() {
-                    Some(w) => format!("Somebody changed this tour: {w}. What you save goes on top of it."),
-                    None => "Somebody changed this tour. What you save goes on top of it.".to_owned(),
+                    Some(w) => (t().others.waiting_what)(&w),
+                    None => t().others.waiting.to_owned(),
                 }}
             </div>
         </Show>
