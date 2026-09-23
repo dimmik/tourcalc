@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tourcalc · People, прототип</title>
+<link rel="stylesheet" href="newui.css">
+<link rel="stylesheet" href="app-inline.css">
+
+<style>
+  /* Прототип: только то, чего нет в стилях приложения. */
+  .tcp-open { display: none; padding: 2px 12px 12px 12px; }
+  .tcn-person.is-open > .tcp-open { display: block; }
+  .tcn-person.is-open { box-shadow: 0 0 0 2px var(--tcn-primary, #4338ca) inset; }
+  .tcp-facts { font-size: 12px; color: var(--tcn-faint, #6b7280); margin: 2px 0 10px 2px; }
+  .tcp-two { grid-template-columns: 1fr 1fr !important; }
+  .tcp-sum { margin-top: 10px; font-size: 13px; display: flex; align-items: center; gap: 8px;
+             flex-wrap: wrap; }
+  .tcp-link { border: 0; background: none; color: var(--tcn-primary, #4338ca); font: inherit;
+              cursor: pointer; padding: 0; text-decoration: underline; }
+  .tcp-hint { font-size: 11px; color: var(--tcn-faint, #6b7280); margin-top: 8px; line-height: 1.5; }
+  .tcp-count { font-size: 12px; color: var(--tcn-faint, #6b7280); margin-left: auto; }
+  .tcp-why { border-bottom: 1px dotted currentColor; cursor: help; }
+  .tcp-kids { display: none; }
+  /* каретка поворачивается вместо того, чтобы меняться на другую иконку */
+  .tcn-person-caret svg { transition: transform .15s ease; }
+  .tcn-person.is-open .tcn-person-caret svg { transform: rotate(90deg); }
+  /* место под плавающей кнопкой — чтобы она не садилась на последнюю строку */
+  .tcn-people-list { padding-bottom: 72px; }
+  .tcn-family.is-open > .tcp-kids { display: block; }
+</style>
+</head>
+<body data-tcn-accent="indigo">
+    <!--
+        What is on screen before the app is - which, until now, was nothing at all.
+        Leptos mounts into this body; everything above it is script. So a client that
+        does not start leaves a white page with no word on it and no way out but a
+        reload somebody has to think of, and on a phone that is exactly what happens:
+        the browser drops a tab that has been in the background for half an hour, comes
+        back to it, and asks for a megabyte of WebAssembly over a radio that is still
+        asleep. The fetch fails, nothing mounts, and the page is blank for good.
+
+        The app removes this the moment it is up (see `tcw_started` in main.rs).
+    -->
+    
+
+    <script>
+        // Making sure the page points at its manifest, because it turns out that cannot be
+        // taken for granted. On a reader's phone the tag was simply not in the document -
+        // the server sends it, the same check from elsewhere finds it, the manifest file
+        // itself downloads perfectly well from that very phone - so something on the device
+        // takes it out: a content blocker, a filtering VPN, a privacy app. Whatever it is,
+        // a browser only reads a manifest the page points at, so without the tag the app
+        // cannot be installed and nothing says why.
+        //
+        // Putting it back costs nothing where it was never taken away. Checked three times
+        // rather than watched continuously: at parse, when the document is ready and when
+        // everything has loaded, which is where anything that edits the page has done its
+        // work - and three fixed moments cannot turn into a fight with it.
+        (function () {
+            const ensure = () => {
+                if (document.querySelector('link[rel=manifest]')) return;
+                const link = document.createElement('link');
+                link.rel = 'manifest';
+                link.href = '/manifest.webmanifest';
+                document.head.appendChild(link);
+            };
+            ensure();
+            document.addEventListener('DOMContentLoaded', ensure);
+            window.addEventListener('load', ensure);
+        })();
+
+        // Catching the browser's offer to install the app, which has to happen here rather
+        // than in the app: the event fires once, early, and is gone - usually before a
+        // megabyte of wasm has finished compiling. Held until somebody asks for it in
+        // Settings, which is the only place that offers it.
+        window.tcwInstall = null;
+        window.addEventListener('beforeinstallprompt', (event) => {
+            // Without this the browser puts its own bar on the page, which is its way of
+            // asking and not ours.
+            event.preventDefault();
+            window.tcwInstall = event;
+        });
+        // And the browser says when it is done - which may be from its own menu, without
+        // this page being asked at all. The tab it happened in is still a tab, so nothing
+        // else would notice.
+        window.tcwInstalled = false;
+        window.addEventListener('appinstalled', () => {
+            window.tcwInstall = null;
+            window.tcwInstalled = true;
+        });
+
+        // Registration is three lines of JavaScript and there is no reason to route it
+        // through wasm. It is deliberately not awaited: the app must start whether or not
+        // the browser supports service workers.
+        // Noticing that the app never started, and saying so.
+        //
+        // Three ways to find out, because they fail at different moments: the module
+        // itself refusing to load, the promise inside it rejecting, and - the catch-all
+        // for everything unforeseen - it simply not being up after nine seconds. Only
+        // the first two are quick; the timer is there so that no failure ends as a
+        // white page.
+        (function () {
+            const boot = document.getElementById('tcw-boot');
+            const why = document.getElementById('tcw-boot-why');
+            const again = document.getElementById('tcw-boot-again');
+            const up = () => window.tcwStarted === true;
+            let told = false;
+
+            // One reload of its own before it asks for one. A cold start that did not
+            // finish is usually a fetch that hung on a radio still waking up, and the
+            // second attempt has the service worker's copy to answer with - which is
+            // exactly what the reader would have got by pressing the button, a minute
+            // later and having been told the app is broken. Once only, remembered for
+            // this tab: an app that cannot start must not reload itself for ever.
+            const RETRIED = 'tcwRetried';
+            let tried = false;
+            try { tried = sessionStorage.getItem(RETRIED) === '1'; } catch (e) {}
+
+            const tell = () => {
+                if (up() || told || !boot) return;
+                told = true;
+                if (!tried) {
+                    try { sessionStorage.setItem(RETRIED, '1'); } catch (e) {}
+                    why.textContent = 'Still starting — trying once more…';
+                    location.reload();
+                    return;
+                }
+                why.textContent = 'Tourcalc did not start. It may have been asked for while ' +
+                    'this device had no connection.';
+                again.hidden = false;
+            };
+
+            again.addEventListener('click', () => location.reload());
+            setTimeout(tell, 9000);
+            // A script that fails to load reports it on the element, which only a
+            // listener in the capture phase sees.
+            window.addEventListener('error', (event) => {
+                if (event.target && event.target.tagName === 'SCRIPT') tell();
+            }, true);
+            window.addEventListener('unhandledrejection', tell);
+
+            // And the one that fixes the case above by itself: coming back to a tab the
+            // browser emptied while we were away. If the app is not up by the time the
+            // page is looked at again, start it over - once a minute at the most, so a
+            // client that genuinely cannot start does not sit there reloading itself.
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState !== 'visible' || up()) return;
+                try {
+                    const last = Number(sessionStorage.getItem('tcw-reboot') || 0);
+                    if (Date.now() - last < 60000) return;
+                    sessionStorage.setItem('tcw-reboot', String(Date.now()));
+                } catch (e) { /* a browser with no session storage still gets one go */ }
+                location.reload();
+            });
+        })();
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
+
+
+<div class="tcn-shell"><header class="tcn-topbar"><a class="tcn-brand" href="/" title="Tour list">🧭</a><button class="tcw-vmark is-latest" type="button" title="This browser is running the client the server hands out. Click to ask again. Built 22.09.2026 11:00, running since 22.09.2026 13:31." aria-label="This browser is running the client the server hands out. Click to ask again. Built 22.09.2026 11:00, running since 22.09.2026 13:31."><span class="tcw-vmark-dot"></span><span class="tcw-vmark-word">22.09 11:00</span></button><a class="tcn-topbar-title" href="/tour/hs3huvy" title="Поход Урал Август 2021">Поход Урал Август 2021</a><button class="tcn-iconbtn tcw-menu-btn" type="button" title="Menu" aria-label="Menu" aria-expanded="false"><svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1"></circle>
+               <circle cx="12" cy="12" r="1"></circle>
+               <circle cx="19" cy="12" r="1"></circle><!----></svg></button><!----><!----><div class="tcn-topbar-actions"><span class="tcn-uiswitch" title="Switch the interface"><button class="tcn-uiswitch-opt is-active" type="button" title="Full interface - the roomy view">Full</button><button class="tcn-uiswitch-opt" type="button" title="Mini interface - one line per thing, for a small screen or a slow device">Mini</button></span><a class="tcn-iconbtn" href="/help" title="What everything here means" aria-label="Help"><svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"></circle>
+               <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"></path>
+               <line x1="12" y1="17" x2="12.01" y2="17"></line><!----></svg></a><a class="tcn-iconbtn" href="/settings" title="Settings" aria-label="Settings"><svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"></circle>
+               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path><!----></svg></a><button class="tcn-iconbtn" type="button" title="Log out" aria-label="Log out"><svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+               <polyline points="16 17 21 12 16 7"></polyline>
+               <line x1="21" y1="12" x2="9" y2="12"></line><!----></svg></button></div></header><!----><!----><!----><!----><main class="tcn-main"><!----><!----><!----><!----><div class="tcn-hero"><div class="tcn-hero-top"><div class="tcn-hero-name">Поход Урал Август 2021</div><button class="tcn-iconbtn" type="button" title="Edit the tour" aria-label="Edit the tour"><svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path><!----></svg></button><button class="tcn-iconbtn" type="button" title="Reload from the server" aria-label="Reload from the server"><span><svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="23 4 23 10 17 10"></polyline>
+               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path><!----></svg></span></button></div><!----><div class="tcn-hero-sub"><span title="22.09.2026 13:32"><span class="tcn-refresh-note">from server · just now</span></span><span>·</span><button class="tcn-hero-chip" type="button" title="Edit the currencies of this tour"><svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"></circle>
+               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path><!----></svg> currencies</button><span>·</span><button class="tcn-hero-link" type="button" title="Copy a link that opens this tour">share link</button><span>·</span><span class="tcn-legacy-btn"><button class="tcn-hero-link" type="button">versions</button></span><button class="tcn-bell" type="button" title="This device is not notified about this tour. Click to get a push when someone changes it.">🔕 not notified</button></div><!----><div class="tcn-hero-metrics"><div class="tcn-metric"><div class="tcn-metric-label">Total spent</div><div class="tcn-metric-value"><button class="tcn-explain " type="button" title="Where does this come from?">366 330<!----></button></div></div><div class="tcn-metric"><div class="tcn-metric-label">People</div><div class="tcn-metric-value"><button class="tcn-explain " type="button" title="Where does this come from?">10<!----></button></div></div><div class="tcn-metric"><div class="tcn-metric-label">Expenses</div><div class="tcn-metric-value"><button class="tcn-explain " type="button" title="Where does this come from?">67<!----></button></div></div><div class="tcn-metric"><div class="tcn-metric-label">Left to settle</div><div class="tcn-metric-value"><button class="tcn-explain " type="button" title="Where does this come from?">31 788<!----></button></div></div></div></div><!----><!----><!----><!----><!----><!----><!----><nav class="tcn-tabs" role="tablist" aria-label="Tour sections"><button class="tcn-tab" type="button" role="tab" aria-selected="false">Balance <span class="tcn-tab-badge">5</span></button><button class="tcn-tab is-active" type="button" role="tab" aria-selected="true">People <span class="tcn-tab-badge">10</span></button><button class="tcn-tab" type="button" role="tab" aria-selected="false">Expenses <span class="tcn-tab-badge">67</span></button><button class="tcn-tab" type="button" role="tab" aria-selected="false">Stats<!----></button></nav><!----><!---->
+
+<div class="tcn-section">
+  <div class="tcn-toolbar">
+    <button type="button" class="tcn-btn tcn-btn-primary">+ Add person</button>
+    <div class="tcn-search"><span class="tcn-search-icon">🔎</span>
+      <input type="text" placeholder="Find a person"></div>
+    <button type="button" class="tcn-btn tcn-btn-sm">Expand all</button>
+    <span class="tcp-count">10 people · total weight <span class="tcp-why">890</span></span>
+  </div>
+</div>
+<div class="tcn-section"><div class="tcn-list tcn-people-list">
+<div class="tcn-family">
+<div class="tcn-person is-compact" data-who="Андрей">
+  <div class="tcn-person-row">
+    <button class="tcn-person-open" type="button" aria-expanded="false">
+      <span style="background:linear-gradient(135deg, hsl(282 62% 52%), hsl(310 66% 42%))" class="tcn-avatar tcn-avatar-sm">АН</span>
+      <span class="tcn-person-id">
+        <span class="tcn-person-name">Андрей</span>
+        
+      </span>
+      <span class="tcn-chip tcn-chip-green">gets 5 057</span>
+      <span class="tcn-person-caret">
+        <svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    </button>
+  </div>
+  <div class="tcp-open">
+    <div class="tcp-facts">weight <b>100</b></div>
+    <div class="tcn-person-stats tcp-two">
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Paid</span>
+        <button type="button" class="tcn-statbtn is-paid">46 108</button>
+      </div>
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Charged</span>
+        <button type="button" class="tcn-statbtn">41 053</button>
+      </div>
+    </div>
+    <div class="tcp-sum">
+      Difference — <b>gets 5 057</b>
+      <button type="button" class="tcp-link">itemised ›</button>
+    </div>
+    <div class="tcp-hint">
+      <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost.
+      Tap a figure for the itemised list.
+    </div>
+    <div class="tcn-person-actions">
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary">💸 Spend</button>
+      <button type="button" class="tcn-btn tcn-btn-sm">Edit</button>
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger">Delete</button>
+    </div>
+  </div>
+</div></div><div class="tcn-family">
+<div class="tcn-person is-compact" data-who="Дима А.">
+  <div class="tcn-person-row">
+    <button class="tcn-person-open" type="button" aria-expanded="false">
+      <span style="background:linear-gradient(135deg, hsl(253 62% 52%), hsl(281 66% 42%))" class="tcn-avatar tcn-avatar-sm">ДА</span>
+      <span class="tcn-person-id">
+        <span class="tcn-person-name">Дима А.</span>
+        
+      </span>
+      <span class="tcn-chip tcn-chip-green">gets 904</span>
+      <span class="tcn-person-caret">
+        <svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    </button>
+  </div>
+  <div class="tcp-open">
+    <div class="tcp-facts">weight <b>100</b></div>
+    <div class="tcn-person-stats tcp-two">
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Paid</span>
+        <button type="button" class="tcn-statbtn is-paid">41 972</button>
+      </div>
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Charged</span>
+        <button type="button" class="tcn-statbtn">41 053</button>
+      </div>
+    </div>
+    <div class="tcp-sum">
+      Difference — <b>gets 904</b>
+      <button type="button" class="tcp-link">itemised ›</button>
+    </div>
+    <div class="tcp-hint">
+      <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost.
+      Tap a figure for the itemised list.
+    </div>
+    <div class="tcn-person-actions">
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary">💸 Spend</button>
+      <button type="button" class="tcn-btn tcn-btn-sm">Edit</button>
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger">Delete</button>
+    </div>
+  </div>
+</div></div><div class="tcn-family">
+<div class="tcn-person is-compact" data-who="Дима Т.">
+  <div class="tcn-person-row">
+    <button class="tcn-person-open" type="button" aria-expanded="false">
+      <span style="background:linear-gradient(135deg, hsl(91 62% 52%), hsl(119 66% 42%))" class="tcn-avatar tcn-avatar-sm">ДТ</span>
+      <span class="tcn-person-id">
+        <span class="tcn-person-name">Дима Т.</span>
+        
+      </span>
+      <span class="tcn-chip tcn-chip-red">owes 3 401</span>
+      <span class="tcn-person-caret">
+        <svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    </button>
+  </div>
+  <div class="tcp-open">
+    <div class="tcp-facts">weight <b>100</b></div>
+    <div class="tcn-person-stats tcp-two">
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Paid</span>
+        <button type="button" class="tcn-statbtn is-paid">37 650</button>
+      </div>
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Charged</span>
+        <button type="button" class="tcn-statbtn">41 053</button>
+      </div>
+    </div>
+    <div class="tcp-sum">
+      Difference — <b>owes 3 401</b>
+      <button type="button" class="tcp-link">itemised ›</button>
+    </div>
+    <div class="tcp-hint">
+      <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost.
+      Tap a figure for the itemised list.
+    </div>
+    <div class="tcn-person-actions">
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary">💸 Spend</button>
+      <button type="button" class="tcn-btn tcn-btn-sm">Edit</button>
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger">Delete</button>
+    </div>
+  </div>
+</div></div><div class="tcn-family">
+<div class="tcn-person is-compact" data-who="Женя К.">
+  <div class="tcn-person-row">
+    <button class="tcn-person-open" type="button" aria-expanded="false">
+      <span style="background:linear-gradient(135deg, hsl(354 62% 52%), hsl(22 66% 42%))" class="tcn-avatar tcn-avatar-sm">ЖК</span>
+      <span class="tcn-person-id">
+        <span class="tcn-person-name">Женя К.</span>
+        
+      </span>
+      <span class="tcn-chip tcn-chip-red">owes 28 387</span>
+      <span class="tcn-person-caret">
+        <svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    </button>
+  </div>
+  <div class="tcp-open">
+    <div class="tcp-facts">weight <b>100</b></div>
+    <div class="tcn-person-stats tcp-two">
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Paid</span>
+        <button type="button" class="tcn-statbtn is-paid">12 714</button>
+      </div>
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Charged</span>
+        <button type="button" class="tcn-statbtn">41 106</button>
+      </div>
+    </div>
+    <div class="tcp-sum">
+      Difference — <b>owes 28 387</b>
+      <button type="button" class="tcp-link">itemised ›</button>
+    </div>
+    <div class="tcp-hint">
+      <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost.
+      Tap a figure for the itemised list.
+    </div>
+    <div class="tcn-person-actions">
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary">💸 Spend</button>
+      <button type="button" class="tcn-btn tcn-btn-sm">Edit</button>
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger">Delete</button>
+    </div>
+  </div>
+</div></div><div class="tcn-family">
+<div class="tcn-person is-compact" data-who="Паша">
+  <div class="tcn-person-row">
+    <button class="tcn-person-open" type="button" aria-expanded="false">
+      <span style="background:linear-gradient(135deg, hsl(322 62% 52%), hsl(350 66% 42%))" class="tcn-avatar tcn-avatar-sm">ПА</span>
+      <span class="tcn-person-id">
+        <span class="tcn-person-name">Паша</span>
+        
+      </span>
+      <span class="tcn-chip tcn-chip-green">gets 15 628</span>
+      <span class="tcn-person-caret">
+        <svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    </button>
+  </div>
+  <div class="tcp-open">
+    <div class="tcp-facts">weight <b>100</b></div>
+    <div class="tcn-person-stats tcp-two">
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Paid</span>
+        <button type="button" class="tcn-statbtn is-paid">95 904</button>
+      </div>
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Charged</span>
+        <button type="button" class="tcn-statbtn">80 278</button>
+      </div>
+    </div>
+    <div class="tcp-sum">
+      Difference — <b>gets 15 628</b>
+      <button type="button" class="tcp-link">itemised ›</button>
+    </div>
+    <div class="tcp-hint">
+      <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost.
+      Tap a figure for the itemised list.
+    </div>
+    <div class="tcn-person-actions">
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary">💸 Spend</button>
+      <button type="button" class="tcn-btn tcn-btn-sm">Edit</button>
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger">Delete</button>
+    </div>
+  </div>
+</div></div>
+<div class="tcn-family has-kids">
+  
+<div class="tcn-person is-compact" data-who="Саша О.">
+  <div class="tcn-person-row">
+    <button class="tcn-person-open" type="button" aria-expanded="false">
+      <span style="background:linear-gradient(135deg, hsl(184 62% 52%), hsl(212 66% 42%))" class="tcn-avatar tcn-avatar-sm">СО</span>
+      <span class="tcn-person-id">
+        <span class="tcn-person-name">Саша О.</span>
+        <span class="tcn-chip tcn-chip-kids" title="Pays for 3, 290 of weight between them">👥3 ×290</span>
+      </span>
+      <span class="tcn-chip">settled</span>
+      <span class="tcn-person-caret">
+        <svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    </button>
+  </div>
+  <div class="tcp-open">
+    <div class="tcp-facts">pays for <b>3</b> · family weight <b>290</b> · weight <b>100</b></div>
+    <div class="tcn-person-stats tcp-two">
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Paid</span>
+        <button type="button" class="tcn-statbtn is-paid">90 580</button>
+      </div>
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Charged</span>
+        <button type="button" class="tcn-statbtn">90 582</button>
+      </div>
+    </div>
+    <div class="tcp-sum">
+      Difference — <b>settled</b>
+      <button type="button" class="tcp-link">itemised ›</button>
+    </div>
+    <div class="tcp-hint">
+      <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost.
+      Tap a figure for the itemised list.
+    </div>
+    <div class="tcn-person-actions">
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary">💸 Spend</button>
+      <button type="button" class="tcn-btn tcn-btn-sm">Edit</button>
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger">Delete</button>
+    </div>
+  </div>
+</div>
+  <button class="tcn-familybar" type="button" aria-expanded="false">
+    <span><svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
+    <span class="tcn-familybar-names">Валечка, Игоряша, Олежка</span>
+    <span class="tcn-familybar-note">paid for by Саша О.</span>
+  </button>
+  <div class="tcn-family-kids tcp-kids">
+<div class="tcn-person is-child is-compact" data-who="Валечка">
+  <div class="tcn-person-row">
+    <button class="tcn-person-open" type="button" aria-expanded="false">
+      <span style="background:linear-gradient(135deg, hsl(52 62% 52%), hsl(80 66% 42%))" class="tcn-avatar tcn-avatar-sm">ВА</span>
+      <span class="tcn-person-id">
+        <span class="tcn-person-name">Валечка</span>
+        
+      </span>
+      <span class="tcn-chip">settled</span>
+      <span class="tcn-person-caret">
+        <svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    </button>
+  </div>
+  <div class="tcp-open">
+    <div class="tcp-facts">paid for by <b>Саша О.</b> · weight <b>100</b></div>
+    <div class="tcn-person-stats tcp-two">
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Paid</span>
+        <button type="button" class="tcn-statbtn is-paid">40 536</button>
+      </div>
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Charged</span>
+        <button type="button" class="tcn-statbtn">40 536</button>
+      </div>
+    </div>
+    <div class="tcp-sum">
+      Difference — <b>settled</b>
+      <button type="button" class="tcp-link">itemised ›</button>
+    </div>
+    <div class="tcp-hint">
+      <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost.
+      Tap a figure for the itemised list.
+    </div>
+    <div class="tcn-person-actions">
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary">💸 Spend</button>
+      <button type="button" class="tcn-btn tcn-btn-sm">Edit</button>
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger">Delete</button>
+    </div>
+  </div>
+</div>
+<div class="tcn-person is-child is-compact" data-who="Игоряша">
+  <div class="tcn-person-row">
+    <button class="tcn-person-open" type="button" aria-expanded="false">
+      <span style="background:linear-gradient(135deg, hsl(263 62% 52%), hsl(291 66% 42%))" class="tcn-avatar tcn-avatar-sm">ИГ</span>
+      <span class="tcn-person-id">
+        <span class="tcn-person-name">Игоряша</span>
+        <span class="tcn-person-meta" title="Weight 30">×30</span>
+      </span>
+      <span class="tcn-chip">settled</span>
+      <span class="tcn-person-caret">
+        <svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    </button>
+  </div>
+  <div class="tcp-open">
+    <div class="tcp-facts">paid for by <b>Саша О.</b> · weight <b>30</b></div>
+    <div class="tcn-person-stats tcp-two">
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Paid</span>
+        <button type="button" class="tcn-statbtn is-paid">11 650</button>
+      </div>
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Charged</span>
+        <button type="button" class="tcn-statbtn">11 650</button>
+      </div>
+    </div>
+    <div class="tcp-sum">
+      Difference — <b>settled</b>
+      <button type="button" class="tcp-link">itemised ›</button>
+    </div>
+    <div class="tcp-hint">
+      <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost.
+      Tap a figure for the itemised list.
+    </div>
+    <div class="tcn-person-actions">
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary">💸 Spend</button>
+      <button type="button" class="tcn-btn tcn-btn-sm">Edit</button>
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger">Delete</button>
+    </div>
+  </div>
+</div>
+<div class="tcn-person is-child is-compact" data-who="Олежка">
+  <div class="tcn-person-row">
+    <button class="tcn-person-open" type="button" aria-expanded="false">
+      <span style="background:linear-gradient(135deg, hsl(43 62% 52%), hsl(71 66% 42%))" class="tcn-avatar tcn-avatar-sm">ОЛ</span>
+      <span class="tcn-person-id">
+        <span class="tcn-person-name">Олежка</span>
+        <span class="tcn-person-meta" title="Weight 60">×60</span>
+      </span>
+      <span class="tcn-chip">settled</span>
+      <span class="tcn-person-caret">
+        <svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    </button>
+  </div>
+  <div class="tcp-open">
+    <div class="tcp-facts">paid for by <b>Саша О.</b> · weight <b>60</b></div>
+    <div class="tcn-person-stats tcp-two">
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Paid</span>
+        <button type="button" class="tcn-statbtn is-paid">23 300</button>
+      </div>
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Charged</span>
+        <button type="button" class="tcn-statbtn">23 300</button>
+      </div>
+    </div>
+    <div class="tcp-sum">
+      Difference — <b>settled</b>
+      <button type="button" class="tcp-link">itemised ›</button>
+    </div>
+    <div class="tcp-hint">
+      <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost.
+      Tap a figure for the itemised list.
+    </div>
+    <div class="tcn-person-actions">
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary">💸 Spend</button>
+      <button type="button" class="tcn-btn tcn-btn-sm">Edit</button>
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger">Delete</button>
+    </div>
+  </div>
+</div></div>
+</div><div class="tcn-family">
+<div class="tcn-person is-compact" data-who="Хомяк">
+  <div class="tcn-person-row">
+    <button class="tcn-person-open" type="button" aria-expanded="false">
+      <span style="background:linear-gradient(135deg, hsl(333 62% 52%), hsl(1 66% 42%))" class="tcn-avatar tcn-avatar-sm">ХО</span>
+      <span class="tcn-person-id">
+        <span class="tcn-person-name">Хомяк</span>
+        
+      </span>
+      <span class="tcn-chip tcn-chip-green">gets 10 199</span>
+      <span class="tcn-person-caret">
+        <svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    </button>
+  </div>
+  <div class="tcp-open">
+    <div class="tcp-facts">weight <b>100</b></div>
+    <div class="tcn-person-stats tcp-two">
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Paid</span>
+        <button type="button" class="tcn-statbtn is-paid">52 350</button>
+      </div>
+      <div class="tcn-stat">
+        <span class="tcn-stat-label">Charged</span>
+        <button type="button" class="tcn-statbtn">42 153</button>
+      </div>
+    </div>
+    <div class="tcp-sum">
+      Difference — <b>gets 10 199</b>
+      <button type="button" class="tcp-link">itemised ›</button>
+    </div>
+    <div class="tcp-hint">
+      <b>Paid</b> — what they put in · <b>Charged</b> — what their part of the spending cost.
+      Tap a figure for the itemised list.
+    </div>
+    <div class="tcn-person-actions">
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary">💸 Spend</button>
+      <button type="button" class="tcn-btn tcn-btn-sm">Edit</button>
+      <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger">Delete</button>
+    </div>
+  </div>
+</div></div>
+</div></div>
+<button type="button" class="tcn-btn tcn-btn-primary tcn-fab">+ Spend</button>
+
+<script>
+  document.addEventListener('click', (e) => {
+    const open = e.target.closest('.tcn-person-open');
+    if (open) {
+      const p = open.closest('.tcn-person');
+      p.classList.toggle('is-open');
+      open.setAttribute('aria-expanded', p.classList.contains('is-open'));
+      return;
+    }
+    const bar = e.target.closest('.tcn-familybar');
+    if (bar) {
+      const f = bar.closest('.tcn-family');
+      f.classList.toggle('is-open');
+      bar.setAttribute('aria-expanded', f.classList.contains('is-open'));
+    }
+  });
+</script>
+</body></html>

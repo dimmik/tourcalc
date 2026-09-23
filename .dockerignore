@@ -13,3 +13,7 @@ rust/crates/*/dist/
 # a full rebuild.
 rust/README.md
 rust/GUIDE.md
+
+# Interface sketches kept so they are not lost between machines. Nothing builds them, and the
+# .NET image copies the whole context: without this, touching a prototype would rebuild it.
+prototypes/
