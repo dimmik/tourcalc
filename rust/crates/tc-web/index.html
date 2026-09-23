@@ -127,6 +127,17 @@
             display: none;
         }
 
+        /* "Copied" and its like: the error line's shape, in the colour of things that went
+           right. It clears itself after a few seconds (`ui::Brief`); an error does not. */
+        .tcw-done {
+            margin-bottom: 14px;
+            padding: 10px 12px;
+            border-radius: var(--tcn-radius-sm, 8px);
+            background: var(--tcn-green-soft);
+            color: var(--tcn-green);
+            font-size: 13px;
+        }
+
         /* An expense unfolds in place to show its details: the row wraps, and the details
            take a line of their own under it. */
         .tcw-unfold { cursor: pointer; border-radius: 8px; }

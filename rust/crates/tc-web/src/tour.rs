@@ -275,7 +275,7 @@ fn ShareLink(tour: Tour) -> impl IntoView {
         .and_then(|(_, v)| v.as_str())
         .unwrap_or("")
         .to_owned();
-    let said = RwSignal::new(false);
+    let said = crate::ui::Brief::new();
 
     let href = format!("/goto/{}/{}", code, tour.id);
 
@@ -288,9 +288,9 @@ fn ShareLink(tour: Tour) -> impl IntoView {
                         .map(|o| format!("{o}{href}"))
                         .unwrap_or_else(|| href.clone());
                     copy_to_clipboard(&full);
-                    said.set(true);
+                    said.say("link copied");
                 }>
-            {move || if said.get() { "link copied" } else { "share link" }}
+            {move || if said.is_on() { "link copied" } else { "share link" }}
         </button>
     }
 }
