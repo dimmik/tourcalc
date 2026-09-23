@@ -12,6 +12,7 @@
 //! and rewriting them from a fresh reading of the same code would only add a second opinion
 //! to keep in step with the first.
 
+use crate::i18n::t;
 use crate::icon::Icon;
 use crate::ui::money;
 use leptos::prelude::*;
@@ -124,7 +125,7 @@ pub fn Explain(
 
     view! {
         <button type="button" class=format!("tcn-explain {class}")
-                title="Where does this come from?"
+                title=t().explain.where_from
                 on:click=move |ev| {
                     // The number may sit inside a row that opens on click; explaining it is
                     // not asking for that.
@@ -203,7 +204,7 @@ pub fn ExplainSheet(open: Open) -> impl IntoView {
                     <div class="tcn-modal-card" on:click=|ev| ev.stop_propagation()>
                         <div class="tcn-sheet-head">
                             <div class="tcn-sheet-title">{e.title.clone()}</div>
-                            <button type="button" class="tcn-sheet-x" title="Close"
+                            <button type="button" class="tcn-sheet-x" title=t().explain.close
                                     on:click=move |_| open.set(None)>
                                 <Icon name="close" />
                             </button>
@@ -214,7 +215,7 @@ pub fn ExplainSheet(open: Open) -> impl IntoView {
                         <div class="tcn-sheet-foot">
                             <span style="flex:1 1 auto"></span>
                             <button type="button" class="tcn-btn tcn-btn-primary"
-                                    on:click=move |_| open.set(None)>"Got it"</button>
+                                    on:click=move |_| open.set(None)>{t().explain.got_it}</button>
                         </div>
                     </div>
                 </div>
@@ -233,11 +234,7 @@ pub fn percent(part: Cents, whole: Cents) -> String {
 
 /// "1 entry" / "7 entries" - the app counts in words where a bare number would read oddly.
 pub fn entries(n: usize) -> String {
-    if n == 1 {
-        "1 entry".to_owned()
-    } else {
-        format!("{n} entries")
-    }
+    (t().explain.entries)(n)
 }
 
 // --- what each figure in the app opens into ------------------------------------------------
@@ -265,7 +262,7 @@ fn with_unit(amount: Cents, tour: &Tour) -> String {
 fn name_of(tour: &Tour, id: &PersonId) -> String {
     tour.person(id)
         .map(|p| p.name.clone())
-        .unwrap_or_else(|| "n/a".to_owned())
+        .unwrap_or_else(|| t().explain.unknown_person.to_owned())
 }
 
 /// What counts as spending; see `tc_core::is_an_expense`, which is where the rule lives.
@@ -299,19 +296,12 @@ pub fn total_spent(tour: &Tour) -> Explanation {
     }
     by_category.sort_by_key(|(_, sum)| -sum.0);
 
-    let mut note = "Adds up every expense that has a category and is not a draft.".to_owned();
+    let mut note = t().explain.total_note.to_owned();
     if skipped > 0 {
-        note.push_str(&format!(
-            " {} left out — paybacks and drafts do not count as spending.",
-            if skipped == 1 {
-                "1 entry is".to_owned()
-            } else {
-                format!("{skipped} entries are")
-            }
-        ));
+        note.push_str(&(t().explain.skipped)(skipped));
     }
 
-    Explanation::new("Total spent")
+    Explanation::new(t().explain.total_spent)
         .headline(with_unit(total, tour))
         .facts(
             by_category
@@ -332,7 +322,7 @@ pub fn people(tour: &Tour) -> Explanation {
             let note = p
                 .parent
                 .as_ref()
-                .map(|id| format!("· paid for by {}", name_of(tour, id)))
+                .map(|id| (t().explain.paid_for_by)(&name_of(tour, id)))
                 .unwrap_or_default();
             let share = if total_weight == 0 {
                 0
@@ -350,14 +340,10 @@ pub fn people(tour: &Tour) -> Explanation {
     } else {
         100 * 100 / total_weight
     };
-    Explanation::new("People in this tour")
-        .headline(format!("{} people", tour.persons.len()))
+    Explanation::new(t().explain.people_title)
+        .headline((t().explain.people_count)(tour.persons.len()))
         .facts(facts)
-        .note(format!(
-            "Weights decide how a shared expense is split: total weight here is \
-             {total_weight}, so someone on 100 carries {one_share}% of anything shared by \
-             everyone."
-        ))
+        .note((t().explain.weights_note)(total_weight, one_share))
 }
 
 /// Recorded expenses: how many of what, and the span they cover.
@@ -382,27 +368,27 @@ pub fn expenses(tour: &Tour) -> Explanation {
         .count();
 
     let mut facts = vec![
-        Fact::new("Counted as spending", counted.to_string()),
-        Fact::new("Drafts", drafts.to_string()),
-        Fact::new("Paybacks (X …)", paybacks.to_string()),
-        Fact::new("Inside families", family.to_string()),
+        Fact::new(t().explain.counted, counted.to_string()),
+        Fact::new(t().explain.drafts, drafts.to_string()),
+        Fact::new(t().explain.paybacks, paybacks.to_string()),
+        Fact::new(t().explain.inside_families, family.to_string()),
     ];
 
     if !real.is_empty() {
         let mut days: Vec<&str> = real.iter().filter_map(|s| s.day()).collect();
         days.sort();
         if let (Some(first), Some(last)) = (days.first(), days.last()) {
-            facts.push(Fact::new("First", (*first).to_owned()));
-            facts.push(Fact::new("Last", (*last).to_owned()));
+            facts.push(Fact::new(t().explain.first, (*first).to_owned()));
+            facts.push(Fact::new(t().explain.last, (*last).to_owned()));
         }
         let sum: Cents = real.iter().map(|s| tour.amount_in_current(s)).sum();
         facts.push(Fact::money(
-            "Average entry",
+            t().explain.average,
             Cents(sum.0 / real.len() as i64),
         ));
     }
 
-    Explanation::new("Recorded expenses")
+    Explanation::new(t().explain.recorded)
         .headline(entries(real.len()))
         .facts(facts)
 }
@@ -415,12 +401,12 @@ pub fn left_to_settle(tour: &Tour, between: &[Transfer]) -> Explanation {
         .sum();
 
     if between.is_empty() {
-        return Explanation::new("Left to settle")
+        return Explanation::new(t().explain.left_to_settle)
             .headline(with_unit(Cents::ZERO, tour))
-            .note("Everyone is square — no payments are left between the participants.");
+            .note(t().explain.square);
     }
 
-    Explanation::new("Left to settle")
+    Explanation::new(t().explain.left_to_settle)
         .headline(with_unit(total, tour))
         .facts(
             between
@@ -433,14 +419,9 @@ pub fn left_to_settle(tour: &Tour, between: &[Transfer]) -> Explanation {
                 })
                 .collect(),
         )
-        .note(format!(
-            "{} would even everyone out. Anything under {} is treated as settled.",
-            if between.len() == 1 {
-                "1 payment".to_owned()
-            } else {
-                format!("{} payments", between.len())
-            },
-            with_unit(crate::settings::threshold(tour), tour),
+        .note((t().explain.even_out)(
+            between.len(),
+            &with_unit(crate::settings::threshold(tour), tour),
         ))
 }
 
@@ -453,23 +434,22 @@ pub fn person_weight(tour: &Tour, person: &Person) -> Explanation {
         person.weight as f64 * 100.0 / total as f64
     };
 
-    Explanation::new(format!("{}: weight {}", person.name, person.weight))
+    Explanation::new((t().explain.weight_title)(&person.name, person.weight))
         .facts(vec![
-            Fact::new("Weight", person.weight.to_string()),
-            Fact::new("Total weight in the tour", total.to_string()),
-            Fact::new("Share of anything shared by all", format!("{share:.1}%")),
+            Fact::new(t().explain.weight, person.weight.to_string()),
+            Fact::new(t().explain.total_weight_in_tour, total.to_string()),
+            Fact::new(t().explain.share_of_all, format!("{share:.1}%")),
         ])
-        .note(format!(
-            "Out of every 1 000 spent on the whole group, {} lands on {}.",
-            money(Cents((share * 10.0).round() as i64)),
-            person.name
+        .note((t().explain.out_of_1000)(
+            &money(Cents((share * 10.0).round() as i64)),
+            &person.name,
         ))
 }
 
 /// The tour's total weight: everybody's, and what a weight decides.
 pub fn total_weight(tour: &Tour) -> Explanation {
     let total = tour.total_weight();
-    Explanation::new("Total weight")
+    Explanation::new(t().explain.total_weight)
         .headline(total.to_string())
         .facts(
             tour.persons
@@ -485,10 +465,7 @@ pub fn total_weight(tour: &Tour) -> Explanation {
                 })
                 .collect(),
         )
-        .note(
-            "Every expense shared by everyone is divided in these proportions. A child on 50 \
-             costs half of what an adult on 100 does.",
-        )
+        .note(t().explain.total_weight_note)
 }
 
 /// Where one person's balance comes from, and how much of it is theirs.
@@ -523,48 +500,32 @@ pub fn person_balance(
         .collect();
 
     let mut facts = vec![
-        Fact::money("Paid for the group", spent),
-        Fact::money("Charged for their part", charged),
-        Fact::money("Charged − paid", own),
+        Fact::money(t().explain.paid_for_group, spent),
+        Fact::money(t().explain.charged_for_part, charged),
+        Fact::money(t().explain.charged_minus_paid, own),
     ];
     for kid in &kids {
         let kid_debt = balances.get(&kid.id).map(|b| b.debt()).unwrap_or_default();
         facts.push(Fact::money(
-            format!("{} (paid for by {})", kid.name, person.name),
+            (t().explain.kid_paid_for_by)(&kid.name, &person.name),
             kid_debt,
         ));
     }
-    facts.push(Fact::money("Hands over at settle-up", family).strong());
+    facts.push(Fact::money(t().explain.hands_over, family).strong());
 
     let mut note = if own.abs() <= too_small {
-        format!(
-            "Anything under {} counts as settled, so this shows as square.",
-            with_unit(too_small, tour)
-        )
+        (t().explain.counts_as_settled)(&with_unit(too_small, tour))
     } else if own.0 > 0 {
-        format!(
-            "{} used more than they paid for, so the difference is owed to the others.",
-            person.name
-        )
+        (t().explain.used_more)(&person.name)
     } else {
-        format!(
-            "{} paid more than they used, so the group owes them the difference.",
-            person.name
-        )
+        (t().explain.paid_more)(&person.name)
     };
     if (family - own).abs() > too_small {
-        note.push_str(&format!(
-            " {} of that is {}'s own; the rest belongs to the people they pay for, and is \
-             settled through them.",
-            money(own),
-            person.name
-        ));
+        note.push_str(&(t().explain.own_part)(&money(own), &person.name));
     }
-    note.push_str(
-        " The three cells below — Paid, Charged and Balance — open the full itemised lists.",
-    );
+    note.push_str(t().explain.three_cells);
 
-    Explanation::new(format!("{}: where this comes from", person.name))
+    Explanation::new((t().explain.where_title)(&person.name))
         .facts(facts)
         .note(note)
 }
@@ -572,31 +533,27 @@ pub fn person_balance(
 /// One suggested payment: who is on each side of it, and that nobody chose it.
 pub fn transfer(tour: &Tour, t: &Transfer, balances: &tc_core::Balances) -> Explanation {
     let mut facts = vec![
-        Fact::new("Pays", name_of(tour, &t.from)),
-        Fact::new("Receives", name_of(tour, &t.to)),
+        Fact::new(crate::i18n::t().explain.pays, name_of(tour, &t.from)),
+        Fact::new(crate::i18n::t().explain.receives, name_of(tour, &t.to)),
     ];
     for id in [&t.from, &t.to] {
         if let Some(p) = tour.person(id) {
             let b = balances.get(id);
             facts.push(Fact::money(
-                format!("{} paid in total", p.name),
+                (crate::i18n::t().explain.paid_in_total)(&p.name),
                 b.map(|b| b.spent).unwrap_or_default(),
             ));
             facts.push(Fact::money(
-                format!("{} was charged", p.name),
+                (crate::i18n::t().explain.was_charged)(&p.name),
                 b.map(|b| b.received).unwrap_or_default(),
             ));
         }
     }
 
-    Explanation::new("Why this payment")
+    Explanation::new(crate::i18n::t().explain.why_payment)
         .headline(with_unit(tour.convert(t.amount, &t.currency), tour))
         .facts(facts)
-        .note(
-            "Nobody chose this payment — it is one of the transfers the app picked to square \
-             everyone up with as few payments as possible. It has not happened yet: “Mark \
-             paid” is what records it, after which both balances move towards zero.",
-        )
+        .note(crate::i18n::t().explain.nobody_chose)
 }
 
 /// One expense: who paid, when, and what each person's share of it came to.
@@ -612,25 +569,25 @@ pub fn spending(tour: &Tour, s: &Spending) -> Explanation {
     let by_weight = !matches!(s.split, Split::Equally(_));
 
     let mut facts = vec![
-        Fact::new("Paid by", name_of(tour, &s.from)),
-        Fact::new("When", pretty_stamp(s.when().unwrap_or_default())),
+        Fact::new(t().explain.paid_by, name_of(tour, &s.from)),
+        Fact::new(t().explain.when, pretty_stamp(s.when().unwrap_or_default())),
     ];
     if !s.category.trim().is_empty() {
-        facts.push(Fact::new("Category", s.category.clone()));
+        facts.push(Fact::new(t().explain.category, s.category.clone()));
     }
     if tour.currencies.len() > 1 && s.currency.id != tour.currency().id {
         facts.push(Fact::new(
-            "Entered as",
+            t().explain.entered_as,
             format!("{} {}", money(s.amount), s.currency.name),
         ));
     }
     if let Kind::Draft { counted } = s.kind {
         facts.push(Fact::new(
-            "Draft",
+            t().explain.draft,
             if counted {
-                "counted in the balances"
+                t().explain.draft_counted
             } else {
-                "not counted yet"
+                t().explain.draft_not_counted
             },
         ));
     }
@@ -646,7 +603,7 @@ pub fn spending(tour: &Tour, s: &Spending) -> Explanation {
             let share = tc_core::share(tour, s, &p.id).unwrap_or(Cents::ZERO);
             let fact = Fact::money(p.name.clone(), share);
             if by_weight {
-                fact.with_note(format!("weight {}", p.weight))
+                fact.with_note((t().explain.weight_n)(p.weight))
             } else {
                 fact
             }
@@ -667,27 +624,27 @@ pub fn spending(tour: &Tour, s: &Spending) -> Explanation {
         .collect();
 
     let note = match (&s.split, receivers.len()) {
-        (Split::Everyone, _) => "Shared by everyone in the tour, split by weight.".to_owned(),
-        (_, 1) => "Charged to one person only.".to_owned(),
-        (Split::Equally(_), n) => format!("Charged to {n} people, in equal shares."),
-        (_, n) => format!("Charged to {n} people, split by weight (total weight {weight})."),
+        (Split::Everyone, _) => t().explain.shared_everyone.to_owned(),
+        (_, 1) => t().explain.one_person.to_owned(),
+        (Split::Equally(_), n) => (t().explain.n_equal)(n),
+        (_, n) => (t().explain.n_weight)(n, weight),
     };
 
     Explanation::new(match crate::ui::as_service_transfer(&s.description) {
         Some((from, to)) => format!("{from} → {to}"),
-        None if s.description.trim().is_empty() => "(no description)".to_owned(),
+        None if s.description.trim().is_empty() => t().explain.no_description.to_owned(),
         None => s.description.clone(),
     })
     .headline(with_unit(amount, tour))
     .section(
         if matches!(s.split, Split::Everyone) {
-            format!("Split between everyone ({})", receivers.len())
+            (t().explain.split_everyone)(receivers.len())
         } else {
-            format!("Split between {} of {}", receivers.len(), tour.persons.len())
+            (t().explain.split_some)(receivers.len(), tour.persons.len())
         },
         split,
     )
-    .section("Not in this one", left_out)
+    .section(t().explain.not_in_this, left_out)
     .facts(facts)
     .note(note)
 }
@@ -781,7 +738,7 @@ pub fn shown_total(tour: &Tour, shown: &[Spending]) -> Explanation {
     by_category.sort_by_key(|(_, sum, _)| -sum.0);
     let total: Cents = by_category.iter().map(|(_, sum, _)| *sum).sum();
 
-    Explanation::new("Spending in the shown expenses")
+    Explanation::new(t().explain.shown_title)
         .headline(with_unit(total, tour))
         .facts(
             by_category
@@ -789,11 +746,7 @@ pub fn shown_total(tour: &Tour, shown: &[Spending]) -> Explanation {
                 .map(|(cat, sum, n)| Fact::money(cat, sum).with_note(entries(n)))
                 .collect(),
         )
-        .note(
-            "Only entries that count as spending are added up here — a payback or an \
-             uncounted draft moves money without spending it. Filters apply, so this is not \
-             necessarily the tour total.",
-        )
+        .note(t().explain.shown_note)
 }
 
 /// What was left out of a total, and why leaving it out is right.
@@ -821,22 +774,18 @@ pub fn uncounted(tour: &Tour, rows: &[Spending]) -> Explanation {
     let sum =
         |list: &[&&Spending]| -> Cents { list.iter().map(|s| tour.amount_in_current(s)).sum() };
 
-    let mut e = Explanation::new("Not counted as spending");
+    let mut e = Explanation::new(t().explain.not_counted_title);
     if !settling.is_empty() {
         e = e
             .section(
-                format!("Settling up · {}", with_unit(sum(&settling), tour)),
+                (t().explain.settling_section)(&with_unit(sum(&settling), tour)),
                 settling.iter().map(|s| line(s)).collect(),
             )
-            .note(
-                "Money handed from one person to another to clear a debt. It was already \
-                 counted when the original expense was recorded — counting it again would \
-                 double it.",
-            );
+            .note(t().explain.settling_note);
     }
     if !drafts.is_empty() {
         e = e.section(
-            format!("Drafts · {}", with_unit(sum(&drafts), tour)),
+            (t().explain.drafts_section)(&with_unit(sum(&drafts), tour)),
             drafts.iter().map(|s| line(s)).collect(),
         );
     }

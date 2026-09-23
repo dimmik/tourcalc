@@ -949,7 +949,7 @@ fn MiniSpending(
                                 })
                                 .collect_view()}
                             {(!left_out.is_empty()).then(|| view! {
-                                <div class="tcw-dim">"not in it: " {left_out.join(", ")}</div>
+                                <div class="tcw-dim">{t().expenses.not_in_it.to_lowercase()} {left_out.join(", ")}</div>
                             })}
                         </div>
                     })}

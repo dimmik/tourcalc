@@ -3,6 +3,97 @@
 use super::*;
 
 pub const TEXTS: Texts = Texts {
+    explain: ExplainTexts {
+        where_from: "Where does this come from?",
+        close: "Close",
+        got_it: "Got it",
+        entries: |n| if n == 1 { "1 entry".to_owned() } else { format!("{n} entries") },
+        unknown_person: "n/a",
+        total_spent: "Total spent",
+        total_note: "Adds up every expense that has a category and is not a draft.",
+        skipped: |n| format!(
+            " {} left out — paybacks and drafts do not count as spending.",
+            if n == 1 { "1 entry is".to_owned() } else { format!("{n} entries are") }
+        ),
+        paid_for_by: |name| format!("· paid for by {name}"),
+        people_title: "People in this tour",
+        people_count: |n| format!("{n} people"),
+        weights_note: |total, one| format!("Weights decide how a shared expense is split: total \
+            weight here is {total}, so someone on 100 carries {one}% of anything shared by \
+            everyone."),
+        counted: "Counted as spending",
+        drafts: "Drafts",
+        paybacks: "Paybacks (X …)",
+        inside_families: "Inside families",
+        first: "First",
+        last: "Last",
+        average: "Average entry",
+        recorded: "Recorded expenses",
+        left_to_settle: "Left to settle",
+        square: "Everyone is square — no payments are left between the participants.",
+        even_out: |n, under| format!(
+            "{} would even everyone out. Anything under {under} is treated as settled.",
+            if n == 1 { "1 payment".to_owned() } else { format!("{n} payments") }
+        ),
+        weight_title: |name, w| format!("{name}: weight {w}"),
+        weight: "Weight",
+        total_weight_in_tour: "Total weight in the tour",
+        share_of_all: "Share of anything shared by all",
+        out_of_1000: |amount, name| format!("Out of every 1 000 spent on the whole group, \
+            {amount} lands on {name}."),
+        total_weight: "Total weight",
+        total_weight_note: "Every expense shared by everyone is divided in these proportions. A \
+            child on 50 costs half of what an adult on 100 does.",
+        paid_for_group: "Paid for the group",
+        charged_for_part: "Charged for their part",
+        charged_minus_paid: "Charged − paid",
+        kid_paid_for_by: |kid, head| format!("{kid} (paid for by {head})"),
+        hands_over: "Hands over at settle-up",
+        counts_as_settled: |under| format!("Anything under {under} counts as settled, so this \
+            shows as square."),
+        used_more: |name| format!("{name} used more than they paid for, so the difference is \
+            owed to the others."),
+        paid_more: |name| format!("{name} paid more than they used, so the group owes them the \
+            difference."),
+        own_part: |amount, name| format!(" {amount} of that is {name}'s own; the rest belongs to \
+            the people they pay for, and is settled through them."),
+        three_cells: " The three cells below — Paid, Charged and Balance — open the full \
+            itemised lists.",
+        where_title: |name| format!("{name}: where this comes from"),
+        pays: "Pays",
+        receives: "Receives",
+        paid_in_total: |name| format!("{name} paid in total"),
+        was_charged: |name| format!("{name} was charged"),
+        why_payment: "Why this payment",
+        nobody_chose: "Nobody chose this payment — it is one of the transfers the app picked to \
+            square everyone up with as few payments as possible. It has not happened yet: “Mark \
+            paid” is what records it, after which both balances move towards zero.",
+        paid_by: "Paid by",
+        when: "When",
+        category: "Category",
+        entered_as: "Entered as",
+        draft: "Draft",
+        draft_counted: "counted in the balances",
+        draft_not_counted: "not counted yet",
+        weight_n: |w| format!("weight {w}"),
+        shared_everyone: "Shared by everyone in the tour, split by weight.",
+        one_person: "Charged to one person only.",
+        n_equal: |n| format!("Charged to {n} people, in equal shares."),
+        n_weight: |n, w| format!("Charged to {n} people, split by weight (total weight {w})."),
+        no_description: "(no description)",
+        split_everyone: |n| format!("Split between everyone ({n})"),
+        split_some: |n, all| format!("Split between {n} of {all}"),
+        not_in_this: "Not in this one",
+        shown_title: "Spending in the shown expenses",
+        shown_note: "Only entries that count as spending are added up here — a payback or an \
+            uncounted draft moves money without spending it. Filters apply, so this is not \
+            necessarily the tour total.",
+        not_counted_title: "Not counted as spending",
+        settling_section: |sum| format!("Settling up · {sum}"),
+        settling_note: "Money handed from one person to another to clear a debt. It was already \
+            counted when the original expense was recorded — counting it again would double it.",
+        drafts_section: |sum| format!("Drafts · {sum}"),
+    },
     mini: MiniTexts {
         settling_hint: "The tour is being settled up",
         settling: "settling",
