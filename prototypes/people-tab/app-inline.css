@@ -1,0 +1,523 @@
+
+        /*
+            The base the app's stylesheet is written against and never states, because in the
+            other client Bootstrap states it: `newui.css` is loaded there after
+            bootstrap.min.css, which resets both of these. Here nothing did.
+
+            Both were real bugs on a phone, and neither was visible on a desktop:
+
+            * the 8px body margin inset the whole app, so the sticky top bar stopped short of
+              both edges and the page scrolled past it down either side;
+            * without border-box, the search field - `width: 100%` plus 62px of padding, as
+              the stylesheet writes it - came out 305 pixels wide inside a 243 pixel box, and
+              pushed the whole page sideways. The Compact button went with it, off the edge.
+        */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+        }
+
+        /*
+            On a narrow screen the bar's controls take the whole width and the tour's name
+            is squeezed to nothing - literally nothing: a title box zero pixels wide.
+
+            Giving the name its own row worked and looked like what it was: a bar of buttons
+            with a caption stuck under it. So the controls go behind one button instead, and
+            the bar stays a single line: what you are looking at, and a way to everything
+            else. Which is also the honest order - the name is the thing you need to see
+            every time, and the interface switch is not.
+
+            The same markup either way. The row of controls becomes the panel: nothing is
+            duplicated, nothing can drift between the two.
+        */
+        .tcw-menu-btn {
+            display: none;
+        }
+
+        /* An expense unfolds in place to show its details: the row wraps, and the details
+           take a line of their own under it. */
+        .tcw-unfold { cursor: pointer; border-radius: 8px; }
+        .tcw-unfold:focus-visible { outline: 2px solid var(--tcn-primary, #4f46e5); outline-offset: 2px; }
+        .tcn-settle.tcw-unfolded { flex-wrap: wrap; row-gap: 6px; }
+        .tcw-details {
+            flex: 1 1 100%;
+            padding: 8px 2px 0 42px;
+            border-top: 1px dashed var(--tcn-border, #e2e8f0);
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--tcn-text, #1e293b);
+        }
+        .tcw-det-meta { color: var(--tcn-muted, #64748b); }
+        .tcw-det-meta b { color: var(--tcn-text, #1e293b); font-weight: 600; }
+        .tcw-det-how {
+            margin-top: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: var(--tcn-muted, #64748b);
+        }
+        .tcw-shares {
+            display: grid;
+            grid-template-columns: max-content minmax(0, 1fr);
+            column-gap: 10px;
+            row-gap: 3px;
+            margin-top: 3px;
+        }
+        .tcw-share-amt {
+            text-align: right;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        .tcw-share-tag {
+            display: inline-block;
+            margin-right: 6px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: var(--tcn-surface-2, #f1f5f9);
+            color: var(--tcn-muted, #64748b);
+            font-size: 11px;
+            line-height: 17px;
+            vertical-align: 1px;
+        }
+        .tcw-det-out { margin-top: 5px; color: var(--tcn-muted, #64748b); }
+        @media (max-width: 520px) {
+            .tcw-details { padding-left: 2px; }
+        }
+        .tcw-caret { margin-left: 4px; font-size: 10px; opacity: .7; }
+
+        /* The small interface's unfolded expense: a line per figure, the names after it. */
+        .tcw-mini-shares { margin: 3px 0 2px; line-height: 1.4; }
+        .tcw-mini-shares .tcm-money { font-variant-numeric: tabular-nums; }
+        .tcw-dim { opacity: .6; }
+
+        /* A chip with a sentence in it - the offline line naming what is waiting - wraps
+           instead of running off the side of the screen. */
+        .tcn-chip.tcw-wraps {
+            display: block;
+            max-width: 100%;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.45;
+        }
+
+        /* A person somebody else pays for, among the chips of a form: dashed and quieter,
+           so the people who usually pay stand out - and still a chip you can press. */
+        .tcn-pchip.is-child {
+            border-style: dashed;
+            border-color: var(--tcn-border, #e2e8f0);
+            background: transparent;
+            color: var(--tcn-muted, #5b6472);
+            font-size: 12.5px;
+            padding: 3px 10px 3px 4px;
+        }
+        .tcn-pchip.is-child > .tcn-avatar { transform: scale(.86); opacity: .8; }
+        .tcn-pchip.is-child:hover {
+            border-color: var(--tcn-primary, #4f46e5);
+            background: var(--tcn-primary-soft, #eef2ff);
+            color: var(--tcn-text, #111827);
+        }
+        /* Chosen is chosen, whoever it is. */
+        .tcn-pchip.is-child.is-on {
+            background: var(--tcn-primary, #4f46e5);
+            border-color: var(--tcn-primary, #4f46e5);
+            color: #fff;
+        }
+        .tcn-pchip.is-child.is-on > .tcn-avatar { opacity: 1; }
+
+        /* How the chosen people share an expense, in the form's More options. */
+        .tcw-splitway { display: inline-flex; gap: 6px; }
+        .tcw-splitway-opt {
+            padding: 3px 12px;
+            border: 1px solid var(--tcn-border, #e2e8f0);
+            border-radius: 999px;
+            background: var(--tcn-surface, #fff);
+            color: var(--tcn-text, #111827);
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .tcw-splitway-opt.is-on {
+            background: var(--tcn-primary, #4f46e5);
+            border-color: var(--tcn-primary, #4f46e5);
+            color: #fff;
+        }
+
+        /* Whether this browser is current: a dot in the header that opens into a word
+           when the answer arrives, and shrinks back. Its colours are the app's own. */
+        .tcw-vmark {
+            display: inline-flex;
+            align-items: center;
+            gap: 0;
+            border: 0;
+            background: transparent;
+            padding: 4px 2px;
+            cursor: pointer;
+            border-radius: 999px;
+            flex: 0 0 auto;
+        }
+        .tcw-vmark-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .55);
+            flex: 0 0 auto;
+        }
+        .tcw-vmark.is-latest .tcw-vmark-dot { background: #22c55e; }
+        .tcw-vmark.is-stale .tcw-vmark-dot { background: #f59e0b; }
+        .tcw-vmark.is-unknown .tcw-vmark-dot { background: rgba(255, 255, 255, .5); }
+        .tcw-vmark-word {
+            /* Width rather than display, so that it grows and shrinks rather than jumping
+               the header about. */
+            max-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            font-size: 11px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: #fff;
+            opacity: 0;
+            transition: max-width .25s ease, opacity .25s ease, margin-left .25s ease;
+        }
+        .tcw-vmark.is-open .tcw-vmark-word {
+            max-width: 7rem;
+            opacity: .95;
+            margin-left: 6px;
+        }
+        .tcw-vmark.is-stale .tcw-vmark-word { color: #fde68a; }
+        .tcw-vmark.is-latest .tcw-vmark-word { color: #bbf7d0; }
+        @media (prefers-reduced-motion: reduce) {
+            .tcw-vmark-word { transition: none; }
+        }
+
+        /* The keys the tour list is ordered by: a row that wraps rather than pushing the
+           toolbar off a phone. */
+        .tcw-order { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+        .tcm-order { gap: 4px; }
+
+        /* The line at the top of a form that was picked up where it was left. */
+        .tcw-carried { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+
+        /* What to do about edits the server keeps refusing. */
+        .tcw-refused-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+        /* A notification tapped while a form is open: where the app could go, waiting for
+           the form to be finished with. */
+        .tcw-asked {
+            /* Over the form it is about: that form fills the screen, and a line underneath
+               it would be a message nobody sees. */
+            position: fixed;
+            top: calc(8px + env(safe-area-inset-top, 0px));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1200;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: max-content;
+            max-width: min(560px, calc(100vw - 24px));
+            padding: 8px 12px;
+            border-radius: 12px;
+            background: #1e1b4b;
+            color: #fff;
+            font-size: 14px;
+            line-height: 1.35;
+            box-shadow: 0 8px 28px rgba(15, 23, 42, .3);
+        }
+        .tcw-asked-text { flex: 1 1 auto; overflow-wrap: anywhere; }
+        .tcw-asked-open {
+            flex: none;
+            padding: 3px 12px;
+            border: 1px solid rgba(255, 255, 255, .6);
+            border-radius: 999px;
+            background: transparent;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .tcw-asked-open:hover { background: rgba(255, 255, 255, .18); }
+
+        /* Somebody else changed the open tour. Over everything, a form included - that is
+           where "what you save goes on top of it" matters - and clear of the + Spend button. */
+        .tcw-others {
+            position: fixed;
+            left: 50%;
+            bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+            transform: translateX(-50%);
+            z-index: 1100;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            width: max-content;
+            max-width: min(560px, calc(100vw - 32px));
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: #1e1b4b;
+            color: #fff;
+            font-size: 14px;
+            line-height: 1.35;
+            box-shadow: 0 8px 28px rgba(15, 23, 42, .28);
+        }
+        .tcw-others-waiting {
+            margin: 10px 16px 0;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: #fef3c7;
+            color: #78350f;
+            border: 1px solid #fcd34d;
+            font-size: 13px;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+        .tcw-others-text { overflow-wrap: anywhere; }
+        .tcw-others-close {
+            flex: none;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            opacity: .75;
+        }
+        .tcw-others-close:hover { opacity: 1; }
+        /* The expenses it touched, lit for a moment. */
+        .tcw-lit { animation: tcw-lit 4s ease-out; }
+        @keyframes tcw-lit {
+            0%, 35% { background-color: #fde68a; box-shadow: 0 0 0 2px #f59e0b; }
+            100% { background-color: transparent; box-shadow: 0 0 0 0 transparent; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .tcw-lit { animation: none; outline: 2px solid #f59e0b; }
+        }
+
+        /* The bell on a tour in the list: whether this device is notified about it. After the
+           name, not a chip of its own - it is about the reader's device, not the tour.
+           Ringing in colour; known not to, crossed out and grey; not found out yet, a faint
+           grey bell. */
+        .tcw-bell {
+            display: inline-block;
+            margin-left: .35em;
+            font-size: .8em;
+            text-decoration: none;
+        }
+        .tcw-bell.is-off { filter: grayscale(1); opacity: .5; }
+        /* The tour's own bell while what is true is not known: dashed, so it does not read
+           as the outline of "off". */
+        .tcn-bell.is-unknown { border-style: dashed; background: transparent; }
+        .tcw-bell.is-unknown { filter: grayscale(1); opacity: .28; }
+
+        /*
+            The name in the bar is two different things wearing one set of clothes. On the
+            list or in a tour it is a caption - this is what you are looking at. On Help or
+            Settings it is the way back to the tour you stepped out of, and a caption is not
+            something anybody presses: it has to look like a control, and say which way it
+            goes.
+
+            It hugs its text there rather than filling the bar, so the pill is the size of
+            the thing it offers; `margin-right: auto` keeps the controls at the far end,
+            which the caption's `flex: 1` was doing before.
+
+            The arrow is positioned rather than a flex item, and the box stays the block the
+            caption already was: a flex container has no single line of text to trim, so an
+            inline-flex pill cut a long tour's name off mid-letter instead of ending it in
+            the ellipsis the caption has always had.
+        */
+        .tcn-topbar-title.tcw-back {
+            flex: 0 1 auto;
+            margin-right: auto;
+            position: relative;
+            padding: 3px 11px 3px 21px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .16);
+            transition: background .15s ease;
+        }
+
+        .tcn-topbar-title.tcw-back::before {
+            content: "\2039";
+            position: absolute;
+            left: 9px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2em;
+            line-height: 1;
+            opacity: .85;
+        }
+
+        .tcn-topbar-title.tcw-back:hover {
+            background: rgba(255, 255, 255, .3);
+        }
+
+        /*
+            A dialog that keeps its head and its feet. The card had no height of its own, so
+            a long form - the expense one, with its chips - grew past the screen and took
+            Cancel and Save with it: to save, you scrolled. Now the card is a column bounded
+            by the viewport, and only the middle of it scrolls.
+
+            `dvh` rather than `vh` because on a phone the browser's own bar comes and goes,
+            and `vh` is the tall version of the window: a footer positioned against it sits
+            below the fold exactly when the bar is showing. The `vh` line stays first for
+            anything that does not know `dvh`.
+        */
+        .tcn-modal-card {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 48px);
+            max-height: calc(100dvh - 48px);
+        }
+
+        .tcn-modal-body {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tcn-modal-head,
+        .tcn-modal-foot {
+            flex: 0 0 auto;
+        }
+
+        /* Errors sit above the two buttons, so the row has to be able to wrap. */
+        .tcn-modal-foot {
+            flex-wrap: wrap;
+        }
+
+        /* The screen before the app's own screen. Deliberately plain: it is either seen
+           for a quarter of a second or it is the bad news, and neither wants decoration. */
+        .tcw-boot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-height: 70dvh;
+            padding: 24px;
+            text-align: center;
+            color: #475569;
+            font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .tcw-boot-name {
+            font-size: 19px;
+            font-weight: 700;
+            color: #1f2937;
+            letter-spacing: -.01em;
+        }
+
+        .tcw-boot-line { max-width: 34em; }
+
+        #tcw-boot-again {
+            margin-top: 6px;
+            padding: 9px 18px;
+            border-radius: 10px;
+            border: 1px solid #c7cbd4;
+            background: #fff;
+            font: inherit;
+            font-weight: 600;
+            color: #1f2937;
+            cursor: pointer;
+        }
+
+        /* A row the calculator wrote for itself is not an expense, and the app paints it:
+           green for a payback, cyan for a transfer inside a family. Those rules are written
+           for `.tcn-sp`, and these rows are `.tcn-settle`, so the colours are repeated here
+           against the class the rows actually carry - the variables are the app's own.
+
+           The stripe is an inset shadow rather than a left border because a hand-picked
+           colour paints `border-color` inline, and the app is careful to keep the stripe
+           under a mark: the mark says "read this line", the stripe says what kind of line
+           it is, and they are answers to different questions. */
+        .tcw-payback {
+            --tcw-kind: #10b981;
+            --tcw-kind-soft: var(--tcn-green-soft);
+        }
+
+        .tcw-family {
+            --tcw-kind: #06b6d4;
+            --tcw-kind-soft: var(--tcn-cyan-soft);
+        }
+
+        .tcn-settle.tcw-kind {
+            background: var(--tcw-kind-soft);
+            box-shadow: inset 4px 0 0 var(--tcw-kind), var(--tcn-shadow);
+            padding-left: 16px;
+        }
+
+        /* The dense list says it in the gutter: mini.css only dims those rows, and dim is
+           what a draft looks like there, so the colour is what tells them apart. */
+        .tcm-item.tcw-kind > .tcm-row {
+            background: var(--tcw-kind-soft);
+            box-shadow: inset 3px 0 0 var(--tcw-kind);
+        }
+
+        /* The ring on the statistics tab. Bigger where there is room: beside a list on a
+           wide screen it can afford to be, and on a phone it is sharing the width. */
+        .tcw-ring {
+            width: 150px;
+            height: 150px;
+        }
+
+        @media (min-width: 560px) {
+            .tcw-ring {
+                width: 190px;
+                height: 190px;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .tcw-menu-btn {
+                display: inline-flex;
+            }
+
+            .tcn-topbar .tcn-topbar-actions {
+                display: none;
+                position: absolute;
+                top: 48px;
+                right: 8px;
+                z-index: 50;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                min-width: 190px;
+                padding: 10px;
+                border-radius: 14px;
+                /* The same colour as the bar it hangs from: the buttons inside it are white
+                   on translucent white, and on a pale panel they would be invisible. */
+                background: var(--tcn-primary-dark, var(--tcn-primary));
+                box-shadow: 0 12px 30px rgba(15, 23, 42, .35);
+            }
+
+            .tcn-topbar .tcn-topbar-actions.tcw-open {
+                display: flex;
+            }
+
+            /* In a menu an icon on its own is a riddle. The labels are already there, in the
+               aria-label every one of these carries for a screen reader. */
+            .tcn-topbar-actions.tcw-open .tcn-iconbtn {
+                width: auto;
+                justify-content: flex-start;
+                gap: 10px;
+                padding: 8px 10px;
+                font-size: 14px;
+            }
+
+            .tcn-topbar-actions.tcw-open .tcn-iconbtn::after {
+                content: attr(aria-label);
+            }
+
+            .tcn-topbar-actions.tcw-open .tcn-uiswitch {
+                justify-content: center;
+            }
+
+            .tcw-menu-backdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 45;
+            }
+        }
+
+    
