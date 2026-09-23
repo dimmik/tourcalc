@@ -167,6 +167,7 @@ pub fn TourListPage() -> impl IntoView {
     let new_json = RwSignal::new(String::new());
     let show_archived = RwSignal::new(false);
     let trouble = RwSignal::new(String::new());
+    let done = crate::ui::Brief::new();
     let busy = RwSignal::new(false);
 
     // The list this device saw last, drawn before the server is asked. Coming back from a
@@ -308,6 +309,7 @@ pub fn TourListPage() -> impl IntoView {
     // The tour as JSON, on the clipboard - what the box above pastes back.
     let copy_json = Callback::new(move |tour: Tour| {
         trouble.set(String::new());
+        done.hush();
         spawn_local(async move {
             let whole = match api::tour(tour.id.as_str()).await {
                 Ok(t) => t,
@@ -325,7 +327,7 @@ pub fn TourListPage() -> impl IntoView {
                 return;
             };
             match copy_to_clipboard(&text).await {
-                Ok(()) => trouble.set("Copied — the JSON is on the clipboard.".into()),
+                Ok(()) => done.say("Copied — the JSON is on the clipboard."),
                 Err(e) => trouble.set(e.to_string()),
             }
         });
@@ -427,6 +429,11 @@ pub fn TourListPage() -> impl IntoView {
         <Show when=move || !trouble.get().is_empty()>
             <div class="tcn-section" style="padding-bottom:0">
                 <div class="tcn-errors">{move || trouble.get()}</div>
+            </div>
+        </Show>
+        <Show when=move || done.is_on()>
+            <div class="tcn-section" style="padding-bottom:0">
+                <div class="tcw-done" role="status">{move || done.get()}</div>
             </div>
         </Show>
 

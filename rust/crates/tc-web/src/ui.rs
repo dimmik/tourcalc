@@ -4,8 +4,58 @@
 //! avatars have to come out the same colour, or two interfaces on the same data would look
 //! gratuitously different.
 
-use leptos::prelude::use_context;
+use leptos::prelude::*;
 use tc_core::{Cents, Person};
+
+/// How long a confirmation stays on screen: long enough to read, short enough that it is
+/// gone before it stops being news.
+pub const CONFIRMED_FOR: std::time::Duration = std::time::Duration::from_secs(4);
+
+/// A line that says something went right and then goes away by itself - "copied".
+///
+/// Kept apart from the error line on purpose: an error stays until it is dealt with, a
+/// confirmation that stayed would still be saying "copied" an hour later, about nothing in
+/// particular. Saying it again restarts the clock rather than being cut short by the first
+/// one's timer: every `say` is numbered, and only the latest may clear the line.
+#[derive(Clone, Copy)]
+pub struct Brief {
+    text: RwSignal<String>,
+    said: StoredValue<u32>,
+}
+
+impl Brief {
+    pub fn new() -> Self {
+        Brief { text: RwSignal::new(String::new()), said: StoredValue::new(0) }
+    }
+
+    pub fn say(self, text: impl Into<String>) {
+        let n = self.said.try_get_value().unwrap_or(0).wrapping_add(1);
+        self.said.try_set_value(n);
+        self.text.try_set(text.into());
+        set_timeout(
+            move || {
+                if self.said.try_get_value() == Some(n) {
+                    self.text.try_set(String::new());
+                }
+            },
+            CONFIRMED_FOR,
+        );
+    }
+
+    /// Takes it away now - when the next thing on the same line is an error.
+    pub fn hush(self) {
+        self.said.try_update_value(|n| *n = n.wrapping_add(1));
+        self.text.try_set(String::new());
+    }
+
+    pub fn get(self) -> String {
+        self.text.get()
+    }
+
+    pub fn is_on(self) -> bool {
+        !self.text.with(String::is_empty)
+    }
+}
 
 /// An amount, grouped the way the app groups it: 1 234 567.
 ///
