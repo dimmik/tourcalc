@@ -16,7 +16,7 @@
 use crate::edit::PersonDraft;
 use crate::icon::Icon;
 use crate::tour::{Dialog, Removal};
-use crate::ui::{avatar_colour, initials, money, name_of};
+use crate::ui::{avatar_colour, initials, money, money_in, name_of};
 use leptos::prelude::*;
 use tc_core::{
     breakdown, calculate, settlement_for, will_pay, Cents, Options, Person, PersonId, Tour,
@@ -116,12 +116,12 @@ fn direction(amount: Cents) -> &'static str {
     }
 }
 
-/// The same, with the amount: what the chip on a card says.
-fn balance_words(amount: Cents) -> String {
+/// The same, with the amount and its currency: what the chip on a card says.
+fn balance_words(amount: Cents, unit: &str) -> String {
     match amount.0 {
         0 => "settled".to_owned(),
-        n if n > 0 => format!("owes {}", money(amount)),
-        _ => format!("gets {}", money(Cents(-amount.0))),
+        n if n > 0 => format!("owes {}", money_in(amount, unit)),
+        _ => format!("gets {}", money_in(Cents(-amount.0), unit)),
     }
 }
 
@@ -489,7 +489,9 @@ fn PersonBlock(
     } else {
         "tcn-chip-green"
     };
-    let words = balance_words(shown);
+    let unit = crate::ui::unit(&tour);
+    let words = balance_words(shown, &unit);
+    let unit_for_stats = StoredValue::new(unit.clone());
     let paid_by = person
         .parent
         .as_ref()
@@ -583,7 +585,7 @@ fn PersonBlock(
                                   {split_family.then(|| view! {
                                       <span class="tcn-person-own"
                                             title="Their own debt, before the people they pay for">
-                                          "own: " {balance_words(debt)}
+                                          "own: " {balance_words(debt, &unit_for_stats.get_value())}
                                       </span>
                                   })}
                               </div>
@@ -646,13 +648,13 @@ fn PersonBlock(
 
             <Show when=move || is_open.get()>
                 <div class="tcn-person-stats">
-                    <Stat which=Which::Paid person=for_stats.clone() sheet=sheet
+                    <Stat which=Which::Paid person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
                           amount=balances.get(&for_stats.id).map(|b| b.spent).unwrap_or_default()
                           own=None />
-                    <Stat which=Which::Charged person=for_stats.clone() sheet=sheet
+                    <Stat which=Which::Charged person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
                           amount=balances.get(&for_stats.id).map(|b| b.received).unwrap_or_default()
                           own=None />
-                    <Stat which=Which::Balance person=for_stats.clone() sheet=sheet
+                    <Stat which=Which::Balance person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
                           amount=shown own=split_family.then_some(debt) />
                 </div>
                 <div class="tcn-person-actions">
@@ -697,6 +699,7 @@ fn Stat(
     /// Their own debt, when it differs from what they will actually hand over.
     own: Option<Cents>,
     sheet: RwSignal<Option<(Which, Person)>>,
+    unit: String,
 ) -> impl IntoView {
     let tint = match which {
         Which::Paid => "is-paid",
@@ -721,10 +724,12 @@ fn Stat(
                 } else {
                     money(amount)
                 }}
+                {(!(which == Which::Balance && amount.is_zero()) && !unit.is_empty())
+                    .then(|| view! { <small>"\u{a0}" {unit.clone()}</small> })}
                 {own.map(|d| view! {
                     <span class="tcn-statbtn-note">
                         "own: " {direction(d)} " "
-                        {(!d.is_zero()).then(|| money(d.abs()))}
+                        {(!d.is_zero()).then(|| money_in(d.abs(), &unit))}
                     </span>
                 })}
             </button>

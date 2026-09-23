@@ -57,6 +57,33 @@ impl Brief {
     }
 }
 
+/// The name of the currency a tour's amounts are shown in, to write beside them.
+///
+/// Only on a tour with more than one currency, as in the app: that is where "which
+/// currency is this" is a real question. A tour with a single currency usually has the
+/// placeholder "coin" as that currency, while the money was really euros or roubles -
+/// naming it would be naming something wrong.
+///
+/// Every amount on such a tour is in this one currency, whatever it was entered in, and
+/// is labelled with it - the balances and people included, which the app left bare under
+/// a header that read "65 910 RSD".
+pub fn unit(tour: &tc_core::Tour) -> String {
+    if tour.currencies.len() > 1 {
+        tour.currency().name.clone()
+    } else {
+        String::new()
+    }
+}
+
+/// An amount followed by its unit, when there is one: "47 124 RSD".
+pub fn money_in(c: Cents, unit: &str) -> String {
+    if unit.is_empty() {
+        money(c)
+    } else {
+        format!("{}\u{a0}{unit}", money(c))
+    }
+}
+
 /// An amount, grouped the way the app groups it: 1 234 567.
 ///
 /// `Cents` already knows how to print itself; this exists so the call sites read the same
@@ -174,6 +201,40 @@ pub fn name_of(p: Option<&Person>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn tour_in(names: &[&str], current: &str) -> tc_core::Tour {
+        tc_core::Tour {
+            id: tc_core::TourId::new("t"),
+            name: "t".into(),
+            persons: Vec::new(),
+            spendings: Vec::new(),
+            currencies: names
+                .iter()
+                .map(|n| tc_core::Currency {
+                    id: tc_core::CurrencyId::new(*n),
+                    name: (*n).to_owned(),
+                    rate: 100,
+                    extras: Default::default(),
+                })
+                .collect(),
+            current_currency: tc_core::CurrencyId::new(current),
+            extras: Default::default(),
+        }
+    }
+
+    #[test]
+    fn a_tour_of_several_currencies_names_the_one_it_is_shown_in() {
+        assert_eq!(unit(&tour_in(&["RSD", "EUR"], "EUR")), "EUR");
+    }
+
+    #[test]
+    fn a_tour_of_one_currency_or_none_names_nothing() {
+        // The one currency is usually the placeholder "coin", not what the money was.
+        assert_eq!(unit(&tour_in(&["coin"], "coin")), "");
+        assert_eq!(unit(&tour_in(&[], "")), "");
+        assert_eq!(money_in(Cents(47_124), ""), "47\u{202f}124");
+        assert_eq!(money_in(Cents(47_124), "RSD"), "47\u{202f}124\u{a0}RSD");
+    }
 
     #[test]
     fn a_generated_payment_reads_as_one() {

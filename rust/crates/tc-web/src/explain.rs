@@ -250,11 +250,7 @@ pub fn entries(n: usize) -> String {
 use tc_core::{Kind, Person, PersonId, Spending, Split, Tour, Transfer};
 
 fn unit_of(tour: &Tour) -> String {
-    if tour.currencies.len() > 1 {
-        tour.currency().name.clone()
-    } else {
-        String::new()
-    }
+    crate::ui::unit(tour)
 }
 
 fn with_unit(amount: Cents, tour: &Tour) -> String {

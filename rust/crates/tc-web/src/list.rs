@@ -629,11 +629,7 @@ fn Row(
         .get("LeftToSettleInCents")
         .and_then(|v| v.as_i64());
 
-    let currency = if tour.currencies.len() > 1 {
-        tour.currency().name.clone()
-    } else {
-        String::new()
-    };
+    let currency = crate::ui::unit(&tour);
 
     let for_delete = tour.clone();
     let for_clone = tour.clone();
