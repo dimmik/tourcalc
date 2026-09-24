@@ -10,6 +10,7 @@
 //! uses. That is the second time this port has got a screen's worth of design for nothing,
 //! and the reason both are worth reusing rather than reinventing.
 
+use crate::i18n::t;
 use crate::dialogs::{CurrenciesDialog, PersonDialog, SpendingDialog, TourDialog, VersionsDialog};
 use crate::edit::{PersonDraft, SpendingDraft};
 use crate::icon::Icon;
@@ -95,45 +96,45 @@ pub fn MiniTour(
             <div class="tcm-row tcm-head-top">
                 <span class="tcm-title" title=for_head.name.clone()>{for_head.name.clone()}</span>
                 {fin.then(|| view! {
-                    <span class="tcm-tag is-amber" title="The tour is being settled up">"settling"</span>
+                    <span class="tcm-tag is-amber" title=t().mini.settling_hint>{t().mini.settling}</span>
                 })}
                 {arch.then(|| view! {
-                    <span class="tcm-tag" title="Archived, hidden from the default list">"arch"</span>
+                    <span class="tcm-tag" title=t().mini.archived_hint>{t().mini.archived}</span>
                 })}
                 <span class="tcm-spacer"></span>
-                <button type="button" class="tcm-btn is-primary" title="Record an expense"
+                <button type="button" class="tcm-btn is-primary" title=t().mini.spend_hint
                         on:click={
                             let t = for_spend.clone();
                             move |_| dialog.set(Some(Dialog::Spending(SpendingDraft::new(&t))))
                         }>
-                    "+ spend"
+                    {t().mini.spend}
                 </button>
-                <button type="button" class="tcm-btn" title="Reload from the server"
+                <button type="button" class="tcm-btn" title=t().mini.reload
                         on:click=move |_| reload.run(true)>
                     <Icon name="refresh" />
                 </button>
             </div>
 
             <div class="tcm-row tcm-head-facts">
-                <span title="Everything that counts as spending">
+                <span title=t().mini.spent_hint>
                     <b class="tcm-money">{money(total_spent)}</b>
                     {(!unit_facts.is_empty()).then(|| format!(" {unit_facts}"))}
                 </span>
                 <span class="tcm-dot">"·"</span>
-                <span title="People on this tour">{people} " p"</span>
+                <span title=t().mini.people_hint>{people} {t().mini.people_short}</span>
                 <span class="tcm-dot">"·"</span>
-                <span title="Recorded expenses">{expenses} " e"</span>
+                <span title=t().mini.expenses_hint>{expenses} {t().mini.expenses_short}</span>
                 <span class="tcm-dot">"·"</span>
                 {if settled {
                     view! {
-                        <span class="tcm-ok" title="No payments are left between the participants">
-                            "settled ✓"
+                        <span class="tcm-ok" title=t().mini.settled_hint>
+                            {t().mini.settled}
                         </span>
                     }.into_any()
                 } else {
                     view! {
-                        <span title="What the suggested payments come to">
-                            "left " <b class="tcm-money is-neg">{money(left)}</b>
+                        <span title=t().mini.left_hint>
+                            {t().mini.left} <b class="tcm-money is-neg">{money(left)}</b>
                             {(!unit_left.is_empty()).then(|| format!(" {unit_left}"))}
                         </span>
                     }.into_any()
@@ -143,10 +144,10 @@ pub fn MiniTour(
             <div class="tcm-row tcm-head-meta">
                 <span class="tcm-hint">
                     {move || match status.get() {
-                        Status::Synced | Status::Idle => "from the server".to_owned(),
-                        Status::Checking => "local copy, asking…".to_owned(),
-                        Status::Waiting(0) => "local copy".to_owned(),
-                        Status::Waiting(n) => format!("{n} waiting to be sent"),
+                        Status::Synced | Status::Idle => t().mini.from_server.to_owned(),
+                        Status::Checking => t().mini.asking.to_owned(),
+                        Status::Waiting(0) => t().mini.local_copy.to_owned(),
+                        Status::Waiting(n) => (t().mini.waiting)(n),
                         // Short, but not the same word for every kind of trouble: see
                         // `tour::said_of` for the roomy version.
                         Status::Failed(f) => f.why.shortly(),
@@ -157,20 +158,20 @@ pub fn MiniTour(
                         on:click={
                             let t = for_head.clone();
                             move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::of(&t))))
-                        }>"edit"</button>
+                        }>{t().mini.edit}</button>
                 <button type="button" class="tcm-btn"
-                        on:click=move |_| dialog.set(Some(Dialog::Currencies))>"cur"</button>
+                        on:click=move |_| dialog.set(Some(Dialog::Currencies))>{t().mini.currencies}</button>
                 <button type="button" class="tcm-btn"
-                        on:click=move |_| dialog.set(Some(Dialog::Versions))>"vers"</button>
+                        on:click=move |_| dialog.set(Some(Dialog::Versions))>{t().mini.versions}</button>
             </div>
         </div>
 
-        <nav class="tcm-tabs" role="tablist" aria-label="Tour sections">
-            <MiniTab tab=tab mine=Tab::Balance label="bal".into()
+        <nav class="tcm-tabs" role="tablist" aria-label=t().tour.sections>
+            <MiniTab tab=tab mine=Tab::Balance label=t().mini.tab_balance.into()
                      count=(!between.is_empty()).then_some(between.len()) />
-            <MiniTab tab=tab mine=Tab::People label="people".into() count=Some(people) />
-            <MiniTab tab=tab mine=Tab::Expenses label="spend".into() count=Some(expenses) />
-            <MiniTab tab=tab mine=Tab::Stats label="stats".into() count=None />
+            <MiniTab tab=tab mine=Tab::People label=t().mini.tab_people.into() count=Some(people) />
+            <MiniTab tab=tab mine=Tab::Expenses label=t().mini.tab_expenses.into() count=Some(expenses) />
+            <MiniTab tab=tab mine=Tab::Stats label=t().mini.tab_stats.into() count=None />
         </nav>
 
         <div class="tcm-panel" role="tabpanel">
@@ -212,7 +213,7 @@ fn MiniTab(tab: RwSignal<Tab>, mine: Tab, label: String, count: Option<usize>) -
 /// ", in RSD" after a caption: the one place a list of bare amounts says what they are in.
 fn in_unit(tour: &Tour) -> String {
     let unit = crate::ui::unit(tour);
-    if unit.is_empty() { String::new() } else { format!(", in {unit}") }
+    if unit.is_empty() { String::new() } else { (t().mini.in_unit)(&unit) }
 }
 
 #[component]
@@ -264,12 +265,12 @@ fn MiniBalance(
         {if empty {
             view! {
                 <div class="tcm-empty">
-                    "Everyone is square."
-                    {(!has_real).then_some(" Add the first expense and the split shows up here.")}
-                    {(has_real && dust_count > 0).then(|| format!(
-                        " What is left is {dust_count} under {} each, {} in all — the figure                          in the balances below.",
-                        money(threshold),
-                        money(dust_total),
+                    {t().mini.square}
+                    {(!has_real).then_some(t().mini.first_expense)}
+                    {(has_real && dust_count > 0).then(|| (t().mini.dust)(
+                        dust_count,
+                        &money(threshold),
+                        &money(dust_total),
                     ))}
                 </div>
             }.into_any()
@@ -281,7 +282,7 @@ fn MiniBalance(
                     let to = name(&t.to);
                     let amount = tour.convert(t.amount, &t.currency);
                     let recording = t.clone();
-                    let question = format!("Record that {from} paid {to} {}?", money(amount));
+                    let question = (crate::i18n::t().mini.mark_paid_question)(&from, &to, &money(amount));
                     view! {
                         <div class="tcm-row">
                             // Who hands the money over recedes, who ends up with it is the
@@ -292,8 +293,8 @@ fn MiniBalance(
                                 <span class="tcm-name is-payee">{to}</span>
                             </span>
                             <span class="tcm-money">{money(amount)}</span>
-                            <button type="button" class="tcm-act" aria-label="Mark paid"
-                                    title="Record that this money has changed hands"
+                            <button type="button" class="tcm-act" aria-label=crate::i18n::t().balance.mark_paid
+                                    title=crate::i18n::t().balance.mark_paid_hint
                                     on:click=move |_| {
                                         let agreed = web_sys::window()
                                             .and_then(|w| w.confirm_with_message(&question).ok())
@@ -313,9 +314,9 @@ fn MiniBalance(
                 .collect_view();
             view! {
                 <div class="tcm-caption is-band">
-                    "who pays whom" {in_unit.clone()} " " <span class="tcm-count">{between.len()}</span>
+                    {t().mini.who_pays_whom} {in_unit.clone()} " " <span class="tcm-count">{between.len()}</span>
                     <span class="tcm-spacer"></span>
-                    <span class="tcm-hint">"tap ✓ to record"</span>
+                    <span class="tcm-hint">{t().mini.tap_to_record}</span>
                 </div>
                 <div class="tcm-list">{rows}</div>
             }.into_any()
@@ -342,9 +343,9 @@ fn MiniBalance(
             let _ = &name_for_balances;
             view! {
                 <div class="tcm-caption is-band">
-                    "balances" {in_unit.clone()}
+                    {t().mini.balances} {in_unit.clone()}
                     <span class="tcm-spacer"></span>
-                    <span class="tcm-hh">"gets"</span><span class="tcm-hh">"owes"</span>
+                    <span class="tcm-hh">{t().mini.gets}</span><span class="tcm-hh">{t().mini.owes}</span>
                 </div>
                 <div class="tcm-list tcm-2side">{rows}</div>
             }
@@ -354,7 +355,7 @@ fn MiniBalance(
             <button type="button" class="tcm-fold"
                     on:click=move |_| show_family.update(|f| *f = !*f)>
                 {move || if show_family.get() { "▾" } else { "▸" }}
-                " inside families " <span class="tcm-count">{family_count}</span>
+                {t().mini.inside_families} <span class="tcm-count">{family_count}</span>
             </button>
             <Show when=move || show_family.get()>
                 <div class="tcm-list">
@@ -404,29 +405,29 @@ fn MiniPeople(
         <div class="tcm-bar">
             <button type="button" class="tcm-btn"
                     on:click=move |_| dialog.set(Some(Dialog::Person(PersonDraft::new())))>
-                "+ person"
+                {t().mini.add_person}
             </button>
             <Show when=move || { searchable }>
-                <input class="tcm-find" type="text" placeholder="find"
+                <input class="tcm-find" type="text" placeholder=t().mini.find
                        prop:value=move || search.get()
                        on:input=move |ev| search.set(event_target_value(&ev)) />
             </Show>
             <span class="tcm-spacer"></span>
-            <span class="tcm-hint" title="Every shared expense is split in these proportions">
+            <span class="tcm-hint" title=t().mini.weight_hint>
                 "Σw " {total_weight}
             </span>
         </div>
 
         {if count == 0 {
             view! {
-                <div class="tcm-empty">"Nobody here yet — “+ person” adds the first one."</div>
+                <div class="tcm-empty">{t().mini.nobody}</div>
             }.into_any()
         } else {
             view! {
                 <div class="tcm-caption is-band">
-                    {count} " people" {in_unit.clone()}
+                    {count} {t().mini.people} {in_unit.clone()}
                     <span class="tcm-spacer"></span>
-                    <span class="tcm-hh">"gets"</span><span class="tcm-hh">"owes"</span>
+                    <span class="tcm-hh">{t().mini.gets}</span><span class="tcm-hh">{t().mini.owes}</span>
                 </div>
                 <div class="tcm-list tcm-2side">
                     {move || {
@@ -564,13 +565,13 @@ fn MiniPerson(
                     {if covers > 0 {
                         view! {
                             <span class="tcm-tag"
-                                  title=format!("Pays for {covers}, {family_weight} of weight between them")>
+                                  title=(t().people.family_hint)(covers, family_weight as i64)>
                                 "+" {covers} " ×" {family_weight}
                             </span>
                         }.into_any()
                     } else if weight != common {
                         view! {
-                            <span class="tcm-weight" title=format!("Weight {weight}")>
+                            <span class="tcm-weight" title=(t().people.weight_hint)(weight as i64)>
                                 "×" {weight}
                             </span>
                         }.into_any()
@@ -580,10 +581,10 @@ fn MiniPerson(
                 </button>
                 {if shown.is_zero() {
                     let why = if is_child {
-                        payer.clone().map(|p| format!("Settled through {p}"))
-                            .unwrap_or_else(|| "Settled".to_owned())
+                        payer.clone().map(|p| (t().mini.settled_through)(&p))
+                            .unwrap_or_else(|| t().mini.settled_row.to_owned())
                     } else {
-                        "Settled".to_owned()
+                        t().mini.settled_row.to_owned()
                     };
                     view! {
                         <span class="tcm-half"></span>
@@ -604,22 +605,22 @@ fn MiniPerson(
             <Show when=move || is_open.get()>
                 <div class="tcm-sub">
                     <div class="tcm-facts-line">
-                        <span>"paid " <b class="tcm-money">{money(paid)}</b></span>
+                        <span>{t().mini.paid} <b class="tcm-money">{money(paid)}</b></span>
                         <span class="tcm-dot">"·"</span>
-                        <span>"charged " <b class="tcm-money">{money(charged)}</b></span>
+                        <span>{t().mini.charged} <b class="tcm-money">{money(charged)}</b></span>
                         <span class="tcm-dot">"·"</span>
-                        <span>"own " <b class="tcm-money">{money(own)}</b></span>
+                        <span>{t().mini.own} <b class="tcm-money">{money(own)}</b></span>
                         {shows_family.then(|| view! {
                             <span class="tcm-dot">"·"</span>
-                            <span title="Their own debt plus everyone they pay for">
-                                "family " <b class="tcm-money">{money(settle)}</b>
+                            <span title=t().mini.family_hint>
+                                {t().mini.family} <b class="tcm-money">{money(settle)}</b>
                             </span>
                         })}
                         <span class="tcm-dot">"·"</span>
-                        <span>"weight " <b>{weight}</b></span>
+                        <span>{t().mini.weight} <b>{weight}</b></span>
                         {payer.clone().map(|p| view! {
                             <span class="tcm-dot">"·"</span>
-                            <span>"paid by " <b>{p}</b></span>
+                            <span>{t().mini.paid_by} <b>{p}</b></span>
                         })}
                     </div>
                     <div class="tcm-fields">
@@ -633,21 +634,21 @@ fn MiniPerson(
                                         dialog.set(Some(Dialog::Spending(draft)));
                                     }
                                 }>
-                            "spend"
+                            {t().mini.spend_row}
                         </button>
                         <button type="button" class="tcm-btn"
                                 on:click={
                                     let who = for_edit.clone();
                                     move |_| dialog.set(Some(Dialog::Person(PersonDraft::of(&who))))
                                 }>
-                            "edit"
+                            {t().mini.edit}
                         </button>
                         <button type="button" class="tcm-btn is-danger"
                                 on:click={
                                     let who = for_delete.clone();
                                     move |_| delete.run(Removal::Person(who.clone()))
                                 }>
-                            "delete"
+                            {t().mini.delete}
                         </button>
                     </div>
                 </div>
@@ -694,27 +695,27 @@ fn MiniExpenses(
 
     view! {
         <div class="tcm-bar">
-            <input class="tcm-find" type="text" placeholder="find"
+            <input class="tcm-find" type="text" placeholder=t().mini.find
                    prop:value=move || search.get()
                    on:input=move |ev| search.set(event_target_value(&ev)) />
             <button type="button" class="tcm-btn" class:is-on=move || sort_by.get() == Sort::Date
                     on:click=move |_| toggle(Sort::Date)>
-                "date"
+                {t().mini.date}
                 {move || if sort_by.get() == Sort::Date {
                     if newest_first.get() { "↓" } else { "↑" }
                 } else { "" }}
             </button>
             <button type="button" class="tcm-btn" class:is-on=move || sort_by.get() == Sort::Amount
                     on:click=move |_| toggle(Sort::Amount)>
-                "amt"
+                {t().mini.amount}
                 {move || if sort_by.get() == Sort::Amount {
                     if newest_first.get() { "↓" } else { "↑" }
                 } else { "" }}
             </button>
             {(categories.len() > 1).then(|| view! {
-                <select class="tcm-input tcm-input-xs" title="Category"
+                <select class="tcm-input tcm-input-xs" title=t().mini.category
                         on:change=move |ev| category.set(event_target_value(&ev))>
-                    <option value="">"all"</option>
+                    <option value="">{t().mini.all}</option>
                     {categories
                         .iter()
                         .map(|c| view! { <option value=c.clone()>{c.clone()}</option> })
@@ -726,7 +727,7 @@ fn MiniExpenses(
         {move || {
             if total == 0 {
                 return view! {
-                    <div class="tcm-empty">"No expenses yet — “+ spend” records the first one."</div>
+                    <div class="tcm-empty">{t().mini.no_expenses}</div>
                 }.into_any();
             }
             let needle = search.get().trim().to_lowercase();
@@ -744,7 +745,7 @@ fn MiniExpenses(
                 .collect();
 
             if shown.is_empty() {
-                return view! { <div class="tcm-empty">"Nothing matches the filter."</div> }
+                return view! { <div class="tcm-empty">{t().mini.nothing_matches_filter}</div> }
                     .into_any();
             }
 
@@ -833,11 +834,11 @@ fn MiniSpending(
     // A payment the app recorded reads as a payment; anything a person typed is theirs.
     let description = match crate::ui::as_service_transfer(&spending.description) {
         Some((from, to)) => format!("{from} → {to}"),
-        None if spending.description.trim().is_empty() => "(no description)".to_owned(),
+        None if spending.description.trim().is_empty() => t().expenses.no_description.to_owned(),
         None => spending.description.clone(),
     };
     let for_whom = match &spending.split {
-        Split::Everyone => "everyone".to_owned(),
+        Split::Everyone => t().mini.everyone.to_owned(),
         Split::Equally(to) | Split::ByWeight(to) => {
             let mut names: Vec<String> = to.iter().map(|id| name_of(tour.person(id))).collect();
             names.sort();
@@ -856,12 +857,12 @@ fn MiniSpending(
     // two different things that must not look the same.
     let service = crate::ui::as_service_transfer(&spending.description).map(|_| {
         if spending.description.starts_with("Family ") {
-            "inside family"
+            t().expenses.inside_family
         } else {
-            "payback"
+            t().expenses.payback
         }
     });
-    let family = service == Some("inside family");
+    let family = service == Some(t().expenses.inside_family);
 
     // Who carries how much of it, and who is not in it - the same figures as the roomy
     // list's details, from the calculator's own arithmetic: an equal split is equal whatever
@@ -871,10 +872,9 @@ fn MiniSpending(
     // With the shares below naming everybody, the line above says only how many.
     let for_whom = match (&spending.split, shown_shares) {
         (Split::Everyone, _) | (_, false) => for_whom,
-        _ => format!(
-            "{} of {}",
+        _ => (t().mini.n_of)(
             groups.iter().map(|g| g.names.len()).sum::<usize>(),
-            tour.persons.len()
+            tour.persons.len(),
         ),
     };
 
@@ -915,7 +915,7 @@ fn MiniSpending(
                     <div class="tcm-facts-line">
                         <span>{pretty_when(&when)}</span>
                         <span class="tcm-dot">"·"</span>
-                        <span>"for " <b>{for_whom.clone()}</b></span>
+                        <span>{t().mini.for_whom} <b>{for_whom.clone()}</b></span>
                         {service.map(|what| view! {
                             <span class="tcm-dot">"·"</span>
                             <span>{what}</span>
@@ -939,7 +939,7 @@ fn MiniSpending(
                                         <div>
                                             <b class="tcm-money">{money(g.share)}</b>
                                             <span class="tcw-dim">
-                                                {each.then_some(" each")}
+                                                {each.then_some(t().mini.each)}
                                                 {g.weight.map(|w| format!(" w{w}"))}
                                                 " — "
                                             </span>
@@ -949,7 +949,7 @@ fn MiniSpending(
                                 })
                                 .collect_view()}
                             {(!left_out.is_empty()).then(|| view! {
-                                <div class="tcw-dim">"not in it: " {left_out.join(", ")}</div>
+                                <div class="tcw-dim">{t().expenses.not_in_it.to_lowercase()} {left_out.join(", ")}</div>
                             })}
                         </div>
                     })}
@@ -959,14 +959,14 @@ fn MiniSpending(
                                     let s = for_edit.clone();
                                     move |_| dialog.set(Some(Dialog::Spending(SpendingDraft::of(&s))))
                                 }>
-                            "edit"
+                            {t().mini.edit}
                         </button>
                         <button type="button" class="tcm-btn is-danger"
                                 on:click={
                                     let s = for_delete.clone();
                                     move |_| delete.run(Removal::Spending(s.clone()))
                                 }>
-                            "delete"
+                            {t().mini.delete}
                         </button>
                     </div>
                 </div>
@@ -1036,7 +1036,7 @@ fn MiniStats(tour: Tour, unit: String) -> impl IntoView {
         {if empty {
             view! {
                 <div class="tcm-empty">
-                    "Nothing to count yet — an expense needs a category to show up here."
+                    {t().mini.nothing_to_count}
                 </div>
             }.into_any()
         } else {
@@ -1044,22 +1044,22 @@ fn MiniStats(tour: Tour, unit: String) -> impl IntoView {
                 <div class="tcm-statline">
                     <div class="tcm-statcell">
                         <b>{money(total)}</b>
-                        <span>{if unit.is_empty() { "total".to_owned() } else { format!("total {unit}") }}</span>
+                        <span>{if unit.is_empty() { t().mini.total.to_owned() } else { format!("{} {unit}", t().mini.total) }}</span>
                     </div>
                     <div class="tcm-statcell">
-                        <b>{money(per_person)}</b><span>"per person"</span>
+                        <b>{money(per_person)}</b><span>{t().mini.per_person}</span>
                     </div>
                     <div class="tcm-statcell">
                         <b>{money(Cents(per_person.0 / days))}</b>
-                        <span>{format!("per person / day · {days} d")}</span>
+                        <span>{(t().mini.per_person_day)(days as i64)}</span>
                     </div>
                 </div>
 
                 <div class="tcm-bar">
                     <button type="button" class="tcm-btn" class:is-on=move || by_category.get()
-                            on:click=move |_| by_category.set(true)>"by category"</button>
+                            on:click=move |_| by_category.set(true)>{t().mini.by_category}</button>
                     <button type="button" class="tcm-btn" class:is-on=move || !by_category.get()
-                            on:click=move |_| by_category.set(false)>"by payer"</button>
+                            on:click=move |_| by_category.set(false)>{t().mini.by_payer}</button>
                 </div>
 
                 <div class="tcm-list">
@@ -1095,7 +1095,7 @@ fn MiniStats(tour: Tour, unit: String) -> impl IntoView {
                                             // Just the number, in the column mini.css keeps
                                             // for it. It used to read "3 e" - the "e" was
                                             // for "expenses" and said so to nobody.
-                                            <span class="tcm-n" title="expenses in this group">
+                                            <span class="tcm-n" title=t().mini.in_group>
                                                 {n}
                                             </span>
                                         </span>
@@ -1192,22 +1192,22 @@ pub fn MiniList(
     view! {
         <div class="tcm-bar">
             <Show when=move || { searchable }>
-                <input class="tcm-find" type="text" placeholder="find"
+                <input class="tcm-find" type="text" placeholder=t().mini.find
                        prop:value=move || search.get()
                        on:input=move |ev| search.set(event_target_value(&ev)) />
             </Show>
             <button type="button" class="tcm-btn" class:is-on=move || adding.get()
                     on:click=move |_| adding.update(|a| *a = !*a)>
-                {move || if adding.get() { "cancel" } else { "+ tour" }}
+                {move || if adding.get() { t().mini.cancel } else { t().mini.add_tour }}
             </button>
-            <label class="tcm-check" title="Show the archived tours too">
+            <label class="tcm-check" title=t().mini.show_archived>
                 <input type="checkbox" prop:checked=move || show_archived.get()
                        on:change=move |ev| show_archived.set(event_target_checked(&ev)) />
-                "arch"
+                {t().mini.archived}
             </label>
             <span class="tcm-spacer"></span>
             <Show when=move || busy.get()>
-                <span class="tcm-saving">"saving…"</span>
+                <span class="tcm-saving">{t().mini.saving}</span>
             </Show>
         </div>
 
@@ -1221,11 +1221,11 @@ pub fn MiniList(
                         <button type="button" class="tcm-btn"
                                 class:is-on=move || order_by.get() == which
                                 title=move || if order_by.get() == which && downwards.get() {
-                                    format!("{down} — tap for {up}")
+                                    (t().mini.tap_for)(down, up)
                                 } else if order_by.get() == which {
-                                    format!("{up} — tap for {down}")
+                                    (t().mini.tap_for)(up, down)
                                 } else {
-                                    format!("order by: {down}")
+                                    (t().mini.order_by)(down)
                                 }
                                 on:click=move |_| crate::list::choose(order_by, downwards, which)>
                             {which.label().to_lowercase()}
@@ -1241,17 +1241,17 @@ pub fn MiniList(
         <Show when=move || adding.get()>
             <div class="tcm-sub">
                 <div class="tcm-fields">
-                    <input class="tcm-input" type="text" placeholder="tour name"
+                    <input class="tcm-input" type="text" placeholder=t().mini.tour_name
                            prop:value=move || new_name.get()
                            on:input=move |ev| new_name.set(event_target_value(&ev)) />
-                    <input class="tcm-input tcm-input-xs" type="text" placeholder="code"
+                    <input class="tcm-input tcm-input-xs" type="text" placeholder=t().mini.code
                            prop:value=move || new_code.get()
                            on:input=move |ev| new_code.set(event_target_value(&ev)) />
                     <button type="button" class="tcm-btn is-primary"
                             prop:disabled=move || busy.get()
-                            on:click=move |_| create.run(())>"create"</button>
+                            on:click=move |_| create.run(())>{t().mini.create}</button>
                 </div>
-                <textarea class="tcm-input" rows="2" placeholder="tour JSON (optional)"
+                <textarea class="tcm-input" rows="2" placeholder=t().mini.tour_json
                           prop:value=move || new_json.get()
                           on:input=move |ev| new_json.set(event_target_value(&ev))></textarea>
             </div>
@@ -1279,9 +1279,9 @@ pub fn MiniList(
                 return view! {
                     <div class="tcm-empty">
                         {if needle.is_empty() {
-                            "No tours under this code yet — “+ tour” makes the first one."
+                            t().mini.no_tours
                         } else {
-                            "Nothing matches."
+                            t().mini.nothing_matches
                         }}
                     </div>
                 }.into_any();
@@ -1340,26 +1340,26 @@ fn MiniTourRow(
             <div class="tcm-row">
                 <a class="tcm-main tcm-name" href=href>
                     {tour.name.clone()}
-                    {finalizing.then(|| view! { <span class="tcm-tag is-amber">"settling"</span> })}
-                    {archived.then(|| view! { <span class="tcm-tag">"arch"</span> })}
+                    {finalizing.then(|| view! { <span class="tcm-tag is-amber">{t().mini.settling}</span> })}
+                    {archived.then(|| view! { <span class="tcm-tag">{t().mini.archived}</span> })}
                     <Show when={
                         let waiting = waiting.clone();
                         move || waiting() > 0
                     }>
                         <span class="tcm-tag is-amber"
-                              title="Saved on this device and not yet sent to the server">
+                              title=t().list.waiting_hint>
                             {let waiting = waiting.clone();
-                             move || format!("{} unsent", waiting())}
+                             move || (t().mini.unsent)(waiting())}
                         </span>
                     </Show>
                     <crate::push::ListBell bells=bells tour=id.clone() />
                 </a>
                 <span class="tcm-facts" title=names.join(", ")>
-                    <span>{people} "p"</span>
-                    {(days > 0).then(|| view! { <span>{days} "d"</span> })}
+                    <span>{people} {t().mini.people_short}</span>
+                    {(days > 0).then(|| view! { <span>{days} " " {t().mini.days_short}</span> })}
                 </span>
                 <button type="button" class="tcm-more" class:is-on=move || is_open.get()
-                        title="More about this tour" aria-label="More about this tour"
+                        title=t().mini.more aria-label=t().mini.more
                         aria-expanded=move || is_open.get().to_string()
                         on:click=move |_| {
                             let id = toggle_id.clone();
@@ -1378,22 +1378,22 @@ fn MiniTourRow(
                                 on:click={
                                     let t = for_clone.clone();
                                     move |_| clone_it.run((t.clone(), false))
-                                }>"clone"</button>
-                        <button type="button" class="tcm-btn" title="Clone without the expenses"
+                                }>{t().mini.clone}</button>
+                        <button type="button" class="tcm-btn" title=t().mini.clone_bare_hint
                                 on:click={
                                     let t = for_clone_bare.clone();
                                     move |_| clone_it.run((t.clone(), true))
-                                }>"clone∅"</button>
+                                }>{t().mini.clone_bare}</button>
                         <button type="button" class="tcm-btn"
                                 on:click={
                                     let t = for_json.clone();
                                     move |_| copy_json.run(t.clone())
-                                }>"json"</button>
+                                }>{t().mini.json}</button>
                         <button type="button" class="tcm-btn is-danger"
                                 on:click={
                                     let t = for_delete.clone();
                                     move |_| remove.run(t.clone())
-                                }>"delete"</button>
+                                }>{t().mini.delete}</button>
                     </div>
                 </div>
             </Show>

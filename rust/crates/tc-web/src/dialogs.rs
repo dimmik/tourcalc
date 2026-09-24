@@ -10,6 +10,7 @@
 //! taking anything away from anybody else. That is what keeps `Rc<RefCell<..>>` - and the
 //! "already mutably borrowed" panics that come with it - out of this file entirely.
 
+use crate::i18n::t;
 use crate::api;
 use crate::edit::{self, PersonDraft, SpendingDraft};
 use crate::edit::{CurrencyDraft, TourDraft};
@@ -225,9 +226,9 @@ pub fn SpendingDialog(
     };
 
     let title = if editing {
-        "Edit expense"
+        t().dialogs.edit_expense
     } else {
-        "New expense"
+        t().dialogs.new_expense
     };
     let footer = {
         let submit = submit.clone();
@@ -245,9 +246,9 @@ pub fn SpendingDialog(
                     </div>
                 </Show>
                 <span style="flex:1 1 auto"></span>
-                <button type="button" class="tcn-btn" on:click=move |_| close.run(())>"Cancel"</button>
+                <button type="button" class="tcn-btn" on:click=move |_| close.run(())>{t().dialogs.cancel}</button>
                 <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit.clone()>
-                    "Save"
+                    {t().dialogs.save}
                 </button>
             }
         })
@@ -258,14 +259,14 @@ pub fn SpendingDialog(
             // Picked up from the last time this form was open and left.
             <Show when=move || carried.get()>
                 <div class="tcn-chip tcn-chip-amber tcw-wraps tcw-carried">
-                    "Carried over from what you were typing."
+                    {t().dialogs.carried}
                     <button type="button" class="tcn-btn tcn-btn-sm" on:click=start_blank>
-                        "Start blank"
+                        {t().dialogs.start_blank}
                     </button>
                 </div>
             </Show>
             <div class="tcn-amount">
-                <div class="tcn-label">"Amount"</div>
+                <div class="tcn-label">{t().dialogs.amount}</div>
                 <div class="tcn-amount-row">
                     <input class="tcn-amount-input" type="number" inputmode="decimal" placeholder="0"
                            prop:value=move || amount.get()
@@ -303,14 +304,14 @@ pub fn SpendingDialog(
             </div>
 
             <div class="tcn-field">
-                <div class="tcn-label">"What for"</div>
-                <input class="tcn-input" type="text" placeholder="Dinner, tickets, taxi…"
+                <div class="tcn-label">{t().dialogs.what_for}</div>
+                <input class="tcn-input" type="text" placeholder=t().dialogs.what_for_example
                        prop:value=move || description.get()
                        on:input=move |ev| description.set(event_target_value(&ev)) />
             </div>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Paid by"</div>
+                <div class="tcn-label">{t().dialogs.paid_by}</div>
                 <div class="tcn-pchips">
                     {people_paid
                         .iter()
@@ -343,16 +344,16 @@ pub fn SpendingDialog(
 
             <div class="tcn-field">
                 <div class="tcn-label tcn-label-row">
-                    <span>"Split between"</span>
+                    <span>{t().dialogs.split_between}</span>
                     <label class="tcn-switchline">
                         <input type="checkbox" prop:checked=move || everyone.get()
                                on:change=move |ev| everyone.set(event_target_checked(&ev)) />
-                        "everyone"
+                        {t().dialogs.everyone}
                     </label>
                 </div>
                 <Show when=move || everyone.get()>
                     <div class="tcn-hint">
-                        {format!("Shared by all {headcount} participants, by weight.")}
+                        {(t().dialogs.shared_by_all)(headcount)}
                     </div>
                 </Show>
                 <Show when=move || !everyone.get()>
@@ -391,29 +392,29 @@ pub fn SpendingDialog(
                     </div>
                     <div class="tcn-hint">
                         {move || if to.get().is_empty() {
-                            view! { <span>"Pick who this expense is for."</span> }.into_any()
+                            view! { <span>{t().dialogs.pick_who}</span> }.into_any()
                         } else {
                             view! {
-                                <span>{to.get().len()} " selected"</span>
+                                <span>{(t().dialogs.selected)(to.get().len())}</span>
                                 <button type="button" class="tcn-linkbtn"
                                         on:click=move |_| to.set(Vec::new())>
-                                    "clear"
+                                    {t().dialogs.clear}
                                 </button>
                             }.into_any()
                         }}
                     </div>
                     <div class="tcn-hint">
                         {move || if by_weight.get() {
-                            "Shared by weight. Equal shares are under More options."
+                            t().dialogs.by_weight_note
                         } else {
-                            "In equal shares, whatever the weights. By weight is under More options."
+                            t().dialogs.equally_note
                         }}
                     </div>
                 </Show>
             </div>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Category"</div>
+                <div class="tcn-label">{t().dialogs.category}</div>
                 <div class="tcn-chips">
                     {move || {
                         let mut names = known_categories.clone();
@@ -455,19 +456,19 @@ pub fn SpendingDialog(
                     }}
                     <span class="tcn-chip tcn-filter-chip"
                           on:click=move |_| adding.update(|a| *a = !*a)>
-                        "+ new"
+                        {t().dialogs.new_category}
                     </span>
                 </div>
                 <Show when=move || guessed.get()>
                     <div class="tcn-hint" style="margin-top:4px">
-                        "Last used — tap another one if it is wrong."
+                        {t().dialogs.last_used}
                     </div>
                 </Show>
                 <Show when=move || adding.get()>
                     <div class="tcn-row" style="margin-top:8px">
                         <input class="tcn-input" style="flex:1 1 140px" type="text"
                                node_ref=new_category_box
-                               placeholder="Category name"
+                               placeholder=t().dialogs.category_name
                                prop:value=move || fresh_category.get()
                                on:input=move |ev| fresh_category.set(event_target_value(&ev))
                                on:keyup=move |ev: web_sys::KeyboardEvent| {
@@ -477,14 +478,14 @@ pub fn SpendingDialog(
                                } />
                         <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
                                 on:click=move |_| add_category(())>
-                            "Add"
+                            {t().dialogs.add}
                         </button>
                     </div>
                 </Show>
             </div>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Date"</div>
+                <div class="tcn-label">{t().dialogs.date}</div>
                 // A date input rather than free text: every browser that runs this has one,
                 // and it spells the day out in whatever order the reader's locale uses while
                 // handing back the same YYYY-MM-DD the data is stored in.
@@ -492,8 +493,7 @@ pub fn SpendingDialog(
                        prop:value=move || date.get()
                        on:input=move |ev| date.set(event_target_value(&ev)) />
                 <div class="tcn-hint">
-                    "Only the day changes; an expense keeps its place among the ones entered
-                     the same day."
+                    {t().dialogs.date_note}
                 </div>
             </div>
 
@@ -505,44 +505,40 @@ pub fn SpendingDialog(
                 } else {
                     view! { <crate::icon::Icon name="chevron-right" /> }
                 }}
-                " More options"
+                {t().dialogs.more_options}
             </button>
 
             <Show when=move || more.get()>
                 <div class="tcn-field" style="margin-top:8px">
                     <div class="tcn-row" style="flex-wrap:wrap; gap:6px 8px">
-                        <span class="tcn-label" style="margin:0">"Split the chosen people"</span>
+                        <span class="tcn-label" style="margin:0">{t().dialogs.split_chosen}</span>
                         <span class="tcw-splitway" role="radiogroup"
-                              aria-label="How the chosen people share it">
+                              aria-label=t().dialogs.split_how>
                             <button type="button" role="radio" class="tcw-splitway-opt"
                                     class:is-on=move || by_weight.get()
                                     aria-checked=move || by_weight.get().to_string()
                                     on:click=move |_| by_weight.set(true)>
-                                "by weight"
+                                {t().dialogs.by_weight}
                             </button>
                             <button type="button" role="radio" class="tcw-splitway-opt"
                                     class:is-on=move || !by_weight.get()
                                     aria-checked=move || (!by_weight.get()).to_string()
                                     on:click=move |_| by_weight.set(false)>
-                                "equally"
+                                {t().dialogs.equally}
                             </button>
                         </span>
                     </div>
                     <div class="tcn-hint" style="margin-top:2px">
                         {move || match (everyone.get(), by_weight.get()) {
-                            (true, _) => "For an expense for some of the people. One for everyone \
-                                          is always shared by weight; this is what it goes back \
-                                          to if “everyone” is switched off.",
-                            (false, true) => "Each person carries a share in proportion to their \
-                                              weight - the usual way.",
-                            (false, false) => "Everyone chosen carries the same amount, whatever \
-                                               their weight.",
+                            (true, _) => t().dialogs.split_everyone_note,
+                            (false, true) => t().dialogs.split_weight_note,
+                            (false, false) => t().dialogs.split_equal_note,
                         }}
                     </div>
                 </div>
                 <div class="tcn-field" style="margin-top:8px">
                     <div class="tcn-row">
-                        <span class="tcn-label" style="margin:0">"Colour"</span>
+                        <span class="tcn-label" style="margin:0">{t().dialogs.colour}</span>
                         <input type="color" class="tcn-colour"
                                prop:value=move || {
                                    let c = colour.get();
@@ -552,13 +548,12 @@ pub fn SpendingDialog(
                         <Show when=move || crate::ui::is_marked(&colour.get())>
                             <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-ghost"
                                     on:click=move |_| colour.set(String::new())>
-                                "reset"
+                                {t().dialogs.reset}
                             </button>
                         </Show>
                     </div>
                     <div class="tcn-hint" style="margin-top:2px">
-                        "Marks an unusual expense - a group tax, an unexpected fine - so it
-                         catches the eye in the list."
+                        {t().dialogs.colour_note}
                     </div>
                     // What you picked, as the list will show it: a colour is chosen for how
                     // it looks there, not for how it looks in a colour picker.
@@ -569,7 +564,7 @@ pub fn SpendingDialog(
                                 {move || {
                                     let what = description.get();
                                     if what.trim().is_empty() {
-                                        "This expense".to_owned()
+                                        t().dialogs.this_expense.to_owned()
                                     } else {
                                         what
                                     }
@@ -625,12 +620,7 @@ pub fn PersonDialog(
     // 100/75/50/25; 75 is nobody, and the three below a full share are the ones a tour
     // really has - a teenager, a child, a small child. The box underneath still takes any
     // number, so nothing is lost by not offering it as a chip.
-    let presets = [
-        (100, "Full · 100"),
-        (50, "Teen · 50"),
-        (35, "Child · 35"),
-        (25, "Toddler · 25"),
-    ];
+    let presets = [100, 50, 35, 25].into_iter().zip(t().dialogs.weight_presets);
 
     let base = draft.clone();
     let current = std::sync::Arc::new(move || {
@@ -678,7 +668,7 @@ pub fn PersonDialog(
         on_apply.run(Operation::PutPerson(d));
     };
 
-    let title = if editing { "Edit person" } else { "Add person" };
+    let title = if editing { t().dialogs.edit_person } else { t().dialogs.add_person };
     let footer = {
         let submit = submit.clone();
         ViewFn::from(move || {
@@ -692,9 +682,9 @@ pub fn PersonDialog(
                     </div>
                 </Show>
                 <span style="flex:1 1 auto"></span>
-                <button type="button" class="tcn-btn" on:click=move |_| close.run(())>"Cancel"</button>
+                <button type="button" class="tcn-btn" on:click=move |_| close.run(())>{t().dialogs.cancel}</button>
                 <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit.clone()>
-                    {if editing { "Save" } else { "Add person" }}
+                    {if editing { t().dialogs.save } else { t().dialogs.add_person }}
                 </button>
             }
         })
@@ -704,14 +694,14 @@ pub fn PersonDialog(
         <Modal title=title.to_owned() on_close=close footer=footer>
             <Show when=move || carried.get()>
                 <div class="tcn-chip tcn-chip-amber tcw-wraps tcw-carried">
-                    "Carried over from what you were typing."
+                    {t().dialogs.carried}
                     <button type="button" class="tcn-btn tcn-btn-sm" on:click=start_blank>
-                        "Start blank"
+                        {t().dialogs.start_blank}
                     </button>
                 </div>
             </Show>
             <div class="tcn-field">
-                <div class="tcn-label">"Name"</div>
+                <div class="tcn-label">{t().dialogs.name}</div>
                 <div class="tcn-namerow">
                     // The avatar is the app's, and it is not decoration: two people called
                     // Дима get different colours and different initials, and this is where
@@ -720,51 +710,48 @@ pub fn PersonDialog(
                           style=move || format!("background:{}", crate::ui::avatar_colour(&name.get()))>
                         {move || crate::ui::initials(&name.get())}
                     </span>
-                    <input class="tcn-input" type="text" placeholder="Who is joining?"
+                    <input class="tcn-input" type="text" placeholder=t().dialogs.who_joins
                            prop:value=move || name.get()
                            on:input=move |ev| name.set(event_target_value(&ev)) />
                 </div>
             </div>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Share of the common expenses"</div>
+                <div class="tcn-label">{t().dialogs.share}</div>
                 <div class="tcn-chips">
                     {presets
-                        .iter()
                         .map(|(w, label)| {
-                            let w = *w;
                             view! {
                                 <span class="tcn-chip tcn-filter-chip"
                                       class:is-on=move || {
                                           weight.get().trim().parse::<i32>() == Ok(w)
                                       }
                                       on:click=move |_| weight.set(w.to_string())>
-                                    {*label}
+                                    {label}
                                 </span>
                             }
                         })
                         .collect_view()}
                 </div>
                 <div class="tcn-row" style="margin-top:8px">
-                    <span class="tcn-hint" style="margin:0">"custom"</span>
+                    <span class="tcn-hint" style="margin:0">{t().dialogs.custom}</span>
                     <input class="tcn-input" style="width:100px" type="number" inputmode="numeric"
                            min="0"
                            prop:value=move || weight.get()
                            on:input=move |ev| weight.set(event_target_value(&ev)) />
                 </div>
                 <div class="tcn-hint">
-                    "A full share is 100. Someone on 50 pays for half as much of everything \
-                     shared. A custom 0 means they pay for nothing at all."
+                    {t().dialogs.share_note}
                 </div>
             </div>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Paid for by"</div>
+                <div class="tcn-label">{t().dialogs.paid_for_by}</div>
                 <div class="tcn-pchips">
                     <button type="button" class="tcn-pchip"
                             class:is-on=move || parent.get().is_empty()
                             on:click=move |_| parent.set(String::new())>
-                        <span class="tcn-pchip-name">"Pays for themselves"</span>
+                        <span class="tcn-pchip-name">{t().dialogs.pays_for_self}</span>
                     </button>
                     {candidates
                         .iter()
@@ -783,8 +770,7 @@ pub fn PersonDialog(
                         .collect_view()}
                 </div>
                 <div class="tcn-hint">
-                    "Children and partners can be settled through one person instead of \
-                     paying separately."
+                    {t().dialogs.paid_for_note}
                 </div>
             </div>
 
@@ -824,44 +810,44 @@ pub fn TourDialog(
 
     let footer = ViewFn::from(move || {
         view! {
-            <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>"Cancel"</button>
-            <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit>"Save"</button>
+            <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>{t().dialogs.cancel}</button>
+            <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit>{t().dialogs.save}</button>
         }
     });
 
     view! {
-        <Modal title="Edit tour".to_owned() on_close=on_close footer=footer>
+        <Modal title=t().dialogs.edit_tour.to_owned() on_close=on_close footer=footer>
             <Show when=move || !error.get().is_empty()>
                 <div class="tcn-errors">{move || error.get()}</div>
             </Show>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Name"</div>
+                <div class="tcn-label">{t().dialogs.name}</div>
                 <input class="tcn-input" type="text"
                        prop:value=move || name.get()
                        on:input=move |ev| name.set(event_target_value(&ev)) />
             </div>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Length in days"</div>
+                <div class="tcn-label">{t().dialogs.days}</div>
                 <input class="tcn-input" type="number" min="1" inputmode="numeric"
                        prop:value=move || days.get()
                        on:input=move |ev| days.set(event_target_value(&ev)) />
-                <div class="tcn-hint">"What the per-day figures on the Stats tab divide by."</div>
+                <div class="tcn-hint">{t().dialogs.days_note}</div>
             </div>
 
             <div class="tcn-field">
                 <label class="tcn-switchline">
                     <input type="checkbox" prop:checked=move || finalizing.get()
                            on:change=move |ev| finalizing.set(event_target_checked(&ev)) />
-                    "Settling up "
-                    <span class="tcn-hint">"— everyone sees the payments to make"</span>
+                    {t().dialogs.settling}
+                    <span class="tcn-hint">{t().dialogs.settling_note}</span>
                 </label>
                 <label class="tcn-switchline">
                     <input type="checkbox" prop:checked=move || archived.get()
                            on:change=move |ev| archived.set(event_target_checked(&ev)) />
-                    "Archived "
-                    <span class="tcn-hint">"— hidden from the default list"</span>
+                    {t().dialogs.archived}
+                    <span class="tcn-hint">{t().dialogs.archived_note}</span>
                 </label>
             </div>
         </Modal>
@@ -914,13 +900,13 @@ pub fn CurrenciesDialog(
 
     let footer = ViewFn::from(move || {
         view! {
-            <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>"Cancel"</button>
-            <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit>"Save"</button>
+            <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>{t().dialogs.cancel}</button>
+            <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit>{t().dialogs.save}</button>
         }
     });
 
     view! {
-        <Modal title=format!("Currencies of {}", tour.name) on_close=on_close footer=footer>
+        <Modal title=(t().dialogs.currencies_of)(&tour.name) on_close=on_close footer=footer>
             <Show when=move || !problems.get().is_empty()>
                 <div class="tcn-errors">
                     {move || problems.get().into_iter().map(|p| view! { <div>{p}</div> }).collect_view()}
@@ -928,7 +914,7 @@ pub fn CurrenciesDialog(
             </Show>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Main currency"</div>
+                <div class="tcn-label">{t().dialogs.main_currency}</div>
                 <div class="tcn-chips">
                     {move || rows.get()
                         .into_iter()
@@ -947,18 +933,14 @@ pub fn CurrenciesDialog(
                         .collect_view()}
                 </div>
                 <div class="tcn-hint">
-                    "Totals and balances are calculated in this one. It is a property of the
-                     tour — changing it affects everyone. To change only what you see, use
-                     “show in” in the header instead."
+                    {t().dialogs.main_currency_note}
                 </div>
             </div>
 
             <div class="tcn-field">
-                <div class="tcn-label">"Rates"</div>
+                <div class="tcn-label">{t().dialogs.rates}</div>
                 <div class="tcn-hint" style="margin: 0 0 8px 0">
-                    "“Worth” is what one unit is worth on any scale you like — only the ratio
-                     matters. If one euro is 118 dinars, put 100 next to the dinar and 11800
-                     next to the euro."
+                    {t().dialogs.rates_note}
                 </div>
 
                 {move || rows.get()
@@ -969,7 +951,7 @@ pub fn CurrenciesDialog(
                         view! {
                             <div class="tcn-currow">
                                 <input class="tcn-input tcn-cur-name" type="text"
-                                       placeholder=if blank { "add a currency…" } else { "" }
+                                       placeholder=if blank { t().dialogs.add_currency } else { "" }
                                        prop:value=c.name.clone()
                                        on:input=move |ev| {
                                            let text = event_target_value(&ev);
@@ -989,7 +971,7 @@ pub fn CurrenciesDialog(
                                                });
                                            });
                                        } />
-                                <span class="tcn-cur-worth-label">"worth"</span>
+                                <span class="tcn-cur-worth-label">{t().dialogs.worth}</span>
                                 <input class="tcn-input tcn-cur-rate" type="number" min="1"
                                        prop:value=c.rate
                                        on:change=move |ev| {
@@ -1005,7 +987,7 @@ pub fn CurrenciesDialog(
                                 } else {
                                     view! {
                                         <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
-                                                title="Remove"
+                                                title=t().dialogs.remove
                                                 on:click=move |_| rows.update(|all| { all.remove(i); })>
                                             "✕"
                                         </button>
@@ -1017,9 +999,7 @@ pub fn CurrenciesDialog(
                     .collect_view()}
 
                 <div class="tcn-hint">
-                    "Renaming keeps the amounts: expenses stay attached to the currency they
-                     were entered in, whatever you call it now. Removing one does not — those
-                     expenses would be read in the main currency."
+                    {t().dialogs.rename_note}
                 </div>
             </div>
         </Modal>
@@ -1057,8 +1037,7 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
             .to_owned();
         let tour_name = tour_name.clone();
         Callback::new(move |version: Tour| {
-            let question = "Restore this version? The tour stays as it is — the version is \
-                 added as a separate copy.";
+            let question = t().dialogs.restore_question;
             let agreed = web_sys::window()
                 .and_then(|w| w.confirm_with_message(question).ok())
                 .unwrap_or(false);
@@ -1089,7 +1068,7 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
                 {
                     Some(v) => v,
                     None => {
-                        note.set("could not read that version".into());
+                        note.set(t().dialogs.cannot_read_version.into());
                         busy.set(false);
                         return;
                     }
@@ -1097,7 +1076,7 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
                 if let Some(obj) = body.as_object_mut() {
                     obj.insert(
                         "Name".into(),
-                        format!("{tour_name} (v {when} before {comment})").into(),
+                        (t().dialogs.restored_name)(&tour_name, &when, &comment).into(),
                     );
                     // It is a tour now, not a version of one.
                     obj.insert("IsVersion".into(), false.into());
@@ -1105,7 +1084,7 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
                 }
 
                 match api::add_tour(body, api::Pile::Hashed(&code)).await {
-                    Ok(_) => note.set("Restored as a new tour — it is in your list.".into()),
+                    Ok(_) => note.set(t().dialogs.restored.into()),
                     Err(e) => note.set(e.to_string()),
                 }
                 busy.set(false);
@@ -1117,23 +1096,23 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
         view! {
             <span style="flex:1 1 auto"></span>
             <button type="button" class="tcn-btn tcn-btn-primary"
-                    on:click=move |_| on_close.run(())>"Got it"</button>
+                    on:click=move |_| on_close.run(())>{t().dialogs.got_it}</button>
         }
     });
 
     view! {
-        <Modal title=format!("Versions of “{tour_name}”") on_close=on_close footer=footer>
+        <Modal title=(t().dialogs.versions_of)(&tour_name) on_close=on_close footer=footer>
             <Show when=move || !note.get().is_empty()>
                 <div class="tcn-chip tcn-chip-amber">{move || note.get()}</div>
             </Show>
 
             {move || match state.get() {
-                None => view! { <div class="tcn-loading">"Loading versions…"</div> }.into_any(),
+                None => view! { <div class="tcn-loading">{t().dialogs.loading_versions}</div> }.into_any(),
                 Some(Err(why)) => view! { <div class="tcn-errors">{why}</div> }.into_any(),
                 Some(Ok(list)) if list.is_empty() => view! {
                     <div class="tcn-empty">
-                        <div class="tcn-empty-title">"No versions yet"</div>
-                        <div>"A version is kept whenever a save changes something."</div>
+                        <div class="tcn-empty-title">{t().dialogs.no_versions}</div>
+                        <div>{t().dialogs.no_versions_note}</div>
                     </div>
                 }.into_any(),
                 Some(Ok(list)) => {
@@ -1158,7 +1137,7 @@ pub fn VersionsDialog(tour: Tour, on_close: Callback<()>) -> impl IntoView {
                                                 <button type="button" class="tcn-btn tcn-btn-sm"
                                                         prop:disabled=move || busy.get()
                                                         on:click=move |_| restore.run(restoring.clone())>
-                                                    "Restore"
+                                                    {t().dialogs.restore}
                                                 </button>
                                             </div>
                                         </div>

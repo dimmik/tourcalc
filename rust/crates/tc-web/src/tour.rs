@@ -9,6 +9,7 @@
 //! this itself, and so the alternative is two implementations of the same money that must
 //! agree forever.
 
+use crate::i18n::t;
 use crate::dialogs::{CurrenciesDialog, PersonDialog, SpendingDialog, TourDialog, VersionsDialog};
 use crate::edit::{PersonDraft, SpendingDraft};
 use crate::people::PeopleTab;
@@ -174,11 +175,11 @@ fn counts_and_totals(tour: &Tour) -> String {
 fn ago(stored_at: f64) -> String {
     let seconds = (crate::queue::now_millis() - stored_at) / 1000.0;
     if seconds < 45.0 {
-        "just now".to_owned()
+        t().sync.just_now.to_owned()
     } else if seconds < 3600.0 {
-        format!("{} min ago", (seconds / 60.0) as i64)
+        (t().sync.min_ago)((seconds / 60.0) as i64)
     } else if seconds < 86_400.0 {
-        format!("{} h ago", (seconds / 3600.0) as i64)
+        (t().sync.h_ago)((seconds / 3600.0) as i64)
     } else {
         crate::ui::local_stamp(stored_at)
     }
@@ -192,13 +193,13 @@ fn ago(stored_at: f64) -> String {
 fn said_of(why: crate::api::Trouble) -> String {
     use crate::api::Trouble;
     match why {
-        Trouble::Unreachable => "server did not answer".to_owned(),
-        Trouble::Ours => "could not read the server's answer".to_owned(),
-        Trouble::Answered(404) => "this tour is not on the server".to_owned(),
-        Trouble::Answered(409) => "the server would not take the change (409)".to_owned(),
-        Trouble::Answered(403) => "the server would not allow it (403)".to_owned(),
-        Trouble::Answered(code) if code >= 500 => format!("the server is in trouble ({code})"),
-        Trouble::Answered(code) => format!("the server refused it ({code})"),
+        Trouble::Unreachable => t().sync.no_answer.to_owned(),
+        Trouble::Ours => t().sync.unreadable.to_owned(),
+        Trouble::Answered(404) => t().sync.not_on_server.to_owned(),
+        Trouble::Answered(409) => t().sync.conflict.to_owned(),
+        Trouble::Answered(403) => t().sync.forbidden.to_owned(),
+        Trouble::Answered(code) if code >= 500 => (t().sync.server_trouble)(code),
+        Trouble::Answered(code) => (t().sync.refused)(code),
     }
 }
 
@@ -214,25 +215,25 @@ fn Freshness(refresh: Refresh) -> impl IntoView {
         refresh.tick.get();
         let stored = refresh.stored_at.get();
         if refresh.busy.get() {
-            return ("asking the server…".to_owned(), "");
+            return (t().sync.asking.to_owned(), "");
         }
         match refresh.outcome.get() {
-            Outcome::Updated => ("✓ new data received".to_owned(), "is-ok"),
-            Outcome::UpToDate => ("✓ server has nothing newer".to_owned(), "is-ok"),
+            Outcome::Updated => (t().sync.new_data.to_owned(), "is-ok"),
+            Outcome::UpToDate => (t().sync.nothing_newer.to_owned(), "is-ok"),
             Outcome::Failed(why) => (
-                format!("✕ {} — showing the local copy", said_of(why)),
+                (t().sync.failed)(&said_of(why)),
                 "is-bad",
             ),
             Outcome::None if refresh.stale.get() => {
-                (format!("⚠ local copy · {}", ago(stored)), "is-stale")
+                ((t().sync.stale)(&ago(stored)), "is-stale")
             }
             Outcome::None => (
                 format!(
                     "{} · {}",
                     if refresh.fresh.get() {
-                        "from server"
+                        t().sync.from_server
                     } else {
-                        "local copy"
+                        t().sync.local_copy
                     },
                     ago(stored)
                 ),
@@ -245,8 +246,7 @@ fn Freshness(refresh: Refresh) -> impl IntoView {
         <span title=move || {
             let when = crate::ui::local_stamp(refresh.stored_at.get());
             if refresh.stale.get() {
-                format!("The server could not be reached. This is the copy stored on this \
-                         device at {when}.")
+                (t().sync.stale_hint)(&when)
             } else {
                 when
             }
@@ -281,16 +281,16 @@ fn ShareLink(tour: Tour) -> impl IntoView {
 
     view! {
         <button type="button" class="tcn-hero-link"
-                title="Copy a link that opens this tour"
+                title=t().sync.share_hint
                 on:click=move |_| {
                     let full = web_sys::window()
                         .and_then(|w| w.location().origin().ok())
                         .map(|o| format!("{o}{href}"))
                         .unwrap_or_else(|| href.clone());
                     copy_to_clipboard(&full);
-                    said.say("link copied");
+                    said.say(t().sync.link_copied);
                 }>
-            {move || if said.is_on() { "link copied" } else { "share link" }}
+            {move || if said.is_on() { t().sync.link_copied } else { t().sync.share_link }}
         </button>
     }
 }
@@ -367,7 +367,7 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
             }
             let what = match waiting.len() {
                 0..=3 => waiting.join(", "),
-                n => format!("{}, and {} more", waiting[..3].join(", "), n - 3),
+                n => (t().sync.and_more)(&waiting[..3].join(", "), n - 3),
             };
             // The server has said no often enough that nothing sends these by itself any
             // more: the reader decides whether to try again or let them go.
@@ -376,25 +376,20 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                 return view! {
                     <div class="tcn-section" style="padding-bottom:0">
                         <div class="tcn-errors tcw-wraps">
-                            {format!(
-                                "The server did not take {}: {what}. It said: {}",
-                                if count == 1 { "this edit".to_owned() } else { format!("these {count} edits") },
-                                refused.why
-                            )}
+                            {(t().sync.not_taken)(count, &what, &refused.why)}
                             <div class="tcw-refused-actions">
                                 <button type="button" class="tcn-btn tcn-btn-sm"
                                         on:click=move |_| {
                                             queue::not_refused(&tour_for_buttons.get_value());
                                             reload.run(true);
                                         }>
-                                    "Try again"
+                                    {t().sync.try_again}
                                 </button>
                                 <button type="button" class="tcn-btn tcn-btn-sm"
                                         on:click=move |_| {
                                             let sure = web_sys::window()
                                                 .and_then(|w| w.confirm_with_message(
-                                                    "Throw away the edits that were not sent? \
-                                                     They exist only on this device."
+                                                    t().sync.discard_question
                                                 ).ok())
                                                 .unwrap_or(false);
                                             if sure {
@@ -402,7 +397,7 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                                                 reload.run(true);
                                             }
                                         }>
-                                    "Discard them"
+                                    {t().sync.discard}
                                 </button>
                             </div>
                         </div>
@@ -412,7 +407,7 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
             view! {
                 <div class="tcn-section" style="padding-bottom:0">
                     <div class="tcn-chip tcn-chip-amber tcw-wraps">
-                        {format!("Saved here, waiting to be sent: {what}")}
+                        {(t().sync.waiting)(&what)}
                     </div>
                 </div>
             }.into_any()
@@ -426,17 +421,14 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                 return ().into_any();
             }
             let what = match lost.len() {
-                1 => format!("{} was deleted by somebody else, so your edit to it was dropped.", lost[0]),
-                _ => format!(
-                    "{} were deleted by somebody else, so your edits to them were dropped.",
-                    lost.join(", ")
-                ),
+                1 => (t().sync.lost_one)(&lost[0]),
+                _ => (t().sync.lost_many)(&lost.join(", ")),
             };
             view! {
                 <div class="tcn-section" style="padding-bottom:0">
                     <div class="tcn-chip tcn-chip-amber tcw-wraps">
                         {what}
-                        <button type="button" class="tcw-others-close" aria-label="Dismiss"
+                        <button type="button" class="tcw-others-close" aria-label=t().sync.dismiss
                                 on:click=move |_| queue::set_lost(&tour_for_buttons.get_value(), None)>
                             "×"
                         </button>
@@ -450,7 +442,7 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
             Status::Waiting(0) => view! {
                 <div class="tcn-section" style="padding-bottom:0">
                     <div class="tcn-chip tcn-chip-amber tcw-wraps">
-                        "Offline — showing what this device had last"
+                        {t().sync.offline}
                     </div>
                 </div>
             }.into_any(),
@@ -465,7 +457,7 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                         {why}
                         <button type="button" class="tcn-btn tcn-btn-sm" style="margin-left:10px"
                                 on:click=move |_| reload.run(true)>
-                            "Try again"
+                            {t().sync.try_again}
                         </button>
                     </div>
                 </div>
@@ -651,11 +643,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                 others.loading.try_set(false);
                 set_state.set(match tour {
                     Some(t) => Load::Ready(queue::with_pending(&t)),
-                    None => Load::Failed(
-                        "This tour has not been opened on this device before, and there is \
-                         no connection to fetch it."
-                            .into(),
-                    ),
+                    None => Load::Failed(t().sync.never_opened.into()),
                 });
 
                 // A local server answers in milliseconds; hold the spinner long enough to
@@ -692,11 +680,11 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     view! {
         <crate::others::OthersLine others=others />
         {move || match state.get() {
-            Load::Loading => view! { <div class="tcn-loading">"Loading the tour…"</div> }.into_any(),
+            Load::Loading => view! { <div class="tcn-loading">{t().sync.loading}</div> }.into_any(),
             Load::Failed(why) => view! {
                 <div class="tcn-section">
                     <div class="tcn-errors">{why}</div>
-                    <a class="tcn-btn" href="/">"Go to my tours"</a>
+                    <a class="tcn-btn" href="/">{t().sync.go_to_tours}</a>
                 </div>
             }.into_any(),
             Load::Ready(tour) => view! {
@@ -823,7 +811,7 @@ fn TourView(
     let tour_for_delete = StoredValue::new(tour.clone());
     let delete = Callback::new(move |what: Removal| {
         let question = match &what {
-            Removal::Spending(s) => format!("Delete '{}'?", s.description),
+            Removal::Spending(s) => (t().tour.delete_expense)(&s.description),
             Removal::Person(p) => {
                 // Somebody an expense still holds is not removed - see tc_core::removal -
                 // and the reader is told which expenses, rather than asked a question whose
@@ -832,7 +820,7 @@ fn TourView(
                 let holds = tc_core::removal::what_holds(&tour, &p.id);
                 if !holds.is_empty() {
                     if let Some(w) = web_sys::window() {
-                        let _ = w.alert_with_message(&holds.explain(&p.name));
+                        let _ = w.alert_with_message(&(t().tour.cannot_remove)(&p.name, &holds.paid, &holds.only_for));
                     }
                     return;
                 }
@@ -841,21 +829,15 @@ fn TourView(
                 let mut also = Vec::new();
                 match tc_core::removal::shared_in(&tour, &p.id) {
                     0 => {}
-                    1 => also.push(
-                        "their part of 1 shared expense goes to the others on it".to_owned(),
-                    ),
-                    n => also.push(format!(
-                        "their part of {n} shared expenses goes to the others on them"
-                    )),
+                    n => also.push((t().tour.shares_go)(n)),
                 }
                 match tc_core::removal::children_of(&tour, &p.id) {
                     0 => {}
-                    1 => also.push("1 person leaves their family".to_owned()),
-                    n => also.push(format!("{n} people leave their family")),
+                    n => also.push((t().tour.leave_family)(n)),
                 }
                 match also.len() {
-                    0 => format!("Delete '{}'?", p.name),
-                    _ => format!("Delete '{}'? Then {}.", p.name, also.join(", and ")),
+                    0 => (t().tour.delete_person)(&p.name),
+                    _ => (t().tour.delete_person_then)(&p.name, &also),
                 }
             }
         };
@@ -937,16 +919,16 @@ fn TourView(
             // the tour rather than inside it, next to what they act on.
             <div class="tcn-hero-top">
                 <div class="tcn-hero-name">{title.clone()}</div>
-                <button type="button" class="tcn-iconbtn" title="Edit the tour"
-                        aria-label="Edit the tour"
+                <button type="button" class="tcn-iconbtn" title=t().tour.edit_tour
+                        aria-label=t().tour.edit_tour
                         on:click={
                             let t = tour_for_rename.clone();
                             move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::of(&t))))
                         }>
                     <crate::icon::Icon name="edit" />
                 </button>
-                <button type="button" class="tcn-iconbtn" title="Reload from the server"
-                        aria-label="Reload from the server"
+                <button type="button" class="tcn-iconbtn" title=t().tour.reload
+                        aria-label=t().tour.reload
                         prop:disabled=move || refresh.busy.get()
                         on:click=move |_| reload.run(true)>
                     <span class:tcn-spin=move || refresh.busy.get()>
@@ -959,12 +941,12 @@ fn TourView(
                 <div class="tcn-hero-badges">
                     {fin.then(|| view! {
                         <span class="tcn-chip tcn-chip-amber"
-                              title="The tour is being settled up">"settling up"</span>
+                              title=t().tour.settling_hint>{t().tour.settling}</span>
                     })}
                     {arch.then(|| view! {
                         <span class="tcn-chip"
-                              title="The tour is archived and hidden from the default list">
-                            "archived"
+                              title=t().tour.archived_hint>
+                            {t().tour.archived}
                         </span>
                     })}
                 </div>
@@ -976,10 +958,10 @@ fn TourView(
                 <Freshness refresh=refresh />
                 <span>"·"</span>
                 <button type="button" class="tcn-hero-chip"
-                        title="Edit the currencies of this tour"
+                        title=t().tour.currencies_hint
                         on:click=move |_| dialog.set(Some(Dialog::Currencies))>
                     <crate::icon::Icon name="settings" />
-                    " currencies"
+                    {t().tour.currencies}
                 </button>
                 <span>"·"</span>
                 <ShareLink tour=tour_for_share.clone() />
@@ -987,7 +969,7 @@ fn TourView(
                 <span class="tcn-legacy-btn">
                     <button type="button" class="tcn-hero-link"
                             on:click=move |_| dialog.set(Some(Dialog::Versions))>
-                        "versions"
+                        {t().tour.versions}
                     </button>
                 </span>
                 <PushBell tour_id=tour_id_for_bell.clone() />
@@ -995,30 +977,30 @@ fn TourView(
 
             {(tour_for_currency.currencies.len() > 1).then(|| view! {
                 <div class="tcn-hero-sub" style="margin-top:8px">
-                    <span title="Only changes what you see - the tour itself is not touched">
-                        "show amounts in"
+                    <span title=t().tour.show_in_hint>
+                        {t().tour.show_in}
                     </span>
                     <CurrencyPicker tour=tour_for_currency.clone() apply=apply />
                 </div>
             })}
 
             <div class="tcn-hero-metrics">
-                <Metric label="Total spent" value=money(total_spent) unit=unit_metrics.clone()
+                <Metric label=t().tour.total_spent value=money(total_spent) unit=unit_metrics.clone()
                         what={
                             let t = tour_for_explain.clone();
                             Callback::new(move |()| crate::explain::total_spent(&t))
                         } />
-                <Metric label="People" value=how_many_people.to_string() unit=String::new()
+                <Metric label=t().tour.people value=how_many_people.to_string() unit=String::new()
                         what={
                             let t = tour_for_explain2.clone();
                             Callback::new(move |()| crate::explain::people(&t))
                         } />
-                <Metric label="Expenses" value=expenses.to_string() unit=String::new()
+                <Metric label=t().tour.expenses value=expenses.to_string() unit=String::new()
                         what={
                             let t = tour_for_explain3.clone();
                             Callback::new(move |()| crate::explain::expenses(&t))
                         } />
-                <Metric label="Left to settle" value=money(left_to_settle) unit=unit_metrics.clone()
+                <Metric label=t().tour.left_to_settle value=money(left_to_settle) unit=unit_metrics.clone()
                         what={
                             let t = tour_for_explain4.clone();
                             let between = between.clone();
@@ -1031,11 +1013,11 @@ fn TourView(
 
         <SyncLine status=status reload=reload tour_id=tour_id.clone() />
 
-        <nav class="tcn-tabs" role="tablist" aria-label="Tour sections">
-            <TabButton tab=tab mine=Tab::Balance label="Balance" count=Some(between.len()) />
-            <TabButton tab=tab mine=Tab::People label="People" count=Some(how_many_people) />
-            <TabButton tab=tab mine=Tab::Expenses label="Expenses" count=Some(expenses) />
-            <TabButton tab=tab mine=Tab::Stats label="Stats" count=None />
+        <nav class="tcn-tabs" role="tablist" aria-label=t().tour.sections>
+            <TabButton tab=tab mine=Tab::Balance label=t().tour.tab_balance count=Some(between.len()) />
+            <TabButton tab=tab mine=Tab::People label=t().tour.tab_people count=Some(how_many_people) />
+            <TabButton tab=tab mine=Tab::Expenses label=t().tour.tab_expenses count=Some(expenses) />
+            <TabButton tab=tab mine=Tab::Stats label=t().tour.tab_stats count=None />
         </nav>
 
         <Show when=move || tab.get() == Tab::Balance>
@@ -1066,7 +1048,7 @@ fn TourView(
                     let tour = tour_for_fab.clone();
                     move |_| dialog.set(Some(Dialog::Spending(SpendingDraft::new(&tour))))
                 }>
-            "+ Spend"
+            {t().tour.spend}
         </button>
 
         {move || {
@@ -1125,11 +1107,11 @@ fn ExpensesTab(
             <div class="tcn-toolbar">
                 <div class="tcn-search">
                     <span class="tcn-search-icon">"🔎"</span>
-                    <input type="text" placeholder="Search by description, payer or category"
+                    <input type="text" placeholder=t().expenses.search
                            prop:value=move || search.get()
                            on:input=move |ev| search.set(event_target_value(&ev)) />
                     <Show when=move || !search.get().is_empty()>
-                        <button type="button" class="tcn-search-clear" title="Clear"
+                        <button type="button" class="tcn-search-clear" title=t().expenses.clear
                                 on:click=move |_| search.set(String::new())>"✕"</button>
                     </Show>
                 </div>
@@ -1138,14 +1120,14 @@ fn ExpensesTab(
                         on:click=move |_| {
                             if by_amount.get() { by_amount.set(false) } else { newest_first.update(|d| *d = !*d) }
                         }>
-                    "Date " {move || if by_amount.get() { "" } else if newest_first.get() { "↓" } else { "↑" }}
+                    {t().expenses.date} {move || if by_amount.get() { "" } else if newest_first.get() { "↓" } else { "↑" }}
                 </button>
                 <button type="button" class="tcn-btn tcn-btn-sm"
                         class:tcn-btn-primary=move || by_amount.get()
                         on:click=move |_| {
                             if by_amount.get() { newest_first.update(|d| *d = !*d) } else { by_amount.set(true) }
                         }>
-                    "Amount " {move || if by_amount.get() { if newest_first.get() { "↓" } else { "↑" } } else { "" }}
+                    {t().expenses.amount} {move || if by_amount.get() { if newest_first.get() { "↓" } else { "↑" } } else { "" }}
                 </button>
             </div>
 
@@ -1176,7 +1158,7 @@ fn ExpensesTab(
                         .collect_view()}
                     <Show when=move || !chosen.get().is_empty()>
                         <span class="tcn-chip tcn-filter-chip"
-                              on:click=move |_| chosen.set(Vec::new())>"clear ×"</span>
+                              on:click=move |_| chosen.set(Vec::new())>{t().expenses.clear_filter}</span>
                     </Show>
                 </div>
             })}
@@ -1217,7 +1199,7 @@ fn ExpensesTab(
                     return view! {
                         <div class="tcn-empty">
                             <span class="tcn-empty-icon">"🔍"</span>
-                            <div class="tcn-empty-title">"Nothing matches the filter"</div>
+                            <div class="tcn-empty-title">{t().expenses.nothing_matches}</div>
                         </div>
                     }.into_any();
                 }
@@ -1247,9 +1229,9 @@ fn ExpensesTab(
                 let shown_for_uncounted_label = shown_for_sums.clone();
                 view! {
                     <div class="tcn-summary">
-                        <span><b>{shown.len()}</b>" expenses"</span>
+                        <span><b>{(t().expenses.count)(shown.len())}</b></span>
                         <span>
-                            "spent "
+                            {t().expenses.spent}
                             <crate::explain::Explain what={
                                 let tour = tour_for_sums.clone();
                                 let rows = shown_for_sums.clone();
@@ -1272,11 +1254,11 @@ fn ExpensesTab(
                         })}
                         // Which days this list covers, and whether it is all of them.
                         {span_of(&shown_for_sums).map(|(first, last)| view! {
-                            <span>"from " <b>{first}</b> " to " <b>{last}</b></span>
+                            <span>{t().expenses.from_to[0]} <b>{first}</b> {t().expenses.from_to[1]} <b>{last}</b></span>
                         })}
                         {(shown.len() != all_count).then(|| view! {
                             <span style="color: var(--tcn-primary)">
-                                "filtered out of " {all_count}
+                                {t().expenses.filtered_out_of} {all_count}
                             </span>
                         })}
                     </div>
@@ -1360,9 +1342,7 @@ fn ExpensesTab(
 /// "9 Dec 2022". A bare 09.12.2022 is harder to place at a glance, and the two nearest days
 /// are the ones somebody is usually looking for.
 fn pretty_day(iso: &str) -> String {
-    const MONTHS: [&str; 12] = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
+    let months = t().expenses.months;
     let (Some(y), Some(m), Some(d)) = (iso.get(0..4), iso.get(5..7), iso.get(8..10)) else {
         return iso.to_owned();
     };
@@ -1380,16 +1360,16 @@ fn pretty_day(iso: &str) -> String {
     };
     let day = &iso[..10.min(iso.len())];
     if day == day_before(0.0) {
-        return "Today".to_owned();
+        return t().expenses.today.to_owned();
     }
     if day == day_before(1.0) {
-        return "Yesterday".to_owned();
+        return t().expenses.yesterday.to_owned();
     }
     let month = m
         .parse::<usize>()
         .ok()
         .filter(|n| (1..=12).contains(n))
-        .map(|n| MONTHS[n - 1])
+        .map(|n| months[n - 1])
         .unwrap_or(m);
     // No leading zero on the day, as the invariant "d MMM yyyy" writes it.
     let d = d.trim_start_matches('0');
@@ -1410,10 +1390,10 @@ fn uncounted_label(rows: &[Spending]) -> &'static str {
         .count();
     let transfers = un.len() - drafts;
     match (drafts, transfers) {
-        (0, _) => "settling up",
-        (_, 0) if drafts == 1 => "draft",
-        (_, 0) => "drafts",
-        _ => "uncounted",
+        (0, _) => t().expenses.settling_up,
+        (_, 0) if drafts == 1 => t().expenses.draft,
+        (_, 0) => t().expenses.drafts,
+        _ => t().expenses.uncounted,
     }
 }
 
@@ -1510,7 +1490,7 @@ fn ExpenseRow(
     // A payment the app recorded reads as a payment; anything a person typed is theirs.
     let description = match crate::ui::as_service_transfer(&spending.description) {
         Some((from, to)) => format!("{from} → {to}"),
-        None if spending.description.trim().is_empty() => "(no description)".to_owned(),
+        None if spending.description.trim().is_empty() => t().expenses.no_description.to_owned(),
         None => spending.description.clone(),
     };
     let category = spending.category.trim().to_owned();
@@ -1536,9 +1516,9 @@ fn ExpenseRow(
     // nothing. The app names it instead, and so does this.
     let service = crate::ui::as_service_transfer(&spending.description).map(|_| {
         if spending.description.starts_with("Family ") {
-            "inside family"
+            t().expenses.inside_family
         } else {
-            "payback"
+            t().expenses.payback
         }
     });
     let some_of_them = !whose.is_empty() && service.is_none();
@@ -1552,22 +1532,22 @@ fn ExpenseRow(
     let equally = matches!(spending.split, Split::Equally(_)) && whose.len() > 1;
     let for_chip = match whose.len() {
         0 => String::new(),
-        1..=2 => format!("for {}", whose.join(", ")),
-        n => format!("for {n} of {}", tour.persons.len()),
+        1..=2 => (t().expenses.for_names)(&whose.join(", ")),
+        n => (t().expenses.for_n_of)(n, tour.persons.len()),
     };
     // By weight is the rule; equal shares are the exception, and the chip says so - the
     // app marks them the same way.
     let for_chip = if equally {
-        format!("{for_chip} · equally")
+        format!("{for_chip} · {}", t().expenses.equally)
     } else {
         for_chip
     };
     let for_title = if some_of_them {
-        let mut why = format!("For {}. Tap for who carries how much.", whose.join(", "));
+        let mut why = (t().expenses.for_hint)(&whose.join(", "));
         if whose.len() == 1 {
-            why = format!("Charged to {} alone.", whose[0]);
+            why = (t().expenses.alone_hint)(&whose[0]);
         } else if matches!(&spending.split, Split::Equally(_)) {
-            why.push_str(" Split equally.");
+            why.push_str(t().expenses.split_equally);
         }
         why
     } else {
@@ -1578,7 +1558,7 @@ fn ExpenseRow(
     // the row rather than only in a chip. A row the calculator wrote for itself is the one
     // kind of line in the list that is not somebody's expense, and that is worth seeing
     // without reading.
-    let family = service == Some("inside family");
+    let family = service == Some(t().expenses.inside_family);
     view! {
         <div class="tcn-settle"
              class:tcw-kind=move || service.is_some()
@@ -1589,7 +1569,7 @@ fn ExpenseRow(
              class:tcn-sp-marked=move || marked style=mark_style>
             <div class="tcn-settle-flow tcw-unfold" role="button" tabindex="0"
                  aria-expanded=move || is_open.get().to_string()
-                 title="Details"
+                 title=t().expenses.details
                  on:click={
                      let fold = fold.clone();
                      move |_| fold()
@@ -1608,7 +1588,7 @@ fn ExpenseRow(
                     {description}
                     <small class="tcn-hint">
                         " · " {who.clone()}
-                        {everyone.then(|| " · for everyone")}
+                        {everyone.then(|| t().expenses.for_everyone)}
                     </small>
                 </span>
                 // Outside the name, not inside it: that span ellipsises a long description,
@@ -1644,7 +1624,7 @@ fn ExpenseRow(
                 <button type="button" class="tcn-btn tcn-btn-sm" style="margin-left:10px"
                         on:click=move |_| dialog.set(Some(
                             Dialog::Spending(SpendingDraft::of(&for_edit))))>
-                    "Edit"
+                    {t().expenses.edit}
                 </button>
                 <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
                         on:click={
@@ -1675,25 +1655,21 @@ fn ExpenseDetails(tour: Tour, spending: Spending) -> impl IntoView {
         meta.push(spending.category.trim().to_owned());
     }
     if tour.currencies.len() > 1 && spending.currency.id != tour.currency().id {
-        meta.push(format!(
-            "entered as {} {}",
-            money(spending.amount),
-            spending.currency.name
-        ));
+        meta.push((t().expenses.entered_as)(&money(spending.amount), &spending.currency.name));
     }
     if let tc_core::Kind::Draft { counted } = spending.kind {
-        meta.push(if counted { "draft, counted" } else { "draft, not counted" }.to_owned());
+        meta.push(if counted { t().expenses.draft_counted } else { t().expenses.draft_not_counted }.to_owned());
     }
     let (groups, left_out) = crate::explain::share_groups(&tour, &spending);
     let how = match &spending.split {
-        Split::Everyone => "everyone, by weight".to_owned(),
-        Split::Equally(_) => format!("{} of {}, equally", groups.iter().map(|g| g.names.len()).sum::<usize>(), tour.persons.len()),
-        Split::ByWeight(_) => format!("{} of {}, by weight", groups.iter().map(|g| g.names.len()).sum::<usize>(), tour.persons.len()),
+        Split::Everyone => t().expenses.everyone_by_weight.to_owned(),
+        Split::Equally(_) => (t().expenses.n_of_equally)(groups.iter().map(|g| g.names.len()).sum::<usize>(), tour.persons.len()),
+        Split::ByWeight(_) => (t().expenses.n_of_by_weight)(groups.iter().map(|g| g.names.len()).sum::<usize>(), tour.persons.len()),
     };
 
     view! {
         <div class="tcw-det-meta">
-            <b>{payer}</b>" paid · " {meta.join(" · ")}
+            <b>{payer}</b>{t().expenses.paid} {meta.join(" · ")}
         </div>
         <div class="tcw-det-how">{how}</div>
         <div class="tcw-shares">
@@ -1706,7 +1682,7 @@ fn ExpenseDetails(tour: Tour, spending: Spending) -> impl IntoView {
                         <span class="tcw-share-names">
                             {(each || g.weight.is_some()).then(|| view! {
                                 <span class="tcw-share-tag">
-                                    {each.then_some("each")}
+                                    {each.then_some(t().expenses.each)}
                                     {(each && g.weight.is_some()).then_some(" · ")}
                                     {g.weight.map(|w| format!("w{w}"))}
                                 </span>
@@ -1718,7 +1694,7 @@ fn ExpenseDetails(tour: Tour, spending: Spending) -> impl IntoView {
                 .collect_view()}
         </div>
         {(!left_out.is_empty()).then(|| view! {
-            <div class="tcw-det-out">"Not in it: " {left_out.join(", ")}</div>
+            <div class="tcw-det-out">{t().expenses.not_in_it} {left_out.join(", ")}</div>
         })}
     }
 }
@@ -1953,21 +1929,21 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                           by_category.set(true);
                           drill.set(None);
                           chosen.set(String::new());
-                      }>"By category"</span>
+                      }>{t().balance.by_category}</span>
                 <span class="tcn-chip tcn-filter-chip" class:is-on=move || !by_category.get()
                       on:click=move |_| {
                           by_category.set(false);
                           drill.set(None);
                           chosen.set(String::new());
-                      }>"By person"</span>
+                      }>{t().balance.by_person}</span>
             </div>
 
             {if nothing {
                 view! {
                     <div class="tcn-empty">
                         <span class="tcn-empty-icon">"📊"</span>
-                        <div class="tcn-empty-title">"Nothing to chart yet"</div>
-                        <div>"Expenses need a category before they show up in the statistics."</div>
+                        <div class="tcn-empty-title">{t().balance.nothing_to_chart}</div>
+                        <div>{t().balance.nothing_to_chart_hint}</div>
                     </div>
                 }.into_any()
             } else {
@@ -1979,11 +1955,11 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                     }}
 
                     <div class="tcn-section-title" style="margin-top:14px">
-                        "Totals · "
+                        {t().balance.totals}
                         {move || {
                             let what = filter.get();
                             if what.is_empty() {
-                                "everything".to_owned()
+                                t().balance.everything.to_owned()
                             } else {
                                 what
                             }
@@ -1992,31 +1968,31 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
 
                     <div class="tcn-statgrid">
                         <div class="tcn-statcard">
-                            <div class="tcn-statcard-label">"Total"</div>
+                            <div class="tcn-statcard-label">{t().balance.total}</div>
                             <div class="tcn-statcard-value">
                                 {move || money(cat_total.get())}
                                 <small>"\u{a0}" {unit_for_cards.clone()}</small>
                             </div>
                         </div>
                         <div class="tcn-statcard">
-                            <div class="tcn-statcard-label">{format!("Per person ({adult} w)")}</div>
+                            <div class="tcn-statcard-label">{(t().balance.per_person_w)(adult as i64)}</div>
                             <div class="tcn-statcard-value">
                                 {move || money(per_person.get())}
                                 <small>"\u{a0}" {unit_for_cards.clone()}</small>
                             </div>
                         </div>
                         <div class="tcn-statcard">
-                            <div class="tcn-statcard-label">"Per person per day"</div>
+                            <div class="tcn-statcard-label">{t().balance.per_person_day}</div>
                             <div class="tcn-statcard-value">
                                 {move || money(per_day.get())}
                                 <small>"\u{a0}" {unit_for_cards.clone()}</small>
                             </div>
                             <div class="tcn-statcard-extra">
-                                "over "
+                                {t().balance.over}
                                 <input class="tcn-input tcn-daysinput" type="number" min="1" max="50"
                                        prop:value=move || days.get()
                                        on:input=move |ev| days.set(event_target_value(&ev)) />
-                                " days"
+                                {t().balance.days}
                             </div>
                         </div>
                     </div>
@@ -2043,7 +2019,7 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                     </thead>
                                     <tbody>
                                         <tr>
-                                            <td>"Total"</td>
+                                            <td>{t().balance.total}</td>
                                             {total_row
                                                 .into_iter()
                                                 .map(|(_, rate, _)| view! {
@@ -2052,7 +2028,7 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                                 .collect_view()}
                                         </tr>
                                         <tr>
-                                            <td>"Per person"</td>
+                                            <td>{t().balance.per_person}</td>
                                             {person_row
                                                 .into_iter()
                                                 .map(|(_, rate, _)| view! {
@@ -2061,7 +2037,7 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                                 .collect_view()}
                                         </tr>
                                         <tr>
-                                            <td>"Per day"</td>
+                                            <td>{t().balance.per_day}</td>
                                             {day_row
                                                 .into_iter()
                                                 .map(|(_, rate, _)| view! {
@@ -2237,30 +2213,22 @@ fn BalanceTab(
                     view! {
                         <div class="tcn-allsettled">
                             <div class="tcn-allsettled-icon">"🎉"</div>
-                            <div class="tcn-allsettled-title">"Everyone is settled up"</div>
+                            <div class="tcn-allsettled-title">{t().balance.all_settled}</div>
                             <div class="tcn-allsettled-sub">
                                 {if !has_real {
-                                    "Add the first expense and the split will show up here.".to_owned()
+                                    t().balance.first_expense.to_owned()
                                 } else if dust.is_empty() {
-                                    "No payments are left between the participants.".to_owned()
+                                    t().balance.no_payments_left.to_owned()
                                 } else {
                                     // The balances below are not zero, and this is why -
                                     // as long as there are any. A reader who has raised the
                                     // threshold high enough has none, and then there is
                                     // nothing to point at.
-                                    format!(
-                                        "What is left is too small to chase: {} under {} each, {} in all.{}",
-                                        match dust.len() {
-                                            1 => "one payment".to_owned(),
-                                            n => format!("{n} payments"),
-                                        },
-                                        crate::ui::money_in(threshold, &unit_for_dust),
-                                        crate::ui::money_in(dust_total, &unit_for_dust),
-                                        if rows.is_empty() {
-                                            ""
-                                        } else {
-                                            " That is what the balances below add up to."
-                                        },
+                                    (t().balance.dust)(
+                                        dust.len(),
+                                        &crate::ui::money_in(threshold, &unit_for_dust),
+                                        &crate::ui::money_in(dust_total, &unit_for_dust),
+                                        !rows.is_empty(),
                                     )
                                 }}
                             </div>
@@ -2269,9 +2237,9 @@ fn BalanceTab(
                                         style="margin-top:10px"
                                         on:click=move |_| dust_open.update(|o| *o = !*o)>
                                     {move || if dust_open.get() {
-                                        "Hide the small ones"
+                                        t().balance.hide_small
                                     } else {
-                                        "Show the small ones"
+                                        t().balance.show_small
                                     }}
                                 </button>
                             </Show>
@@ -2286,10 +2254,10 @@ fn BalanceTab(
                 } else {
                     view! {
                         <div class="tcn-section-title">
-                            "Who pays whom " <span class="tcn-count">{between.len()}</span>
+                            {t().balance.who_pays_whom} " " <span class="tcn-count">{between.len()}</span>
                         </div>
                         <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
-                            "Nothing here is paid yet — these are the payments that would square everyone up."
+                            {t().balance.not_paid_yet}
                         </div>
                         <div class="tcn-list">
                             {transfer_rows(&tour, &between, &name_by, &unit, Some(apply))}
@@ -2313,7 +2281,7 @@ fn BalanceTab(
                             } else {
                                 view! { <crate::icon::Icon name="chevron-right" /> }
                             }}
-                            " Inside families"
+                            {t().balance.inside_families}
                         </span>
                         <span class="tcn-count">{family.len()}</span>
                     </div>
@@ -2331,7 +2299,7 @@ fn BalanceTab(
                 // The bar is drawn to the largest balance, so the widths compare.
                 let scale = rows.iter().map(|(_, a)| a.abs().0).max().unwrap_or(1).max(1);
                 view! {
-                    <div class="tcn-section-title" style="margin-top:18px">"Balances"</div>
+                    <div class="tcn-section-title" style="margin-top:18px">{t().balance.balances}</div>
                     <div class="tcn-card" style="padding: 12px;">
                         {rows
                             .iter()
@@ -2354,10 +2322,10 @@ fn BalanceTab(
                                                     let all = all_for_bal.clone();
                                                     Callback::new(move |()| match t.person(&id) {
                                                         Some(p) => crate::explain::person_balance(&t, p, &b, &all),
-                                                        None => crate::explain::Explanation::new("Balance"),
+                                                        None => crate::explain::Explanation::new(crate::i18n::t().people.balance),
                                                     })
                                                 }>
-                                                    {if owes { "owes " } else { "gets " }}
+                                                    {if owes { t().people.owes } else { t().people.gets }} " "
                                                     {money(shown)}
                                                     {(!unit_for_bal.is_empty()).then(|| view! { <small>"\u{a0}" {unit_for_bal.clone()}</small> })}
                                                 </crate::explain::Explain>
@@ -2381,8 +2349,8 @@ fn BalanceTab(
                         <div style="display:flex; justify-content:space-between; font-size:11px;
                                     color: var(--tcn-faint); text-transform:uppercase;
                                     letter-spacing:.5px;">
-                            <span>"gets money back"</span>
-                            <span>"owes money"</span>
+                            <span>{t().balance.gets_back}</span>
+                            <span>{t().balance.owes_money}</span>
                         </div>
                     </div>
                 }
@@ -2435,14 +2403,12 @@ fn transfer_rows(
                         let amount = money(recording.amount);
                         view! {
                             <button type="button" class="tcn-btn tcn-btn-sm"
-                                    title="Record that this money has changed hands"
+                                    title=crate::i18n::t().balance.mark_paid_hint
                                     on:click=move |_| {
                                         // Recording a payment is not undoable in one click -
                                         // it becomes an ordinary entry in the list - so it
                                         // asks first, naming what it is about to write down.
-                                        let question = format!(
-                                            "Record that {from} paid {to} {amount}?"
-                                        );
+                                        let question = (crate::i18n::t().balance.mark_paid_question)(&from, &to, &amount);
                                         let agreed = web_sys::window()
                                             .and_then(|w| w.confirm_with_message(&question).ok())
                                             .unwrap_or(false);
@@ -2455,7 +2421,7 @@ fn transfer_rows(
                                         draft.id = Some(tc_core::SpendingId::new(crate::edit::new_id()));
                                         apply.run(Operation::RecordPayment(draft));
                                     }>
-                                "Mark paid"
+                                {crate::i18n::t().balance.mark_paid}
                             </button>
                         }
                     })}

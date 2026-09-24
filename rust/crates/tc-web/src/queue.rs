@@ -14,6 +14,7 @@
 //! * the tour on screen is never a guess. It is the last one from the server with the
 //!   pending operations applied - the same computation the sync will do.
 
+use crate::i18n::t;
 use crate::edit::{self, CurrencyDraft, PaymentDraft, PersonDraft, SpendingDraft, TourDraft};
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -99,14 +100,14 @@ impl Operation {
     pub fn describe(&self) -> String {
         match self {
             Operation::PutSpending(d) => format!("“{}”", short(&d.description)),
-            Operation::RemoveSpending(_) => "an expense removed".into(),
+            Operation::RemoveSpending(_) => t().queue.expense_removed.into(),
             Operation::PutPerson(d) => short(&d.name),
-            Operation::RemovePerson(_) => "somebody removed".into(),
-            Operation::Rename(name) => format!("renamed to “{}”", short(name)),
-            Operation::SetCurrency(id) => format!("amounts in {id}"),
-            Operation::EditTour(d) => format!("the tour: {}", short(&d.name)),
-            Operation::SetCurrencies { .. } => "the currencies".into(),
-            Operation::RecordPayment(d) => format!("paid: {}", short(&d.description)),
+            Operation::RemovePerson(_) => t().queue.person_removed.into(),
+            Operation::Rename(name) => (t().queue.renamed)(&short(name)),
+            Operation::SetCurrency(id) => (t().queue.amounts_in)(id.as_str()),
+            Operation::EditTour(d) => (t().queue.the_tour)(&short(&d.name)),
+            Operation::SetCurrencies { .. } => t().queue.the_currencies.into(),
+            Operation::RecordPayment(d) => (t().queue.paid)(&short(&d.description)),
         }
     }
 }
@@ -114,7 +115,7 @@ impl Operation {
 fn short(s: &str) -> String {
     let s = s.trim();
     if s.is_empty() {
-        return "no description".into();
+        return t().queue.no_description.into();
     }
     if s.chars().count() > 24 {
         format!("{}…", s.chars().take(24).collect::<String>())

@@ -727,6 +727,39 @@
             const up = () => window.tcwStarted === true;
             let told = false;
 
+            // The same choice of language the app makes (`i18n::lang`), made here because
+            // this screen is up before the app is: the reader's pick, else the first of the
+            // browser's languages the app speaks, else English.
+            const lang = (() => {
+                let picked = null;
+                try { picked = localStorage.getItem('__tcw_lang'); } catch (e) {}
+                const wanted = picked ? [picked] : (navigator.languages || [navigator.language || '']);
+                for (const w of wanted) {
+                    const primary = String(w).split(/[-_]/)[0].toLowerCase();
+                    if (primary === 'ru' || primary === 'en') return primary;
+                }
+                return 'en';
+            })();
+            const words = {
+                en: {
+                    starting: 'Starting…',
+                    again: 'Try again',
+                    retrying: 'Still starting — trying once more…',
+                    failed: 'Tourcalc did not start. It may have been asked for while this ' +
+                        'device had no connection.',
+                },
+                ru: {
+                    starting: 'Запускаемся…',
+                    again: 'Попробовать ещё раз',
+                    retrying: 'Всё ещё запускаемся — пробуем ещё раз…',
+                    failed: 'Tourcalc не запустился. Возможно, его открыли, когда на ' +
+                        'устройстве не было связи.',
+                },
+            }[lang];
+            document.documentElement.lang = lang;
+            if (why) why.textContent = words.starting;
+            if (again) again.textContent = words.again;
+
             // One reload of its own before it asks for one. A cold start that did not
             // finish is usually a fetch that hung on a radio still waking up, and the
             // second attempt has the service worker's copy to answer with - which is
@@ -742,12 +775,11 @@
                 told = true;
                 if (!tried) {
                     try { sessionStorage.setItem(RETRIED, '1'); } catch (e) {}
-                    why.textContent = 'Still starting — trying once more…';
+                    why.textContent = words.retrying;
                     location.reload();
                     return;
                 }
-                why.textContent = 'Tourcalc did not start. It may have been asked for while ' +
-                    'this device had no connection.';
+                why.textContent = words.failed;
                 again.hidden = false;
             };
 

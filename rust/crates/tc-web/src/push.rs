@@ -9,6 +9,7 @@
 //! What this file does is the first part: permission, the subscription, and telling the
 //! server. The encryption is `tc-server`'s and the showing is `sw.js`'s.
 
+use crate::i18n::t;
 use crate::api;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -142,21 +143,21 @@ pub fn PushBell(tour_id: String) -> impl IntoView {
                     class:is-unknown=move || matches!(state.get(), Bell::Checking | Bell::Unknown)
                     prop:disabled=move || matches!(state.get(), Bell::Working | Bell::Checking)
                     title=move || match state.get() {
-                        Bell::On => "This device gets a push when someone changes this tour. Click to stop.",
-                        Bell::Off => "This device is not notified about this tour. Click to get a push when someone changes it.",
-                        Bell::Checking => "Finding out whether this device is notified…",
-                        Bell::Unknown => "Could not find out whether this device is notified — the server did not answer. Click to ask again.",
-                        Bell::Refused => "The browser or the server said no — click to try again",
+                        Bell::On => t().device.bell_on_hint,
+                        Bell::Off => t().device.bell_off_hint,
+                        Bell::Checking => t().device.bell_checking_hint,
+                        Bell::Unknown => t().device.bell_unknown_hint,
+                        Bell::Refused => t().device.bell_refused_hint,
                         Bell::Working | Bell::Impossible => "",
                     }
                     on:click=click>
                 {move || match state.get() {
-                    Bell::On => "🔔 notified",
-                    Bell::Off => "🔕 not notified",
-                    Bell::Checking => "⏳ checking…",
-                    Bell::Unknown => "❔ can't tell",
+                    Bell::On => t().device.bell_on,
+                    Bell::Off => t().device.bell_off,
+                    Bell::Checking => t().device.bell_checking,
+                    Bell::Unknown => t().device.bell_unknown,
                     Bell::Working => "⏳ …",
-                    Bell::Refused => "🔕 not allowed",
+                    Bell::Refused => t().device.bell_refused,
                     Bell::Impossible => "",
                 }}
             </button>
@@ -223,9 +224,9 @@ pub fn ListBell(bells: Bells, tour: String) -> impl IntoView {
               class:is-off=move || ring.get() == Ring::Off
               class:is-unknown=move || ring.get() == Ring::Unknown
               title=move || match ring.get() {
-                  Ring::On => "This device is notified when the tour changes",
-                  Ring::Off => "This device is not notified about this tour",
-                  Ring::Unknown => "Could not find out whether this device is notified",
+                  Ring::On => t().device.ring_on,
+                  Ring::Off => t().device.ring_off,
+                  Ring::Unknown => t().device.ring_unknown,
               }>
             {move || if ring.get() == Ring::Off { "🔕" } else { "🔔" }}
         </span>

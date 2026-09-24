@@ -9,6 +9,7 @@
 //! something, and it loses it the way any last-writer-wins system does. The alternative is
 //! asking a person on a train to merge a JSON document, which is not an alternative.
 
+use crate::i18n::t;
 use crate::api::{self, SaveError};
 use crate::queue::{self, Operation};
 use tc_core::Tour;
@@ -111,7 +112,7 @@ pub async fn push(tour_id: &str) -> (Option<Tour>, Status) {
         queue::cached(tour_id),
         Status::Failed(api::Failed::answered(
             409,
-            format!("Could not save: the tour kept changing underneath ({MAX_ROUNDS} tries)."),
+            (t().others.kept_changing)(MAX_ROUNDS),
         )),
     )
 }

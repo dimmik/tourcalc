@@ -12,6 +12,7 @@
 //! Rust-only, hence the `__tcw_` name: the Blazor client knows nothing about it, and a
 //! browser that goes back and forth between the two is none the worse for the extra key.
 
+use crate::i18n::t;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -45,9 +46,9 @@ impl Place {
     /// screen, but "Back to Tourcalc" is not a sentence about anything.
     pub fn back_to(&self) -> String {
         match self {
-            Place::List => "Back to your tours".to_owned(),
-            Place::Tour { name, .. } if name.trim().is_empty() => "Back to the tour".to_owned(),
-            Place::Tour { name, .. } => format!("Back to {name}"),
+            Place::List => t().shell.back_to_tours.to_owned(),
+            Place::Tour { name, .. } if name.trim().is_empty() => t().shell.back_to_tour.to_owned(),
+            Place::Tour { name, .. } => (t().shell.back_to)(name),
         }
     }
 

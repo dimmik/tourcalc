@@ -3,6 +3,7 @@
 //! The same endpoints the Blazor client calls, because the server has to keep answering
 //! both while the port is unfinished.
 
+use crate::i18n::t;
 use gloo_net::http::Request;
 use tc_core::Tour;
 
@@ -67,7 +68,7 @@ pub fn expired() -> String {
     if let Some(signal) = SIGNED_IN.with(|s| s.get()) {
         signal.try_set(false);
     }
-    "The login has expired. Enter the access code again.".into()
+    t().errors.expired.into()
 }
 
 /// Whether the last sign-out was a login running out. Asked once, by the sign-in screen,
@@ -132,10 +133,10 @@ impl Trouble {
     /// The short of it, for a line with no room: "no answer", "refused 409", "server 500".
     pub fn shortly(self) -> String {
         match self {
-            Trouble::Unreachable => "no answer".to_owned(),
-            Trouble::Ours => "unreadable answer".to_owned(),
-            Trouble::Answered(code) if code >= 500 => format!("server {code}"),
-            Trouble::Answered(code) => format!("refused {code}"),
+            Trouble::Unreachable => t().errors.no_answer.to_owned(),
+            Trouble::Ours => t().errors.unreadable.to_owned(),
+            Trouble::Answered(code) if code >= 500 => (t().errors.server_code)(code),
+            Trouble::Answered(code) => (t().errors.refused_code)(code),
         }
     }
 }
@@ -182,8 +183,8 @@ pub enum SaveError {
 impl std::fmt::Display for SaveError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SaveError::Conflict => f.write_str("somebody else changed this tour"),
-            SaveError::Offline(e) => write!(f, "no connection: {e}"),
+            SaveError::Conflict => f.write_str(t().errors.conflict),
+            SaveError::Offline(e) => f.write_str(&(t().errors.no_connection)(e)),
             SaveError::Other(e) => f.write_str(&e.said),
         }
     }
@@ -198,25 +199,25 @@ pub async fn log_in(scope: &str, key: &str) -> Result<(), Failed> {
     let resp = Request::get(&url)
         .send()
         .await
-        .map_err(|e| Failed::unreachable(format!("could not reach the server: {e}")))?;
+        .map_err(|e| Failed::unreachable((t().errors.unreachable)(&e.to_string())))?;
     match resp.status() {
         200 => {
             let token = resp
                 .text()
                 .await
-                .map_err(|e| Failed::ours(format!("could not read the token: {e}")))?;
+                .map_err(|e| Failed::ours((t().errors.cannot_read_token)(&e.to_string())))?;
             set_token(token.trim());
             Ok(())
         }
         401 => Err(Failed::answered(
             401,
             if scope == "admin" {
-                "That is not the master key."
+                t().errors.not_master_key
             } else {
-                "That code was not accepted."
+                t().errors.code_refused
             },
         )),
-        s => Err(Failed::answered(s, format!("The server answered {s}"))),
+        s => Err(Failed::answered(s, (t().errors.server_answered)(s))),
     }
 }
 
@@ -241,22 +242,25 @@ pub async fn log_in_with_md5(code_md5: &str) -> Result<(), Failed> {
     let resp = Request::get(&url)
         .send()
         .await
-        .map_err(|e| Failed::unreachable(format!("could not reach the server: {e}")))?;
+        .map_err(|e| Failed::unreachable((t().errors.unreachable)(&e.to_string())))?;
     if !resp.ok() {
         let s = resp.status();
-        return Err(Failed::answered(s, format!("the server refused the code ({s})")));
+        return Err(Failed::answered(s, (t().errors.code_refused_with)(s)));
     }
     // text/plain, not JSON - see the note in tc-server's auth endpoint.
     let token = resp
         .text()
         .await
-        .map_err(|e| Failed::ours(format!("could not read the token: {e}")))?;
+        .map_err(|e| Failed::ours((t().errors.cannot_read_token)(&e.to_string())))?;
     set_token(token.trim());
     Ok(())
 }
 
 /// What a read says when the server has no such tour for this login.
-pub const NOT_FOUND: &str = "no such tour, or the link is for a different access code";
+/// What a 404 on a tour says.
+pub fn not_found() -> &'static str {
+    t().errors.not_found
+}
 
 /// Whether a failure was the network rather than the server.
 pub fn looks_offline(failed: &Failed) -> bool {
@@ -271,16 +275,16 @@ async fn get(url: &str) -> Result<String, Failed> {
     let resp = req
         .send()
         .await
-        .map_err(|e| Failed::unreachable(format!("could not reach the server: {e}")))?;
+        .map_err(|e| Failed::unreachable((t().errors.unreachable)(&e.to_string())))?;
     let status = resp.status();
     match status {
         200 => resp
             .text()
             .await
-            .map_err(|e| Failed::ours(format!("could not read the answer: {e}"))),
-        404 => Err(Failed::answered(404, NOT_FOUND)),
+            .map_err(|e| Failed::ours((t().errors.cannot_read_answer)(&e.to_string()))),
+        404 => Err(Failed::answered(404, not_found())),
         401 => Err(Failed::answered(401, expired())),
-        s => Err(Failed::answered(s, format!("the server answered {s}"))),
+        s => Err(Failed::answered(s, (t().errors.server_answered)(s))),
     }
 }
 
@@ -295,7 +299,7 @@ pub async fn tour(id: &str) -> Result<Tour, Failed> {
     let body = get(&format!("/api/Tour/{id}")).await?;
     // Parsed by tc-core - the same code the server used to write it, and the same code that
     // will do the arithmetic on it in a moment.
-    Tour::from_json(&body).map_err(|e| Failed::ours(format!("could not read the tour: {e}")))
+    Tour::from_json(&body).map_err(|e| Failed::ours((t().errors.cannot_read_tour)(&e.to_string())))
 }
 
 /// The tour's `StateGUID` alone - which changes on every save, so it is how an open page
@@ -327,11 +331,11 @@ pub async fn tours() -> Result<Vec<Tour>, Failed> {
         ))
         .await?;
         let value: serde_json::Value =
-            serde_json::from_str(&body).map_err(|e| Failed::ours(format!("could not read the list: {e}")))?;
+            serde_json::from_str(&body).map_err(|e| Failed::ours((t().errors.cannot_read_list)(&e.to_string())))?;
         let items = value
             .get("Tours")
             .and_then(|t| t.as_array())
-            .ok_or_else(|| Failed::ours("the list came back in an unexpected shape"))?;
+            .ok_or_else(|| Failed::ours(t().errors.odd_list))?;
         let total = value
             .get("TotalCount")
             .and_then(|t| t.as_u64())
@@ -363,7 +367,7 @@ pub async fn tours() -> Result<Vec<Tour>, Failed> {
 pub async fn save_tour(tour: &Tour) -> Result<(), SaveError> {
     let body = tour
         .to_json()
-        .map_err(|e| SaveError::Other(Failed::ours(format!("could not write the tour: {e}"))))?;
+        .map_err(|e| SaveError::Other(Failed::ours((t().errors.cannot_write_tour)(&e.to_string()))))?;
 
     let mut req = Request::patch(&format!("/api/Tour/{}", tour.id));
     if let Some(t) = token() {
@@ -372,7 +376,7 @@ pub async fn save_tour(tour: &Tour) -> Result<(), SaveError> {
     let resp = req
         .header("Content-Type", "application/json")
         .body(body)
-        .map_err(|e| SaveError::Other(Failed::ours(format!("could not build the request: {e}"))))?
+        .map_err(|e| SaveError::Other(Failed::ours((t().errors.cannot_build_request)(&e.to_string()))))?
         .send()
         .await
         // A failed fetch is what being offline looks like from here; the browser does not
@@ -385,13 +389,13 @@ pub async fn save_tour(tour: &Tour) -> Result<(), SaveError> {
         401 => Err(SaveError::Other(Failed::answered(401, expired()))),
         404 => Err(SaveError::Other(Failed::answered(
             404,
-            "This tour is gone, or the login no longer covers it.",
+            t().errors.tour_gone,
         ))),
         s => {
             let detail = resp.text().await.unwrap_or_default();
             Err(SaveError::Other(Failed::answered(
                 s,
-                format!("The server answered {s}. {detail}"),
+                (t().errors.server_answered_detail)(s, &detail),
             )))
         }
     }
@@ -405,11 +409,11 @@ pub async fn versions(id: &str) -> Result<Vec<Tour>, Failed> {
     let body = get(&format!("/api/Tour/{id}/versions")).await?;
     let value: serde_json::Value =
         serde_json::from_str(&body)
-            .map_err(|e| Failed::ours(format!("could not read the versions: {e}")))?;
+            .map_err(|e| Failed::ours((t().errors.cannot_read_versions)(&e.to_string())))?;
     let items = value
         .get("Tours")
         .and_then(|t| t.as_array())
-        .ok_or_else(|| Failed::ours("the versions came back in an unexpected shape"))?;
+        .ok_or_else(|| Failed::ours(t().errors.odd_versions))?;
     Ok(items
         .iter()
         .filter_map(|v| Tour::from_json(&v.to_string()).ok())
@@ -446,27 +450,27 @@ pub async fn add_tour(body: serde_json::Value, pile: Pile<'_>) -> Result<String,
     let resp = req
         .header("Content-Type", "application/json")
         .body(body.to_string())
-        .map_err(|e| Failed::ours(format!("could not build the request: {e}")))?
+        .map_err(|e| Failed::ours((t().errors.cannot_build_request)(&e.to_string())))?
         .send()
         .await
-        .map_err(|e| Failed::unreachable(format!("could not reach the server: {e}")))?;
+        .map_err(|e| Failed::unreachable((t().errors.unreachable)(&e.to_string())))?;
 
     match resp.status() {
         200 => resp
             .text()
             .await
             .map(|s| s.trim().to_owned())
-            .map_err(|e| Failed::ours(format!("could not read the answer: {e}"))),
+            .map_err(|e| Failed::ours((t().errors.cannot_read_answer)(&e.to_string()))),
         401 => Err(Failed::answered(401, expired())),
         403 => Err(Failed::answered(
             403,
-            "Only an administrator can start the first tour under a code.",
+            t().errors.admin_first_tour,
         )),
         400 => Err(Failed::answered(
             400,
-            resp.text().await.unwrap_or_else(|_| "The server answered 400".into()),
+            resp.text().await.unwrap_or_else(|_| (t().errors.server_answered)(400)),
         )),
-        s => Err(Failed::answered(s, format!("The server answered {s}"))),
+        s => Err(Failed::answered(s, (t().errors.server_answered)(s))),
     }
 }
 
@@ -479,15 +483,15 @@ pub async fn delete_tour(id: &str) -> Result<(), Failed> {
     let resp = req
         .send()
         .await
-        .map_err(|e| Failed::unreachable(format!("could not reach the server: {e}")))?;
+        .map_err(|e| Failed::unreachable((t().errors.unreachable)(&e.to_string())))?;
     match resp.status() {
         200 => Ok(()),
         401 => Err(Failed::answered(401, expired())),
         403 => Err(Failed::answered(
             403,
-            "The last tour under an access code can only be deleted by an administrator.",
+            t().errors.admin_last_tour,
         )),
-        s => Err(Failed::answered(s, format!("The server answered {s}"))),
+        s => Err(Failed::answered(s, (t().errors.server_answered)(s))),
     }
 }
 
@@ -532,12 +536,12 @@ pub async fn push_unsubscribe(tour: &str, sub: &PushSubscription) -> Result<(), 
 /// The reader's tours this browser is subscribed to, in one request for the whole list.
 pub async fn push_mine(sub: &PushSubscription) -> Result<Vec<String>, Failed> {
     let body = post_subscription("mine", sub).await?;
-    serde_json::from_str(&body).map_err(|e| Failed::ours(format!("could not read the answer: {e}")))
+    serde_json::from_str(&body).map_err(|e| Failed::ours((t().errors.cannot_read_answer)(&e.to_string())))
 }
 
 async fn post_subscription(what: &str, sub: &PushSubscription) -> Result<String, Failed> {
     let body = serde_json::to_string(sub)
-        .map_err(|e| Failed::ours(format!("could not write it down: {e}")))?;
+        .map_err(|e| Failed::ours((t().errors.cannot_write_down)(&e.to_string())))?;
 
     let mut req = Request::post(&format!("/api/Subscription/{what}"));
     if let Some(t) = token() {
@@ -546,18 +550,18 @@ async fn post_subscription(what: &str, sub: &PushSubscription) -> Result<String,
     let resp = req
         .header("Content-Type", "application/json")
         .body(body)
-        .map_err(|e| Failed::ours(format!("could not build the request: {e}")))?
+        .map_err(|e| Failed::ours((t().errors.cannot_build_request)(&e.to_string())))?
         .send()
         .await
-        .map_err(|e| Failed::unreachable(format!("could not reach the server: {e}")))?;
+        .map_err(|e| Failed::unreachable((t().errors.unreachable)(&e.to_string())))?;
 
     match resp.status() {
         200 => resp
             .text()
             .await
-            .map_err(|e| Failed::ours(format!("could not read the answer: {e}"))),
+            .map_err(|e| Failed::ours((t().errors.cannot_read_answer)(&e.to_string()))),
         401 => Err(Failed::answered(401, expired())),
-        s => Err(Failed::answered(s, format!("The server answered {s}"))),
+        s => Err(Failed::answered(s, (t().errors.server_answered)(s))),
     }
 }
 
@@ -579,7 +583,7 @@ mod tests {
         assert_eq!(refused.why.refusal(), Some(409));
         assert_eq!(refused.why.broke(), None);
 
-        let gone = Failed::answered(404, NOT_FOUND);
+        let gone = Failed::answered(404, not_found());
         assert_eq!(gone.why.refusal(), Some(404));
 
         let broken = Failed::answered(502, "The server answered 502");

@@ -20,6 +20,7 @@
 //! question rather than instead of it. A colour saying "current" and a date saying *how*
 //! current are two different facts, and the date on its own never was the second one.
 
+use crate::i18n::t;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -140,20 +141,20 @@ enum Mark {
 impl Mark {
     fn word(self) -> &'static str {
         match self {
-            Mark::Asking => "checking…",
+            Mark::Asking => t().build.checking,
             // Only when there is no date to put there instead; see `word` in `VersionMark`.
-            Mark::Latest => "latest",
-            Mark::Stale => "update",
-            Mark::Unknown => "can't tell",
+            Mark::Latest => t().build.latest,
+            Mark::Stale => t().build.update,
+            Mark::Unknown => t().build.cant_tell,
         }
     }
 
     fn why(self) -> &'static str {
         match self {
-            Mark::Asking => "Asking the server which client it hands out…",
-            Mark::Latest => "This browser is running the client the server hands out. Click to ask again.",
-            Mark::Stale => "The server hands out a newer client than this browser is running. Click to throw away the cached copy and reload.",
-            Mark::Unknown => "The server did not say which client it hands out. Click to ask again.",
+            Mark::Asking => t().build.why_asking,
+            Mark::Latest => t().build.why_latest,
+            Mark::Stale => t().build.why_stale,
+            Mark::Unknown => t().build.why_unknown,
         }
     }
 }
@@ -337,16 +338,12 @@ pub fn VersionMark() -> impl IntoView {
             let built = build_iso(&s.build).as_deref().and_then(moment);
             let started = moment(&s.started);
             match (built, started) {
-                (Some(b), Some(r)) => format!(
-                    " Built {}, running since {}.",
-                    crate::ui::local_stamp(b),
-                    crate::ui::local_stamp(r)
+                (Some(b), Some(r)) => (t().build.built_running)(
+                    &crate::ui::local_stamp(b),
+                    &crate::ui::local_stamp(r),
                 ),
-                (Some(b), None) => format!(" Built {}.", crate::ui::local_stamp(b)),
-                (None, Some(r)) => format!(
-                    " Not built by the pipeline; running since {}.",
-                    crate::ui::local_stamp(r)
-                ),
+                (Some(b), None) => (t().build.built)(&crate::ui::local_stamp(b)),
+                (None, Some(r)) => (t().build.not_pipeline_running)(&crate::ui::local_stamp(r)),
                 (None, None) => String::new(),
             }
         });
@@ -392,10 +389,10 @@ pub fn UpdateBar() -> impl IntoView {
         <Show when=move || stale.get()>
             <div class="tcn-section" style="padding-bottom:0">
                 <div class="tcn-chip tcn-chip-amber">
-                    "A newer version is on the server"
+                    {t().build.newer_on_server}
                     <button type="button" class="tcn-btn tcn-btn-sm" style="margin-left:10px"
                             on:click=move |_| update_now()>
-                        "Update"
+                        {t().build.update_button}
                     </button>
                 </div>
             </div>
@@ -431,21 +428,18 @@ pub fn AboutBuild() -> impl IntoView {
 
     view! {
         <div class="tcn-section">
-            <div class="tcn-section-title">"This build"</div>
+            <div class="tcn-section-title">{t().build.this_build}</div>
             <div class="tcn-card" style="padding:14px">
                 <div class="tcn-setrow">
                     <div class="tcn-settext">
-                        <div class="tcn-setname">"In this browser"</div>
+                        <div class="tcn-setname">{t().build.in_browser}</div>
                         <div class="tcn-setdesc">
                             {move || match running.get() {
                                 // Named as what it is. Both this and the commit below are
                                 // seven or eight hex characters, and "client bc0e7da" invites
                                 // exactly one question: why is that not the commit I pushed?
-                                Some(name) => format!(
-                                    "client file {} — a hash of the compiled client, not a commit",
-                                    short(&name)
-                                ),
-                                None => "not known — this page was not built by trunk".to_owned(),
+                                Some(name) => (t().build.client_file)(&short(&name)),
+                                None => t().build.not_trunk.to_owned(),
                             }}
                         </div>
                     </div>
@@ -456,12 +450,12 @@ pub fn AboutBuild() -> impl IntoView {
                         return view! {
                             <div class="tcn-setrow">
                                 <div class="tcn-settext">
-                                    <div class="tcn-setname">"On the server"</div>
+                                    <div class="tcn-setname">{t().build.on_server}</div>
                                     <div class="tcn-setdesc">
                                         {move || if asked.get() {
-                                            "the server did not answer"
+                                            t().build.no_answer
                                         } else {
-                                            "asking…"
+                                            t().build.asking
                                         }}
                                     </div>
                                 </div>
@@ -473,33 +467,27 @@ pub fn AboutBuild() -> impl IntoView {
                     view! {
                         <div class="tcn-setrow">
                             <div class="tcn-settext">
-                                <div class="tcn-setname">"On the server"</div>
+                                <div class="tcn-setname">{t().build.on_server}</div>
                                 <div class="tcn-setdesc">
                                     {match stale {
-                                        Some(true) => format!(
-                                            "client file {} — newer than the one this browser \
-                                             is running, so this browser is holding an old copy",
-                                            short(&s.client)),
-                                        Some(false) => format!(
-                                            "client file {} — the same one, so this browser is \
-                                             current", short(&s.client)),
-                                        None => "the client it serves is not known".to_owned(),
+                                        Some(true) => (t().build.server_newer)(&short(&s.client)),
+                                        Some(false) => (t().build.server_same)(&short(&s.client)),
+                                        None => t().build.server_unknown.to_owned(),
                                     }}
                                 </div>
                             </div>
                         </div>
                         <div class="tcn-setrow">
                             <div class="tcn-settext">
-                                <div class="tcn-setname">"Built"</div>
+                                <div class="tcn-setname">{t().build.built_title}</div>
                                 <div class="tcn-setdesc">
                                     {if s.build == "dev" {
-                                        "not by the pipeline — this is a build from somebody's \
-                                         machine".to_owned()
+                                        t().build.not_by_pipeline.to_owned()
                                     } else {
                                         let commit = if s.commit.is_empty() {
                                             String::new()
                                         } else {
-                                            format!(" · commit {}", &s.commit[..s.commit.len().min(7)])
+                                            format!(" · {} {}", t().build.commit, &s.commit[..s.commit.len().min(7)])
                                         };
                                         // The stamp is kept as it is written - it is half of
                                         // the name of the image tag, and somebody rolling a
@@ -519,12 +507,10 @@ pub fn AboutBuild() -> impl IntoView {
                         </div>
                         <div class="tcn-setrow">
                             <div class="tcn-settext">
-                                <div class="tcn-setname">"Running since"</div>
+                                <div class="tcn-setname">{t().build.running_since}</div>
                                 <div class="tcn-setdesc">
                                     {started}
-                                    " — when this container last started. If the build above
-                                     is not the one you pushed, nothing here has been
-                                     restarted with it yet."
+                                    {t().build.running_since_desc}
                                 </div>
                             </div>
                         </div>
@@ -534,10 +520,10 @@ pub fn AboutBuild() -> impl IntoView {
                 <div class="tcn-chips" style="margin-top:12px">
                     <button type="button" class="tcn-btn tcn-btn-primary"
                             on:click=move |_| update_now()>
-                        "Throw away the cached copy and reload"
+                        {t().build.throw_away}
                     </button>
                     <button type="button" class="tcn-btn" on:click=move |_| check()>
-                        "Ask the server again"
+                        {t().build.ask_again}
                     </button>
                 </div>
             </div>
