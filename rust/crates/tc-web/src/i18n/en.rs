@@ -536,7 +536,7 @@ pub const TEXTS: Texts = Texts {
         cannot_read_tour: "could not read that tour",
         clone_of: |name| format!("clone of {name}"),
         cannot_write_tour: "could not write that tour out",
-        copied: "Copied — the JSON is on the clipboard.",
+        copied: "Copied — the JSON is in the clipboard.",
         delete_question: |name| format!("Delete '{name}' and everything in it?"),
         search: "Search",
         clear: "Clear",
