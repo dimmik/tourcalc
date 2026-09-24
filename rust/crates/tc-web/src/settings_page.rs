@@ -206,16 +206,24 @@ pub fn SettingsPage(settings: settings::Shared) -> impl IntoView {
 /// A setting's description on a phone-sized budget: one sentence, and the rest behind
 /// "more". The whole paragraph at once made each row ten lines tall on a narrow screen,
 /// which is where settings are mostly changed. Opening it swaps the sentence for the full
-/// text rather than adding to it - the full text begins by saying the same thing.
+/// text rather than adding to it - the full text begins by saying the same thing - and
+/// "less" at its end folds it back.
+///
+/// A button and a signal rather than `<details>`: a summary has to come first, so once the
+/// text was open the only way to fold it was to find the line it had started on - and the
+/// first version hid that line, so it could not be folded at all.
 #[component]
 pub fn SetDesc(short: &'static str, full: &'static str) -> impl IntoView {
+    let open = RwSignal::new(false);
+    let tx = &crate::i18n::t().settings;
     view! {
-        <div class="tcn-setdesc tcw-setdesc">
-            <span class="tcw-short">{short} " "</span>
-            <details class="tcw-more">
-                <summary>{crate::i18n::t().settings.more}</summary>
-                <span>{full}</span>
-            </details>
+        <div class="tcn-setdesc">
+            {move || if open.get() { full } else { short }}
+            " "
+            <button type="button" class="tcw-more" aria-expanded=move || open.get().to_string()
+                    on:click=move |_| open.update(|o| *o = !*o)>
+                {move || if open.get() { tx.less } else { tx.more }}
+            </button>
         </div>
     }
 }

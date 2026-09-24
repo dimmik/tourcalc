@@ -244,6 +244,8 @@ pub struct SettingsTexts {
     pub check_short: &'static str,
     /// What opens the rest of a setting's description.
     pub more: &'static str,
+    /// What folds it back.
+    pub less: &'static str,
     pub check_on_return: &'static str,
     pub check_minute: &'static str,
     pub check_seconds: fn(u32) -> String,

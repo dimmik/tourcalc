@@ -777,6 +777,7 @@ pub const TEXTS: Texts = Texts {
             to the next tour you open.",
         check_short: "How often an open tour asks the server for other people's changes.",
         more: "more",
+        less: "less",
         check_on_return: "only when I come back",
         check_minute: "every minute",
         check_seconds: |n| format!("every {n} s"),
