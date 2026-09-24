@@ -14,6 +14,7 @@
 | папка | что | где обсуждается |
 |---|---|---|
 | [`people-tab/`](people-tab/) | вкладка People с одним макетом строки | [`../rust/BACKLOG.md`](../rust/BACKLOG.md), [`../review-2026-09-22.md`](../review-2026-09-22.md) раздел 1 |
+| [`settings-narrow/`](settings-narrow/) | настройки на узком экране: как сейчас и три раскладки | переписка от 24.09.2026; `python3 build.py` пересобирает `proto.html` |
 
 ## people-tab
 
