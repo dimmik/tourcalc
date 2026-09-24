@@ -1,0 +1,3848 @@
+<title>Настройки на узком экране</title>
+<style>
+/* ==========================================================================
+   Tourcalc "new UI" design system.
+   Everything here is namespaced with .tcn- so it never collides with
+   the legacy markup or with Ant Design's own classes.
+   ========================================================================== */
+
+:root {
+    --tcn-bg: #f1f4f9;
+    --tcn-surface: #ffffff;
+    --tcn-surface-2: #f7f9fc;
+    --tcn-border: #e3e8ef;
+    --tcn-border-strong: #cfd6e2;
+    --tcn-text: #111827;
+    /* these two carry 10-12px text (stat labels, dates, "for everyone"): #667085 was
+       4.97:1 and #98a2b3 only 2.58:1, i.e. below the WCAG floor of 4.5:1 */
+    --tcn-muted: #5b6472;
+    --tcn-faint: #6b7280;
+
+    /* the accent lives in these five and nowhere else, so picking another one in the
+       settings is a matter of redefining them - see the [data-tcn-accent] blocks below.
+       Gradients lost their third, most saturated stop: a large surface at S 81% was the
+       one thing in the palette that design guidance says not to do. */
+    --tcn-primary: #4f46e5;
+    --tcn-primary-dark: #4338ca;
+    --tcn-primary-soft: #eef2ff;
+    --tcn-accent-2: #6d28d9;
+    --tcn-accent-shadow: rgba(79, 70, 229, .28);
+
+    --tcn-green: #047857;
+    --tcn-green-soft: #ecfdf5;
+    --tcn-red: #be123c;
+    --tcn-red-soft: #fff1f2;
+    --tcn-amber: #b45309;
+    --tcn-amber-soft: #fffbeb;
+    --tcn-cyan-soft: #ecfeff;
+
+    --tcn-radius: 14px;
+    --tcn-radius-sm: 9px;
+    --tcn-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 6px 16px -6px rgba(16, 24, 40, .12);
+    --tcn-shadow-lg: 0 12px 32px -8px rgba(16, 24, 40, .22);
+}
+
+/* --------------------------------------------------------------- shell -- */
+
+body.tcn-on {
+    background: var(--tcn-bg);
+    color: var(--tcn-text);
+    -webkit-font-smoothing: antialiased;
+}
+
+.tcn-shell {
+    min-height: 100vh;
+    background: var(--tcn-bg);
+    display: flex;
+    flex-direction: column;
+}
+
+.tcn-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    height: 52px;
+    color: #fff;
+    background: linear-gradient(120deg, var(--tcn-primary) 0%, var(--tcn-accent-2) 100%);
+    box-shadow: 0 2px 10px var(--tcn-accent-shadow);
+}
+
+.tcn-brand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .16);
+    color: #fff !important;
+    font-size: 17px;
+    text-decoration: none !important;
+    transition: background .15s ease;
+}
+
+    .tcn-brand:hover {
+        background: rgba(255, 255, 255, .3);
+    }
+
+.tcn-topbar-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: .1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    color: inherit;
+    text-decoration: none;
+}
+
+.tcn-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+.tcn-iconbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .14);
+    color: #fff;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: background .15s ease, transform .1s ease;
+}
+
+    .tcn-iconbtn:hover {
+        background: rgba(255, 255, 255, .3);
+        color: #fff;
+    }
+
+    .tcn-iconbtn:active {
+        transform: scale(.94);
+    }
+
+    .tcn-iconbtn.tcn-danger {
+        background: rgba(255, 120, 120, .28);
+    }
+
+.tcn-main {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 14px 12px 96px 12px;
+}
+
+/* ------------------------------------------------------------ ui switch -- */
+
+.tcn-uiswitch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .14);
+    font-size: 12px;
+    line-height: 1;
+}
+
+.tcn-uiswitch-opt {
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, .78);
+    padding: 5px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+    .tcn-uiswitch-opt.is-active {
+        background: #fff;
+        color: var(--tcn-primary-dark);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+    }
+
+/* single-button variant, sized to survive the cramped classic header */
+.tcn-uiswitch-single {
+    display: inline-block;
+    border: 1px solid rgba(255, 255, 255, .6);
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    border-radius: 999px;
+    padding: 1px 8px;
+    margin: 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    cursor: pointer;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+    .tcn-uiswitch-single:hover {
+        background: rgba(255, 255, 255, .32);
+    }
+
+/* the same switch, rendered on a light background (legacy header / settings) */
+.tcn-uiswitch.tcn-uiswitch-light {
+    background: var(--tcn-primary-soft);
+    border: 1px solid #dfe3f7;
+}
+
+    .tcn-uiswitch.tcn-uiswitch-light .tcn-uiswitch-opt {
+        color: var(--tcn-primary-dark);
+    }
+
+        .tcn-uiswitch.tcn-uiswitch-light .tcn-uiswitch-opt.is-active {
+            background: var(--tcn-primary);
+            color: #fff;
+        }
+
+/* ---- "a new version is ready" ------------------------------------------
+   Deliberately an offer and not a demand: a pill that catches the eye once
+   and then just sits there. Nothing blocks, nothing reloads by itself. */
+
+.tcn-update {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: #fbbf24;
+    color: #3b2708;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: .2px;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, .75);
+    animation: tcn-update-attn 2.6s ease-out 3;
+}
+
+    .tcn-update:hover {
+        background: #fcd34d;
+    }
+
+    .tcn-update:active {
+        transform: scale(.96);
+    }
+
+.tcn-update-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #b45309;
+    flex: 0 0 auto;
+}
+
+/* three gentle rings, then it stops asking for attention */
+@keyframes tcn-update-attn {
+    0% {
+        box-shadow: 0 0 0 0 rgba(251, 191, 36, .7);
+    }
+
+    60% {
+        box-shadow: 0 0 0 10px rgba(251, 191, 36, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tcn-update {
+        animation: none;
+    }
+}
+
+/* ---- per-tour push subscription ---------------------------------------- */
+
+.tcn-bell {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 9px;
+    border: 1px solid rgba(255, 255, 255, .45);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 18px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+    .tcn-bell:hover {
+        background: rgba(255, 255, 255, .28);
+    }
+
+    .tcn-bell.is-on {
+        background: #fff;
+        border-color: #fff;
+        color: var(--tcn-primary-dark);
+    }
+
+    .tcn-bell:disabled {
+        opacity: .6;
+        cursor: default;
+    }
+
+
+/* ---------------------------------------------------------------- cards -- */
+
+.tcn-card {
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    border-radius: var(--tcn-radius);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-section {
+    margin-bottom: 14px;
+}
+
+.tcn-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 2px 8px 2px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+    .tcn-section-title .tcn-count {
+        font-weight: 700;
+        color: var(--tcn-primary);
+        background: var(--tcn-primary-soft);
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 12px;
+        letter-spacing: 0;
+    }
+
+/* ------------------------------------------------------------------ hero -- */
+
+.tcn-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 16px;
+    margin-bottom: 14px;
+    border-radius: var(--tcn-radius);
+    color: #fff;
+    background: linear-gradient(125deg, var(--tcn-primary-dark) 0%, var(--tcn-accent-2) 100%);
+    box-shadow: var(--tcn-shadow-lg);
+}
+
+    .tcn-hero::after {
+        content: "";
+        position: absolute;
+        right: -60px;
+        top: -80px;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .08);
+        /* purely decorative - it sits over the refresh button and would eat its clicks */
+        pointer-events: none;
+    }
+
+.tcn-hero-top {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.tcn-hero-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+/* the state of the tour, in the tour itself - it used to live only in the tour list */
+.tcn-hero-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    position: relative;
+    z-index: 1;
+}
+
+.tcn-hero-sub {
+    position: relative;
+    margin-top: 4px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, .78);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+}
+
+    .tcn-hero-sub a {
+        color: #fff;
+        text-decoration: underline;
+    }
+
+.tcn-hero-metrics {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+}
+
+@media (min-width: 640px) {
+    .tcn-hero-metrics {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.tcn-metric {
+    background: rgba(255, 255, 255, .13);
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: var(--tcn-radius-sm);
+    padding: 8px 10px;
+}
+
+.tcn-metric-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    color: rgba(255, 255, 255, .72);
+}
+
+.tcn-metric-value {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+    .tcn-metric-value small {
+        font-size: 11px;
+        font-weight: 600;
+        opacity: .8;
+    }
+
+/* ------------------------------------------------------------------ tabs -- */
+
+.tcn-tabs {
+    position: sticky;
+    top: 52px;
+    z-index: 30;
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 14px;
+    border-radius: 999px;
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-tab {
+    flex: 1 1 0;
+    border: 0;
+    background: transparent;
+    border-radius: 999px;
+    padding: 9px 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--tcn-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background .15s ease, color .15s ease;
+}
+
+    .tcn-tab:hover {
+        background: var(--tcn-surface-2);
+        color: var(--tcn-text);
+    }
+
+    .tcn-tab.is-active {
+        background: var(--tcn-primary);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, .35);
+    }
+
+    .tcn-tab .tcn-tab-badge {
+        display: inline-block;
+        margin-left: 5px;
+        padding: 0 6px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: rgba(0, 0, 0, .07);
+    }
+
+    .tcn-tab.is-active .tcn-tab-badge {
+        background: rgba(255, 255, 255, .25);
+    }
+
+/* there is no room for the counters on a phone - the tab labels win */
+@media (max-width: 459px) {
+    .tcn-tab .tcn-tab-badge {
+        display: none;
+    }
+}
+
+/* --------------------------------------------------------------- person -- */
+
+.tcn-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tcn-person {
+    padding: 12px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+    transition: border-color .15s ease;
+}
+
+    .tcn-person.is-child {
+        margin-left: 20px;
+        border-left: 3px solid var(--tcn-primary-soft);
+    }
+
+.tcn-person-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+    /* the roomy card folds by its head, so the head advertises that it is a handle */
+    .tcn-person-head.is-handle {
+        cursor: pointer;
+        border-radius: var(--tcn-radius-sm);
+    }
+
+        .tcn-person-head.is-handle:hover .tcn-person-name {
+            color: var(--tcn-primary-dark);
+        }
+
+.tcn-person-fold {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin: -2px -4px 0 2px;
+    padding: 2px;
+    border: 0;
+    background: none;
+    color: var(--tcn-faint);
+    cursor: pointer;
+}
+
+    .tcn-person-fold:hover {
+        color: var(--tcn-primary);
+    }
+
+.tcn-avatar {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+    .tcn-avatar.tcn-avatar-sm {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
+    }
+
+.tcn-person-id {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tcn-person-name {
+    font-size: 15.5px;
+    font-weight: 650;
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+.tcn-person-meta {
+    margin-top: 1px;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tcn-person-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--tcn-border);
+}
+
+.tcn-stat {
+    text-align: center;
+    min-width: 0;
+}
+
+.tcn-stat-label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-faint);
+    margin-bottom: 1px;
+}
+
+.tcn-person-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+/* --- the dense list ------------------------------------------------------- */
+/* A roomy card is ~163px tall, so four people fill a phone screen. One line per
+   person is ~52px, which puts a dozen of them in the same space; the three numbers
+   and the buttons are still there, one tap away. */
+.tcn-person.is-compact {
+    padding: 2px 10px;
+}
+
+/* the row is a container, not a control: the name opens the person, the button next to
+   it records a spending, and one cannot be nested inside the other */
+.tcn-person-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+}
+
+.tcn-person-open {
+    flex: 1 1 auto;
+    /* a flex item defaults to min-width:auto, and a button that cannot shrink below its
+       content pushes the caret and the spend button off the card */
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    /* tight on purpose: every pixel here is a pixel the name does not have */
+    gap: 8px;
+    padding: 3px 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+    .tcn-person-open .tcn-person-id {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    /* the name is what gives way when the row runs out of room - everything else in it
+       is a handful of characters that cannot be shortened any further */
+    .tcn-person-open .tcn-person-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 14.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tcn-person-open .tcn-person-meta {
+        margin: 0;
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .tcn-person-open .tcn-chip {
+        flex: 0 0 auto;
+    }
+
+.tcn-person-spend {
+    flex: 0 0 auto;
+    padding: 3px 9px;
+}
+
+.tcn-chip-kids {
+    padding: 0 6px;
+    white-space: nowrap;
+}
+
+
+.tcn-person-caret {
+    flex: 0 0 auto;
+    display: inline-flex;
+    color: var(--tcn-faint);
+}
+
+/* the detail an opened dense row adds above its numbers: the payer's own weight, which
+   the folded row gives up to the family total */
+.tcn-person-weights {
+    margin: 2px 0 6px 0;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+}
+
+.tcn-person.is-compact .tcn-person-stats {
+    margin-top: 4px;
+}
+
+.tcn-person.is-compact .tcn-person-actions {
+    margin-bottom: 8px;
+}
+
+.tcn-people-list.is-compact {
+    gap: 6px;
+}
+
+/* --- a family stays together ---------------------------------------------- */
+/* One block per payer: them, and everybody they pay for. The well is what answers
+   "who is paying for whom" at a glance, and being one element is what stops a wide
+   screen from dealing a child into a different column. */
+.tcn-family {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+    /* the dense list has no room for a card around a family, so the accent runs down its
+       side instead - the same mark the roomy card wears along its top */
+    .tcn-people-list.is-compact .tcn-family.has-kids {
+        padding-left: 7px;
+        border-left: 3px solid var(--tcn-primary);
+        border-radius: var(--tcn-radius-sm);
+    }
+
+    /* opened, it also gets the well that says these people settle together */
+    .tcn-people-list.is-compact .tcn-family.has-kids.is-open {
+        padding: 6px 6px 6px 7px;
+        border-radius: calc(var(--tcn-radius) + 4px);
+        background: var(--tcn-primary-soft);
+        border: 1px solid var(--tcn-accent-shadow);
+        border-left: 3px solid var(--tcn-primary);
+    }
+
+        /* one line down the side is enough: the indent alone shows the nesting */
+        .tcn-people-list.is-compact .tcn-family.has-kids .tcn-family-kids {
+            margin-left: 13px;
+            padding-left: 0;
+            border-left: 0;
+        }
+
+/* In the roomy list a family is one card rather than a card with things hanging off it:
+   the payer is its body, the people they pay for are tucked into its foot, and the accent
+   line along the top marks the whole block as one. */
+.tcn-people-list:not(.is-compact) .tcn-family.has-kids {
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--tcn-border);
+    border-top: 3px solid var(--tcn-primary);
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    box-shadow: var(--tcn-shadow);
+}
+
+    /* the payer's card is that card's body now, so it drops its own frame */
+    .tcn-people-list:not(.is-compact) .tcn-family.has-kids > .tcn-person {
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        background: none;
+    }
+
+    .tcn-people-list:not(.is-compact) .tcn-family.has-kids .tcn-familybar {
+        border-radius: 0;
+        border-top: 1px solid var(--tcn-border);
+        background: var(--tcn-primary-soft);
+        padding: 7px 12px;
+    }
+
+        .tcn-people-list:not(.is-compact) .tcn-family.has-kids .tcn-familybar:hover {
+            background: var(--tcn-surface-2);
+        }
+
+    .tcn-people-list:not(.is-compact) .tcn-family.has-kids .tcn-family-kids {
+        margin: 0;
+        padding: 8px 10px 10px 10px;
+        border-left: 0;
+        background: var(--tcn-primary-soft);
+    }
+
+/* the handle a roomy family opens by: the names are the point, so they lead */
+.tcn-familybar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 10px;
+    border: 0;
+    border-radius: var(--tcn-radius-sm);
+    background: none;
+    color: var(--tcn-primary-dark);
+    font: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+}
+
+    .tcn-familybar:hover {
+        background: var(--tcn-surface);
+    }
+
+    .tcn-familybar .tcn-icon {
+        flex: 0 0 auto;
+        opacity: .8;
+    }
+
+.tcn-familybar-names {
+    font-weight: 650;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tcn-familybar-note {
+    flex: 0 0 auto;
+    color: var(--tcn-muted);
+}
+
+.tcn-family-kids {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-left: 13px;
+    padding-left: 11px;
+    border-left: 2px solid var(--tcn-accent-shadow);
+}
+
+    /* inside the well the indent comes from the container, so the card drops its own */
+    .tcn-family-kids .tcn-person.is-child {
+        margin-left: 0;
+        border-left: 1px solid var(--tcn-border);
+    }
+
+/* --- room to spare -------------------------------------------------------- */
+/* Only the roomy list goes multi-column: a dense one already fits on a screen. */
+@media (min-width: 780px) {
+    /* no align-items:start here on purpose: every cell in a row is as tall as the tallest
+       one in it, and the cards stretch to fill it. A family carries a bar the others do
+       not, and without this it hung below its neighbours */
+    .tcn-people-list:not(.is-compact) {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    }
+
+        .tcn-people-list:not(.is-compact) > .tcn-family {
+            height: 100%;
+        }
+
+            /* a folded person is meant to be a small plate, so it keeps its own height
+               instead of being stretched to the tallest card in the row */
+            .tcn-people-list:not(.is-compact) > .tcn-family.is-folded {
+                height: auto;
+                align-self: start;
+            }
+
+            .tcn-people-list:not(.is-compact) .tcn-family-kids .tcn-person.is-compact {
+                align-self: start;
+            }
+
+            .tcn-people-list:not(.is-compact) > .tcn-family > .tcn-person {
+                flex: 1 1 auto;
+            }
+
+        /* an opened family would otherwise stand as one tall column beside short cards.
+           It takes the whole row instead, and lays its people out along it */
+        .tcn-people-list:not(.is-compact) .tcn-family.is-open {
+            grid-column: 1 / -1;
+        }
+
+            .tcn-people-list:not(.is-compact) .tcn-family.is-open .tcn-family-kids {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            }
+}
+
+.tcn-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--tcn-muted);
+    background: var(--tcn-surface);
+    border: 1px dashed var(--tcn-border-strong);
+    border-radius: var(--tcn-radius);
+}
+
+    .tcn-empty .tcn-empty-icon {
+        font-size: 30px;
+        display: block;
+        margin-bottom: 6px;
+    }
+
+    .tcn-empty .tcn-empty-title {
+        font-weight: 650;
+        color: var(--tcn-text);
+        margin-bottom: 2px;
+    }
+
+/* --------------------------------------------------------------- buttons -- */
+
+.tcn-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid var(--tcn-border-strong);
+    background: var(--tcn-surface);
+    color: var(--tcn-text);
+    border-radius: var(--tcn-radius-sm);
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s ease, border-color .15s ease, transform .1s ease;
+}
+
+    .tcn-btn:hover {
+        background: var(--tcn-surface-2);
+        border-color: var(--tcn-faint);
+    }
+
+    .tcn-btn:active {
+        transform: scale(.97);
+    }
+
+    .tcn-btn.tcn-btn-primary {
+        background: var(--tcn-primary);
+        border-color: var(--tcn-primary);
+        color: #fff;
+    }
+
+        .tcn-btn.tcn-btn-primary:hover {
+            background: var(--tcn-primary-dark);
+            border-color: var(--tcn-primary-dark);
+        }
+
+    .tcn-btn.tcn-btn-success {
+        background: var(--tcn-green);
+        border-color: var(--tcn-green);
+        color: #fff;
+    }
+
+    .tcn-btn.tcn-btn-danger {
+        color: var(--tcn-red);
+        border-color: #f3c8d1;
+        background: var(--tcn-red-soft);
+    }
+
+    .tcn-btn.tcn-btn-ghost {
+        background: transparent;
+        border-color: transparent;
+        color: var(--tcn-muted);
+    }
+
+        .tcn-btn.tcn-btn-ghost:hover {
+            background: var(--tcn-surface-2);
+            color: var(--tcn-text);
+        }
+
+    .tcn-btn.tcn-btn-sm {
+        padding: 5px 9px;
+        font-size: 12px;
+    }
+
+    .tcn-btn.tcn-btn-block {
+        width: 100%;
+    }
+
+    .tcn-btn:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
+.tcn-fab {
+    position: fixed;
+    right: max(16px, calc(50vw - 528px));
+    bottom: 20px;
+    z-index: 45;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 20px;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(120deg, var(--tcn-primary), var(--tcn-accent-2));
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 10px 24px -6px rgba(79, 70, 229, .65);
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+    .tcn-fab:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 28px -6px rgba(79, 70, 229, .7);
+    }
+
+    .tcn-fab:active {
+        transform: scale(.96);
+    }
+
+/* ----------------------------------------------------------------- chips -- */
+
+.tcn-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 650;
+    line-height: 1.6;
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border);
+    color: var(--tcn-muted);
+    white-space: nowrap;
+}
+
+    .tcn-chip.tcn-chip-green {
+        background: var(--tcn-green-soft);
+        border-color: #c4ece0;
+        color: var(--tcn-green);
+    }
+
+    .tcn-chip.tcn-chip-red {
+        background: var(--tcn-red-soft);
+        border-color: #f5cdd6;
+        color: var(--tcn-red);
+    }
+
+    .tcn-chip.tcn-chip-amber {
+        background: var(--tcn-amber-soft);
+        border-color: #f4e0b5;
+        color: var(--tcn-amber);
+    }
+
+    .tcn-chip.tcn-chip-primary {
+        background: var(--tcn-primary-soft);
+        border-color: var(--tcn-accent-shadow);
+        color: var(--tcn-primary-dark);
+    }
+
+.tcn-filter-chip {
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s ease, border-color .15s ease;
+}
+
+    .tcn-filter-chip.is-on {
+        background: var(--tcn-primary);
+        border-color: var(--tcn-primary);
+        color: #fff;
+    }
+
+    /* a category the form guessed, not one the user chose - it applies, but it must not
+       look like a decision that has already been made */
+    .tcn-filter-chip.is-guess {
+        background: var(--tcn-primary-soft);
+        border: 1px dashed var(--tcn-primary);
+        color: var(--tcn-primary);
+        font-weight: 700;
+    }
+
+.tcn-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* -------------------------------------------------------------- settle up -- */
+
+.tcn-settle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-settle-flow {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.tcn-settle-who {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 650;
+}
+
+.tcn-settle-arrow {
+    flex: 0 0 auto;
+    color: var(--tcn-primary);
+    font-weight: 700;
+}
+
+.tcn-settle-amount {
+    flex: 0 0 auto;
+    font-size: 15px;
+    font-weight: 750;
+    color: var(--tcn-text);
+    font-variant-numeric: tabular-nums;
+}
+
+    .tcn-settle-amount small {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+.tcn-allsettled {
+    padding: 26px 16px;
+    text-align: center;
+    border-radius: var(--tcn-radius);
+    background: linear-gradient(140deg, #ecfdf5, #f0fdfa);
+    border: 1px solid #c4ece0;
+}
+
+    .tcn-allsettled .tcn-allsettled-icon {
+        font-size: 34px;
+    }
+
+    .tcn-allsettled .tcn-allsettled-title {
+        margin-top: 4px;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--tcn-green);
+    }
+
+    .tcn-allsettled .tcn-allsettled-sub {
+        font-size: 13px;
+        color: var(--tcn-muted);
+    }
+
+.tcn-bal-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tcn-bal-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.tcn-bal-amount {
+    flex: 0 0 auto;
+    font-weight: 700;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------- balance bar -- */
+
+.tcn-balancebar {
+    display: grid;
+    grid-template-columns: 1fr 8px 1fr;
+    align-items: center;
+    gap: 0;
+    height: 8px;
+    margin-top: 8px;
+}
+
+.tcn-balancebar-neg,
+.tcn-balancebar-pos {
+    height: 8px;
+    background: var(--tcn-surface-2);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* left half = money coming back to the person, right half = money they owe */
+.tcn-balancebar-neg > i {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--tcn-green);
+    border-radius: 4px;
+    display: block;
+}
+
+.tcn-balancebar-pos > i {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--tcn-red);
+    border-radius: 4px;
+    display: block;
+}
+
+.tcn-balancebar-mid {
+    height: 12px;
+    border-left: 1px dashed var(--tcn-border-strong);
+}
+
+/* ------------------------------------------------------------- spendings -- */
+
+.tcn-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.tcn-search {
+    flex: 1 1 180px;
+    max-width: 380px;
+    min-width: 0;
+    position: relative;
+}
+
+    .tcn-search input {
+        width: 100%;
+        border: 1px solid var(--tcn-border-strong);
+        border-radius: var(--tcn-radius-sm);
+        background: var(--tcn-surface);
+        padding: 8px 30px 8px 32px;
+        font-size: 14px;
+        color: var(--tcn-text);
+        outline: none;
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+        .tcn-search input:focus {
+            border-color: var(--tcn-primary);
+            box-shadow: 0 0 0 3px var(--tcn-primary-soft);
+        }
+
+    .tcn-search .tcn-search-icon {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--tcn-faint);
+        font-size: 13px;
+        pointer-events: none;
+    }
+
+    .tcn-search .tcn-search-clear {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 0;
+        background: transparent;
+        color: var(--tcn-faint);
+        cursor: pointer;
+        font-size: 15px;
+        line-height: 1;
+    }
+
+.tcn-daygroup {
+    margin-bottom: 12px;
+}
+
+.tcn-dayhead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 4px 6px 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--tcn-muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+
+    .tcn-dayhead .tcn-daysum {
+        font-weight: 700;
+        color: var(--tcn-text);
+        text-transform: none;
+        letter-spacing: 0;
+        font-variant-numeric: tabular-nums;
+    }
+
+.tcn-sp {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    border-radius: var(--tcn-radius);
+    box-shadow: var(--tcn-shadow);
+    border-left: 4px solid var(--tcn-status-line, var(--tcn-border));
+}
+
+    .tcn-sp + .tcn-sp {
+        margin-top: 8px;
+    }
+
+    .tcn-sp.tcn-sp-planned {
+        --tcn-status-line: #f59e0b;
+        background: var(--tcn-amber-soft);
+    }
+
+    .tcn-sp.tcn-sp-family {
+        --tcn-status-line: #06b6d4;
+        background: var(--tcn-cyan-soft);
+    }
+
+    .tcn-sp.tcn-sp-dry {
+        --tcn-status-line: #f97316;
+        background: #fff7ed;
+        border-style: dashed;
+    }
+
+    .tcn-sp.tcn-sp-payback {
+        --tcn-status-line: #10b981;
+        background: var(--tcn-green-soft);
+    }
+
+/* A colour picked by hand marks a rare, out-of-the-ordinary expense, so it is loud on
+   purpose - it exists to make you stop and read the line. The status stripe on the left
+   keeps its own colour, so "draft" or "family" is not lost under the mark. */
+.tcn-sp.tcn-sp-marked {
+    background: var(--tcn-mark-bg);
+    border-color: var(--tcn-mark-line);
+    border-width: 2px;
+    border-left-width: 4px;
+    border-left-color: var(--tcn-status-line, var(--tcn-mark-line));
+    /* the extra border would make the row 2px taller than its neighbours */
+    padding: 9px 11px;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, .10);
+}
+
+.tcn-sp-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tcn-sp-title {
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+/* a generated row reads as a transfer, not as a description someone wrote */
+.tcn-sp-transfer {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+    .tcn-sp-transfer .tcn-icon {
+        width: 15px;
+        height: 15px;
+        opacity: .55;
+    }
+
+.tcn-sp-meta {
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.tcn-sp-to {
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+    word-break: break-word;
+}
+
+    .tcn-sp-to b {
+        color: var(--tcn-text);
+        font-weight: 600;
+    }
+
+.tcn-sp-right {
+    flex: 0 0 auto;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.tcn-sp-amount {
+    font-size: 15.5px;
+    font-weight: 750;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+    .tcn-sp-amount small {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+.tcn-sp-orig {
+    font-size: 11px;
+    color: var(--tcn-muted);
+    font-style: italic;
+    white-space: nowrap;
+}
+
+.tcn-sp-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+    /* the reused legacy "edit" modal renders an Ant button - make it fit in */
+    .tcn-sp-actions .ant-btn {
+        border-radius: var(--tcn-radius-sm) !important;
+        font-size: 12px;
+        height: 26px;
+        padding: 0 9px;
+    }
+
+.tcn-summary {
+    display: flex;
+    flex-wrap: wrap;
+    /* baseline, so the smaller "uncounted" note sits on the same line as the rest */
+    align-items: baseline;
+    gap: 6px 14px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    font-size: 12.5px;
+    color: var(--tcn-muted);
+    box-shadow: var(--tcn-shadow);
+}
+
+    .tcn-summary b {
+        color: var(--tcn-text);
+        font-variant-numeric: tabular-nums;
+    }
+
+/* ------------------------------------------------------------- tour list -- */
+
+.tcn-tourgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.tcn-tour {
+    display: flex;
+    flex-direction: column;
+    /* the name link is stretched over the whole card below, so it needs a containing block */
+    position: relative;
+    padding: 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+
+    .tcn-tour:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--tcn-shadow-lg);
+        border-color: var(--tcn-border-strong);
+    }
+
+    .tcn-tour.is-archived {
+        opacity: .72;
+        background: var(--tcn-surface-2);
+    }
+
+.tcn-tour-name {
+    font-size: 16.5px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--tcn-text);
+    text-decoration: none;
+    word-break: break-word;
+}
+
+    .tcn-tour-name:hover {
+        color: var(--tcn-primary);
+    }
+
+.tcn-tour-meta {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--tcn-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: center;
+}
+
+.tcn-tour-badges {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* the whole card opens the tour: on a phone the name alone is a small target.
+   Everything interactive is lifted above the stretched link. */
+.tcn-tour-name::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+
+.tcn-tour-actions,
+.tcn-details {
+    position: relative;
+    z-index: 1;
+}
+
+.tcn-togglerow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+    .tcn-togglerow .tcn-hint {
+        display: block;
+    }
+
+.tcn-tour-actions {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px dashed var(--tcn-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.tcn-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    margin-bottom: 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-primary);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-input {
+    width: 100%;
+    border: 1px solid var(--tcn-border-strong);
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface);
+    padding: 8px 10px;
+    font-size: 14px;
+    color: var(--tcn-text);
+    outline: none;
+    font-family: inherit;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+    .tcn-input:focus {
+        border-color: var(--tcn-primary);
+        box-shadow: 0 0 0 3px var(--tcn-primary-soft);
+    }
+
+textarea.tcn-input {
+    min-height: 72px;
+    resize: vertical;
+}
+
+.tcn-field-label {
+    font-size: 11.5px;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--tcn-muted);
+}
+
+.tcn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.tcn-switchline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--tcn-muted);
+    cursor: pointer;
+    user-select: none;
+}
+
+    .tcn-switchline input {
+        width: 15px;
+        height: 15px;
+        accent-color: var(--tcn-primary);
+        cursor: pointer;
+    }
+
+/* ===========================================================================
+   Our own dialog. Replaces AntDesign's Modal, which was the only component of
+   that package the new and mini interfaces still used - four megabytes for an
+   overlay and a card. The .tcn-sheet-* classes below dress what goes inside it
+   and were always ours.
+   =========================================================================== */
+
+.tcn-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 12px;
+    overflow-y: auto;
+    background: rgba(16, 24, 40, .45);
+}
+
+.tcn-modal-card {
+    width: 100%;
+    max-width: 560px;
+    background: var(--tcn-surface);
+    border-radius: var(--tcn-radius);
+    box-shadow: var(--tcn-shadow-lg);
+    overflow: hidden;
+    /* the dialog is drawn where it was opened from rather than portalled to the
+       end of the body, so it would otherwise inherit the type size of whatever
+       opened it - and the classic spendings table is set very small */
+    font-size: 14px;
+    line-height: 1.4;
+    text-align: left;
+    color: var(--tcn-text);
+}
+
+.tcn-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--tcn-border);
+    font-weight: 700;
+}
+
+.tcn-modal-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tcn-modal-x {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--tcn-muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+    .tcn-modal-x:hover {
+        background: var(--tcn-surface-2);
+        color: var(--tcn-text);
+    }
+
+.tcn-modal-body {
+    padding: 14px 16px;
+}
+
+.tcn-modal-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--tcn-border);
+    background: var(--tcn-surface-2);
+}
+
+/* the expense sheet keeps its own head and foot, so the shell adds none */
+.tcn-sheet .tcn-modal-head,
+.tcn-sheet .tcn-modal-foot {
+    display: none;
+}
+
+.tcn-sheet .tcn-modal-body {
+    padding: 0;
+}
+
+/* ===========================================================================
+   Sheet dialogs - the new-UI "add expense" and "add person" forms. The Ant
+   Modal is used only as the overlay; everything inside is ours, so its own
+   header/footer chrome is switched off here.
+   =========================================================================== */
+
+.tcn-sheet .ant-modal-header,
+.tcn-sheet .ant-modal-close {
+    display: none !important;
+}
+
+.tcn-sheet .ant-modal-content {
+    border-radius: var(--tcn-radius);
+    overflow: hidden;
+}
+
+.tcn-sheet .ant-modal-body {
+    padding: 0 !important;
+}
+
+.tcn-sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    background: linear-gradient(120deg, var(--tcn-primary) 0%, var(--tcn-accent-2) 100%);
+    color: #fff;
+}
+
+.tcn-sheet-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tcn-sheet-x {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+    .tcn-sheet-x:hover {
+        background: rgba(255, 255, 255, .32);
+    }
+
+.tcn-sheet-body {
+    padding: 14px 16px;
+    max-height: 66vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.tcn-sheet-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--tcn-border);
+    background: var(--tcn-surface-2);
+}
+
+/* the footer can carry the validation summary above its buttons */
+.tcn-sheet-foot.tcn-sheet-foot-stack {
+    display: block;
+}
+
+.tcn-sheet-footrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tcn-sheet-foot .tcn-errors {
+    margin: 0 0 10px 0;
+}
+
+/* on a phone the dialog becomes a full-height sheet */
+@media (max-width: 560px) {
+    .tcn-sheet .ant-modal {
+        top: 0;
+        max-width: 100vw;
+        margin: 0;
+        padding-bottom: 0;
+    }
+
+    /* head pinned, body scrolls, footer parked at the bottom of the screen.
+       100vh on a phone is the height WITHOUT the browser address bar, i.e. taller than
+       what you can actually see - that pushed the Save button below the fold. dvh is
+       the height that is really visible; vh stays as the fallback for old browsers. */
+    .tcn-sheet .ant-modal-content {
+        border-radius: 0;
+        height: 100vh;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* where dvh works the sheet fits exactly, so the outer scroll is only a way to
+       lose the footer again; where it does not, keep scrolling as the escape hatch */
+    @supports (height: 100dvh) {
+        .tcn-sheet .ant-modal-wrap {
+            overflow: hidden;
+        }
+    }
+
+    .tcn-sheet .ant-modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tcn-sheet-head,
+    .tcn-sheet-foot {
+        flex: 0 0 auto;
+    }
+
+    .tcn-sheet-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+    }
+
+        .tcn-sheet-foot .tcn-btn {
+            padding: 10px 14px;
+        }
+}
+
+/* ---- form pieces ---- */
+
+.tcn-field {
+    margin-bottom: 16px;
+}
+
+.tcn-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+    .tcn-label-row .tcn-switchline {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 600;
+        font-size: 12.5px;
+    }
+
+.tcn-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--tcn-muted);
+}
+
+/* ...but as a direct flex item that margin would drop it below its neighbours */
+.tcn-summary > .tcn-hint,
+.tcn-row > .tcn-hint {
+    margin-top: 0;
+}
+
+.tcn-linkbtn {
+    border: 0;
+    background: transparent;
+    color: var(--tcn-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 4px;
+    text-decoration: underline;
+}
+
+.tcn-errors {
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-red-soft);
+    border: 1px solid #f5cdd6;
+    color: var(--tcn-red);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+    .tcn-errors div + div {
+        margin-top: 4px;
+    }
+
+/* the amount is the one number that matters, so it gets the room. It still has to look
+   like something you type into: sitting borderless on a tinted card, the big number read
+   as a printed total rather than as a field. */
+.tcn-amount {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-primary-soft);
+    border: 1px solid var(--tcn-accent-shadow);
+}
+
+.tcn-amount-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tcn-amount-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    border: 1.5px solid var(--tcn-border-strong);
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface);
+    outline: none;
+    font-size: 30px;
+    font-weight: 750;
+    color: var(--tcn-text);
+    font-variant-numeric: tabular-nums;
+    padding: 2px 12px;
+    caret-color: var(--tcn-primary);
+    transition: border-color .12s ease, box-shadow .12s ease;
+    /* the spinners fight with the big type */
+    -moz-appearance: textfield;
+}
+
+    .tcn-amount-input:hover {
+        border-color: var(--tcn-primary);
+    }
+
+    .tcn-amount-input:focus {
+        border-color: var(--tcn-primary);
+        box-shadow: 0 0 0 3px var(--tcn-accent-shadow);
+    }
+
+    .tcn-amount-input::-webkit-outer-spin-button,
+    .tcn-amount-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    /* lighter than the text it stands in for, so an empty field does not read as a
+       spending of zero */
+    .tcn-amount-input::placeholder {
+        color: var(--tcn-border-strong);
+        font-weight: 600;
+    }
+
+.tcn-amount-curr {
+    flex: 0 0 auto;
+    /* the same outline as the amount box next to it, so the pair reads as one control */
+    border: 1.5px solid var(--tcn-border-strong);
+    background: var(--tcn-surface);
+    border-radius: var(--tcn-radius-sm);
+    padding: 6px 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--tcn-primary-dark);
+    cursor: pointer;
+}
+
+    .tcn-amount-curr.is-static {
+        border-color: transparent;
+        background: transparent;
+        cursor: default;
+    }
+
+/* person pickers */
+.tcn-pchips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tcn-pchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 11px 4px 5px;
+    border: 1px solid var(--tcn-border-strong);
+    border-radius: 999px;
+    background: var(--tcn-surface);
+    color: var(--tcn-text);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+    cursor: pointer;
+    max-width: 100%;
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+
+    .tcn-pchip:hover {
+        border-color: var(--tcn-primary);
+        background: var(--tcn-primary-soft);
+    }
+
+    .tcn-pchip.is-on {
+        background: var(--tcn-primary);
+        border-color: var(--tcn-primary);
+        color: #fff;
+    }
+
+.tcn-pchip-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 2px;
+}
+
+.tcn-pchip > .tcn-avatar {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .5) inset;
+}
+
+.tcn-namerow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+    .tcn-namerow .tcn-input {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 16px;
+    }
+
+.tcn-input-date {
+    width: auto;
+    min-width: 160px;
+}
+
+.tcn-colour {
+    width: 44px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--tcn-border-strong);
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface);
+    cursor: pointer;
+}
+
+
+/* ---- login sheet and the transient splash screens ----------------------- */
+
+.tcn-login .tcn-sheet-head {
+    gap: 12px;
+}
+
+.tcn-login-logo {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.tcn-login-lead {
+    margin: 0 0 14px 0;
+    font-size: 14px;
+    color: var(--tcn-muted);
+}
+
+.tcn-login-input {
+    font-size: 17px;
+    letter-spacing: .5px;
+    padding: 10px 12px;
+}
+
+/* used before the shell exists, so it centres itself on a bare page */
+.tcn-splash {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 60vh;
+    padding: 30px 16px;
+    text-align: center;
+    color: var(--tcn-muted);
+    font-size: 14px;
+}
+
+.tcn-splash-logo {
+    font-size: 34px;
+    line-height: 1;
+}
+
+.tcn-splash-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--tcn-text);
+}
+
+.tcn-splash-sub {
+    font-size: 13px;
+    color: var(--tcn-muted);
+}
+
+
+/* ---- settings rows ------------------------------------------------------ */
+
+.tcn-setrow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+    .tcn-setrow:last-child {
+        border-bottom: 0;
+    }
+
+.tcn-settext {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tcn-setname {
+    font-size: 14.5px;
+    font-weight: 650;
+    color: var(--tcn-text);
+    line-height: 1.3;
+}
+
+.tcn-setdesc {
+    margin-top: 3px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--tcn-muted);
+}
+
+.tcn-sethint {
+    padding: 12px 14px 0 14px;
+    font-size: 12.5px;
+    color: var(--tcn-muted);
+    font-style: italic;
+}
+
+.tcn-setnum {
+    flex: 0 0 auto;
+    width: 96px;
+    text-align: right;
+}
+
+/* a real switch instead of a bare checkbox */
+.tcn-toggle {
+    flex: 0 0 auto;
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 26px;
+    cursor: pointer;
+}
+
+    .tcn-toggle input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .tcn-toggle span {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: var(--tcn-border-strong);
+        transition: background .15s ease;
+    }
+
+        .tcn-toggle span::after {
+            content: "";
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .3);
+            transition: transform .15s ease;
+        }
+
+    .tcn-toggle input:checked + span {
+        background: var(--tcn-primary);
+    }
+
+        .tcn-toggle input:checked + span::after {
+            transform: translateX(18px);
+        }
+
+    .tcn-toggle input:focus-visible + span {
+        box-shadow: 0 0 0 3px var(--tcn-primary-soft);
+    }
+
+
+/* ---- currencies editor -------------------------------------------------- */
+
+.tcn-hero-link {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+    .tcn-hero-link:hover {
+        color: #fff;
+        opacity: .85;
+    }
+
+.tcn-currow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tcn-cur-name {
+    flex: 1 1 80px;
+    min-width: 0;
+    text-transform: uppercase;
+}
+
+.tcn-cur-worth-label {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--tcn-muted);
+}
+
+.tcn-cur-rate {
+    flex: 0 1 110px;
+    min-width: 0;
+    text-align: right;
+}
+
+
+/* ---- stats tab ---------------------------------------------------------- */
+
+.tcn-chartbox {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+}
+
+.tcn-statgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.tcn-statcard {
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+}
+
+.tcn-statcard-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-statcard-value {
+    margin-top: 3px;
+    font-size: 19px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    color: var(--tcn-text);
+}
+
+    .tcn-statcard-value small {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+.tcn-statcard-extra {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--tcn-muted);
+}
+
+.tcn-daysinput {
+    width: 62px;
+    padding: 3px 6px;
+    font-size: 12.5px;
+    text-align: right;
+    display: inline-block;
+}
+
+.tcn-ratetable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+    .tcn-ratetable th,
+    .tcn-ratetable td {
+        padding: 8px 12px;
+        text-align: right;
+        white-space: nowrap;
+        border-bottom: 1px solid var(--tcn-border);
+    }
+
+        .tcn-ratetable th:first-child,
+        .tcn-ratetable td:first-child {
+            text-align: left;
+            color: var(--tcn-muted);
+        }
+
+    .tcn-ratetable th {
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: var(--tcn-muted);
+        font-weight: 700;
+    }
+
+        .tcn-ratetable th.is-main {
+            color: var(--tcn-primary);
+        }
+
+    .tcn-ratetable tbody td {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+    }
+
+    .tcn-ratetable tr:last-child td {
+        border-bottom: 0;
+    }
+
+
+/* ---- family budget card (inside the balance dialog) --------------------- */
+
+.tcn-budget {
+    margin: 10px 0;
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border);
+}
+
+.tcn-budget-title {
+    margin-bottom: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-budget-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 0;
+    font-variant-numeric: tabular-nums;
+}
+
+    .tcn-budget-row + .tcn-budget-row {
+        border-top: 1px dashed var(--tcn-border);
+    }
+
+.tcn-budget-perday {
+    font-weight: 700;
+    color: var(--tcn-amber);
+}
+
+
+/* ---- person breakdown --------------------------------------------------- */
+
+.tcn-statbtn {
+    display: block;
+    width: 100%;
+    padding: 6px 4px;
+    border: 1px solid var(--tcn-border);
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface);
+    color: var(--tcn-text);
+    font-size: 13.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: border-color .12s ease, background .12s ease;
+}
+
+    .tcn-statbtn:hover {
+        border-color: var(--tcn-primary);
+        background: var(--tcn-primary-soft);
+    }
+
+    .tcn-statbtn.is-paid {
+        color: var(--tcn-green);
+    }
+
+    .tcn-statbtn.is-owing {
+        color: var(--tcn-red);
+        background: var(--tcn-red-soft);
+        border-color: #f5cdd6;
+    }
+
+    .tcn-statbtn.is-owed {
+        color: var(--tcn-green);
+        background: var(--tcn-green-soft);
+        border-color: #c4ece0;
+    }
+
+.tcn-statbtn-note {
+    font-size: 10.5px;
+    font-weight: 600;
+    opacity: .75;
+}
+
+.tcn-brk-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+    .tcn-brk-row:last-child {
+        border-bottom: 0;
+    }
+
+    .tcn-brk-row.is-personal {
+        background: var(--tcn-green-soft);
+    }
+
+    .tcn-brk-row.is-partial {
+        background: #eff6ff;
+    }
+
+    .tcn-brk-row.is-owing {
+        background: var(--tcn-red-soft);
+    }
+
+    .tcn-brk-row.is-owed {
+        background: var(--tcn-green-soft);
+    }
+
+    .tcn-brk-row.is-personal,
+    .tcn-brk-row.is-partial,
+    .tcn-brk-row.is-owing,
+    .tcn-brk-row.is-owed {
+        padding-left: 8px;
+        padding-right: 8px;
+        border-radius: var(--tcn-radius-sm);
+        border-bottom-color: transparent;
+        margin-bottom: 2px;
+    }
+
+.tcn-brk-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tcn-brk-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.tcn-brk-sub {
+    margin-top: 3px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    font-size: 11.5px;
+    color: var(--tcn-muted);
+}
+
+.tcn-brk-amt {
+    flex: 0 0 auto;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+    .tcn-brk-amt small {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+.tcn-brk-note {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--tcn-muted);
+}
+
+.tcn-brk-summary {
+    padding: 12px 14px;
+    border-radius: var(--tcn-radius);
+    margin-bottom: 10px;
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border);
+}
+
+    .tcn-brk-summary.is-owing {
+        background: var(--tcn-red-soft);
+        border-color: #f5cdd6;
+    }
+
+    .tcn-brk-summary.is-owed {
+        background: var(--tcn-green-soft);
+        border-color: #c4ece0;
+    }
+
+.tcn-brk-summary-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--tcn-muted);
+}
+
+.tcn-brk-summary-value {
+    margin-top: 2px;
+    font-size: 22px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+    .tcn-brk-summary-value small {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--tcn-muted);
+    }
+
+
+/* ------------------------------------------- legacy bits reused as-is -- */
+
+/* SyncStatusComponent renders a bare span with an inline background */
+.tcn-topbar-actions > span:not(:empty) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* UpdateAvailableDetector renders its own unstyled button */
+.tcn-topbar-actions > button:not(.tcn-iconbtn) {
+    border: 0;
+    border-radius: 9px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ===========================================================================
+   The dialogs (spending form, "spent"/"received"/"debt" breakdowns, balance,
+   currencies, versions) are shared with the classic UI, so they are only
+   re-styled while the new interface is active - hence the body.tcn-on prefix
+   and the attribute selectors that reach the components' inline styles.
+   The coloured box around the spending form is the user's own spending
+   colour, so that one is left alone.
+   =========================================================================== */
+
+body.tcn-on .ant-modal-content {
+    border-radius: var(--tcn-radius);
+    overflow: hidden;
+    box-shadow: var(--tcn-shadow-lg);
+}
+
+body.tcn-on .ant-modal-header {
+    background: var(--tcn-surface-2);
+    border-bottom: 1px solid var(--tcn-border);
+    padding: 12px 16px;
+}
+
+body.tcn-on .ant-modal-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--tcn-text);
+    line-height: 1.35;
+}
+
+body.tcn-on .ant-modal-body {
+    padding: 14px;
+}
+
+body.tcn-on .ant-modal-footer {
+    border-top: 1px solid var(--tcn-border);
+    padding: 10px 14px;
+}
+
+/* the breakdown dialogs hard-code a 55vh box that is scrollable even when empty */
+body.tcn-on .ant-modal-body div[style*="55vh"] {
+    height: auto !important;
+    max-height: 62vh;
+    overflow: auto !important;
+    scrollbar-width: thin;
+}
+
+/* the pie chart sits in a 75%-wide box with a grey hairline border */
+body.tcn-on .ant-modal-body div[style*="#dddddd"] {
+    width: 100% !important;
+    margin-bottom: 12px !important;
+    padding: 10px;
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border) !important;
+    border-radius: var(--tcn-radius-sm);
+}
+
+body.tcn-on .ant-modal-body .grid-table {
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0;
+    overflow: visible;
+}
+
+body.tcn-on .ant-modal-body .grid-cell,
+body.tcn-on .ant-modal-body .grid-header {
+    background: transparent !important;
+    border-right: 0 !important;
+    padding: 8px 6px;
+    /* auto tracks would otherwise size to max-content and scroll sideways */
+    min-width: 0;
+    overflow-wrap: break-word;
+}
+
+body.tcn-on .ant-modal-body .row .grid-cell {
+    border-bottom: 1px solid var(--tcn-border);
+}
+
+body.tcn-on .ant-modal-body .row:last-child .grid-cell {
+    border-bottom: 0;
+}
+
+body.tcn-on .ant-modal-body .grid-header {
+    border-bottom: 1px solid var(--tcn-border-strong);
+    color: var(--tcn-muted);
+    font-size: 12px;
+    text-align: left;
+}
+
+body.tcn-on .ant-modal-body .grid-cell.label {
+    color: var(--tcn-muted);
+    font-weight: 600;
+    font-size: 12.5px;
+}
+
+/* the row tints carry meaning, so they survive the transparent reset - softened */
+body.tcn-on .ant-modal-body .grid-cell.Pleasure {
+    background: var(--tcn-green-soft) !important;
+    color: var(--tcn-green);
+}
+
+body.tcn-on .ant-modal-body .grid-cell.Bankrupt {
+    background: var(--tcn-red-soft) !important;
+    color: var(--tcn-red);
+}
+
+body.tcn-on .ant-modal-body .grid-cell.s-personal {
+    background: var(--tcn-green-soft) !important;
+}
+
+body.tcn-on .ant-modal-body .grid-cell.s-partial {
+    background: #eff6ff !important;
+}
+
+/* keep the amount on one line and drop its "% of total" note underneath */
+body.tcn-on .ant-modal-body .grid-cell.balance > b {
+    white-space: nowrap;
+}
+
+body.tcn-on .ant-modal-body .grid-cell.balance > span[style*="xx-small"] {
+    display: block;
+    color: var(--tcn-muted);
+}
+
+/* bare html inputs (currencies, dates) next to the Ant ones */
+body.tcn-on .ant-modal-body input[type=text]:not(.ant-input):not(.tcn-input):not(.tcn-amount-input),
+body.tcn-on .ant-modal-body input[type=number]:not(.ant-input):not(.tcn-input):not(.tcn-amount-input),
+body.tcn-on .ant-modal-body input[type=date]:not(.ant-input):not(.tcn-input) {
+    max-width: 100%;
+    border: 1px solid var(--tcn-border-strong);
+    border-radius: var(--tcn-radius-sm);
+    padding: 5px 8px;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+body.tcn-on .grid-cell-no-data {
+    background: var(--tcn-surface-2) !important;
+    color: var(--tcn-muted);
+    border-radius: var(--tcn-radius-sm);
+    padding: 16px;
+}
+
+/* xx-small is unreadable on a phone */
+body.tcn-on .ant-modal-body [style*="xx-small"] {
+    font-size: 11px !important;
+}
+
+/* the category tag is painted yellow-on-green inline */
+body.tcn-on .ant-modal-body span[style*="background-color: yellow"] {
+    background: var(--tcn-primary-soft) !important;
+    color: var(--tcn-primary-dark) !important;
+    font-style: normal !important;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 1px 8px;
+    white-space: nowrap;
+}
+
+/* the "original currency" tag */
+body.tcn-on .ant-modal-body span[style*="blanchedalmond"] {
+    display: inline-block;
+    background: var(--tcn-amber-soft) !important;
+    color: var(--tcn-amber) !important;
+    border-radius: 999px;
+    padding: 0 7px;
+    margin-top: 2px;
+}
+
+/* Ant buttons inside the new UI follow its palette, danger ones stay red */
+body.tcn-on .ant-btn {
+    border-radius: var(--tcn-radius-sm);
+}
+
+body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous) {
+    background: var(--tcn-primary);
+    border-color: var(--tcn-primary);
+}
+
+    body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous):hover,
+    body.tcn-on .ant-btn-primary:not(.ant-btn-dangerous):focus {
+        background: var(--tcn-primary-dark);
+        border-color: var(--tcn-primary-dark);
+    }
+
+/* DynaForm builds a two-column grid whose labels are long enough to overflow a phone */
+.tcn-dynaform .grid-table {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    background: transparent !important;
+    border-radius: 0;
+    box-shadow: none !important;
+    overflow: visible;
+}
+
+.tcn-dynaform .grid-cell {
+    background: transparent !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--tcn-border);
+    padding: 9px 4px;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.tcn-dynaform .row:last-child .grid-cell {
+    border-bottom: 0;
+}
+
+.tcn-dynaform .row div {
+    opacity: 1 !important;
+}
+
+.tcn-dynaform .grid-cell b {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--tcn-text);
+    word-break: break-word;
+}
+
+.tcn-dynaform input[type=number],
+.tcn-dynaform input[type=text] {
+    width: 92px;
+    border: 1px solid var(--tcn-border-strong);
+    border-radius: var(--tcn-radius-sm);
+    padding: 5px 8px;
+    font-size: 13px;
+}
+
+.tcn-dynaform input[type=checkbox] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--tcn-primary);
+}
+
+/* TourVersions renders a span with a hard-coded black border */
+.tcn-legacy-btn > span {
+    display: inline-block;
+    border: 1px solid var(--tcn-border-strong) !important;
+    border-radius: var(--tcn-radius-sm);
+    padding: 5px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tcn-text);
+    background: var(--tcn-surface);
+}
+
+.tcn-hero .tcn-legacy-btn > span {
+    border: 1px solid rgba(255, 255, 255, .45) !important;
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    padding: 1px 7px;
+    font-size: 12px;
+    border-radius: 7px;
+}
+
+/* --------------------------------------------------------------- helpers -- */
+
+.tcn-spin {
+    display: inline-block;
+    animation: tcn-rot 1s linear infinite;
+}
+
+@keyframes tcn-rot {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.tcn-loading {
+    padding: 42px 16px;
+    text-align: center;
+    color: var(--tcn-muted);
+    font-size: 14px;
+}
+
+.tcn-scroll-x {
+    overflow-x: auto;
+}
+
+.tcn-mono {
+    font-variant-numeric: tabular-nums;
+}
+
+.tcn-pos {
+    color: var(--tcn-green);
+}
+
+.tcn-neg {
+    color: var(--tcn-red);
+}
+
+.tcn-details {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--tcn-border);
+}
+
+@media (max-width: 560px) {
+    .tcn-main {
+        padding: 10px 8px 96px 8px;
+    }
+
+    .tcn-hero-name {
+        font-size: 18px;
+    }
+
+    .tcn-tab {
+        font-size: 12.5px;
+        padding: 8px 4px;
+    }
+
+    .tcn-fab {
+        right: 14px;
+        bottom: 14px;
+        padding: 13px 18px;
+    }
+}
+
+/* what the refresh button actually achieved - stated plainly, then it fades away */
+.tcn-refresh-note {
+    display: inline-block;
+    padding: 1px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .2);
+    color: #fff;
+    font-weight: 700;
+}
+
+    .tcn-refresh-note.is-ok {
+        background: #ecfdf5;
+        color: #047857;
+    }
+
+    .tcn-refresh-note.is-bad {
+        background: #fef2f2;
+        color: #b91c1c;
+    }
+
+    /* not a passing note like the two above: this one stays until a refresh succeeds,
+       so it is amber rather than red - a standing condition, not an error that just
+       happened */
+    .tcn-refresh-note.is-stale {
+        background: var(--tcn-amber-soft);
+        color: var(--tcn-amber);
+    }
+
+/* ---- tap-a-number-for-details ------------------------------------------- */
+
+.tcn-explain {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+    border-bottom: 1px dotted currentColor;
+}
+
+    .tcn-explain:hover {
+        opacity: .8;
+    }
+
+.tcn-explain-headline {
+    margin-bottom: 12px;
+    font-size: 26px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--tcn-text);
+}
+
+/* a plain two-column list used by most explanations */
+.tcn-facts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0;
+}
+
+    .tcn-facts > div {
+        padding: 8px 2px;
+        border-bottom: 1px solid var(--tcn-border);
+        min-width: 0;
+        overflow-wrap: break-word;
+    }
+
+    .tcn-facts > div:nth-child(even) {
+        text-align: right;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        padding-left: 10px;
+    }
+
+    .tcn-facts > div:nth-last-child(-n+2) {
+        border-bottom: 0;
+    }
+
+.tcn-explain-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface-2);
+    border: 1px solid var(--tcn-border);
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--tcn-muted);
+}
+
+/* "Mark paid" is an action, not a status - a solid green tick reads as "already done",
+   so it stays neutral until you are actually on it */
+.tcn-btn.tcn-btn-settle {
+    background: var(--tcn-surface);
+    border-color: var(--tcn-border-strong);
+    color: var(--tcn-text);
+}
+
+    .tcn-btn.tcn-btn-settle:hover {
+        background: var(--tcn-green);
+        border-color: var(--tcn-green);
+        color: #fff;
+    }
+
+/* the currencies editor trigger in the hero - a control, not a value */
+.tcn-hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 9px;
+    border: 1px solid rgba(255, 255, 255, .45);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    line-height: 18px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+    .tcn-hero-chip:hover {
+        background: rgba(255, 255, 255, .28);
+    }
+
+/* ---- review fixes: layout ------------------------------------------------ */
+
+/* 2.1 names in a settle row were squeezed to "Родите… → Ро…" on a phone;
+   below 520px the amount and the button move to their own line instead */
+@media (max-width: 520px) {
+    .tcn-settle {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+
+    .tcn-settle-flow {
+        flex: 1 1 100%;
+    }
+
+    .tcn-settle-amount {
+        margin-left: 34px;
+    }
+
+    .tcn-settle .tcn-btn {
+        margin-left: auto;
+    }
+}
+
+/* 2.4 the counters used to vanish below 460px along with the tab labels;
+   keep the one that is selected, which is the one you are reading */
+@media (max-width: 459px) {
+    .tcn-tab:not(.is-active) .tcn-tab-badge {
+        display: none;
+    }
+
+    .tcn-tab {
+        padding-left: 2px;
+        padding-right: 2px;
+    }
+}
+
+/* 2.2 the floating button used to sit on top of row actions; it steps aside
+   while the page is being scrolled and comes back when it stops */
+.tcn-fab {
+    transition: transform .18s ease, opacity .18s ease, box-shadow .12s ease;
+}
+
+    .tcn-fab.is-tucked {
+        transform: translateY(90px);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+/* 5.2 the balance bars were red/green only - now they also point somewhere */
+.tcn-balancebar-neg > i::before,
+.tcn-balancebar-pos > i::before {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    line-height: 1;
+    color: #fff;
+    font-weight: 700;
+}
+
+.tcn-balancebar-neg > i::before {
+    content: "←";
+    left: 3px;
+}
+
+.tcn-balancebar-pos > i::before {
+    content: "→";
+    right: 3px;
+}
+
+/* settings save confirmation - a toast, so it does not depend on where you scrolled */
+.tcn-savednote {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 60;
+    padding: 8px 18px;
+    border-radius: 999px;
+    background: var(--tcn-green-soft);
+    border: 1px solid #c4ece0;
+    color: var(--tcn-green);
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: var(--tcn-shadow-lg);
+}
+
+/* keeps the trailing blank currency row aligned with the ones that have a remove button */
+.tcn-currow-spacer {
+    flex: 0 0 auto;
+    width: 30px;
+}
+
+/* ---- sign-in screen ------------------------------------------------------
+   Deliberately a screen and not a modal: a dialog with nothing behind it and
+   no way to dismiss is a trap, especially in a standalone PWA. */
+
+.tcn-signin {
+    display: flex;
+    justify-content: center;
+    padding-top: 8vh;
+}
+
+.tcn-signin-card {
+    width: 100%;
+    max-width: 380px;
+    padding: 24px 22px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+    text-align: left;
+}
+
+.tcn-signin-logo {
+    font-size: 34px;
+    line-height: 1;
+    text-align: center;
+}
+
+.tcn-signin-title {
+    margin: 6px 0 10px 0;
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+    color: var(--tcn-text);
+}
+
+/* own debt shown next to the family total when the two differ */
+.tcn-person-owe {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.tcn-person-own {
+    font-size: 11px;
+    color: var(--tcn-muted);
+    white-space: nowrap;
+}
+
+/* the balance cell can carry a second line now, so it must not clip it */
+.tcn-statbtn {
+    white-space: normal;
+}
+
+.tcn-statbtn-note {
+    display: block;
+    margin-top: 1px;
+}
+
+/* the direction in words goes on its own line: "owes 38 457" on one line does not fit
+   three stat cells across a phone */
+.tcn-statbtn-dir {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    opacity: .85;
+}
+
+/* drawn icons - no dependency on which glyphs the phone's font happens to have */
+.tcn-icon {
+    width: 17px;
+    height: 17px;
+    display: block;
+    flex: 0 0 auto;
+}
+
+.tcn-sheet-x .tcn-icon {
+    width: 15px;
+    height: 15px;
+    margin: 0 auto;
+}
+
+/* ---------------------------------------------------------------- help page -- */
+
+.tcn-help {
+    max-width: 760px;
+    margin: 0 auto;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--tcn-text);
+}
+
+.tcn-help-hero {
+    padding: 22px 18px 24px 18px;
+    border-radius: var(--tcn-radius);
+    background: linear-gradient(125deg, var(--tcn-primary-dark) 0%, var(--tcn-accent-2) 100%);
+    box-shadow: var(--tcn-shadow-lg);
+    color: #fff;
+    text-align: center;
+}
+
+.tcn-help-logo {
+    font-size: 34px;
+    line-height: 1;
+}
+
+.tcn-help-title {
+    margin: 6px 0 8px 0;
+    font-size: 24px;
+    font-weight: 750;
+    letter-spacing: -.2px;
+}
+
+.tcn-help-lead {
+    margin: 0 auto;
+    max-width: 52ch;
+    font-size: 14.5px;
+    opacity: .92;
+}
+
+/* a table of contents that stays a list of links on a phone and wraps into chips
+   as soon as there is room for it */
+.tcn-help-toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 14px 0 4px 0;
+}
+
+    .tcn-help-toc a {
+        padding: 5px 11px;
+        border-radius: 999px;
+        border: 1px solid var(--tcn-border);
+        background: var(--tcn-surface);
+        color: var(--tcn-primary);
+        font-size: 12.5px;
+        font-weight: 650;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+        .tcn-help-toc a:hover {
+            border-color: var(--tcn-primary);
+            background: var(--tcn-primary-soft);
+        }
+
+.tcn-help-sec {
+    margin-top: 18px;
+    padding: 16px 18px;
+    border-radius: var(--tcn-radius);
+    background: var(--tcn-surface);
+    border: 1px solid var(--tcn-border);
+    box-shadow: var(--tcn-shadow);
+    /* the sticky header must not cover a section jumped to from the contents */
+    scroll-margin-top: 64px;
+}
+
+    .tcn-help-sec h2 {
+        margin: 0 0 10px 0;
+        font-size: 18px;
+        font-weight: 750;
+        letter-spacing: -.2px;
+    }
+
+    .tcn-help-sec h3 {
+        margin: 16px 0 8px 0;
+        font-size: 14.5px;
+        font-weight: 700;
+        color: var(--tcn-muted);
+        text-transform: uppercase;
+        letter-spacing: .5px;
+    }
+
+    .tcn-help-sec p {
+        margin: 0 0 10px 0;
+        max-width: 62ch;
+    }
+
+    .tcn-help-sec p:last-child {
+        margin-bottom: 0;
+    }
+
+.tcn-help-steps {
+    margin: 0;
+    padding-left: 20px;
+}
+
+    .tcn-help-steps li {
+        margin-bottom: 8px;
+        max-width: 60ch;
+    }
+
+.tcn-help-note {
+    padding: 10px 12px;
+    border-radius: var(--tcn-radius-sm);
+    background: var(--tcn-surface-2);
+    border-left: 3px solid var(--tcn-primary);
+    font-size: 13.5px;
+    color: var(--tcn-muted);
+}
+
+/* term / explanation pairs: side by side where there is room, stacked on a phone */
+.tcn-help-terms {
+    display: grid;
+    grid-template-columns: minmax(150px, 210px) 1fr;
+    gap: 8px 16px;
+    margin: 0 0 10px 0;
+    align-items: baseline;
+}
+
+    .tcn-help-terms > div:nth-child(odd) {
+        color: var(--tcn-text);
+    }
+
+    .tcn-help-terms > div:nth-child(even) {
+        color: var(--tcn-muted);
+    }
+
+    .tcn-help-terms .tcn-icon {
+        display: inline-block;
+        vertical-align: -3px;
+        width: 15px;
+        height: 15px;
+    }
+
+@media (max-width: 560px) {
+    .tcn-help-terms {
+        grid-template-columns: 1fr;
+        gap: 2px 0;
+    }
+
+        .tcn-help-terms > div:nth-child(even) {
+            margin-bottom: 10px;
+        }
+}
+
+.tcn-help p .tcn-icon,
+.tcn-help li .tcn-icon {
+    display: inline-block;
+    vertical-align: -3px;
+    width: 15px;
+    height: 15px;
+}
+
+.tcn-help-foot {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin: 18px 0 8px 0;
+}
+
+    .tcn-help-foot .tcn-btn {
+        text-decoration: none;
+    }
+
+/* the help entry in the settings list is a whole tappable card */
+.tcn-helplink {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    text-decoration: none;
+    color: inherit;
+}
+
+    .tcn-helplink:hover {
+        border-color: var(--tcn-primary);
+    }
+
+    .tcn-helplink .tcn-icon {
+        width: 20px;
+        height: 20px;
+        color: var(--tcn-primary);
+        margin-top: 2px;
+    }
+
+/* ------------------------------------------------------- accent themes -- */
+/* Picked in the settings. Every stop was checked against white: the lowest ratio
+   in the set is 5.0:1, so the accent never becomes the weak link. The default
+   (indigo) is the one in :root above and needs no block of its own. */
+
+body[data-tcn-accent="blue"] {   /* Ocean */
+    --tcn-primary: #2563eb;
+    --tcn-primary-dark: #1d4ed8;
+    --tcn-primary-soft: #eff6ff;
+    --tcn-accent-2: #226c91;
+    --tcn-accent-shadow: rgba(37, 99, 235, .28);
+}
+
+body[data-tcn-accent="teal"] {   /* Teal */
+    --tcn-primary: #0f766e;
+    --tcn-primary-dark: #115e59;
+    --tcn-primary-soft: #eefdfa;
+    --tcn-accent-2: #226881;
+    --tcn-accent-shadow: rgba(15, 118, 110, .28);
+}
+
+body[data-tcn-accent="green"] {   /* Forest */
+    --tcn-primary: #15803d;
+    --tcn-primary-dark: #166534;
+    --tcn-primary-soft: #f0fdf4;
+    --tcn-accent-2: #1b6a5a;
+    --tcn-accent-shadow: rgba(21, 128, 61, .28);
+}
+
+body[data-tcn-accent="plum"] {   /* Plum */
+    --tcn-primary: #7e22ce;
+    --tcn-primary-dark: #6b21a8;
+    --tcn-primary-soft: #faf5ff;
+    --tcn-accent-2: #8d358d;
+    --tcn-accent-shadow: rgba(126, 34, 206, .28);
+}
+
+body[data-tcn-accent="crimson"] {   /* Crimson */
+    --tcn-primary: #b91c1c;
+    --tcn-primary-dark: #991b1b;
+    --tcn-primary-soft: #fef2f2;
+    --tcn-accent-2: #922a51;
+    --tcn-accent-shadow: rgba(185, 28, 28, .28);
+}
+
+body[data-tcn-accent="graphite"] {   /* Graphite */
+    --tcn-primary: #475569;
+    --tcn-primary-dark: #334155;
+    --tcn-primary-soft: #f1f5f9;
+    --tcn-accent-2: #425367;
+    --tcn-accent-shadow: rgba(71, 85, 105, .28);
+}
+
+/* the picker in the settings: a row of round samples of the real gradient */
+.tcn-accents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tcn-accent-dot {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px var(--tcn-border);
+    cursor: pointer;
+    position: relative;
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+    .tcn-accent-dot:hover {
+        transform: scale(1.08);
+    }
+
+    .tcn-accent-dot.is-on {
+        border-color: var(--tcn-surface);
+        box-shadow: 0 0 0 2px var(--tcn-text);
+    }
+
+    /* a tick that reads on every one of the seven backgrounds */
+    .tcn-accent-dot.is-on::after {
+        content: "";
+        position: absolute;
+        left: 10px;
+        top: 6px;
+        width: 7px;
+        height: 12px;
+        border: solid #fff;
+        border-width: 0 2.5px 2.5px 0;
+        transform: rotate(45deg);
+    }
+
+/* the eighth sample is the browser's own colour picker. The native <input type=color>
+   is a square with a chrome border of its own, so it is stripped bare and the ring,
+   the tick and the size come from the wrapper - i.e. from the same rules as the
+   seven fixed dots above. */
+.tcn-accent-wrap {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px var(--tcn-border);
+    overflow: hidden;
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+    .tcn-accent-wrap:hover {
+        transform: scale(1.08);
+    }
+
+    .tcn-accent-wrap.is-on {
+        border-color: var(--tcn-surface);
+        box-shadow: 0 0 0 2px var(--tcn-text);
+    }
+
+    /* unlike the seven fixed dots, this swatch can be any colour at all, pale ones
+       included, so the white tick carries a shadow to stay visible on them */
+    .tcn-accent-wrap.is-on::after {
+        content: "";
+        position: absolute;
+        left: 10px;
+        top: 6px;
+        width: 7px;
+        height: 12px;
+        border: solid #fff;
+        border-width: 0 2.5px 2.5px 0;
+        transform: rotate(45deg);
+        filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, .75));
+        pointer-events: none;
+    }
+
+.tcn-accent-custom {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+    .tcn-accent-custom::-webkit-color-swatch-wrapper {
+        padding: 0;
+    }
+
+    .tcn-accent-custom::-webkit-color-swatch {
+        border: none;
+        border-radius: 999px;
+    }
+
+    .tcn-accent-custom::-moz-color-swatch {
+        border: none;
+        border-radius: 999px;
+    }
+
+
+/* ---- error toasts --------------------------------------------------------
+   Where the data layer's errors land now that AntDesign's message service is
+   gone. Fixed to the top so a failed save is visible whatever the reader has
+   scrolled to, and above the modal layer, since saves are made from dialogs. */
+
+.tcn-toasts {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: min(520px, calc(100vw - 24px));
+    pointer-events: none;
+}
+
+.tcn-toast {
+    pointer-events: auto;
+    cursor: pointer;
+    padding: 9px 14px;
+    border-radius: 10px;
+    background: var(--tcn-red-soft);
+    border: 1px solid #f7cdd6;
+    color: var(--tcn-red);
+    font-size: 13px;
+    line-height: 1.35;
+    box-shadow: var(--tcn-shadow-lg);
+    word-break: break-word;
+}
+
+/* the two button shapes the classic markup asks for by name */
+
+.tcn-btn-circle {
+    width: 28px;
+    padding: 0;
+    border-radius: 50%;
+}
+
+.tcn-btn-round {
+    border-radius: 999px;
+}
+
+.tcn-input.tcn-input-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* ---- the classic interface's frame ---------------------------------------
+   Ant's Layout/Header/Content were three divs and a full-width bar; the classic
+   markup carries its own inline colours and paddings, so all that is missing is
+   the shape they sat in. */
+
+.tc-legacy-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.tc-legacy-header {
+    width: 100%;
+    flex: 0 0 auto;
+}
+
+.tc-legacy-content {
+    flex: 1 1 auto;
+    display: block;
+}
+
+.tcn-btn.tcn-btn-outline {
+    background: transparent;
+    border-color: var(--tcn-primary);
+    color: var(--tcn-primary);
+}
+
+    .tcn-btn.tcn-btn-outline:hover {
+        background: var(--tcn-primary-soft);
+    }
+
+.tc-legacy-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    vertical-align: middle;
+}
+
+.tc-legacy-switch-label {
+    font-size: 11px;
+    color: var(--tcn-muted);
+}
+
+/* a number field is as wide as a number, not as wide as the page */
+.tcn-input.tc-legacy-number {
+    width: auto;
+    min-width: 6em;
+    max-width: 12em;
+}
+
+
+:root {
+  --page: #eef0f6; --ink: #1b1f2e; --soft: #5b6275; --frame: #1b1f2e; --line: #d7dbe7;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --page: #14161f; --ink: #e8eaf2; --soft: #9aa1b5;
+    --frame: #05060a; --line: #2a2e3d; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --page: #14161f; --ink: #e8eaf2; --soft: #9aa1b5;
+  --frame: #05060a; --line: #2a2e3d; color-scheme: dark; }
+body { background: var(--page); color: var(--ink);
+  font: 15px/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.wrap { max-width: 1560px; margin: 0 auto; padding: 24px 16px 40px; }
+h1 { font-size: 22px; margin: 0 0 6px; text-wrap: balance; }
+.lead { color: var(--soft); max-width: 70ch; margin: 0 0 22px; }
+.grid { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.shot { margin: 0; width: 360px; max-width: 100%; }
+.shot figcaption { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px;
+  min-height: 4.6em; }
+.shot figcaption span { color: var(--soft); font-size: 13.5px; }
+.phone { border: 8px solid var(--frame); border-radius: 26px; overflow: hidden;
+  background: var(--tcn-bg, #f3f4f8); height: 720px; display: flex; flex-direction: column;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--tcn-text); }
+.bar { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  color: #fff; background: linear-gradient(120deg, var(--tcn-primary), var(--tcn-primary-dark, #6d28d9)); }
+.bar .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+.bar .back { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; font-weight: 700; background: rgba(255,255,255,.16);
+  border-radius: 999px; padding: 3px 10px; font-size: 14px; }
+.bar .more { font-weight: 700; }
+.screen { flex: 1 1 auto; overflow-y: auto; padding: 12px; }
+.screen .tcn-section-title { margin: 6px 2px 8px; }
+.screen .tcn-card { margin-bottom: 14px; }
+
+/* ---- the variants: only what differs from newui.css ---- */
+
+/* a and c: the name and the control share a line; the description runs under both */
+.v-a .tcn-setrow, .v-c .tcn-setrow {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 0;
+  align-items: center; }
+.v-a .tcn-settext, .v-c .tcn-settext { display: contents; }
+.v-a .tcn-setname, .v-c .tcn-setname { grid-column: 1; grid-row: 1; }
+.v-a .tcw-ctl, .v-c .tcw-ctl { grid-column: 2; grid-row: 1; width: auto; max-width: 11em; }
+.v-a .tcn-setdesc, .v-c .tcn-setdesc { grid-column: 1 / -1; grid-row: 2; margin-top: 6px; }
+.v-a .tcn-setnum, .v-c .tcn-setnum { width: 96px; }
+.tcw-ctl { box-sizing: border-box; }
+
+/* b: one column; the control is the last thing in the row, full width */
+.v-b .tcn-setrow { flex-direction: column; align-items: stretch; gap: 8px; }
+.v-b .tcw-ctl { width: 100%; }
+.v-b .tcn-setnum { text-align: left; }
+
+/* c: one sentence, the rest folded */
+.tcw-more { display: inline; }
+.tcw-more summary { display: inline; cursor: pointer; color: var(--tcn-primary);
+  list-style: none; font-weight: 600; }
+.tcw-more summary::-webkit-details-marker { display: none; }
+.tcw-more[open] summary { display: none; }
+.tcw-more > div { display: inline; }
+.tcw-more summary:focus-visible { outline: 2px solid var(--tcn-primary); outline-offset: 2px; }
+
+</style>
+<div class="wrap">
+  <h1>Настройки на узком экране</h1>
+  <p class="lead">Настоящие стили приложения и настоящие русские тексты, экран шириной 360 px.
+  Всё прокручивается внутри телефона; в варианте C «подробнее» раскрывается по нажатию.
+  На широком экране варианты A и C почти не отличаются от нынешнего, B — становится столбиком везде,
+  если не ограничить его узкими экранами.</p>
+  <div class="grid">
+    
+<figure class="shot">
+  <figcaption><b>Как сейчас</b><span>Текст слева, контрол справа: описание сжато в колонку.</span></figcaption>
+  <div class="phone v-current">
+    <div class="bar">🧭<span class="dot"></span><span class="back">‹ Август на Дунае</span><span class="more">⋯</span></div>
+    <div class="screen">
+      <div class="tcn-section-title">Настройки</div>
+      <div class="tcn-card"><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Язык · Language</div><div class="tcn-setdesc">На каком языке приложение на этом устройстве. Названия туров, имена и категории остаются такими, как их ввели; уведомления и журнал изменений — по-английски.</div></div><select class="tcn-input tcw-ctl" id="current-0" aria-label="Русский"><option>Русский</option></select></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Не считать долги меньше</div><div class="tcn-setdesc">Всё, что меньше, считается погашенным: копеечные остатки от округления перестают показываться долгами. В туре с несколькими валютами порог пересчитывается, чтобы «мелочью» были одни и те же деньги, в какой бы валюте вы ни смотрели.</div></div><input class="tcn-input tcn-setnum tcw-ctl" id="current-1" type="number" value="49" aria-label="Порог"></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Цвет акцента</div><div class="tcn-setdesc">Шапка, кнопки и выделения. Всё остальное остаётся нейтрально-серым, так что меняется только акцент, но не текст. Последний образец открывает палитру, если ни один из семи не подошёл; слишком светлый цвет чуть затемняется, чтобы белый текст на нём оставался читаемым.</div></div></div><div class="tcn-accents" style="padding:0 14px 14px"><button type="button" class="tcn-accent-dot is-on" style="background:linear-gradient(120deg,#4f46e5,#6d28d9)" aria-label="Цвет 1"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#2563eb,#226c91)" aria-label="Цвет 2"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#0f766e,#226881)" aria-label="Цвет 3"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#15803d,#1b6a5a)" aria-label="Цвет 4"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#7e22ce,#8d358d)" aria-label="Цвет 5"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#b91c1c,#922a51)" aria-label="Цвет 6"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#475569,#425367)" aria-label="Цвет 7"></button><span class="tcn-accent-dot" style="background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red)" aria-label="Любой другой"></span></div></div>
+      <div class="tcn-section-title">Это устройство</div>
+      <div class="tcn-card"><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Проверять чужие изменения</div><div class="tcn-setdesc">Пока тур открыт и на экране, приложение спрашивает сервер, не менял ли его кто-то ещё, и если менял — подтягивает изменения. Оно всегда спрашивает, когда вы возвращаетесь во вкладку; здесь — как часто спрашивать в промежутке. Каждый вопрос — несколько байт, и пока вкладка скрыта или телефон заблокирован, ничего не спрашивается. Действует со следующего открытого тура.</div></div><select class="tcn-input tcw-ctl" id="current-d0" aria-label="каждые 10 с"><option>каждые 10 с</option></select></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Установить на это устройство</div><div class="tcn-setdesc">Tourcalc как отдельное приложение: своё окно без адресной строки, своя иконка и всё уже скачанное, так что открывается и без сети.</div></div><button type="button" class="tcn-btn tcn-btn-primary tcw-ctl">Установить</button></div></div>
+    </div>
+  </div>
+</figure>
+    
+<figure class="shot">
+  <figcaption><b>A. Контрол у названия</b><span>Название и контрол в строку, описание под ними на всю ширину.</span></figcaption>
+  <div class="phone v-a">
+    <div class="bar">🧭<span class="dot"></span><span class="back">‹ Август на Дунае</span><span class="more">⋯</span></div>
+    <div class="screen">
+      <div class="tcn-section-title">Настройки</div>
+      <div class="tcn-card"><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Язык · Language</div><div class="tcn-setdesc">На каком языке приложение на этом устройстве. Названия туров, имена и категории остаются такими, как их ввели; уведомления и журнал изменений — по-английски.</div></div><select class="tcn-input tcw-ctl" id="a-0" aria-label="Русский"><option>Русский</option></select></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Не считать долги меньше</div><div class="tcn-setdesc">Всё, что меньше, считается погашенным: копеечные остатки от округления перестают показываться долгами. В туре с несколькими валютами порог пересчитывается, чтобы «мелочью» были одни и те же деньги, в какой бы валюте вы ни смотрели.</div></div><input class="tcn-input tcn-setnum tcw-ctl" id="a-1" type="number" value="49" aria-label="Порог"></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Цвет акцента</div><div class="tcn-setdesc">Шапка, кнопки и выделения. Всё остальное остаётся нейтрально-серым, так что меняется только акцент, но не текст. Последний образец открывает палитру, если ни один из семи не подошёл; слишком светлый цвет чуть затемняется, чтобы белый текст на нём оставался читаемым.</div></div></div><div class="tcn-accents" style="padding:0 14px 14px"><button type="button" class="tcn-accent-dot is-on" style="background:linear-gradient(120deg,#4f46e5,#6d28d9)" aria-label="Цвет 1"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#2563eb,#226c91)" aria-label="Цвет 2"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#0f766e,#226881)" aria-label="Цвет 3"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#15803d,#1b6a5a)" aria-label="Цвет 4"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#7e22ce,#8d358d)" aria-label="Цвет 5"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#b91c1c,#922a51)" aria-label="Цвет 6"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#475569,#425367)" aria-label="Цвет 7"></button><span class="tcn-accent-dot" style="background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red)" aria-label="Любой другой"></span></div></div>
+      <div class="tcn-section-title">Это устройство</div>
+      <div class="tcn-card"><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Проверять чужие изменения</div><div class="tcn-setdesc">Пока тур открыт и на экране, приложение спрашивает сервер, не менял ли его кто-то ещё, и если менял — подтягивает изменения. Оно всегда спрашивает, когда вы возвращаетесь во вкладку; здесь — как часто спрашивать в промежутке. Каждый вопрос — несколько байт, и пока вкладка скрыта или телефон заблокирован, ничего не спрашивается. Действует со следующего открытого тура.</div></div><select class="tcn-input tcw-ctl" id="a-d0" aria-label="каждые 10 с"><option>каждые 10 с</option></select></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Установить на это устройство</div><div class="tcn-setdesc">Tourcalc как отдельное приложение: своё окно без адресной строки, своя иконка и всё уже скачанное, так что открывается и без сети.</div></div><button type="button" class="tcn-btn tcn-btn-primary tcw-ctl">Установить</button></div></div>
+    </div>
+  </div>
+</figure>
+    
+<figure class="shot">
+  <figcaption><b>B. Всё в столбик</b><span>Название, описание, контрол под ними на всю ширину.</span></figcaption>
+  <div class="phone v-b">
+    <div class="bar">🧭<span class="dot"></span><span class="back">‹ Август на Дунае</span><span class="more">⋯</span></div>
+    <div class="screen">
+      <div class="tcn-section-title">Настройки</div>
+      <div class="tcn-card"><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Язык · Language</div><div class="tcn-setdesc">На каком языке приложение на этом устройстве. Названия туров, имена и категории остаются такими, как их ввели; уведомления и журнал изменений — по-английски.</div></div><select class="tcn-input tcw-ctl" id="b-0" aria-label="Русский"><option>Русский</option></select></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Не считать долги меньше</div><div class="tcn-setdesc">Всё, что меньше, считается погашенным: копеечные остатки от округления перестают показываться долгами. В туре с несколькими валютами порог пересчитывается, чтобы «мелочью» были одни и те же деньги, в какой бы валюте вы ни смотрели.</div></div><input class="tcn-input tcn-setnum tcw-ctl" id="b-1" type="number" value="49" aria-label="Порог"></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Цвет акцента</div><div class="tcn-setdesc">Шапка, кнопки и выделения. Всё остальное остаётся нейтрально-серым, так что меняется только акцент, но не текст. Последний образец открывает палитру, если ни один из семи не подошёл; слишком светлый цвет чуть затемняется, чтобы белый текст на нём оставался читаемым.</div></div></div><div class="tcn-accents" style="padding:0 14px 14px"><button type="button" class="tcn-accent-dot is-on" style="background:linear-gradient(120deg,#4f46e5,#6d28d9)" aria-label="Цвет 1"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#2563eb,#226c91)" aria-label="Цвет 2"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#0f766e,#226881)" aria-label="Цвет 3"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#15803d,#1b6a5a)" aria-label="Цвет 4"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#7e22ce,#8d358d)" aria-label="Цвет 5"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#b91c1c,#922a51)" aria-label="Цвет 6"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#475569,#425367)" aria-label="Цвет 7"></button><span class="tcn-accent-dot" style="background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red)" aria-label="Любой другой"></span></div></div>
+      <div class="tcn-section-title">Это устройство</div>
+      <div class="tcn-card"><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Проверять чужие изменения</div><div class="tcn-setdesc">Пока тур открыт и на экране, приложение спрашивает сервер, не менял ли его кто-то ещё, и если менял — подтягивает изменения. Оно всегда спрашивает, когда вы возвращаетесь во вкладку; здесь — как часто спрашивать в промежутке. Каждый вопрос — несколько байт, и пока вкладка скрыта или телефон заблокирован, ничего не спрашивается. Действует со следующего открытого тура.</div></div><select class="tcn-input tcw-ctl" id="b-d0" aria-label="каждые 10 с"><option>каждые 10 с</option></select></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Установить на это устройство</div><div class="tcn-setdesc">Tourcalc как отдельное приложение: своё окно без адресной строки, своя иконка и всё уже скачанное, так что открывается и без сети.</div></div><button type="button" class="tcn-btn tcn-btn-primary tcw-ctl">Установить</button></div></div>
+    </div>
+  </div>
+</figure>
+    
+<figure class="shot">
+  <figcaption><b>C. Как A, тексты короче</b><span>Одна фраза, остальное — «подробнее».</span></figcaption>
+  <div class="phone v-c">
+    <div class="bar">🧭<span class="dot"></span><span class="back">‹ Август на Дунае</span><span class="more">⋯</span></div>
+    <div class="screen">
+      <div class="tcn-section-title">Настройки</div>
+      <div class="tcn-card"><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Язык · Language</div><div class="tcn-setdesc">Язык приложения на этом устройстве. <details class="tcw-more"><summary>подробнее</summary><div>На каком языке приложение на этом устройстве. Названия туров, имена и категории остаются такими, как их ввели; уведомления и журнал изменений — по-английски.</div></details></div></div><select class="tcn-input tcw-ctl" id="c-0" aria-label="Русский"><option>Русский</option></select></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Не считать долги меньше</div><div class="tcn-setdesc">Меньшие остатки считаются погашенными. <details class="tcw-more"><summary>подробнее</summary><div>Всё, что меньше, считается погашенным: копеечные остатки от округления перестают показываться долгами. В туре с несколькими валютами порог пересчитывается, чтобы «мелочью» были одни и те же деньги, в какой бы валюте вы ни смотрели.</div></details></div></div><input class="tcn-input tcn-setnum tcw-ctl" id="c-1" type="number" value="49" aria-label="Порог"></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Цвет акцента</div><div class="tcn-setdesc">Шапка, кнопки и выделения. <details class="tcw-more"><summary>подробнее</summary><div>Шапка, кнопки и выделения. Всё остальное остаётся нейтрально-серым, так что меняется только акцент, но не текст. Последний образец открывает палитру, если ни один из семи не подошёл; слишком светлый цвет чуть затемняется, чтобы белый текст на нём оставался читаемым.</div></details></div></div></div><div class="tcn-accents" style="padding:0 14px 14px"><button type="button" class="tcn-accent-dot is-on" style="background:linear-gradient(120deg,#4f46e5,#6d28d9)" aria-label="Цвет 1"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#2563eb,#226c91)" aria-label="Цвет 2"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#0f766e,#226881)" aria-label="Цвет 3"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#15803d,#1b6a5a)" aria-label="Цвет 4"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#7e22ce,#8d358d)" aria-label="Цвет 5"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#b91c1c,#922a51)" aria-label="Цвет 6"></button><button type="button" class="tcn-accent-dot" style="background:linear-gradient(120deg,#475569,#425367)" aria-label="Цвет 7"></button><span class="tcn-accent-dot" style="background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red)" aria-label="Любой другой"></span></div></div>
+      <div class="tcn-section-title">Это устройство</div>
+      <div class="tcn-card"><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Проверять чужие изменения</div><div class="tcn-setdesc">Как часто открытый тур спрашивает сервер о чужих правках. <details class="tcw-more"><summary>подробнее</summary><div>Пока тур открыт и на экране, приложение спрашивает сервер, не менял ли его кто-то ещё, и если менял — подтягивает изменения. Оно всегда спрашивает, когда вы возвращаетесь во вкладку; здесь — как часто спрашивать в промежутке. Каждый вопрос — несколько байт, и пока вкладка скрыта или телефон заблокирован, ничего не спрашивается. Действует со следующего открытого тура.</div></details></div></div><select class="tcn-input tcw-ctl" id="c-d0" aria-label="каждые 10 с"><option>каждые 10 с</option></select></div><div class="tcn-setrow"><div class="tcn-settext"><div class="tcn-setname">Установить на это устройство</div><div class="tcn-setdesc">Отдельное приложение со своей иконкой; открывается и без сети. <details class="tcw-more"><summary>подробнее</summary><div>Tourcalc как отдельное приложение: своё окно без адресной строки, своя иконка и всё уже скачанное, так что открывается и без сети.</div></details></div></div><button type="button" class="tcn-btn tcn-btn-primary tcw-ctl">Установить</button></div></div>
+    </div>
+  </div>
+</figure>
+  </div>
+</div>

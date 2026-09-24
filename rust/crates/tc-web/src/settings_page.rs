@@ -40,8 +40,14 @@ pub fn SettingsPage(settings: settings::Shared) -> impl IntoView {
                 // The languages are named in themselves, so it can be found either way.
                 <div class="tcn-setrow">
                     <div class="tcn-settext">
-                        <div class="tcn-setname">{tx.language} " · Language"</div>
-                        <div class="tcn-setdesc">{tx.language_desc}</div>
+                        <div class="tcn-setname">
+                            {tx.language}
+                            // English beside it, for somebody who landed here in a language
+                            // they cannot read - and only then: in English it said
+                            // "Language · Language".
+                            {(i18n::lang() != Lang::En).then_some(" · Language")}
+                        </div>
+                        <SetDesc short=tx.language_short full=tx.language_desc />
                     </div>
                     <select class="tcn-input" id="language" style="width:auto; flex:0 0 auto"
                             aria-label="Language"
@@ -63,7 +69,7 @@ pub fn SettingsPage(settings: settings::Shared) -> impl IntoView {
                 <div class="tcn-setrow">
                     <div class="tcn-settext">
                         <div class="tcn-setname">{tx.min_debt}</div>
-                        <div class="tcn-setdesc">{tx.min_debt_desc}</div>
+                        <SetDesc short=tx.min_debt_short full=tx.min_debt_desc />
                     </div>
                     <input class="tcn-input tcn-setnum" type="number" min="0"
                            prop:value=move || settings.get().minimum_meaningful_debt.to_string()
@@ -79,7 +85,7 @@ pub fn SettingsPage(settings: settings::Shared) -> impl IntoView {
                 <div class="tcn-setrow">
                     <div class="tcn-settext">
                         <div class="tcn-setname">{tx.accent}</div>
-                        <div class="tcn-setdesc">{tx.accent_desc}</div>
+                        <SetDesc short=tx.accent_short full=tx.accent_desc />
                     </div>
                 </div>
                 <div class="tcn-accents" style="margin-top:10px" role="radiogroup"
@@ -132,7 +138,7 @@ pub fn SettingsPage(settings: settings::Shared) -> impl IntoView {
                 <div class="tcn-setrow">
                     <div class="tcn-settext">
                         <div class="tcn-setname">{tx.check}</div>
-                        <div class="tcn-setdesc">{tx.check_desc}</div>
+                        <SetDesc short=tx.check_short full=tx.check_desc />
                     </div>
                     <select class="tcn-input" id="check-seconds" style="width:auto; flex:0 0 auto"
                             aria-label=tx.check
@@ -193,6 +199,31 @@ pub fn SettingsPage(settings: settings::Shared) -> impl IntoView {
                     <div class="tcn-setdesc">{tx.how_it_counts_desc}</div>
                 </div>
             </a>
+        </div>
+    }
+}
+
+/// A setting's description on a phone-sized budget: one sentence, and the rest behind
+/// "more". The whole paragraph at once made each row ten lines tall on a narrow screen,
+/// which is where settings are mostly changed. Opening it swaps the sentence for the full
+/// text rather than adding to it - the full text begins by saying the same thing - and
+/// "less" at its end folds it back.
+///
+/// A button and a signal rather than `<details>`: a summary has to come first, so once the
+/// text was open the only way to fold it was to find the line it had started on - and the
+/// first version hid that line, so it could not be folded at all.
+#[component]
+pub fn SetDesc(short: &'static str, full: &'static str) -> impl IntoView {
+    let open = RwSignal::new(false);
+    let tx = &crate::i18n::t().settings;
+    view! {
+        <div class="tcn-setdesc">
+            {move || if open.get() { full } else { short }}
+            " "
+            <button type="button" class="tcw-more" aria-expanded=move || open.get().to_string()
+                    on:click=move |_| open.update(|o| *o = !*o)>
+                {move || if open.get() { tx.less } else { tx.more }}
+            </button>
         </div>
     }
 }

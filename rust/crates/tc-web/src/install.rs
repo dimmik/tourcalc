@@ -230,7 +230,7 @@ pub fn InstallSetting() -> impl IntoView {
         <div class="tcn-setrow">
             <div class="tcn-settext">
                 <div class="tcn-setname">{t().device.install}</div>
-                <div class="tcn-setdesc">{t().device.install_desc}</div>
+                <crate::settings_page::SetDesc short=t().device.install_short full=t().device.install_desc />
                 // Only until something has actually happened: after a press, what the
                 // browser answered is the news, and the standing explanation underneath it
                 // would be answering a question nobody is asking any more.

@@ -154,6 +154,36 @@
         .tcw-changes li { margin-bottom: 6px; max-width: 62ch; }
         @media (prefers-reduced-motion: reduce) { .tcw-changes > summary::after { transition: none; } }
 
+        /* A settings row: the name and its control share the first line, everything else in
+           the row runs under both at full width. The app's own row put the text and the
+           control side by side, which on a phone squeezed the text into a column three
+           words wide. `display: contents` lets the name and the description be placed on
+           their own without changing the markup newui.css was written against. */
+        .tcn-setrow {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            column-gap: 14px;
+            row-gap: 0;
+            align-items: center;
+        }
+        .tcn-setrow > .tcn-settext { display: contents; }
+        .tcn-setrow > .tcn-settext > .tcn-setname { grid-column: 1; grid-row: 1; }
+        .tcn-setrow > .tcn-settext > :not(.tcn-setname) { grid-column: 1 / -1; }
+        .tcn-setrow > :not(.tcn-settext) { grid-column: 2; grid-row: 1; max-width: 12em; }
+        /* One sentence, the rest behind "more" (settings_page::SetDesc). Open, the full text
+           replaces the sentence and "less" folds it back. A button that looks like a link. */
+        .tcw-more {
+            display: inline;
+            padding: 0;
+            border: 0;
+            background: none;
+            font: inherit;
+            cursor: pointer;
+            color: var(--tcn-primary);
+            font-weight: 600;
+        }
+        .tcw-more:focus-visible { outline: 2px solid var(--tcn-primary); outline-offset: 2px; border-radius: 3px; }
+
         .tcw-done {
             margin-bottom: 14px;
             padding: 10px 12px;
