@@ -685,6 +685,7 @@ pub const TEXTS: Texts = Texts {
         install: "Install on this device",
         install_desc: "Tourcalc as an app of its own: its own window with no address bar, its own \
             icon, and everything it has already downloaded, so it opens without a network.",
+        install_short: "An app of its own, with its own icon; it opens without a network too.",
         installed_here: "Already installed — this is the installed app.",
         installed_elsewhere: "Already on this device — open it from the home screen rather than \
             here. A browser that has it installed stops offering to install it, which is why \
@@ -750,16 +751,19 @@ pub const TEXTS: Texts = Texts {
         language_desc: "What the app is written in on this device. Names of tours, people \
             and categories stay as they were typed; notifications and the change log are in \
             English.",
+        language_short: "The language of the app on this device.",
         language_auto: |now| format!("As the browser ({now})"),
         min_debt: "Ignore debts smaller than",
         min_debt_desc: "Anything below this is treated as settled, so rounding leftovers of a \
             few coins stop showing up as debts. On a tour with several currencies it is scaled, \
             so the same amount of money counts as noise whichever one you are reading in.",
+        min_debt_short: "Smaller leftovers count as settled.",
         accent: "Accent colour",
         accent_desc: "The header, the buttons and the highlights. Everything else stays the \
             neutral grey it is now, so this only changes the accent, never the text. The last \
             sample opens the colour picker if none of the seven is the one you want; a very \
             light pick is darkened a little so the white text on top of it stays readable.",
+        accent_short: "The header, the buttons and the highlights.",
         accent_other: "Any other colour",
         accent_names: ["Indigo (default)", "Ocean", "Teal", "Forest", "Plum", "Crimson", "Graphite"],
         saved: "Saved in this browser. Settings live here and not on the server, so they \
@@ -771,6 +775,8 @@ pub const TEXTS: Texts = Texts {
             come back to the tab; this is how often it asks in between. Each question is a few \
             bytes, and nothing is asked while the tab is hidden or the phone is locked. Applies \
             to the next tour you open.",
+        check_short: "How often an open tour asks the server for other people's changes.",
+        more: "more",
         check_on_return: "only when I come back",
         check_minute: "every minute",
         check_seconds: |n| format!("every {n} s"),

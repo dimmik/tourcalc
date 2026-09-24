@@ -224,13 +224,16 @@ pub struct SettingsTexts {
     pub title: &'static str,
     pub language: &'static str,
     pub language_desc: &'static str,
+    pub language_short: &'static str,
     /// "as the browser (English)": the choice that follows the browser, naming what it
     /// currently comes to.
     pub language_auto: fn(&str) -> String,
     pub min_debt: &'static str,
     pub min_debt_desc: &'static str,
+    pub min_debt_short: &'static str,
     pub accent: &'static str,
     pub accent_desc: &'static str,
+    pub accent_short: &'static str,
     pub accent_other: &'static str,
     /// The seven preset colours, in `accent::PRESETS` order.
     pub accent_names: [&'static str; 7],
@@ -238,6 +241,9 @@ pub struct SettingsTexts {
     pub device: &'static str,
     pub check: &'static str,
     pub check_desc: &'static str,
+    pub check_short: &'static str,
+    /// What opens the rest of a setting's description.
+    pub more: &'static str,
     pub check_on_return: &'static str,
     pub check_minute: &'static str,
     pub check_seconds: fn(u32) -> String,
@@ -260,6 +266,7 @@ pub struct DeviceTexts {
     pub install_failed: &'static str,
     pub install: &'static str,
     pub install_desc: &'static str,
+    pub install_short: &'static str,
     pub installed_here: &'static str,
     pub installed_elsewhere: &'static str,
     pub by_hand_before: &'static str,
