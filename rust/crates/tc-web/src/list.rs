@@ -307,7 +307,7 @@ pub fn TourListPage() -> impl IntoView {
         });
     });
 
-    // The tour as JSON, on the clipboard - what the box above pastes back.
+    // The tour as JSON, in the clipboard - what the box above pastes back.
     let copy_json = Callback::new(move |tour: Tour| {
         trouble.set(String::new());
         done.hush();
