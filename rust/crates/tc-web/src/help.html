@@ -157,7 +157,7 @@
         </div>
         <p>
             Rates are given as <b>worth</b>, on any scale you like — only the ratio matters. If
-            one euro is 118 dinars, put 100 next to the dinar and 11800 next to the euro.
+            one euro is 118 dinars, put 1000 next to the dinar and 118000 next to the euro.
         </p>
         <p>
             Every expense stays attached to the currency it was entered in. <b>Renaming a
@@ -178,7 +178,8 @@
             nobody settles a trip to the last dinar. Nothing is saved until you press Save, and
             the line under it says what the worth was. When the cheapest currency is worth
             under 1 000, the dialog first offers to multiply every worth by 10 or 100 so the
-            rate comes out exact; the ratios stay the same. The rates come from
+            rates come out exact, and then fills in today's rate for every currency it
+            knows. The rates come from
             <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">ExchangeRate-API</a>,
             once a day; your browser asks it directly, so that service sees your IP address. A
             currency it does not know — casino chips, say — keeps the worth you give it.

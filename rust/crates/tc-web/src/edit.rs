@@ -538,9 +538,11 @@ impl CurrencyDraft {
     }
 
     /// A row for a currency to be added: cents decided by its worth until somebody decides.
+    /// Worth 1 000 to start: four figures, which is what "today's rate" rounds to, so a
+    /// currency added as the cheapest leaves room for the others to come out exact.
     pub fn blank() -> CurrencyDraft {
         CurrencyDraft {
-            rate: 100,
+            rate: 1000,
             cents_auto: true,
             ..Default::default()
         }
@@ -659,7 +661,7 @@ pub fn plan_currencies(
                     let mut new = tc_core::Currency {
                         id: tc_core::CurrencyId::new(id),
                         name: String::new(),
-                        rate: 100,
+                        rate: 1000,
                         extras: Default::default(),
                     };
                     new.set_with_cents(c.effective_cents(kept));

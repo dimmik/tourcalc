@@ -949,7 +949,8 @@ pub fn CurrenciesDialog(
             all.push((at, note));
         });
     };
-    let work_out = move |at: usize| {
+    // `quiet`: a row nobody asked about says nothing when it has no rate (chips).
+    let work_out = move |at: usize, quiet: bool| {
         let Some(rates) = fetched.get_value() else { return };
         match crate::rates::refine(&rate_rows(), at, &rates) {
             Ok(changes) => {
@@ -968,7 +969,8 @@ pub fn CurrenciesDialog(
                     note_for(i, RateNote::Was(was, date.clone()));
                 }
             }
-            Err(why) => note_for(at, RateNote::Failed(rate_failure(&why))),
+            Err(why) if !quiet => note_for(at, RateNote::Failed(rate_failure(&why))),
+            Err(_) => {}
         }
     };
     let ask_rate = move |at: usize| {
@@ -991,7 +993,7 @@ pub fn CurrenciesDialog(
                     fetched.set_value(Some(rates));
                     match offer {
                         Some(factor) => raise_offer.set(Some((at, factor))),
-                        None => work_out(at),
+                        None => work_out(at, false),
                     }
                 }
             }
@@ -1010,10 +1012,18 @@ pub fn CurrenciesDialog(
             raised.update(|r| *r = Some(r.unwrap_or(1).saturating_mul(factor)));
             // The worths shown as "was" are the old scale now.
             rate_notes.set(Vec::new());
+            // Every currency the source knows, not only the one asked about: a worth that was
+            // already off (the dinar set to 100 beside a lev at 60 100) would otherwise be
+            // multiplied as it was, and "made exact" would be true of one row only.
+            work_out(at, false);
+            let all = rate_rows();
+            for i in (0..all.len()).filter(|i| *i != at && crate::rates::has_button(&all, *i)) {
+                work_out(i, true);
+            }
         } else {
             raise_declined.set(true);
+            work_out(at, false);
         }
-        work_out(at);
     };
 
     // What saving would do to the expenses, said before it is done: a removed currency's

@@ -448,7 +448,7 @@ pub const TEXTS: Texts = Texts {
             in” in the header instead.",
         rates: "Rates",
         rates_note: "“Worth” is what one unit is worth on any scale you like — only the ratio \
-            matters. If one euro is 118 dinars, put 100 next to the dinar and 11800 next to the \
+            matters. If one euro is 118 dinars, put 1000 next to the dinar and 118000 next to the \
             euro.",
         add_currency: "add a currency…",
         worth: "worth",
@@ -486,11 +486,15 @@ pub const TEXTS: Texts = Texts {
         rate_offline: "Cannot get the rate right now — try again later.",
         rate_out_of_range: "The worth would come out too large or too small.",
         raise_offer: |f| format!(
-            "For the rate to come out exact, multiply every worth by {f}? The ratios stay the same."
+            "For the rates to come out exact, multiply every worth by {f} and fill in today's rate \
+             for every currency the source knows?"
         ),
         raise_yes: "Multiply",
         raise_no: "Keep as is",
-        raised: |f| format!("Every worth multiplied by {f} — the ratios are the same."),
+        raised: |f| format!(
+            "Every worth multiplied by {f}, then today's rates filled in; a currency the source \
+             does not know keeps its ratio."
+        ),
         restore_question: "Restore this version? The tour stays as it is — the version is added \
             as a separate copy.",
         cannot_read_version: "could not read that version",
