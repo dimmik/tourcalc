@@ -55,8 +55,8 @@ pub fn access_code(tour: &Tour) -> String {
 /// it on the reader's own clock.
 ///
 /// **With milliseconds, and never `.000`.** The old stamps had whole seconds, so in MongoDB
-/// every one of them reads back as `…:SS.000Z` - which is how the client tells them apart and
-/// reads them as the UTC+3 wall clock they really are. The C#'s stamps carry their own
+/// every one of them reads back as `…:SSZ`, with no fraction - which is how the client tells
+/// them apart and reads them as the UTC+3 wall clock they really are. The C#'s stamps carry their own
 /// fraction. A new stamp that happened to land on a whole second is nudged a millisecond so it
 /// cannot be taken for an old one.
 pub fn now_stamp() -> String {

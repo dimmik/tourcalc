@@ -1322,15 +1322,16 @@ fn version_stamp(v: &Tour) -> String {
 /// - with a zone and a real fraction (`…:12.345Z`, the C#'s `…+03:00`): taken as written;
 /// - with no zone at all (`2026-09-09 21:24:50`, this server before 25.09.2026, in a file):
 ///   the wall clock at UTC+3;
-/// - `…:SS.000Z` - the same old stamp after a trip through MongoDB, which took it for UTC.
-///   Those were written to the second; new ones never end in `.000` (see the server's
+/// - `…:SSZ` - the same old stamp after a trip through MongoDB, which took it for UTC and
+///   gives it back with no fraction (or `.000Z`, as some writers spell it). Those were
+///   written to the second; new ones never fall on a whole second (see the server's
 ///   `fields::now_stamp`), so this is them, and they too are UTC+3 wall clock.
 fn version_iso(text: &str) -> String {
     let iso = text.trim().replacen(' ', "T", 1);
     if iso.len() < 19 {
         return iso;
     }
-    if iso.ends_with(".000Z") {
+    if matches!(&iso[19..], "Z" | ".000Z") {
         return format!("{}+03:00", &iso[..19]);
     }
     let time = &iso[19..];
@@ -1351,6 +1352,7 @@ mod version_time_tests {
         assert_eq!(version_iso("2026-09-25T18:48:12.345Z"), "2026-09-25T18:48:12.345Z");
         // An old stamp of this server, back from MongoDB: UTC+3 wall clock after all.
         assert_eq!(version_iso("2026-09-25T21:48:12.000Z"), "2026-09-25T21:48:12+03:00");
+        assert_eq!(version_iso("2026-09-25T21:48:12Z"), "2026-09-25T21:48:12+03:00");
         assert_eq!(version_iso("2022-07-03T07:40:20.4829583+03:00"), "2022-07-03T07:40:20.4829583+03:00");
         assert_eq!(version_iso("2026-09-09 21:24:50"), "2026-09-09T21:24:50+03:00");
     }
