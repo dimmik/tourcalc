@@ -485,6 +485,22 @@ pub const TEXTS: Texts = Texts {
             "{n} {} в {c} перейдут в {into}, а {c} исчезнет.",
             ru_plural(n as i64, "трата", "траты", "трат")
         ),
+        rate_button: "уточнить курс",
+        rate_asking: "спрашиваю…",
+        rate_was: |was, date| format!("было {was} · курс на {date} ·"),
+        rate_date: |day, month| format!("{day:02}.{month:02}"),
+        rate_source_hint: "Курс браузер берёт у open.er-api.com сам; этот сервис видит ваш             IP-адрес.",
+        rate_unknown: |name| format!("Не знаю, что за валюта «{name}», — впишите стоимость руками."),
+        rate_not_at_source: |code| format!("У источника нет курса {code}."),
+        rate_nothing_to_compare: "Не от чего считать: другой знакомой валюты в туре нет.",
+        rate_offline: "Курс сейчас не получить — попробуйте позже.",
+        rate_out_of_range: "Стоимость вышла бы слишком большой или слишком маленькой.",
+        raise_offer: |f| format!(
+            "Чтобы курс вышел точным, умножить все стоимости на {f}? Соотношения не изменятся."
+        ),
+        raise_yes: "Умножить",
+        raise_no: "Оставить как есть",
+        raised: |f| format!("Все стоимости умножены на {f} — соотношения те же."),
         restore_question: "Восстановить эту версию? Тур останется как есть — версия добавится \
             отдельной копией.",
         cannot_read_version: "не удалось прочитать эту версию",

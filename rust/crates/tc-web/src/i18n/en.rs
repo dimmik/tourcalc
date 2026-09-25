@@ -471,6 +471,26 @@ pub const TEXTS: Texts = Texts {
             "{n} {} in {c} will move into {into}, and {c} will go.",
             en_plural(n as i64, "expense", "expenses")
         ),
+        rate_button: "today's rate",
+        rate_asking: "asking…",
+        rate_was: |was, date| format!("was {was} · rate of {date} ·"),
+        rate_date: |day, month| {
+            const MONTHS: [&str; 12] =
+                ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            format!("{} {day}", MONTHS[(month as usize).clamp(1, 12) - 1])
+        },
+        rate_source_hint: "Your browser gets the rate from open.er-api.com itself; that service             sees your IP address.",
+        rate_unknown: |name| format!("Not sure what currency “{name}” is — enter its worth by hand."),
+        rate_not_at_source: |code| format!("The source has no rate for {code}."),
+        rate_nothing_to_compare: "There is no other currency here to work it out against.",
+        rate_offline: "Cannot get the rate right now — try again later.",
+        rate_out_of_range: "The worth would come out too large or too small.",
+        raise_offer: |f| format!(
+            "For the rate to come out exact, multiply every worth by {f}? The ratios stay the same."
+        ),
+        raise_yes: "Multiply",
+        raise_no: "Keep as is",
+        raised: |f| format!("Every worth multiplied by {f} — the ratios are the same."),
         restore_question: "Restore this version? The tour stays as it is — the version is added \
             as a separate copy.",
         cannot_read_version: "could not read that version",

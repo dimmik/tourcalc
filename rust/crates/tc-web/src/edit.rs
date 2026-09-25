@@ -635,8 +635,9 @@ pub fn plan_currencies(
         absorbed: Vec::new(),
     };
 
-    // 1. What is kept, as named and worth now - cents as they were, for the moment.
-    let mut new_ids = Vec::new();
+    // 1. What is kept, as named and worth now - cents as they were, for the moment. A new
+    // currency named by its code gets the code as its id (`rates::id_for_new`).
+    let mut new_ids: Vec<tc_core::CurrencyId> = Vec::new();
     next.currencies = kept
         .iter()
         .map(|c| {
@@ -648,8 +649,15 @@ pub fn plan_currencies(
                 .find(|old| old.id.as_str() == c.id)
                 .cloned()
                 .unwrap_or_else(|| {
+                    let taken: Vec<&str> = tour
+                        .currencies
+                        .iter()
+                        .map(|x| x.id.as_str())
+                        .chain(new_ids.iter().map(|x| x.as_str()))
+                        .collect();
+                    let id = crate::rates::id_for_new(&c.name, &taken).unwrap_or_else(new_id);
                     let mut new = tc_core::Currency {
-                        id: tc_core::CurrencyId::new(new_id()),
+                        id: tc_core::CurrencyId::new(id),
                         name: String::new(),
                         rate: 100,
                         extras: Default::default(),
@@ -926,6 +934,25 @@ mod currency_tests {
 
     fn in_dinars(t: &Tour) -> Vec<Cents> {
         t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect()
+    }
+
+    #[test]
+    fn a_new_currency_named_by_its_code_is_keyed_by_it() {
+        let t = tour();
+        let mut kept = drafts(&t);
+        for (name, rate) in [("bam", 60_000), ("Eur", 117_000), ("Chips", 5)] {
+            kept.push(CurrencyDraft { name: name.into(), rate, ..CurrencyDraft::blank() });
+        }
+        let ids: Vec<String> = plan_currencies(&t, &kept, "RSD")
+            .tour
+            .currencies
+            .iter()
+            .map(|c| c.id.as_str().to_owned())
+            .collect();
+        assert_eq!(&ids[..4], ["RSD", "EUR", "EURc", "BAM"]);
+        // EUR is taken; chips are no code: both get an id of the usual kind.
+        assert!(ids[4] != "EUR" && ids[4].len() == 7, "{ids:?}");
+        assert!(ids[5].len() == 7, "{ids:?}");
     }
 
     #[test]

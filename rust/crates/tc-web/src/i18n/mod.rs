@@ -592,6 +592,25 @@ pub struct DialogTexts {
     pub will_move: fn(usize, &str, &str) -> String,
     pub will_round: fn(usize) -> String,
     pub will_absorb: fn(usize, &str, &str) -> String,
+    /// "Today's rate": the button, while asking, and after - what the worth was, and the
+    /// date of the rate (then the source's name, as a link).
+    pub rate_button: &'static str,
+    pub rate_asking: &'static str,
+    pub rate_was: fn(&str, &str) -> String,
+    /// Day and month.
+    pub rate_date: fn(u32, u32) -> String,
+    /// On the source's link: who is asked, and what they see.
+    pub rate_source_hint: &'static str,
+    pub rate_unknown: fn(&str) -> String,
+    pub rate_not_at_source: fn(&str) -> String,
+    pub rate_nothing_to_compare: &'static str,
+    pub rate_offline: &'static str,
+    pub rate_out_of_range: &'static str,
+    /// Multiply every worth by this, so the rates come out to four figures?
+    pub raise_offer: fn(i32) -> String,
+    pub raise_yes: &'static str,
+    pub raise_no: &'static str,
+    pub raised: fn(i32) -> String,
     pub restore_question: &'static str,
     pub cannot_read_version: &'static str,
     pub restored_name: fn(&str, &str, &str) -> String,

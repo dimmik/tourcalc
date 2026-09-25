@@ -188,6 +188,15 @@
            cents - the EURc to fold into it. */
         .tcw-cur-cents { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: -2px 0 10px 2px; font-size: 13px; }
         .tcw-cur-cents .tcn-switchline { margin: 0; }
+        /* "today's rate": the button beside "with cents", the worth it filled in, and what it said */
+        .tcw-cur-cents .tcw-rate-btn { padding: 0; margin-left: auto; font-size: 13px; }
+        .tcw-cur-cents .tcw-rate-btn:disabled { opacity: .55; cursor: default; }
+        .tcn-input.tcw-refined { background: var(--tcn-amber-soft, #fff4d6); }
+        .tcw-rate-note { margin: -6px 0 10px 2px; font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        .tcw-rate-note a { color: inherit; }
+        .tcw-rate-note.is-failed { color: var(--tcn-red, #b91c1c); }
+        .tcw-raise { display: flex; flex-direction: column; gap: 8px; margin: -4px 0 12px; }
+        .tcw-raise-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 
         .tcw-done {
             margin-bottom: 14px;
