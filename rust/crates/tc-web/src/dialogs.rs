@@ -923,6 +923,11 @@ pub fn CurrenciesDialog(
     let main = RwSignal::new(tour.currency().id.as_str().to_owned());
     let problems: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
     let original = StoredValue::new(tour.clone());
+    // The worth being typed, before the box is left: which row, and what it says so far. The
+    // rows themselves take it on `change`, since rewriting them redraws the list; this is only
+    // for the "with cents" box beside it, which should follow the typing - 6 000 no, 60 000
+    // yes, back to 6 000 no - as long as nobody has ticked or unticked it by hand.
+    let typing: RwSignal<Option<(usize, i32)>> = RwSignal::new(None);
 
     // What saving would do to the expenses, said before it is done: a removed currency's
     // expenses converted, amounts rounded by switching cents off, an EURc folded in.
@@ -1041,6 +1046,10 @@ pub fn CurrenciesDialog(
                                 <span class="tcn-cur-worth-label">{t().dialogs.worth}</span>
                                 <input class="tcn-input tcn-cur-rate" type="number" min="1"
                                        prop:value=c.rate
+                                       on:input=move |ev| {
+                                           let rate = event_target_value(&ev).trim().parse().unwrap_or(0);
+                                           typing.set(Some((i, rate)));
+                                       }
                                        on:change=move |ev| {
                                            let rate = event_target_value(&ev).trim().parse().unwrap_or(0);
                                            rows.update(|all| {
@@ -1062,7 +1071,16 @@ pub fn CurrenciesDialog(
                                 }}
                             </div>
                             {(!blank).then(|| {
-                                let cents_now = c.effective_cents(&rows.get_untracked());
+                                // Follows the worth as it is typed, until chosen by hand.
+                                let cents_now = move || {
+                                    let mut all = rows.get();
+                                    if let Some((at, rate)) = typing.get() {
+                                        if let Some(row) = all.get_mut(at) {
+                                            row.rate = rate;
+                                        }
+                                    }
+                                    all.get(i).map(|row| row.effective_cents(&all)).unwrap_or(false)
+                                };
                                 // An EURc to fold in: only when this currency is being given
                                 // cents now, and there is one beside it that is still kept.
                                 let had_cents = original.with_value(|t| {
@@ -1073,7 +1091,10 @@ pub fn CurrenciesDialog(
                                         .map(|s| (s.id.as_str().to_owned(), s.name.clone()))
                                 })
                                 .filter(|(sid, _)| rows.get_untracked().iter().any(|r| &r.id == sid));
-                                let offer = (cents_now && !had_cents && !c.id.is_empty())
+                                // Read once, untracked: tracked here, every keystroke in a worth
+                                // redrew the whole list - the box lost what was typed and the
+                                // focus with it.
+                                let offer = (untrack(cents_now) && !had_cents && !c.id.is_empty())
                                     .then_some(sibling)
                                     .flatten();
                                 let name = c.name.clone();
