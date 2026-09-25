@@ -663,6 +663,11 @@ pub struct TourTexts {
     pub versions: &'static str,
     pub show_in_hint: &'static str,
     pub show_in: &'static str,
+    /// The first choice in "show amounts in": the tour's own currency.
+    pub show_in_main: fn(&str) -> String,
+    /// Beside the picker while the tour is shown in another currency.
+    pub main_is: fn(&str) -> String,
+    pub reset: &'static str,
     pub total_spent: &'static str,
     pub people: &'static str,
     pub expenses: &'static str,

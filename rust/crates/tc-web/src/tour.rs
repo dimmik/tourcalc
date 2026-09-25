@@ -323,14 +323,33 @@ fn copy_to_clipboard(text: &str) {
 /// Only the tour's own list, and only when there is more than one: changing it is a change
 /// to the tour, so it goes through the queue like any other edit and everyone sees it.
 #[component]
-fn CurrencyPicker(tour: Tour, apply: Callback<Operation>) -> impl IntoView {
-    let current = tour.current_currency.as_str().to_owned();
+fn CurrencyPicker(tour: Tour, shown_in: RwSignal<Option<String>>) -> impl IntoView {
+    // Nothing here is an edit: the choice stays on this device, and the tour is not saved.
+    // See `show_in`.
+    let main = crate::show_in::main_of(&tour);
+    let main_name = tour
+        .currencies
+        .iter()
+        .find(|c| c.id == main)
+        .map(|c| c.name.clone())
+        .unwrap_or_default();
+    let showing_other = tour.current_currency != main;
+    let current = if showing_other { tour.current_currency.as_str().to_owned() } else { String::new() };
+    let tour_id = StoredValue::new(tour.id.as_str().to_owned());
+    let pick = move |value: String| {
+        let chosen = (!value.is_empty()).then_some(value);
+        crate::show_in::choose(&tour_id.get_value(), chosen.as_deref());
+        shown_in.set(chosen);
+    };
     view! {
         <select class="tcn-input" style="width:auto; padding:4px 8px; font-size:13px;"
-                on:change=move |ev| apply.run(Operation::SetCurrency(event_target_value(&ev)))>
+                aria-label=t().tour.show_in
+                on:change=move |ev| pick(event_target_value(&ev))>
+            <option value="" selected=!showing_other>{(t().tour.show_in_main)(&main_name)}</option>
             {tour
                 .currencies
                 .iter()
+                .filter(|c| c.id != main)
                 .map(|c| {
                     let id = c.id.as_str().to_owned();
                     let selected = id == current;
@@ -338,6 +357,16 @@ fn CurrencyPicker(tour: Tour, apply: Callback<Operation>) -> impl IntoView {
                 })
                 .collect_view()}
         </select>
+        // Read in another currency: say which one the tour itself is in, and how to go back
+        // to it, so that remembered choice is never taken for the tour's own figures.
+        {showing_other.then(|| view! {
+            <span class="tcn-hint" style="margin-left:8px">
+                {(t().tour.main_is)(&main_name)} " · "
+                <button type="button" class="tcn-hero-link" on:click=move |_| pick(String::new())>
+                    {t().tour.reset}
+                </button>
+            </span>
+        })}
     }
 }
 
@@ -484,6 +513,8 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     let asked_for = !matches!(landing, crate::Landing::Unsaid);
     let left_on = (!asked_for).then(|| tab_left_on(&id)).flatten();
     let tab = RwSignal::new(left_on.unwrap_or_else(|| tab_of(landing)));
+    // Which currency this device reads the tour in; above the screen, like the tab.
+    let shown_in = RwSignal::new(crate::show_in::chosen(&id));
     // Whether that was an answer or a placeholder. The app settles this once and leaves it:
     // a reader who has moved to another tab does not want the next refresh moving them back.
     let tab_settled = RwSignal::new(asked_for || left_on.is_some());
@@ -687,10 +718,15 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                     <a class="tcn-btn" href="/">{t().sync.go_to_tours}</a>
                 </div>
             }.into_any(),
-            Load::Ready(tour) => view! {
-                <TourView tour=tour reload=load status=status landing=landing tab=tab
-                          refresh=refresh sifting=sifting people=people_state />
-            }.into_any(),
+            Load::Ready(tour) => {
+                // In the currency this reader chose to read it in, if any - see `show_in`.
+                let tour = crate::show_in::view_of(&tour, shown_in.get().as_deref());
+                view! {
+                    <TourView tour=tour reload=load status=status landing=landing tab=tab
+                              refresh=refresh sifting=sifting people=people_state
+                              shown_in=shown_in />
+                }.into_any()
+            }
         }}
     }
 }
@@ -710,6 +746,8 @@ fn TourView(
     sifting: Sifting,
     /// What is open and typed on the People tab, likewise owned above.
     people: crate::people::People,
+    /// Which currency this device reads the tour in, if not its main one.
+    shown_in: RwSignal<Option<String>>,
 ) -> impl IntoView {
     // Every figure on this screen is in this tour's currency: with cents or without.
     crate::ui::show_cents_for(&tour);
@@ -982,7 +1020,7 @@ fn TourView(
                     <span title=t().tour.show_in_hint>
                         {t().tour.show_in}
                     </span>
-                    <CurrencyPicker tour=tour_for_currency.clone() apply=apply />
+                    <CurrencyPicker tour=tour_for_currency.clone() shown_in=shown_in />
                 </div>
             })}
 

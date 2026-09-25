@@ -917,6 +917,9 @@ pub fn CurrenciesDialog(
     let rows = RwSignal::new(with_blank(
         tour.currencies.iter().map(CurrencyDraft::of).collect(),
     ));
+    // The tour as stored: the page may be showing it in another currency (`show_in`), and
+    // what this dialog saves as the main currency must be the real one.
+    let tour = crate::show_in::stored(&tour);
     let main = RwSignal::new(tour.currency().id.as_str().to_owned());
     let problems: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
     let original = StoredValue::new(tour.clone());
