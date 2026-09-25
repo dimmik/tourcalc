@@ -360,7 +360,8 @@ fn CurrencyPicker(tour: Tour, shown_in: RwSignal<Option<String>>) -> impl IntoVi
         // Read in another currency: say which one the tour itself is in, and how to go back
         // to it, so that remembered choice is never taken for the tour's own figures.
         {showing_other.then(|| view! {
-            <span class="tcn-hint" style="margin-left:8px">
+            // On the purple header: light text, as the rest of that row is.
+            <span style="margin-left:8px; font-size:13px; color:rgba(255,255,255,.85)">
                 {(t().tour.main_is)(&main_name)} " · "
                 <button type="button" class="tcn-hero-link" on:click=move |_| pick(String::new())>
                     {t().tour.reset}
