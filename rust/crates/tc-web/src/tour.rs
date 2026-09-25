@@ -1871,25 +1871,30 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
     // Name, rate, and whether it is the one the tour is being read in - the app marks that
     // column, and without the mark the table is four numbers with nothing to hold on to.
     let current_id = tour.current_currency.clone();
-    let rates: Vec<(String, i64, bool)> = {
-        let mut list: Vec<(String, i64, bool)> = tour
+    // Each column: a currency's name, what one of its stored units is worth (a cent, where it
+    // has cents - worths are per whole unit), whether it is the one read in, and its cents.
+    let rates: Vec<(String, f64, bool, bool)> = {
+        let mut list: Vec<(String, f64, bool, bool)> = tour
             .currencies
             .iter()
-            .map(|c| (c.name.clone(), c.rate as i64, c.id == current_id))
+            .map(|c| {
+                let unit = c.rate as f64 / c.stored_per_whole() as f64;
+                (c.name.clone(), unit, c.id == current_id, c.with_cents())
+            })
             .collect();
-        list.sort_by_key(|(_, rate, _)| -rate);
+        list.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         list
     };
-    let current_rate = tour.currency().rate as i64;
+    let current_unit = tour.currency().rate as f64 / tour.currency().stored_per_whole() as f64;
     let multi = tour.currencies.len() > 1;
-    let in_currency = move |amount: Cents, rate: i64| {
-        if rate == 0 {
+    let in_currency = move |amount: Cents, unit: f64| {
+        if unit == 0.0 {
             Cents::ZERO
         } else {
             // Rounded, not truncated: the C# does this in floating point and rounds when it
             // prints, and a cent of difference in a table beside the other client is the
             // kind of thing that makes somebody doubt both.
-            Cents((amount.0 as f64 * current_rate as f64 / rate as f64).round() as i64)
+            Cents((amount.0 as f64 * current_unit / unit).round() as i64)
         }
     };
 
@@ -2052,7 +2057,7 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                             <th></th>
                                             {head
                                                 .into_iter()
-                                                .map(|(name, _, main)| view! {
+                                                .map(|(name, _, main, _)| view! {
                                                     <th class:is-main=main>{name}</th>
                                                 })
                                                 .collect_view()}
@@ -2063,8 +2068,8 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                             <td>{t().balance.total}</td>
                                             {total_row
                                                 .into_iter()
-                                                .map(|(_, rate, _)| view! {
-                                                    <td>{move || money(in_currency(cat_total.get(), rate))}</td>
+                                                .map(|(_, unit, _, cents)| view! {
+                                                    <td>{move || crate::ui::amount(in_currency(cat_total.get(), unit), cents)}</td>
                                                 })
                                                 .collect_view()}
                                         </tr>
@@ -2072,8 +2077,8 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                             <td>{t().balance.per_person}</td>
                                             {person_row
                                                 .into_iter()
-                                                .map(|(_, rate, _)| view! {
-                                                    <td>{move || money(in_currency(per_person.get(), rate))}</td>
+                                                .map(|(_, unit, _, cents)| view! {
+                                                    <td>{move || crate::ui::amount(in_currency(per_person.get(), unit), cents)}</td>
                                                 })
                                                 .collect_view()}
                                         </tr>
@@ -2081,8 +2086,8 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                             <td>{t().balance.per_day}</td>
                                             {day_row
                                                 .into_iter()
-                                                .map(|(_, rate, _)| view! {
-                                                    <td>{move || money(in_currency(per_day.get(), rate))}</td>
+                                                .map(|(_, unit, _, cents)| view! {
+                                                    <td>{move || crate::ui::amount(in_currency(per_day.get(), unit), cents)}</td>
                                                 })
                                                 .collect_view()}
                                         </tr>

@@ -594,9 +594,7 @@ pub fn currency_problems(kept: &[CurrencyDraft]) -> Vec<String> {
 pub fn put_currencies(tour: &Tour, kept: &[CurrencyDraft], main: &str) -> Tour {
     // A plan that cannot be carried out was refused by the dialog before it got here; a
     // queued one replayed against a tour that has since changed leaves the tour as it is.
-    plan_currencies(tour, kept, main)
-        .map(|p| p.tour)
-        .unwrap_or_else(|_| tour.clone())
+    plan_currencies(tour, kept, main).tour
 }
 
 /// What saving the currencies dialog will do, worked out before it is done - so the dialog
@@ -627,7 +625,7 @@ pub fn plan_currencies(
     tour: &Tour,
     kept: &[CurrencyDraft],
     main: &str,
-) -> Result<CurrencyPlan, tc_core::units::SwitchError> {
+) -> CurrencyPlan {
     use tc_core::units::{cents_sibling, cheapest, move_spendings, switch_cents};
     let mut next = tour.clone();
     let mut plan = CurrencyPlan {
@@ -690,7 +688,7 @@ pub fn plan_currencies(
         if c.id.is_empty() || new_ids.contains(&id) {
             continue;
         }
-        let done = switch_cents(&mut next, &id, c.cents)?;
+        let done = switch_cents(&mut next, &id, c.cents);
         plan.rounded += done.rounded;
     }
 
@@ -716,7 +714,7 @@ pub fn plan_currencies(
     // A settlement worked out in the old rates is not one in the new ones.
     next.spendings.retain(|s| s.kind != Kind::Planned);
     plan.tour = next;
-    Ok(plan)
+    plan
 }
 
 /// A suggested payment, recorded as having happened.
@@ -937,7 +935,7 @@ mod currency_tests {
         let mut kept = drafts(&t);
         kept[1].cents = true;
         kept[1].absorb = true;
-        let plan = plan_currencies(&t, &kept, "RSD").expect("plan");
+        let plan = plan_currencies(&t, &kept, "RSD");
         assert_eq!(plan.absorbed, vec![("EURc".to_owned(), "EUR".to_owned(), 1)]);
         assert_eq!(plan.rounded, 0);
         let after = plan.tour;
@@ -953,7 +951,7 @@ mod currency_tests {
         let t = tour();
         let before = in_dinars(&t);
         let kept: Vec<CurrencyDraft> = drafts(&t).into_iter().filter(|c| c.id != "EUR").collect();
-        let plan = plan_currencies(&t, &kept, "RSD").expect("plan");
+        let plan = plan_currencies(&t, &kept, "RSD");
         assert_eq!(plan.moved, vec![("EUR".to_owned(), "RSD".to_owned(), 1)]);
         assert_eq!(plan.tour.spendings[0].currency.id.as_str(), "RSD");
         assert_eq!(in_dinars(&plan.tour), before);
@@ -967,7 +965,7 @@ mod currency_tests {
         usd.name = "USD".into();
         usd.rate = 108000;
         kept.push(usd);
-        let plan = plan_currencies(&t, &kept, "RSD").expect("plan");
+        let plan = plan_currencies(&t, &kept, "RSD");
         assert!(plan.tour.currencies.iter().find(|c| c.name == "USD").unwrap().with_cents());
     }
 

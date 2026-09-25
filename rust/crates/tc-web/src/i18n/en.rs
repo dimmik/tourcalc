@@ -471,7 +471,6 @@ pub const TEXTS: Texts = Texts {
             "{n} {} in {c} will move into {into}, and {c} will go.",
             en_plural(n as i64, "expense", "expenses")
         ),
-        too_large: "The worths would get too large to store. Make them smaller - only the ratio matters - and try again.",
         restore_question: "Restore this version? The tour stays as it is — the version is added \
             as a separate copy.",
         cannot_read_version: "could not read that version",

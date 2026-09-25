@@ -592,7 +592,6 @@ pub struct DialogTexts {
     pub will_move: fn(usize, &str, &str) -> String,
     pub will_round: fn(usize) -> String,
     pub will_absorb: fn(usize, &str, &str) -> String,
-    pub too_large: &'static str,
     pub restore_question: &'static str,
     pub cannot_read_version: &'static str,
     pub restored_name: fn(&str, &str, &str) -> String,

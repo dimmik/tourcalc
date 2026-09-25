@@ -255,7 +255,13 @@ impl Tour {
         if from.id == current.id {
             return amount;
         }
-        crate::money::convert(amount, from.rate, current.rate)
+        // Worths are per whole unit, and an amount in a currency with cents is hundredths:
+        // amount · from.rate / from's units-per-whole, over the same for the one read in.
+        crate::money::convert_ratio(
+            amount,
+            from.rate as i128 * current.stored_per_whole() as i128,
+            current.rate as i128 * from.stored_per_whole() as i128,
+        )
     }
 
     /// The "too small to bother with" figure, in the currency the tour is being read in.
@@ -268,13 +274,16 @@ impl Tour {
         if self.currencies.len() < 2 {
             return Cents(setting);
         }
-        let current = self.currency().rate as f64;
+        // What one stored unit is worth - a cent, for a currency with cents: the threshold is a
+        // number of the smallest coins the tour counts in.
+        let unit = |c: &Currency| c.rate as f64 / c.stored_per_whole() as f64;
+        let current = unit(self.currency());
         let cheapest = self
             .currencies
             .iter()
-            .map(|c| c.rate)
-            .min()
-            .unwrap_or(self.currency().rate) as f64;
+            .map(unit)
+            .fold(f64::INFINITY, f64::min)
+            .min(current);
         if current <= 0.0 {
             return Cents(setting);
         }

@@ -91,8 +91,15 @@ pub fn convert(amount: Cents, from_rate: i32, to_rate: i32) -> Cents {
     if from_rate == to_rate || to_rate == 0 {
         return amount;
     }
-    let num = amount.0 as i128 * from_rate as i128;
-    let den = to_rate as i128;
+    convert_ratio(amount, from_rate as i128, to_rate as i128)
+}
+
+/// `amount · num / den`, rounded half away from zero, with nothing lost before the rounding.
+pub fn convert_ratio(amount: Cents, num: i128, den: i128) -> Cents {
+    if den == 0 || num == den {
+        return amount;
+    }
+    let num = amount.0 as i128 * num;
     let half = den / 2;
     let rounded = if num >= 0 {
         (num + half) / den

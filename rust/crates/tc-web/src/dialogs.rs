@@ -937,7 +937,8 @@ pub fn CurrenciesDialog(
         let kept = kept_now();
         let main = main.get();
         original.with_value(|tour| {
-            edit::plan_currencies(tour, &kept, &main).map(|p| {
+            {
+                let p = edit::plan_currencies(tour, &kept, &main);
                 let mut notes: Vec<String> = Vec::new();
                 for (from, into, n) in &p.moved {
                     notes.push((t().dialogs.will_move)(*n, from, into));
@@ -949,16 +950,13 @@ pub fn CurrenciesDialog(
                     notes.push((t().dialogs.will_absorb)(*n, c, into));
                 }
                 notes
-            })
+            }
         })
     });
 
     let submit = move |_| {
         let kept = kept_now();
         let mut found = edit::currency_problems(&kept);
-        if plan.get_untracked().is_err() {
-            found.push(t().dialogs.too_large.to_owned());
-        }
         if !found.is_empty() {
             problems.set(found);
             return;
@@ -1118,16 +1116,13 @@ pub fn CurrenciesDialog(
                     })
                     .collect_view()}
 
-                {move || match plan.get() {
-                    Ok(notes) if !notes.is_empty() => view! {
+                {move || {
+                    let notes = plan.get();
+                    (!notes.is_empty()).then(|| view! {
                         <div class="tcn-chip tcn-chip-amber tcw-wraps" style="margin-top:8px">
                             {notes.into_iter().map(|n| view! { <div>{n}</div> }).collect_view()}
                         </div>
-                    }.into_any(),
-                    Ok(_) => ().into_any(),
-                    Err(_) => view! {
-                        <div class="tcn-errors" style="margin-top:8px">{t().dialogs.too_large}</div>
-                    }.into_any(),
+                    })
                 }}
 
                 <div class="tcn-hint">

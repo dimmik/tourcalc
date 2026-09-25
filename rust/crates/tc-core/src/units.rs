@@ -7,10 +7,15 @@
 //! currency, marked `WithCents`, whose amounts are hundredths, and which the interface reads
 //! and writes as "3,50".
 //!
-//! Nothing in the arithmetic changes. Amounts stay integers, and a currency's worth is the
-//! worth of what its amounts count - of a cent, for a currency with cents - so `convert`
-//! needs no special case. What changes is how a number is shown and read, and what happens
-//! when a currency that already has expenses is switched one way or the other.
+//! Amounts stay integers. A currency's worth is always the worth of a **whole** unit - a euro
+//! is 117 000 beside a dinar at 1 000, cents or not, which is what the currencies dialog shows
+//! and what an exchange rate gives - and `Tour::convert` divides by a hundred for a currency
+//! whose amounts are hundredths. So switching cents on or off changes the expenses (×100,
+//! ÷100) and never a worth.
+//!
+//! An earlier version kept the worth of a *cent* instead, so the euro read 1 170 in the
+//! dialog, and switching had to rescale the other currencies to stay exact - which is how a
+//! tour's dinars went from 1 000 to 100 000 in one click.
 
 use crate::domain::{extras, Currency, Tour};
 use crate::ids::CurrencyId;
@@ -20,6 +25,15 @@ impl Currency {
     /// Whether this currency's amounts are hundredths, shown with a decimal part.
     pub fn with_cents(&self) -> bool {
         extras::bool_of(&self.extras, extras::WITH_CENTS)
+    }
+
+    /// How many stored units make a whole one: 100 for a currency with cents, 1 otherwise.
+    pub fn stored_per_whole(&self) -> i64 {
+        if self.with_cents() {
+            100
+        } else {
+            1
+        }
     }
 
     pub fn set_with_cents(&mut self, on: bool) {
@@ -142,15 +156,19 @@ pub fn parse_amount(text: &str, cents: bool) -> Result<Cents, AmountError> {
 /// has cents of its own. Before this, an expense whose currency had been removed was quietly
 /// read in the tour's main currency - and every figure in the tour changed without a word.
 pub fn move_spendings(tour: &mut Tour, from: &CurrencyId, to: &CurrencyId) -> usize {
-    let (Some(from_rate), Some(target)) = (
-        tour.currencies.iter().find(|c| &c.id == from).map(|c| c.rate),
+    let (Some(source), Some(target)) = (
+        tour.currencies.iter().find(|c| &c.id == from).cloned(),
         tour.currencies.iter().find(|c| &c.id == to).cloned(),
     ) else {
         return 0;
     };
+    // Worths are per whole unit; amounts are in stored units - hundredths where there are
+    // cents - on both sides.
+    let num = source.rate as i128 * target.stored_per_whole() as i128;
+    let den = target.rate as i128 * source.stored_per_whole() as i128;
     let mut moved = 0;
     for s in tour.spendings.iter_mut().filter(|s| &s.currency.id == from) {
-        s.amount = convert(s.amount, from_rate, target.rate);
+        s.amount = crate::money::convert_ratio(s.amount, num, den);
         s.currency = target.clone();
         moved += 1;
     }
@@ -175,58 +193,18 @@ pub struct Switched {
     pub rounded: usize,
 }
 
-/// Why a currency's cents could not be switched.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SwitchError {
-    /// The worths would no longer fit the whole number they are stored in.
-    TooLarge,
-}
-
 /// Switches `id` to amounts in hundredths (`on`) or back to whole units, keeping every figure
-/// of the tour what it was, and the worths as small as that allows.
+/// of the tour what it was.
 ///
-/// On: its expenses ×100, and its worth becomes the worth of a cent - ÷100. When that is
-/// exact (117 000 → 1 170) nothing else moves. When it is not (11 745), the other worths are
-/// multiplied by the least that makes it exact (×20 here: 11 745 → 2 349, the rest ×20), so
-/// every ratio stays exact without rounding anything. The first version always multiplied
-/// the others by a hundred, and a tour's dinars went from 1 000 to 100 000 for no reason -
-/// after which a new currency worth 60 000 no longer looked expensive enough to get cents.
-///
-/// Off: its worth ×100 - the reverse of the exact case above - or, if that would not fit, the
-/// others ÷100 where every one of them divides; and its expenses ÷100, rounded half away from
-/// zero: the one step that can lose money, counted so the reader can be told.
-pub fn switch_cents(tour: &mut Tour, id: &CurrencyId, on: bool) -> Result<Switched, SwitchError> {
+/// Only the expenses change: ×100 on, ÷100 off - the second rounded half away from zero, the
+/// one step that can lose money, and counted so the reader can be told. No worth changes: a
+/// worth is always that of a whole unit.
+pub fn switch_cents(tour: &mut Tour, id: &CurrencyId, on: bool) -> Switched {
     let Some(at) = tour.currencies.iter().position(|c| &c.id == id) else {
-        return Ok(Switched::default());
+        return Switched::default();
     };
     if tour.currencies[at].with_cents() == on {
-        return Ok(Switched::default());
-    }
-    let own = tour.currencies[at].rate;
-    if on {
-        // The least k that makes own·k divisible by 100.
-        let k = 100 / gcd(own.unsigned_abs(), 100) as i32;
-        for (i, c) in tour.currencies.iter_mut().enumerate() {
-            if i != at {
-                c.rate = c.rate.checked_mul(k).ok_or(SwitchError::TooLarge)?;
-            }
-        }
-        tour.currencies[at].rate = own.checked_mul(k).ok_or(SwitchError::TooLarge)? / 100;
-    } else if let Some(bigger) = own.checked_mul(100) {
-        tour.currencies[at].rate = bigger;
-    } else if tour
-        .currencies
-        .iter()
-        .enumerate()
-        .all(|(i, c)| i == at || c.rate % 100 == 0)
-    {
-        for (i, c) in tour.currencies.iter_mut().enumerate() {
-            if i != at {
-                c.rate /= 100;
-            }
-        }
-    } else {
-        return Err(SwitchError::TooLarge);
+        return Switched::default();
     }
     tour.currencies[at].set_with_cents(on);
     let current = tour.currencies[at].clone();
@@ -244,18 +222,7 @@ pub fn switch_cents(tour: &mut Tour, id: &CurrencyId, on: bool) -> Result<Switch
         s.currency = current.clone();
         done.changed += 1;
     }
-    // The other currencies' worths moved too, and every expense carries a copy of its
-    // currency: keep the copies in step, as saving the currencies always has.
-    for s in tour.spendings.iter_mut() {
-        if let Some(c) = tour.currencies.iter().find(|c| c.id == s.currency.id) {
-            s.currency = c.clone();
-        }
-    }
-    Ok(done)
-}
-
-fn gcd(a: u32, b: u32) -> u32 {
-    if b == 0 { a } else { gcd(b, a % b) }
+    done
 }
 
 /// The "EURc" of a currency: another currency of the tour named or identified like this one
@@ -354,50 +321,50 @@ mod tests {
     }
 
     #[test]
-    fn switching_cents_on_keeps_every_figure_and_every_ratio_exact() {
-        let mut t = tour(&[("RSD", 100, false), ("EUR", 11745, false)], &[("EUR", 12), ("RSD", 500)]);
+    fn switching_cents_on_keeps_every_figure_and_every_worth() {
+        // The tours of 2025-2026: dinars at 1 000, euros at 117 000.
+        let mut t = tour(&[("RSD", 1000, false), ("BAMc", 600, false), ("EUR", 117000, false)], &[("EUR", 12), ("RSD", 500)]);
         let before: Vec<Cents> = t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect();
-        let done = switch_cents(&mut t, &CurrencyId::new("EUR"), true).unwrap();
+        let done = switch_cents(&mut t, &CurrencyId::new("EUR"), true);
         assert_eq!(done, Switched { changed: 1, rounded: 0 });
         assert_eq!(t.spendings[0].amount, Cents(1200));
-        // 11 745 does not divide by 100: the others ×20, the euro 11 745·20/100.
-        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![2000, 2349]);
-        assert!(t.currencies[1].with_cents());
+        // A worth is the worth of a whole euro, cents or not: nothing moves.
+        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![1000, 600, 117000]);
+        assert!(t.currencies[2].with_cents());
         let after: Vec<Cents> = t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect();
-        // In RSD, which is what this tour is read in: the same money, now counted in cents
-        // of nothing - RSD still has none, so the figures are the same numbers.
         assert_eq!(before, after);
+    }
+
+    #[test]
+    fn a_tour_read_in_a_currency_with_cents_is_read_in_cents() {
+        let mut t = tour(&[("EUR", 117000, true), ("RSD", 1000, false)], &[("RSD", 1174)]);
+        t.current_currency = CurrencyId::new("EUR");
+        // 1 174 dinars at 1 000 against 117 000 are 10,03 euros - 1 003 cents.
+        assert_eq!(t.convert(t.spendings[0].amount, &t.spendings[0].currency), Cents(1003));
+        // And the other way: 3,50 € in dinars.
+        t.current_currency = CurrencyId::new("RSD");
+        let eur = t.currencies[0].clone();
+        assert_eq!(t.convert(Cents(350), &eur), Cents(410));
     }
 
     #[test]
     fn switching_cents_off_rounds_and_says_how_many() {
-        let mut t = tour(&[("RSD", 10000, false), ("EUR", 11745, true)], &[("EUR", 350), ("EUR", 1200)]);
-        let done = switch_cents(&mut t, &CurrencyId::new("EUR"), false).unwrap();
+        let mut t = tour(&[("RSD", 1000, false), ("EUR", 117000, true)], &[("EUR", 350), ("EUR", 1200)]);
+        let done = switch_cents(&mut t, &CurrencyId::new("EUR"), false);
         assert_eq!(done, Switched { changed: 2, rounded: 1 });
         assert_eq!(t.spendings.iter().map(|s| s.amount).collect::<Vec<_>>(), vec![Cents(4), Cents(12)]);
-        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![10000, 1174500]);
+        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![1000, 117000]);
         assert!(!t.currencies[1].with_cents());
     }
 
     #[test]
-    fn a_worth_that_divides_leaves_the_other_currencies_alone() {
-        // The tours of 2025-2026: dinars at 1 000, euros at 117 000.
-        let mut t = tour(&[("RSD", 1000, false), ("BAMc", 600, false), ("EUR", 117000, false)], &[("EUR", 12)]);
-        let before: Vec<Cents> = t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect();
-        switch_cents(&mut t, &CurrencyId::new("EUR"), true).unwrap();
-        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![1000, 600, 1170]);
-        let after: Vec<Cents> = t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect();
-        assert_eq!(before, after);
-        // And back: the euro ×100 again, nobody else touched.
-        switch_cents(&mut t, &CurrencyId::new("EUR"), false).unwrap();
-        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![1000, 600, 117000]);
-    }
-
-    #[test]
-    fn a_worth_that_would_not_fit_refuses_the_switch() {
-        // 101 does not divide by 100, so the others would have to be ×100 - and B cannot be.
-        let mut t = tour(&[("A", 101, false), ("B", 30_000_000, false)], &[]);
-        assert_eq!(switch_cents(&mut t, &CurrencyId::new("A"), true), Err(SwitchError::TooLarge));
+    fn the_threshold_counts_the_smallest_coin() {
+        // Dinars at 1 000, euro cents at 1 170 a cent: the dinar is the smallest coin, and
+        // read in euros 49 dinars are 41 cents.
+        let mut t = tour(&[("RSD", 1000, false), ("EUR", 117000, true)], &[]);
+        assert_eq!(t.min_meaningful(49), Cents(49));
+        t.current_currency = CurrencyId::new("EUR");
+        assert_eq!(t.min_meaningful(49), Cents(41));
     }
 
     #[test]
