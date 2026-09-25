@@ -1311,6 +1311,33 @@ fn version_comment(v: &Tour) -> String {
 
 fn version_stamp(v: &Tour) -> String {
     let text = tc_core::extras::str_of(&v.extras, tc_core::extras::VERSIONED_AT);
-    // Whatever shape it was written in, the day and the minute are what a person reads.
-    text.replace('T', " ").chars().take(16).collect()
+    crate::ui::local_stamp_of(&version_iso(&text))
+}
+
+/// A version's time as an instant the browser can read. Written with a zone (`Z`, `+03:00`)
+/// it is taken as written; without one it is the old servers' wall clock at UTC+3, which is
+/// what the C# and, until 25.09.2026, this server wrote. Shown on the reader's own clock -
+/// it used to be printed as stored, an hour ahead for somebody at UTC+2.
+fn version_iso(text: &str) -> String {
+    let iso = text.trim().replacen(' ', "T", 1);
+    let time = iso.get(19..).unwrap_or("");
+    let zoned = time.contains('Z') || time.contains('+') || time.contains('-');
+    if zoned || iso.len() < 19 {
+        iso
+    } else {
+        format!("{iso}+03:00")
+    }
+}
+
+#[cfg(test)]
+mod version_time_tests {
+    use super::version_iso;
+
+    #[test]
+    fn a_stamp_with_a_zone_is_read_as_written_and_one_without_as_utc_plus_three() {
+        assert_eq!(version_iso("2026-09-25T18:48:12Z"), "2026-09-25T18:48:12Z");
+        assert_eq!(version_iso("2026-09-25T21:48:12.000Z"), "2026-09-25T21:48:12.000Z");
+        assert_eq!(version_iso("2022-07-03T07:40:20.4829583+03:00"), "2022-07-03T07:40:20.4829583+03:00");
+        assert_eq!(version_iso("2026-09-09 21:24:50"), "2026-09-09T21:24:50+03:00");
+    }
 }
