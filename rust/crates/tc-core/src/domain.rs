@@ -838,6 +838,8 @@ pub mod extras {
     pub const FINALIZING: &str = "IsFinalizing";
     /// How many days the tour is reckoned to last, for the per-day figures.
     pub const DURATION: &str = "Duration";
+    /// On a currency: its amounts are hundredths, shown with a decimal part. See `units`.
+    pub const WITH_CENTS: &str = "WithCents";
 
     pub fn str_of(extras: &Extras, key: &str) -> String {
         extras

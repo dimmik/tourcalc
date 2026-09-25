@@ -451,8 +451,24 @@ pub const TEXTS: Texts = Texts {
         worth: "worth",
         remove: "Remove",
         rename_note: "Renaming keeps the amounts: expenses stay attached to the currency they \
-            were entered in, whatever you call it now. Removing one does not — those expenses \
-            would be read in the main currency.",
+            were entered in, whatever you call it now. Removing one converts its expenses into \
+            the cheapest currency left, at the tour's rates.",
+        with_cents: "with cents",
+        with_cents_hint: "Amounts in this currency are entered and shown with a decimal part: 3.50",
+        absorb: |c, into| format!("fold {c} into {into}"),
+        will_move: |n, from, into| format!(
+            "{n} {} in {from} will be converted into {into} at the tour's rates.",
+            en_plural(n as i64, "expense", "expenses")
+        ),
+        will_round: |n| format!(
+            "{n} {} with cents will be rounded to whole units.",
+            en_plural(n as i64, "amount", "amounts")
+        ),
+        will_absorb: |n, c, into| format!(
+            "{n} {} in {c} will move into {into}, and {c} will go.",
+            en_plural(n as i64, "expense", "expenses")
+        ),
+        too_large: "The worths would get too large to store. Make them smaller - only the ratio matters - and try again.",
         restore_question: "Restore this version? The tour stays as it is — the version is added \
             as a separate copy.",
         cannot_read_version: "could not read that version",
@@ -601,6 +617,9 @@ pub const TEXTS: Texts = Texts {
         no_currency: "A tour needs at least one currency",
         rate_zero: |n| format!("“{n}” needs a worth above zero"),
         duplicate_currency: |n| format!("“{n}” is listed more than once — names have to be unique"),
+        amount_not_a_number: "The amount is not a number",
+        amount_too_many_decimals: "No more than two digits after the decimal point",
+        amount_no_cents: |c| format!("{c} is counted in whole units, without cents"),
     },
     errors: ErrorTexts {
         expired: "The login has expired. Enter the access code again.",

@@ -112,10 +112,27 @@ pub fn SpendingDialog(
     // without any of them owning the form.
     let description = RwSignal::new(draft.description.clone());
     let category = RwSignal::new(draft.category.clone());
+    // Whether amounts in a currency are hundredths - read and written as "3,50".
+    let tour_here = StoredValue::new(tour.clone());
+    let cents_in = move |currency: &str| {
+        tour_here.with_value(|t| t.counts_cents(&tc_core::CurrencyId::new(currency)))
+    };
+    let cents_preview = cents_in;
+    let currency_name = move |currency: &str| {
+        tour_here.with_value(|t| {
+            t.currencies
+                .iter()
+                .find(|c| c.id.as_str() == currency)
+                .unwrap_or_else(|| t.currency())
+                .name
+                .clone()
+        })
+    };
     let amount = RwSignal::new(if draft.amount.0 == 0 {
         String::new()
     } else {
-        draft.amount.0.to_string()
+        // As it would be typed: the decimal part, no thousands gaps.
+        crate::ui::amount(draft.amount, cents_in(&draft.currency_id)).replace('\u{202f}', "")
     });
     let from = RwSignal::new(draft.from.as_str().to_owned());
     let everyone = RwSignal::new(draft.everyone);
@@ -128,7 +145,7 @@ pub fn SpendingDialog(
     });
     let colour = RwSignal::new(draft.colour.clone());
     let currency = RwSignal::new(draft.currency_id.clone());
-    let errors: RwSignal<Vec<&'static str>> = RwSignal::new(Vec::new());
+    let errors: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
     // A new expense opens in the category last used, and says so: it is a guess, and one
     // that is wrong often enough that it has to look different from a choice.
     let guessed = RwSignal::new(!editing && !draft.category.trim().is_empty());
@@ -164,7 +181,11 @@ pub fn SpendingDialog(
         let mut d = base.clone();
         d.description = description.get_untracked();
         d.category = category.get_untracked();
-        d.amount = Cents(amount.get_untracked().trim().parse::<i64>().unwrap_or(0));
+        d.amount = tc_core::units::parse_amount(
+            &amount.get_untracked(),
+            cents_in(&currency.get_untracked()),
+        )
+        .unwrap_or(Cents::ZERO);
         d.from = PersonId::new(from.get_untracked());
         d.everyone = everyone.get_untracked();
         d.by_weight = by_weight.get_untracked();
@@ -210,7 +231,22 @@ pub fn SpendingDialog(
     let submit = move |_| {
         let mut d = current();
 
-        let wrong = d.problems();
+        // What the amount box says, read the way the currency counts: an amount that cannot
+        // be read is not "0", it is a mistake worth naming.
+        let typed = tc_core::units::parse_amount(&amount.get_untracked(), cents_in(&currency.get_untracked()));
+        let mut wrong: Vec<String> = d.problems().into_iter().map(String::from).collect();
+        use tc_core::units::AmountError;
+        let unreadable = match typed {
+            Err(AmountError::NotANumber) => Some(t().checks.amount_not_a_number.to_owned()),
+            Err(AmountError::TooManyDecimals) => Some(t().checks.amount_too_many_decimals.to_owned()),
+            Err(AmountError::NoCentsHere) => Some((t().checks.amount_no_cents)(&currency_name(&currency.get_untracked()))),
+            _ => None,
+        };
+        if let Some(why) = unreadable {
+            // Instead of "should not be 0", which is what an unreadable amount came to.
+            wrong.retain(|w| w != t().checks.amount_zero);
+            wrong.insert(0, why);
+        }
         if !wrong.is_empty() {
             errors.set(wrong);
             return;
@@ -268,7 +304,7 @@ pub fn SpendingDialog(
             <div class="tcn-amount">
                 <div class="tcn-label">{t().dialogs.amount}</div>
                 <div class="tcn-amount-row">
-                    <input class="tcn-amount-input" type="number" inputmode="decimal" placeholder="0"
+                    <input class="tcn-amount-input" type="text" inputmode="decimal" placeholder="0"
                            prop:value=move || amount.get()
                            on:input=move |ev| amount.set(event_target_value(&ev)) />
                     // Which currency this one is in. On a tour with one it is a label, not a
@@ -572,8 +608,13 @@ pub fn SpendingDialog(
                             </span>
                         </div>
                         <div class="tcn-settle-amount">
-                            {move || crate::ui::money(Cents(
-                                amount.get().trim().parse::<i64>().unwrap_or(0)))}
+                            {move || {
+                                let cents = cents_preview(&currency.get());
+                                crate::ui::amount(
+                                    tc_core::units::parse_amount(&amount.get(), cents).unwrap_or(Cents::ZERO),
+                                    cents,
+                                )
+                            }}
                         </div>
                     </div>
                 </div>
@@ -869,11 +910,7 @@ pub fn CurrenciesDialog(
         while rows.last().is_some_and(|c| c.is_blank()) {
             rows.pop();
         }
-        rows.push(CurrencyDraft {
-            id: String::new(),
-            name: String::new(),
-            rate: 100,
-        });
+        rows.push(CurrencyDraft::blank());
         rows
     };
 
@@ -882,10 +919,43 @@ pub fn CurrenciesDialog(
     ));
     let main = RwSignal::new(tour.currency().id.as_str().to_owned());
     let problems: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
+    let original = StoredValue::new(tour.clone());
+
+    // What saving would do to the expenses, said before it is done: a removed currency's
+    // expenses converted, amounts rounded by switching cents off, an EURc folded in.
+    let kept_now = move || -> Vec<CurrencyDraft> {
+        let all = rows.get();
+        all.iter()
+            .filter(|c| !c.is_blank())
+            .map(|c| CurrencyDraft { cents: c.effective_cents(&all), cents_auto: false, ..c.clone() })
+            .collect()
+    };
+    let plan = Memo::new(move |_| {
+        let kept = kept_now();
+        let main = main.get();
+        original.with_value(|tour| {
+            edit::plan_currencies(tour, &kept, &main).map(|p| {
+                let mut notes: Vec<String> = Vec::new();
+                for (from, into, n) in &p.moved {
+                    notes.push((t().dialogs.will_move)(*n, from, into));
+                }
+                if p.rounded > 0 {
+                    notes.push((t().dialogs.will_round)(p.rounded));
+                }
+                for (c, into, n) in &p.absorbed {
+                    notes.push((t().dialogs.will_absorb)(*n, c, into));
+                }
+                notes
+            })
+        })
+    });
 
     let submit = move |_| {
-        let kept: Vec<CurrencyDraft> = rows.get().into_iter().filter(|c| !c.is_blank()).collect();
-        let found = edit::currency_problems(&kept);
+        let kept = kept_now();
+        let mut found = edit::currency_problems(&kept);
+        if plan.get_untracked().is_err() {
+            found.push(t().dialogs.too_large.to_owned());
+        }
         if !found.is_empty() {
             problems.set(found);
             return;
@@ -964,11 +1034,7 @@ pub fn CurrenciesDialog(
                                                while all.last().is_some_and(|c| c.is_blank()) {
                                                    all.pop();
                                                }
-                                               all.push(CurrencyDraft {
-                                                   id: String::new(),
-                                                   name: String::new(),
-                                                   rate: 100,
-                                               });
+                                               all.push(CurrencyDraft::blank());
                                            });
                                        } />
                                 <span class="tcn-cur-worth-label">{t().dialogs.worth}</span>
@@ -994,9 +1060,72 @@ pub fn CurrenciesDialog(
                                     }.into_any()
                                 }}
                             </div>
+                            {(!blank).then(|| {
+                                let cents_now = c.effective_cents(&rows.get_untracked());
+                                // An EURc to fold in: only when this currency is being given
+                                // cents now, and there is one beside it that is still kept.
+                                let had_cents = original.with_value(|t| {
+                                    t.currencies.iter().any(|x| x.id.as_str() == c.id && x.with_cents())
+                                });
+                                let sibling = original.with_value(|t| {
+                                    tc_core::units::cents_sibling(t, &tc_core::CurrencyId::new(c.id.clone()))
+                                        .map(|s| (s.id.as_str().to_owned(), s.name.clone()))
+                                })
+                                .filter(|(sid, _)| rows.get_untracked().iter().any(|r| &r.id == sid));
+                                let offer = (cents_now && !had_cents && !c.id.is_empty())
+                                    .then_some(sibling)
+                                    .flatten();
+                                let name = c.name.clone();
+                                view! {
+                                    <div class="tcw-cur-cents">
+                                        <label class="tcn-switchline" title=t().dialogs.with_cents_hint>
+                                            <input type="checkbox" prop:checked=cents_now
+                                                   on:change=move |ev| {
+                                                       let on = event_target_checked(&ev);
+                                                       rows.update(|all| {
+                                                           if let Some(row) = all.get_mut(i) {
+                                                               row.cents = on;
+                                                               row.cents_auto = false;
+                                                               // Folding the EURc in is what
+                                                               // somebody giving EUR cents means.
+                                                               row.absorb = on;
+                                                           }
+                                                       });
+                                                   } />
+                                            {t().dialogs.with_cents}
+                                        </label>
+                                        {offer.map(|(_, sname)| view! {
+                                            <label class="tcn-switchline">
+                                                <input type="checkbox" prop:checked=c.absorb
+                                                       on:change=move |ev| {
+                                                           let on = event_target_checked(&ev);
+                                                           rows.update(|all| {
+                                                               if let Some(row) = all.get_mut(i) {
+                                                                   row.absorb = on;
+                                                               }
+                                                           });
+                                                       } />
+                                                {(t().dialogs.absorb)(&sname, &name)}
+                                            </label>
+                                        })}
+                                    </div>
+                                }
+                            })}
                         }
                     })
                     .collect_view()}
+
+                {move || match plan.get() {
+                    Ok(notes) if !notes.is_empty() => view! {
+                        <div class="tcn-chip tcn-chip-amber tcw-wraps" style="margin-top:8px">
+                            {notes.into_iter().map(|n| view! { <div>{n}</div> }).collect_view()}
+                        </div>
+                    }.into_any(),
+                    Ok(_) => ().into_any(),
+                    Err(_) => view! {
+                        <div class="tcn-errors" style="margin-top:8px">{t().dialogs.too_large}</div>
+                    }.into_any(),
+                }}
 
                 <div class="tcn-hint">
                     {t().dialogs.rename_note}

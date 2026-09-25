@@ -7,7 +7,7 @@
 use crate::i18n::t;
 use crate::api;
 use crate::tour::Load;
-use crate::ui::money;
+
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use tc_core::{Cents, Tour};
@@ -627,6 +627,9 @@ fn Row(
         .and_then(|v| v.as_i64());
 
     let currency = crate::ui::unit(&tour);
+    // Each row is its own tour in its own currency: the list does not go by the tour page's
+    // setting, and says for each whether its figures are hundredths.
+    let cents = tour.shows_cents();
 
     let for_delete = tour.clone();
     let for_clone = tour.clone();
@@ -694,7 +697,7 @@ fn Row(
                     </span>
                 </Show>
                 <span title=t().list.spent_hint>
-                    {money(Cents(spent))}
+                    {crate::ui::amount(Cents(spent), cents)}
                     {(!currency.is_empty()).then(|| view! { "\u{a0}" {currency} })}
                 </span>
                 // How much of it is still owed, beside the chip that says so.
@@ -704,7 +707,7 @@ fn Row(
                         // without it they read as one number in two halves.
                         <span>"·"</span>
                         <span title=t().list.left_hint>
-                            {money(Cents(left))} " " {t().list.to_settle}
+                            {crate::ui::amount(Cents(left), cents)} " " {t().list.to_settle}
                         </span>
                     }.into_any(),
                     _ => ().into_any(),

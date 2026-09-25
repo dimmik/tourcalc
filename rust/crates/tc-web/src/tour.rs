@@ -711,6 +711,8 @@ fn TourView(
     /// What is open and typed on the People tab, likewise owned above.
     people: crate::people::People,
 ) -> impl IntoView {
+    // Every figure on this screen is in this tour's currency: with cents or without.
+    crate::ui::show_cents_for(&tour);
     // Every avatar on this screen can now tell one Дима from another.
     provide_context(crate::ui::Peers(
         tour.persons.iter().map(|p| p.name.clone()).collect(),
@@ -1479,7 +1481,7 @@ fn ExpenseRow(
     let tour_for_details = tour.clone();
     let shown = tour.amount_in_current(&spending);
     let original = (spending.currency.id != tour.currency().id && tour.currencies.len() > 1)
-        .then(|| format!("{} {}", money(spending.amount), spending.currency.name));
+        .then(|| format!("{} {}", crate::ui::amount(spending.amount, tour.counts_cents(&spending.currency.id)), spending.currency.name));
     let for_edit = spending.clone();
     let for_delete = spending.clone();
     let for_why = spending.clone();
@@ -1655,7 +1657,7 @@ fn ExpenseDetails(tour: Tour, spending: Spending) -> impl IntoView {
         meta.push(spending.category.trim().to_owned());
     }
     if tour.currencies.len() > 1 && spending.currency.id != tour.currency().id {
-        meta.push((t().expenses.entered_as)(&money(spending.amount), &spending.currency.name));
+        meta.push((t().expenses.entered_as)(&crate::ui::amount(spending.amount, tour.counts_cents(&spending.currency.id)), &spending.currency.name));
     }
     if let tc_core::Kind::Draft { counted } = spending.kind {
         meta.push(if counted { t().expenses.draft_counted } else { t().expenses.draft_not_counted }.to_owned());

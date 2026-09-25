@@ -578,7 +578,11 @@ pub fn spending(tour: &Tour, s: &Spending) -> Explanation {
     if tour.currencies.len() > 1 && s.currency.id != tour.currency().id {
         facts.push(Fact::new(
             t().explain.entered_as,
-            format!("{} {}", money(s.amount), s.currency.name),
+            format!(
+                "{} {}",
+                crate::ui::amount(s.amount, tour.counts_cents(&s.currency.id)),
+                s.currency.name
+            ),
         ));
     }
     if let Kind::Draft { counted } = s.kind {

@@ -84,12 +84,39 @@ pub fn money_in(c: Cents, unit: &str) -> String {
     }
 }
 
-/// An amount, grouped the way the app groups it: 1 234 567.
+/// An amount of the tour on screen, in the currency it is being read in: 1 234 567, or
+/// 1 234,56 when that currency has cents.
 ///
-/// `Cents` already knows how to print itself; this exists so the call sites read the same
-/// as the C# ones.
+/// Whether it has cents is set once, by the tour page, when it gets its tour
+/// ([`show_cents_for`]) - there is only ever one tour on that page, and every figure on it is
+/// in that tour's currency, so threading a flag through eighty call sites would say the same
+/// thing eighty times. Where an amount is in some *other* currency - a row of the tour list,
+/// "entered as 12 EUR" - [`amount`] is called with that currency's own flag instead.
 pub fn money(c: Cents) -> String {
-    c.to_string()
+    amount(c, DISPLAY_CENTS.with(|d| d.get()))
+}
+
+/// An amount in a currency with or without cents, in the reader's decimal separator.
+pub fn amount(c: Cents, cents: bool) -> String {
+    tc_core::units::format(c, cents, decimal())
+}
+
+/// "3,50" in Russian, "3.50" in English.
+pub fn decimal() -> char {
+    match crate::i18n::lang() {
+        crate::i18n::Lang::En => '.',
+        crate::i18n::Lang::Ru => ',',
+    }
+}
+
+thread_local! {
+    static DISPLAY_CENTS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Tells [`money`] whether this tour's figures are hundredths. Called by the tour page for
+/// the tour it is showing, every time it is given one.
+pub fn show_cents_for(tour: &tc_core::Tour) {
+    DISPLAY_CENTS.with(|d| d.set(tour.shows_cents()));
 }
 
 /// The two or three letters on an avatar.

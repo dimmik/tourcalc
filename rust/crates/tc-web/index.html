@@ -184,6 +184,11 @@
         }
         .tcw-more:focus-visible { outline: 2px solid var(--tcn-primary); outline-offset: 2px; border-radius: 3px; }
 
+        /* The currencies dialog: under each currency, its cents and - when it is being given
+           cents - the EURc to fold into it. */
+        .tcw-cur-cents { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: -2px 0 10px 2px; font-size: 13px; }
+        .tcw-cur-cents .tcn-switchline { margin: 0; }
+
         .tcw-done {
             margin-bottom: 14px;
             padding: 10px 12px;

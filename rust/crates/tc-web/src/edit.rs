@@ -16,8 +16,18 @@ use tc_core::{Cents, Kind, Person, PersonId, Spending, SpendingId, Split, Tour};
 /// apart on the same device are not a thing that happens.
 pub fn new_id() -> String {
     const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz234567";
-    let ms = js_sys::Date::now() as u64;
-    let noise = (js_sys::Math::random() * 1024.0) as u64;
+    // The tests run natively, where there is no browser to ask: the system clock and a
+    // counter instead, which is all an id in a test needs to be.
+    let (ms, noise) = if cfg!(target_arch = "wasm32") {
+        (js_sys::Date::now() as u64, (js_sys::Math::random() * 1024.0) as u64)
+    } else {
+        static COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        (ms, COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 1024)
+    };
     let mut n = ms.wrapping_mul(1024).wrapping_add(noise);
     let mut out = String::new();
     for _ in 0..7 {
@@ -497,12 +507,22 @@ pub fn put_tour(tour: &Tour, draft: &TourDraft) -> Tour {
 }
 
 /// What the currencies dialog collects.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct CurrencyDraft {
     pub id: String,
     pub name: String,
     /// What one unit is worth on any scale you like - only the ratio matters.
     pub rate: i32,
+    /// Amounts are hundredths, read and written with a decimal part. See `tc_core::units`.
+    #[serde(default)]
+    pub cents: bool,
+    /// A new currency whose cents nobody has chosen yet: they follow its worth
+    /// (`tc_core::units::cents_by_default`) until somebody ticks or unticks the box.
+    #[serde(default)]
+    pub cents_auto: bool,
+    /// Switching cents on: fold this currency's "EURc" into it.
+    #[serde(default)]
+    pub absorb: bool,
 }
 
 impl CurrencyDraft {
@@ -511,7 +531,33 @@ impl CurrencyDraft {
             id: c.id.as_str().to_owned(),
             name: c.name.clone(),
             rate: c.rate,
+            cents: c.with_cents(),
+            cents_auto: false,
+            absorb: false,
         }
+    }
+
+    /// A row for a currency to be added: cents decided by its worth until somebody decides.
+    pub fn blank() -> CurrencyDraft {
+        CurrencyDraft {
+            rate: 100,
+            cents_auto: true,
+            ..Default::default()
+        }
+    }
+
+    /// Whether this currency will have cents: what was chosen, or - for a new one nobody
+    /// has decided about - what its worth against the others suggests.
+    pub fn effective_cents(&self, all: &[CurrencyDraft]) -> bool {
+        if !self.cents_auto {
+            return self.cents;
+        }
+        let others: Vec<i32> = all
+            .iter()
+            .filter(|c| !c.is_blank() && !std::ptr::eq(*c, self))
+            .map(|c| c.rate)
+            .collect();
+        tc_core::units::cents_by_default(self.rate, &self.name, &others)
     }
 
     pub fn is_blank(&self) -> bool {
@@ -546,7 +592,53 @@ pub fn currency_problems(kept: &[CurrencyDraft]) -> Vec<String> {
 /// Ids are kept through a rename on purpose: an expense is matched to its currency by id, so
 /// keeping it is what lets a currency be renamed without re-reading old expenses in another.
 pub fn put_currencies(tour: &Tour, kept: &[CurrencyDraft], main: &str) -> Tour {
+    // A plan that cannot be carried out was refused by the dialog before it got here; a
+    // queued one replayed against a tour that has since changed leaves the tour as it is.
+    plan_currencies(tour, kept, main)
+        .map(|p| p.tour)
+        .unwrap_or_else(|_| tour.clone())
+}
+
+/// What saving the currencies dialog will do, worked out before it is done - so the dialog
+/// can say it, and refuse what cannot be done.
+#[derive(Clone, Debug)]
+pub struct CurrencyPlan {
+    pub tour: Tour,
+    /// A removed currency's expenses, moved into another: (from, into, how many).
+    pub moved: Vec<(String, String, usize)>,
+    /// Expenses with cents rounded to whole units by switching a currency's cents off.
+    pub rounded: usize,
+    /// An "EURc" folded into its currency: (the EURc, the currency, how many expenses).
+    pub absorbed: Vec<(String, String, usize)>,
+}
+
+/// The tour with these currencies, and this one as the main.
+///
+/// In this order, each step on what the last one left:
+///
+/// 1. names and worths as the dialog has them; a new currency starts with the cents it was
+///    given, and has nothing to convert;
+/// 2. a currency that is gone takes its expenses into the cheapest one left, at the worths
+///    the tour lists - they used to be read, silently, in the main currency instead;
+/// 3. a currency whose cents were switched has its expenses and the worths rescaled
+///    (`tc_core::units::switch_cents`), which keeps every figure;
+/// 4. an "EURc" beside a euro that now has cents of its own is folded into it.
+pub fn plan_currencies(
+    tour: &Tour,
+    kept: &[CurrencyDraft],
+    main: &str,
+) -> Result<CurrencyPlan, tc_core::units::SwitchError> {
+    use tc_core::units::{cents_sibling, cheapest, move_spendings, switch_cents};
     let mut next = tour.clone();
+    let mut plan = CurrencyPlan {
+        tour: Tour { spendings: Vec::new(), persons: Vec::new(), ..tour.clone() },
+        moved: Vec::new(),
+        rounded: 0,
+        absorbed: Vec::new(),
+    };
+
+    // 1. What is kept, as named and worth now - cents as they were, for the moment.
+    let mut new_ids = Vec::new();
     next.currencies = kept
         .iter()
         .map(|c| {
@@ -557,17 +649,60 @@ pub fn put_currencies(tour: &Tour, kept: &[CurrencyDraft], main: &str) -> Tour {
                 .iter()
                 .find(|old| old.id.as_str() == c.id)
                 .cloned()
-                .unwrap_or_else(|| tc_core::Currency {
-                    id: tc_core::CurrencyId::new(new_id()),
-                    name: String::new(),
-                    rate: 100,
-                    extras: Default::default(),
+                .unwrap_or_else(|| {
+                    let mut new = tc_core::Currency {
+                        id: tc_core::CurrencyId::new(new_id()),
+                        name: String::new(),
+                        rate: 100,
+                        extras: Default::default(),
+                    };
+                    new.set_with_cents(c.effective_cents(kept));
+                    new_ids.push(new.id.clone());
+                    new
                 });
             fresh.name = c.name.trim().to_owned();
             fresh.rate = c.rate;
             fresh
         })
         .collect();
+
+    // 2. What is gone, and had expenses in it.
+    let gone: Vec<tc_core::Currency> = tour
+        .currencies
+        .iter()
+        .filter(|old| !kept.iter().any(|c| c.id == old.id.as_str()))
+        .cloned()
+        .collect();
+    for old in gone {
+        if !next.spendings.iter().any(|s| s.currency.id == old.id) {
+            continue;
+        }
+        let Some(into) = cheapest(&next, None).cloned() else { continue };
+        next.currencies.push(old.clone());
+        let n = move_spendings(&mut next, &old.id, &into.id);
+        next.currencies.retain(|c| c.id != old.id);
+        plan.moved.push((old.name.clone(), into.name.clone(), n));
+    }
+
+    // 3. Cents switched on or off where there were already expenses to convert.
+    for c in kept {
+        let id = tc_core::CurrencyId::new(c.id.clone());
+        if c.id.is_empty() || new_ids.contains(&id) {
+            continue;
+        }
+        let done = switch_cents(&mut next, &id, c.cents)?;
+        plan.rounded += done.rounded;
+    }
+
+    // 4. An EURc beside a euro that now counts cents itself.
+    for c in kept.iter().filter(|c| c.cents && c.absorb) {
+        let id = tc_core::CurrencyId::new(c.id.clone());
+        let Some(sibling) = cents_sibling(&next, &id).cloned() else { continue };
+        let n = move_spendings(&mut next, &sibling.id, &id);
+        next.currencies.retain(|x| x.id != sibling.id);
+        let into = next.currencies.iter().find(|x| x.id == id).map(|x| x.name.clone()).unwrap_or_default();
+        plan.absorbed.push((sibling.name.clone(), into, n));
+    }
 
     let main = next
         .currencies
@@ -580,7 +715,8 @@ pub fn put_currencies(tour: &Tour, kept: &[CurrencyDraft], main: &str) -> Tour {
     }
     // A settlement worked out in the old rates is not one in the new ones.
     next.spendings.retain(|s| s.kind != Kind::Planned);
-    next
+    plan.tour = next;
+    Ok(plan)
 }
 
 /// A suggested payment, recorded as having happened.
@@ -757,5 +893,88 @@ mod split_tests {
         value.as_object_mut().unwrap().remove("by_weight");
         let d: SpendingDraft = serde_json::from_value(value).unwrap();
         assert!(d.by_weight);
+    }
+}
+
+#[cfg(test)]
+mod currency_tests {
+    use super::*;
+
+    /// A tour in dinars with euros and euro cents, as the tours of 2025-2026 are.
+    fn tour() -> Tour {
+        let json = serde_json::json!({
+            "Id": "t", "Name": "t", "Persons": [{"GUID": "p", "Name": "P", "Weight": 100}],
+            "Currencies": [
+                {"_id": "RSD", "Name": "RSD", "CurrencyRate": 1000},
+                {"_id": "EUR", "Name": "EUR", "CurrencyRate": 117000},
+                {"_id": "EURc", "Name": "EURc", "CurrencyRate": 1170}
+            ],
+            "TourCurrencyId": "RSD",
+            "Spendings": [
+                {"GUID": "a", "Description": "dinner", "Type": "Food", "AmountInCents": 12,
+                 "FromGuid": "p", "ToAll": true, "ToGuid": [],
+                 "Currency": {"_id": "EUR", "Name": "EUR", "CurrencyRate": 117000}},
+                {"GUID": "b", "Description": "coffee", "Type": "Food", "AmountInCents": 350,
+                 "FromGuid": "p", "ToAll": true, "ToGuid": [],
+                 "Currency": {"_id": "EURc", "Name": "EURc", "CurrencyRate": 1170}}
+            ]
+        });
+        Tour::from_json(&json.to_string()).expect("tour")
+    }
+
+    fn drafts(t: &Tour) -> Vec<CurrencyDraft> {
+        t.currencies.iter().map(CurrencyDraft::of).collect()
+    }
+
+    fn in_dinars(t: &Tour) -> Vec<Cents> {
+        t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect()
+    }
+
+    #[test]
+    fn giving_eur_cents_and_folding_eurc_in_keeps_every_figure() {
+        let t = tour();
+        let before = in_dinars(&t);
+        let mut kept = drafts(&t);
+        kept[1].cents = true;
+        kept[1].absorb = true;
+        let plan = plan_currencies(&t, &kept, "RSD").expect("plan");
+        assert_eq!(plan.absorbed, vec![("EURc".to_owned(), "EUR".to_owned(), 1)]);
+        assert_eq!(plan.rounded, 0);
+        let after = plan.tour;
+        assert_eq!(after.currencies.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["RSD", "EUR"]);
+        assert!(after.currencies[1].with_cents());
+        assert_eq!(after.spendings.iter().map(|s| s.amount.0).collect::<Vec<_>>(), [1200, 350]);
+        assert!(after.spendings.iter().all(|s| s.currency.id.as_str() == "EUR"));
+        assert_eq!(in_dinars(&after), before);
+    }
+
+    #[test]
+    fn a_removed_currency_takes_its_expenses_into_the_cheapest_one_left() {
+        let t = tour();
+        let before = in_dinars(&t);
+        let kept: Vec<CurrencyDraft> = drafts(&t).into_iter().filter(|c| c.id != "EUR").collect();
+        let plan = plan_currencies(&t, &kept, "RSD").expect("plan");
+        assert_eq!(plan.moved, vec![("EUR".to_owned(), "RSD".to_owned(), 1)]);
+        assert_eq!(plan.tour.spendings[0].currency.id.as_str(), "RSD");
+        assert_eq!(in_dinars(&plan.tour), before);
+    }
+
+    #[test]
+    fn a_new_currency_starts_with_the_cents_its_worth_suggests() {
+        let t = tour();
+        let mut kept = drafts(&t);
+        let mut usd = CurrencyDraft::blank();
+        usd.name = "USD".into();
+        usd.rate = 108000;
+        kept.push(usd);
+        let plan = plan_currencies(&t, &kept, "RSD").expect("plan");
+        assert!(plan.tour.currencies.iter().find(|c| c.name == "USD").unwrap().with_cents());
+    }
+
+    #[test]
+    fn a_queued_edit_from_before_cents_still_reads() {
+        let old = r#"{"id":"EUR","name":"EUR","rate":117000}"#;
+        let d: CurrencyDraft = serde_json::from_str(old).expect("reads");
+        assert!(!d.cents && !d.cents_auto && !d.absorb);
     }
 }
