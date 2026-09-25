@@ -1314,15 +1314,28 @@ fn version_stamp(v: &Tour) -> String {
     crate::ui::local_stamp_of(&version_iso(&text))
 }
 
-/// A version's time as an instant the browser can read. Written with a zone (`Z`, `+03:00`)
-/// it is taken as written; without one it is the old servers' wall clock at UTC+3, which is
-/// what the C# and, until 25.09.2026, this server wrote. Shown on the reader's own clock -
+/// A version's time as an instant the browser can read, to be shown on the reader's clock -
 /// it used to be printed as stored, an hour ahead for somebody at UTC+2.
+///
+/// Three kinds of stamp are stored:
+///
+/// - with a zone and a real fraction (`…:12.345Z`, the C#'s `…+03:00`): taken as written;
+/// - with no zone at all (`2026-09-09 21:24:50`, this server before 25.09.2026, in a file):
+///   the wall clock at UTC+3;
+/// - `…:SS.000Z` - the same old stamp after a trip through MongoDB, which took it for UTC.
+///   Those were written to the second; new ones never end in `.000` (see the server's
+///   `fields::now_stamp`), so this is them, and they too are UTC+3 wall clock.
 fn version_iso(text: &str) -> String {
     let iso = text.trim().replacen(' ', "T", 1);
-    let time = iso.get(19..).unwrap_or("");
+    if iso.len() < 19 {
+        return iso;
+    }
+    if iso.ends_with(".000Z") {
+        return format!("{}+03:00", &iso[..19]);
+    }
+    let time = &iso[19..];
     let zoned = time.contains('Z') || time.contains('+') || time.contains('-');
-    if zoned || iso.len() < 19 {
+    if zoned {
         iso
     } else {
         format!("{iso}+03:00")
@@ -1335,8 +1348,9 @@ mod version_time_tests {
 
     #[test]
     fn a_stamp_with_a_zone_is_read_as_written_and_one_without_as_utc_plus_three() {
-        assert_eq!(version_iso("2026-09-25T18:48:12Z"), "2026-09-25T18:48:12Z");
-        assert_eq!(version_iso("2026-09-25T21:48:12.000Z"), "2026-09-25T21:48:12.000Z");
+        assert_eq!(version_iso("2026-09-25T18:48:12.345Z"), "2026-09-25T18:48:12.345Z");
+        // An old stamp of this server, back from MongoDB: UTC+3 wall clock after all.
+        assert_eq!(version_iso("2026-09-25T21:48:12.000Z"), "2026-09-25T21:48:12+03:00");
         assert_eq!(version_iso("2022-07-03T07:40:20.4829583+03:00"), "2022-07-03T07:40:20.4829583+03:00");
         assert_eq!(version_iso("2026-09-09 21:24:50"), "2026-09-09T21:24:50+03:00");
     }

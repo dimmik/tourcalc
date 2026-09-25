@@ -51,12 +51,23 @@ pub fn access_code(tour: &Tour) -> String {
 /// local time - and the client printed it as it was, so a reader at UTC+2 saw a version made
 /// half an hour ago stamped half an hour in the future. In MongoDB it was worse: a stamp with
 /// no zone is taken as UTC on the way in, so those instants are three hours late. They are
-/// left as they are (a version's time matters for a few hours at most); from here on the
-/// instant is stored as what it is, and the client shows it on the reader's own clock.
+/// left as they are; from here on the instant is stored as what it is, and the client shows
+/// it on the reader's own clock.
+///
+/// **With milliseconds, and never `.000`.** The old stamps had whole seconds, so in MongoDB
+/// every one of them reads back as `…:SS.000Z` - which is how the client tells them apart and
+/// reads them as the UTC+3 wall clock they really are. The C#'s stamps carry their own
+/// fraction. A new stamp that happened to land on a whole second is nudged a millisecond so it
+/// cannot be taken for an old one.
 pub fn now_stamp() -> String {
-    let secs = std::time::SystemTime::now()
+    let millis = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
+        .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    format!("{}Z", crate::api::stamp(secs).replace(' ', "T"))
+    let millis = if millis % 1000 == 0 { millis + 1 } else { millis };
+    format!(
+        "{}.{:03}Z",
+        crate::api::stamp(millis / 1000).replace(' ', "T"),
+        millis % 1000
+    )
 }
