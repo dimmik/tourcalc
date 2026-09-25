@@ -9,6 +9,29 @@
     read the same database.
 </p>
 
+<h3>25 September 2026</h3>
+<ul>
+    <li><b>“Show amounts in” changes only your screen.</b> Picking a currency there used to
+        save the tour: it made a version, told everybody subscribed that the amounts were now
+        in another currency, and moved the tour's main currency for all. Now it is remembered
+        on this device, for that tour, and changes nothing else; “main — EUR · reset” beside it
+        says what the tour itself is in. The main currency is set in the currencies
+        dialog.</li>
+    <li><b>Currencies with cents.</b> Amounts were whole numbers only, so 3.50 € could not be
+        written, and tours grew a second currency, “EURc”, to hold the cents. A currency can
+        now have cents of its own: it is entered and shown with a decimal part — 3.50 or
+        3,50, either separator works — and new currencies worth thirty times the cheapest one
+        start with cents. Switching an existing currency keeps every figure, and an old EURc
+        can be folded into its euro.</li>
+    <li><b>Removing a currency converts its expenses.</b> They used to be quietly read in the
+        tour's main currency, and every total changed without a word. Now they go into the
+        cheapest currency left, at the tour's rates, and the dialog says so before saving.</li>
+    <li><b>A version's time is on your own clock.</b> The list of a tour's versions printed
+        the time as the server stored it, in Moscow time, so for somebody at UTC+2 a change
+        made half an hour ago was stamped half an hour in the future. New versions are stored
+        in UTC, and every version — old ones included — is shown in your time zone.</li>
+</ul>
+
 <h3>24 September 2026</h3>
 <ul>
     <li><b>“Copied — the JSON is in the clipboard.”</b> It said “on the clipboard”, which

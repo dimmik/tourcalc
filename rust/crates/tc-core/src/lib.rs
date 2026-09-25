@@ -14,6 +14,7 @@ pub mod ids;
 pub mod money;
 pub mod news;
 pub mod removal;
+pub mod units;
 
 pub use calc::{
     balances_after, breakdown, calculate, is_an_expense, settlement_for, settlement_summary, share,

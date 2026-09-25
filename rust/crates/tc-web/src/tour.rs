@@ -323,14 +323,33 @@ fn copy_to_clipboard(text: &str) {
 /// Only the tour's own list, and only when there is more than one: changing it is a change
 /// to the tour, so it goes through the queue like any other edit and everyone sees it.
 #[component]
-fn CurrencyPicker(tour: Tour, apply: Callback<Operation>) -> impl IntoView {
-    let current = tour.current_currency.as_str().to_owned();
+fn CurrencyPicker(tour: Tour, shown_in: RwSignal<Option<String>>) -> impl IntoView {
+    // Nothing here is an edit: the choice stays on this device, and the tour is not saved.
+    // See `show_in`.
+    let main = crate::show_in::main_of(&tour);
+    let main_name = tour
+        .currencies
+        .iter()
+        .find(|c| c.id == main)
+        .map(|c| c.name.clone())
+        .unwrap_or_default();
+    let showing_other = tour.current_currency != main;
+    let current = if showing_other { tour.current_currency.as_str().to_owned() } else { String::new() };
+    let tour_id = StoredValue::new(tour.id.as_str().to_owned());
+    let pick = move |value: String| {
+        let chosen = (!value.is_empty()).then_some(value);
+        crate::show_in::choose(&tour_id.get_value(), chosen.as_deref());
+        shown_in.set(chosen);
+    };
     view! {
         <select class="tcn-input" style="width:auto; padding:4px 8px; font-size:13px;"
-                on:change=move |ev| apply.run(Operation::SetCurrency(event_target_value(&ev)))>
+                aria-label=t().tour.show_in
+                on:change=move |ev| pick(event_target_value(&ev))>
+            <option value="" selected=!showing_other>{(t().tour.show_in_main)(&main_name)}</option>
             {tour
                 .currencies
                 .iter()
+                .filter(|c| c.id != main)
                 .map(|c| {
                     let id = c.id.as_str().to_owned();
                     let selected = id == current;
@@ -338,6 +357,17 @@ fn CurrencyPicker(tour: Tour, apply: Callback<Operation>) -> impl IntoView {
                 })
                 .collect_view()}
         </select>
+        // Read in another currency: say which one the tour itself is in, and how to go back
+        // to it, so that remembered choice is never taken for the tour's own figures.
+        {showing_other.then(|| view! {
+            // On the purple header: light text, as the rest of that row is.
+            <span style="margin-left:8px; font-size:13px; color:rgba(255,255,255,.85)">
+                {(t().tour.main_is)(&main_name)} " · "
+                <button type="button" class="tcn-hero-link" on:click=move |_| pick(String::new())>
+                    {t().tour.reset}
+                </button>
+            </span>
+        })}
     }
 }
 
@@ -484,6 +514,8 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     let asked_for = !matches!(landing, crate::Landing::Unsaid);
     let left_on = (!asked_for).then(|| tab_left_on(&id)).flatten();
     let tab = RwSignal::new(left_on.unwrap_or_else(|| tab_of(landing)));
+    // Which currency this device reads the tour in; above the screen, like the tab.
+    let shown_in = RwSignal::new(crate::show_in::chosen(&id));
     // Whether that was an answer or a placeholder. The app settles this once and leaves it:
     // a reader who has moved to another tab does not want the next refresh moving them back.
     let tab_settled = RwSignal::new(asked_for || left_on.is_some());
@@ -687,10 +719,15 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                     <a class="tcn-btn" href="/">{t().sync.go_to_tours}</a>
                 </div>
             }.into_any(),
-            Load::Ready(tour) => view! {
-                <TourView tour=tour reload=load status=status landing=landing tab=tab
-                          refresh=refresh sifting=sifting people=people_state />
-            }.into_any(),
+            Load::Ready(tour) => {
+                // In the currency this reader chose to read it in, if any - see `show_in`.
+                let tour = crate::show_in::view_of(&tour, shown_in.get().as_deref());
+                view! {
+                    <TourView tour=tour reload=load status=status landing=landing tab=tab
+                              refresh=refresh sifting=sifting people=people_state
+                              shown_in=shown_in />
+                }.into_any()
+            }
         }}
     }
 }
@@ -710,7 +747,11 @@ fn TourView(
     sifting: Sifting,
     /// What is open and typed on the People tab, likewise owned above.
     people: crate::people::People,
+    /// Which currency this device reads the tour in, if not its main one.
+    shown_in: RwSignal<Option<String>>,
 ) -> impl IntoView {
+    // Every figure on this screen is in this tour's currency: with cents or without.
+    crate::ui::show_cents_for(&tour);
     // Every avatar on this screen can now tell one Дима from another.
     provide_context(crate::ui::Peers(
         tour.persons.iter().map(|p| p.name.clone()).collect(),
@@ -980,7 +1021,7 @@ fn TourView(
                     <span title=t().tour.show_in_hint>
                         {t().tour.show_in}
                     </span>
-                    <CurrencyPicker tour=tour_for_currency.clone() apply=apply />
+                    <CurrencyPicker tour=tour_for_currency.clone() shown_in=shown_in />
                 </div>
             })}
 
@@ -1479,7 +1520,7 @@ fn ExpenseRow(
     let tour_for_details = tour.clone();
     let shown = tour.amount_in_current(&spending);
     let original = (spending.currency.id != tour.currency().id && tour.currencies.len() > 1)
-        .then(|| format!("{} {}", money(spending.amount), spending.currency.name));
+        .then(|| format!("{} {}", crate::ui::amount(spending.amount, tour.counts_cents(&spending.currency.id)), spending.currency.name));
     let for_edit = spending.clone();
     let for_delete = spending.clone();
     let for_why = spending.clone();
@@ -1655,7 +1696,7 @@ fn ExpenseDetails(tour: Tour, spending: Spending) -> impl IntoView {
         meta.push(spending.category.trim().to_owned());
     }
     if tour.currencies.len() > 1 && spending.currency.id != tour.currency().id {
-        meta.push((t().expenses.entered_as)(&money(spending.amount), &spending.currency.name));
+        meta.push((t().expenses.entered_as)(&crate::ui::amount(spending.amount, tour.counts_cents(&spending.currency.id)), &spending.currency.name));
     }
     if let tc_core::Kind::Draft { counted } = spending.kind {
         meta.push(if counted { t().expenses.draft_counted } else { t().expenses.draft_not_counted }.to_owned());
@@ -1830,25 +1871,30 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
     // Name, rate, and whether it is the one the tour is being read in - the app marks that
     // column, and without the mark the table is four numbers with nothing to hold on to.
     let current_id = tour.current_currency.clone();
-    let rates: Vec<(String, i64, bool)> = {
-        let mut list: Vec<(String, i64, bool)> = tour
+    // Each column: a currency's name, what one of its stored units is worth (a cent, where it
+    // has cents - worths are per whole unit), whether it is the one read in, and its cents.
+    let rates: Vec<(String, f64, bool, bool)> = {
+        let mut list: Vec<(String, f64, bool, bool)> = tour
             .currencies
             .iter()
-            .map(|c| (c.name.clone(), c.rate as i64, c.id == current_id))
+            .map(|c| {
+                let unit = c.rate as f64 / c.stored_per_whole() as f64;
+                (c.name.clone(), unit, c.id == current_id, c.with_cents())
+            })
             .collect();
-        list.sort_by_key(|(_, rate, _)| -rate);
+        list.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         list
     };
-    let current_rate = tour.currency().rate as i64;
+    let current_unit = tour.currency().rate as f64 / tour.currency().stored_per_whole() as f64;
     let multi = tour.currencies.len() > 1;
-    let in_currency = move |amount: Cents, rate: i64| {
-        if rate == 0 {
+    let in_currency = move |amount: Cents, unit: f64| {
+        if unit == 0.0 {
             Cents::ZERO
         } else {
             // Rounded, not truncated: the C# does this in floating point and rounds when it
             // prints, and a cent of difference in a table beside the other client is the
             // kind of thing that makes somebody doubt both.
-            Cents((amount.0 as f64 * current_rate as f64 / rate as f64).round() as i64)
+            Cents((amount.0 as f64 * current_unit / unit).round() as i64)
         }
     };
 
@@ -2011,7 +2057,7 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                             <th></th>
                                             {head
                                                 .into_iter()
-                                                .map(|(name, _, main)| view! {
+                                                .map(|(name, _, main, _)| view! {
                                                     <th class:is-main=main>{name}</th>
                                                 })
                                                 .collect_view()}
@@ -2022,8 +2068,8 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                             <td>{t().balance.total}</td>
                                             {total_row
                                                 .into_iter()
-                                                .map(|(_, rate, _)| view! {
-                                                    <td>{move || money(in_currency(cat_total.get(), rate))}</td>
+                                                .map(|(_, unit, _, cents)| view! {
+                                                    <td>{move || crate::ui::amount(in_currency(cat_total.get(), unit), cents)}</td>
                                                 })
                                                 .collect_view()}
                                         </tr>
@@ -2031,8 +2077,8 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                             <td>{t().balance.per_person}</td>
                                             {person_row
                                                 .into_iter()
-                                                .map(|(_, rate, _)| view! {
-                                                    <td>{move || money(in_currency(per_person.get(), rate))}</td>
+                                                .map(|(_, unit, _, cents)| view! {
+                                                    <td>{move || crate::ui::amount(in_currency(per_person.get(), unit), cents)}</td>
                                                 })
                                                 .collect_view()}
                                         </tr>
@@ -2040,8 +2086,8 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                                             <td>{t().balance.per_day}</td>
                                             {day_row
                                                 .into_iter()
-                                                .map(|(_, rate, _)| view! {
-                                                    <td>{move || money(in_currency(per_day.get(), rate))}</td>
+                                                .map(|(_, unit, _, cents)| view! {
+                                                    <td>{move || crate::ui::amount(in_currency(per_day.get(), unit), cents)}</td>
                                                 })
                                                 .collect_view()}
                                         </tr>

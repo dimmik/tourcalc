@@ -847,7 +847,7 @@ fn MiniSpending(
     };
     let category = spending.category.trim().to_owned();
     let entered_as = (tour.currencies.len() > 1 && spending.currency.id != tour.currency().id)
-        .then(|| format!("{} {}", money(spending.amount), spending.currency.name));
+        .then(|| format!("{} {}", crate::ui::amount(spending.amount, tour.counts_cents(&spending.currency.id)), spending.currency.name));
     let colour = tc_core::extras::str_of(&spending.extras, crate::edit::COLOUR);
     let marked = crate::ui::is_marked(&colour);
     let mark_style = crate::ui::mark_style(&colour);

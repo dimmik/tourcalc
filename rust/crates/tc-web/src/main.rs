@@ -25,6 +25,7 @@ mod chart;
 mod push;
 mod settings;
 mod settings_page;
+mod show_in;
 mod queue;
 mod sync;
 mod tour;

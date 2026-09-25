@@ -385,6 +385,9 @@ pub struct CheckTexts {
     pub no_currency: &'static str,
     pub rate_zero: fn(&str) -> String,
     pub duplicate_currency: fn(&str) -> String,
+    pub amount_not_a_number: &'static str,
+    pub amount_too_many_decimals: &'static str,
+    pub amount_no_cents: fn(&str) -> String,
 }
 
 /// The ring in Stats.
@@ -581,6 +584,14 @@ pub struct DialogTexts {
     pub worth: &'static str,
     pub remove: &'static str,
     pub rename_note: &'static str,
+    pub with_cents: &'static str,
+    pub with_cents_hint: &'static str,
+    /// Fold "EURc" into "EUR": the EURc, then the currency.
+    pub absorb: fn(&str, &str) -> String,
+    /// How many expenses, from which currency, into which.
+    pub will_move: fn(usize, &str, &str) -> String,
+    pub will_round: fn(usize) -> String,
+    pub will_absorb: fn(usize, &str, &str) -> String,
     pub restore_question: &'static str,
     pub cannot_read_version: &'static str,
     pub restored_name: fn(&str, &str, &str) -> String,
@@ -651,6 +662,11 @@ pub struct TourTexts {
     pub versions: &'static str,
     pub show_in_hint: &'static str,
     pub show_in: &'static str,
+    /// The first choice in "show amounts in": the tour's own currency.
+    pub show_in_main: fn(&str) -> String,
+    /// Beside the picker while the tour is shown in another currency.
+    pub main_is: fn(&str) -> String,
+    pub reset: &'static str,
     pub total_spent: &'static str,
     pub people: &'static str,
     pub expenses: &'static str,

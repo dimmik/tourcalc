@@ -153,7 +153,7 @@
             <div><b><svg class="tcn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> currencies</b></div>
             <div>The <b>main currency</b> of the tour and the rates. It is a property of the tour: changing it changes what everyone sees.</div>
             <div><b>show amounts in</b></div>
-            <div>A local view switch. It converts what is on your screen and saves nothing.</div>
+            <div>A switch for you alone. It converts what is on your screen and changes nothing in the tour; this device remembers it for each tour, and <b>reset</b> beside it goes back to the main currency.</div>
         </div>
         <p>
             Rates are given as <b>worth</b>, on any scale you like — only the ratio matters. If
@@ -161,9 +161,16 @@
         </p>
         <p>
             Every expense stays attached to the currency it was entered in. <b>Renaming a
-            currency is safe</b> — the amounts keep their meaning. <b>Removing one is not</b>:
-            the expenses entered in it are then read in the main currency, and the numbers
-            change.
+            currency is safe</b> — the amounts keep their meaning. <b>Removing one</b> converts
+            the expenses entered in it into the cheapest currency left, at the tour's rates, and
+            the dialog says how many before you save.
+        </p>
+        <p>
+            A currency <b>with cents</b> is entered and shown with a decimal part — 3.50 — and
+            either a point or a comma will do when you type it. New currencies worth thirty
+            times the cheapest one or more (a euro against dinars) start with cents; any
+            currency can be switched in the currencies dialog, and every figure stays what it
+            was. An older “EURc” beside a euro can be folded into it there too.
         </p>
     </section>
 
@@ -237,7 +244,7 @@
             <div><b>Main currency</b></div>
             <div>The one every total is calculated in. Shared by everyone.</div>
             <div><b>show amounts in</b></div>
-            <div>Converts your own screen. Saved nowhere.</div>
+            <div>Converts your own screen. Remembered on this device, never saved in the tour.</div>
         </div>
     </section>
 
