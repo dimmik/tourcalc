@@ -183,13 +183,18 @@ pub enum SwitchError {
 }
 
 /// Switches `id` to amounts in hundredths (`on`) or back to whole units, keeping every figure
-/// of the tour what it was.
+/// of the tour what it was, and the worths as small as that allows.
 ///
-/// On: its expenses ×100. Its own worth stays - it is now the worth of a cent - and every
-/// *other* currency's worth ×100 instead, which keeps each ratio exact; dividing its worth by
-/// a hundred would round it. Off: the reverse where it is exact - its worth ×100 - and its
-/// expenses ÷100, rounded half away from zero, which is the one thing that can lose money,
-/// and is counted so the reader can be told.
+/// On: its expenses ×100, and its worth becomes the worth of a cent - ÷100. When that is
+/// exact (117 000 → 1 170) nothing else moves. When it is not (11 745), the other worths are
+/// multiplied by the least that makes it exact (×20 here: 11 745 → 2 349, the rest ×20), so
+/// every ratio stays exact without rounding anything. The first version always multiplied
+/// the others by a hundred, and a tour's dinars went from 1 000 to 100 000 for no reason -
+/// after which a new currency worth 60 000 no longer looked expensive enough to get cents.
+///
+/// Off: its worth ×100 - the reverse of the exact case above - or, if that would not fit, the
+/// others ÷100 where every one of them divides; and its expenses ÷100, rounded half away from
+/// zero: the one step that can lose money, counted so the reader can be told.
 pub fn switch_cents(tour: &mut Tour, id: &CurrencyId, on: bool) -> Result<Switched, SwitchError> {
     let Some(at) = tour.currencies.iter().position(|c| &c.id == id) else {
         return Ok(Switched::default());
@@ -197,15 +202,31 @@ pub fn switch_cents(tour: &mut Tour, id: &CurrencyId, on: bool) -> Result<Switch
     if tour.currencies[at].with_cents() == on {
         return Ok(Switched::default());
     }
-    let scale = |rate: i32| rate.checked_mul(100).ok_or(SwitchError::TooLarge);
+    let own = tour.currencies[at].rate;
     if on {
+        // The least k that makes own·k divisible by 100.
+        let k = 100 / gcd(own.unsigned_abs(), 100) as i32;
         for (i, c) in tour.currencies.iter_mut().enumerate() {
             if i != at {
-                c.rate = scale(c.rate)?;
+                c.rate = c.rate.checked_mul(k).ok_or(SwitchError::TooLarge)?;
+            }
+        }
+        tour.currencies[at].rate = own.checked_mul(k).ok_or(SwitchError::TooLarge)? / 100;
+    } else if let Some(bigger) = own.checked_mul(100) {
+        tour.currencies[at].rate = bigger;
+    } else if tour
+        .currencies
+        .iter()
+        .enumerate()
+        .all(|(i, c)| i == at || c.rate % 100 == 0)
+    {
+        for (i, c) in tour.currencies.iter_mut().enumerate() {
+            if i != at {
+                c.rate /= 100;
             }
         }
     } else {
-        tour.currencies[at].rate = scale(tour.currencies[at].rate)?;
+        return Err(SwitchError::TooLarge);
     }
     tour.currencies[at].set_with_cents(on);
     let current = tour.currencies[at].clone();
@@ -231,6 +252,10 @@ pub fn switch_cents(tour: &mut Tour, id: &CurrencyId, on: bool) -> Result<Switch
         }
     }
     Ok(done)
+}
+
+fn gcd(a: u32, b: u32) -> u32 {
+    if b == 0 { a } else { gcd(b, a % b) }
 }
 
 /// The "EURc" of a currency: another currency of the tour named or identified like this one
@@ -335,7 +360,8 @@ mod tests {
         let done = switch_cents(&mut t, &CurrencyId::new("EUR"), true).unwrap();
         assert_eq!(done, Switched { changed: 1, rounded: 0 });
         assert_eq!(t.spendings[0].amount, Cents(1200));
-        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![10000, 11745]);
+        // 11 745 does not divide by 100: the others ×20, the euro 11 745·20/100.
+        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![2000, 2349]);
         assert!(t.currencies[1].with_cents());
         let after: Vec<Cents> = t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect();
         // In RSD, which is what this tour is read in: the same money, now counted in cents
@@ -349,13 +375,28 @@ mod tests {
         let done = switch_cents(&mut t, &CurrencyId::new("EUR"), false).unwrap();
         assert_eq!(done, Switched { changed: 2, rounded: 1 });
         assert_eq!(t.spendings.iter().map(|s| s.amount).collect::<Vec<_>>(), vec![Cents(4), Cents(12)]);
-        assert_eq!(t.currencies[1].rate, 1174500);
+        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![10000, 1174500]);
         assert!(!t.currencies[1].with_cents());
     }
 
     #[test]
+    fn a_worth_that_divides_leaves_the_other_currencies_alone() {
+        // The tours of 2025-2026: dinars at 1 000, euros at 117 000.
+        let mut t = tour(&[("RSD", 1000, false), ("BAMc", 600, false), ("EUR", 117000, false)], &[("EUR", 12)]);
+        let before: Vec<Cents> = t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect();
+        switch_cents(&mut t, &CurrencyId::new("EUR"), true).unwrap();
+        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![1000, 600, 1170]);
+        let after: Vec<Cents> = t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect();
+        assert_eq!(before, after);
+        // And back: the euro ×100 again, nobody else touched.
+        switch_cents(&mut t, &CurrencyId::new("EUR"), false).unwrap();
+        assert_eq!(t.currencies.iter().map(|c| c.rate).collect::<Vec<_>>(), vec![1000, 600, 117000]);
+    }
+
+    #[test]
     fn a_worth_that_would_not_fit_refuses_the_switch() {
-        let mut t = tour(&[("A", 100, false), ("B", 30_000_000, false)], &[]);
+        // 101 does not divide by 100, so the others would have to be ×100 - and B cannot be.
+        let mut t = tour(&[("A", 101, false), ("B", 30_000_000, false)], &[]);
         assert_eq!(switch_cents(&mut t, &CurrencyId::new("A"), true), Err(SwitchError::TooLarge));
     }
 
