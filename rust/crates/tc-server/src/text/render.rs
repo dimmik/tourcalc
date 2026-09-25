@@ -31,6 +31,17 @@ pub fn esc(text: &str) -> String {
 /// Not the narrow no-break space the app uses. lynx renders that as a question mark in a
 /// terminal that is not certain of its own encoding, and a number reading "1?234" is worse
 /// than one that might wrap.
+/// An amount in a currency with or without cents: "1 234" or "1 234.56". The text pages are
+/// English, so the decimal separator is a point.
+pub fn money_c(amount: Cents, cents: bool) -> String {
+    if !cents {
+        return money(amount);
+    }
+    let whole = money(Cents(amount.0.abs() / 100));
+    let sign = if amount.0 < 0 { "-" } else { "" };
+    format!("{sign}{whole}.{:02}", amount.0.abs() % 100)
+}
+
 pub fn money(amount: Cents) -> String {
     let digits = amount.0.unsigned_abs().to_string();
     let mut out = String::new();

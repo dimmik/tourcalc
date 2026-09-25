@@ -5,7 +5,7 @@
 //! replaces, down to the wording, because the two are meant to be the same interface.
 
 use super::forms::Fields;
-use super::render::{esc, money, page, short};
+use super::render::{esc, money_c, page, short};
 use super::{Reader, COOKIE};
 use crate::api::write as api_write;
 use crate::auth::AuthData;
@@ -45,7 +45,7 @@ impl Loaded {
         } else {
             format!(
                 "left to settle <strong>{}</strong> {}",
-                money(self.left_to_settle),
+                money_c(self.left_to_settle, self.tour.shows_cents()),
                 esc(&self.currency)
             )
         };
@@ -69,7 +69,7 @@ impl Loaded {
 <nav>{balance} {ppl} {exp} {stats}</nav>
 <hr />"#,
             name = esc(&t.name),
-            spent = money(self.total_spent),
+            spent = money_c(self.total_spent, self.tour.shows_cents()),
             cur = esc(&self.currency),
             people = t.persons.len(),
             expenses = self.expenses,
@@ -409,7 +409,7 @@ pub async fn tour(
 <button type="submit">Mark paid</button></form></td></tr>"#,
                     from = esc(&name_of(&loaded.tour, &t.from)),
                     to = esc(&name_of(&loaded.tour, &t.to)),
-                    amount = money(loaded.tour.convert(t.amount, &t.currency)),
+                    amount = money_c(loaded.tour.convert(t.amount, &t.currency), loaded.tour.shows_cents()),
                     id = esc(&loaded.id),
                     tid = esc(&api_write::transfer_id(t)),
                 )
@@ -433,7 +433,7 @@ pub async fn tour(
                     "<tr><td>{name}</td><td>{word} {sum}</td></tr>",
                     name = esc(&p.name),
                     word = if amount.0 > 0 { "owes" } else { "gets" },
-                    sum = money(amount.abs()),
+                    sum = money_c(amount.abs(), loaded.tour.shows_cents()),
                 )
             })
             .collect();
@@ -502,7 +502,7 @@ pub async fn mark_paid(
         "{} → {}, {}",
         name_of(&loaded.tour, &transfer.from),
         name_of(&loaded.tour, &transfer.to),
-        money(loaded.tour.convert(transfer.amount, &transfer.currency)),
+        money_c(loaded.tour.convert(transfer.amount, &transfer.currency), loaded.tour.shows_cents()),
     );
 
     let mut next = (*loaded.tour).clone();
@@ -633,15 +633,15 @@ pub async fn people(
                     lead = if p.parent.is_some() { "└ " } else { "" },
                     name = esc(&p.name),
                     weight = p.weight,
-                    paid = money(b.map(|b| b.spent).unwrap_or_default()),
-                    charged = money(b.map(|b| b.received).unwrap_or_default()),
+                    paid = money_c(b.map(|b| b.spent).unwrap_or_default(), loaded.tour.shows_cents()),
+                    charged = money_c(b.map(|b| b.received).unwrap_or_default(), loaded.tour.shows_cents()),
                     balance = if settle.is_zero() {
                         "settled".to_owned()
                     } else {
                         format!(
                             "{} {}",
                             if settle.0 > 0 { "owes" } else { "gets" },
-                            money(settle.abs())
+                            money_c(settle.abs(), loaded.tour.shows_cents())
                         )
                     },
                     tour = esc(&loaded.id),
@@ -945,7 +945,7 @@ pub async fn spend(
                     what = esc(&s.description),
                     by = esc(&short(&name_of(tour, &s.from), 12)),
                     for_whom = esc(&for_whom(tour, s)),
-                    amount = money(tour.amount_in_current(s)),
+                    amount = money_c(tour.amount_in_current(s), loaded.tour.shows_cents()),
                     tour_id = esc(&loaded.id),
                     sid = esc(s.id.as_str()),
                 )
@@ -958,7 +958,7 @@ pub async fn spend(
 <tbody>{rows}</tbody></table>"#,
             count = shown.len(),
             total_count = all.len(),
-            sum = money(total),
+            sum = money_c(total, loaded.tour.shows_cents()),
             cur = esc(&loaded.currency),
         )
     };
@@ -1046,7 +1046,12 @@ fn spending_page(
         "Edit expense"
     };
 
-    let amount = spending.map(|s| s.amount.0).unwrap_or(0);
+    // As it would be typed: "3.50" for a currency with cents, no thousands gaps.
+    let amount = match spending {
+        Some(s) => tc_core::units::format(s.amount, tour.counts_cents(&s.currency.id), '.')
+            .replace('\u{202f}', ""),
+        None => String::new(),
+    };
     let description = spending.map(|s| s.description.as_str()).unwrap_or("");
     let category = spending.map(|s| s.category.as_str()).unwrap_or("");
     let from = spending.map(|s| s.from.clone());
@@ -1132,7 +1137,7 @@ fn spending_page(
             r#"{header}<h2>{title}</h2>{error}
 <form method="post" action="{action}">
 <p><label for="amount">Amount</label><br />
-<input type="number" id="amount" name="Amount" value="{amount}" size="12" /> {cur}</p>
+<input type="text" inputmode="decimal" id="amount" name="Amount" value="{amount}" size="12" /> {cur}</p>
 <p><label for="desc">What for</label><br />
 <input type="text" id="desc" name="Description" value="{description}" size="40" /></p>
 <p><label for="from">Paid by</label>
@@ -1173,7 +1178,6 @@ pub async fn spending_save(
     };
 
     let form = Fields::parse(&body);
-    let amount = form.number("Amount").unwrap_or(0);
     let to_all = form.checked("ToAll");
     let to: Vec<PersonId> = form
         .all("ToGuid")
@@ -1187,7 +1191,23 @@ pub async fn spending_save(
         .as_ref()
         .and_then(|sid| loaded.tour.spendings.iter().find(|s| &s.id == sid));
 
-    let problem = if amount == 0 {
+    // Read the way the expense's currency counts - "3.50" and "3,50" both, in one with cents.
+    let cents = match current {
+        Some(s) => loaded.tour.counts_cents(&s.currency.id),
+        None => loaded.tour.shows_cents(),
+    };
+    use tc_core::units::{parse_amount, AmountError};
+    let (amount, unreadable) = match parse_amount(form.text("Amount"), cents) {
+        Ok(a) => (a.0, None),
+        Err(AmountError::Empty) => (0, None),
+        Err(AmountError::TooManyDecimals) => (0, Some("No more than two digits after the decimal point.")),
+        Err(AmountError::NoCentsHere) => (0, Some("This currency is counted in whole units, without cents.")),
+        Err(AmountError::NotANumber) => (0, Some("The amount is not a number.")),
+    };
+
+    let problem = if unreadable.is_some() {
+        unreadable
+    } else if amount == 0 {
         Some("How much was it?")
     } else if !to_all && to.is_empty() {
         Some("Who was it for?")
@@ -1329,7 +1349,7 @@ pub async fn stats(
                     r#"<tr><td>{name}</td><td class="n">{count}</td><td class="n">{share}</td><td class="n">{sum}</td></tr>"#,
                     name = esc(name),
                     share = percent(*sum),
-                    sum = money(*sum),
+                    sum = money_c(*sum, loaded.tour.shows_cents()),
                 )
             })
             .collect();
@@ -1358,10 +1378,10 @@ pub async fn stats(
 &middot; <strong>{per_day}</strong> per person per day over {days} days</p>
 {tables}"#,
             header = loaded.header("Stats"),
-            total = money(total),
+            total = money_c(total, loaded.tour.shows_cents()),
             cur = esc(&loaded.currency),
-            per_person = money(Cents(total.0 / people)),
-            per_day = money(Cents(total.0 / people / days)),
+            per_person = money_c(Cents(total.0 / people), loaded.tour.shows_cents()),
+            per_day = money_c(Cents(total.0 / people / days), loaded.tour.shows_cents()),
         ),
     )
     .into_response()
