@@ -933,7 +933,8 @@ pub fn CurrenciesDialog(
     // is no rate - and the question in flight, and the offer to multiply every worth first.
     let rate_notes: RwSignal<Vec<(usize, RateNote)>> = RwSignal::new(Vec::new());
     let asking: RwSignal<Option<usize>> = RwSignal::new(None);
-    let raise_offer: RwSignal<Option<(usize, i32)>> = RwSignal::new(None);
+    // (row asked about, multiplier, why - said in words).
+    let raise_offer: RwSignal<Option<(usize, i32, String)>> = RwSignal::new(None);
     let raised: RwSignal<Option<i32>> = RwSignal::new(None);
     let raise_declined = RwSignal::new(false);
     let fetched: StoredValue<Option<crate::rates::Rates>> = StoredValue::new(None);
@@ -990,24 +991,57 @@ pub fn CurrenciesDialog(
             match got {
                 Err(why) => note_for(at, RateNote::Failed(rate_failure(&why))),
                 Ok(rates) => {
-                    let offer = if raise_declined.get_untracked() {
-                        None
-                    } else {
-                        crate::rates::raise_for(&rate_rows(), at, &rates)
-                    };
-                    fetched.set_value(Some(rates));
-                    match offer {
-                        Some(factor) => raise_offer.set(Some((at, factor))),
-                        None => work_out(at, false),
+                    // The rate first, so the offer that may follow is about a number on screen.
+                    fetched.set_value(Some(rates.clone()));
+                    work_out(at, false);
+                    if raise_declined.get_untracked() {
+                        return;
+                    }
+                    let now = rate_rows();
+                    if let Some(raise) = crate::rates::raise_for(&now, at, &rates) {
+                        let d = &t().dialogs;
+                        let said = |i: usize| {
+                            let r = &now[i];
+                            (r.name.trim().to_owned(), crate::ui::amount(Cents(r.rate as i64), false))
+                        };
+                        let why = match raise.why {
+                            crate::rates::RaiseWhy::Base(i) => {
+                                let (name, worth) = said(i);
+                                (d.raise_base)(&name, &worth, raise.factor)
+                            }
+                            crate::rates::RaiseWhy::Cents(i) => {
+                                let (name, worth) = said(i);
+                                (d.raise_cents)(&name, &worth, raise.factor)
+                            }
+                        };
+                        raise_offer.set(Some((at, raise.factor, why)));
                     }
                 }
             }
         });
     };
     let answer_raise = move |yes: bool| {
-        let Some((at, factor)) = raise_offer.get_untracked() else { return };
+        let Some((at, factor, _)) = raise_offer.get_untracked() else { return };
         raise_offer.set(None);
         if yes {
+            // What each row was before any of this, for its "was" line: the multiplied figure
+            // would say nothing anybody typed.
+            let originals: Vec<i32> = {
+                let notes = rate_notes.get_untracked();
+                rows.get_untracked()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| {
+                        notes
+                            .iter()
+                            .find_map(|(r, n)| match n {
+                                RateNote::Was(w, _) if *r == i => Some(*w),
+                                _ => None,
+                            })
+                            .unwrap_or(c.rate)
+                    })
+                    .collect()
+            };
             typing.set(None);
             rows.update(|all| {
                 for row in all.iter_mut().filter(|c| !c.is_blank()) {
@@ -1015,7 +1049,6 @@ pub fn CurrenciesDialog(
                 }
             });
             raised.update(|r| *r = Some(r.unwrap_or(1).saturating_mul(factor)));
-            // The worths shown as "was" are the old scale now.
             rate_notes.set(Vec::new());
             // Every currency the source knows, not only the one asked about: a worth that was
             // already off (the dinar set to 100 beside a lev at 60 100) would otherwise be
@@ -1025,9 +1058,16 @@ pub fn CurrenciesDialog(
             for i in (0..all.len()).filter(|i| *i != at && crate::rates::has_button(&all, *i)) {
                 work_out(i, true);
             }
+            rate_notes.update(|notes| {
+                for (i, note) in notes.iter_mut() {
+                    if let (RateNote::Was(was, _), Some(o)) = (note, originals.get(*i)) {
+                        *was = *o;
+                    }
+                }
+            });
         } else {
+            // The rate is already in; only the offer is turned down, for this dialog.
             raise_declined.set(true);
-            work_out(at, false);
         }
     };
 
@@ -1271,9 +1311,9 @@ pub fn CurrenciesDialog(
                                             <div class="tcw-rate-note is-failed">{why}</div>
                                         }.into_any(),
                                     })}
-                                    {move || raise_offer.get().filter(|(at, _)| *at == i).map(|(_, factor)| view! {
+                                    {move || raise_offer.get().filter(|(at, _, _)| *at == i).map(|(_, _, why)| view! {
                                         <div class="tcn-chip tcn-chip-amber tcw-wraps tcw-raise">
-                                            <div>{(t().dialogs.raise_offer)(factor)}</div>
+                                            <div>{why}</div>
                                             <div class="tcw-raise-buttons">
                                                 <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
                                                         on:click=move |_| answer_raise(true)>

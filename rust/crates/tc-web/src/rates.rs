@@ -217,31 +217,55 @@ pub fn raise_factor(floors: &[(f64, f64)], largest: f64) -> Option<i32> {
     (f > 1 && largest * f as f64 <= i32::MAX as f64).then_some(f as i32)
 }
 
-/// The multiplier to offer before working out row `at`: when the base is worth under 1 000,
-/// or a currency with cents would come out under 100 000 against it. What it would come out
-/// at is worked out from the rates, not read from the row - the row may be the very thing
-/// that is off.
-pub fn raise_for(rows: &[Row], at: usize, rates: &Rates) -> Option<i32> {
+/// A multiplier worth offering, and the row that is the reason for it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Raise {
+    pub factor: i32,
+    pub why: RaiseWhy,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum RaiseWhy {
+    /// The base, worth under 1 000: not four figures for what is worked out from it.
+    Base(usize),
+    /// A currency with cents, under 100 000: not two zeros after its four figures.
+    Cents(usize),
+}
+
+/// The multiplier to offer after working out row `at`: when the base is worth under 1 000, or
+/// the currency asked about has cents and comes out under 100 000. Only that currency - the
+/// euro asked about says nothing of the lev. What it comes out at is worked out from the
+/// rates, not read from the row.
+pub fn raise_for(rows: &[Row], at: usize, rates: &Rates) -> Option<Raise> {
     let unit = resolve(rows.get(at)?, rates).ok()?;
     let base_at = reference(rows, &unit.iso, rates)?;
     let base_row = &rows[base_at];
     let base = resolve(base_row, rates).ok()?;
     let mut floors = vec![(base_row.rate as f64, BASE_AT_LEAST)];
+    let mut short_of_cents = None;
     let mut largest: f64 = 0.0;
     for (i, r) in rows.iter().enumerate().filter(|(_, r)| !r.name.trim().is_empty()) {
         largest = largest.max(r.rate as f64);
-        if i == base_at {
+        let Ok(u) = resolve(r, rates) else { continue };
+        if i == base_at || u.iso != unit.iso {
             continue;
         }
-        if let Ok(u) = resolve(r, rates) {
-            let worth = worth_against(&u, &base, base_row.rate, rates);
-            largest = largest.max(worth);
-            if r.cents && u.per == 1 {
-                floors.push((worth, CENTS_AT_LEAST));
+        let worth = worth_against(&u, &base, base_row.rate, rates);
+        largest = largest.max(worth);
+        if r.cents && u.per == 1 {
+            floors.push((worth, CENTS_AT_LEAST));
+            if worth < CENTS_AT_LEAST && short_of_cents.is_none() {
+                short_of_cents = Some(i);
             }
         }
     }
-    raise_factor(&floors, largest)
+    let factor = raise_factor(&floors, largest)?;
+    let why = if (base_row.rate as f64) < BASE_AT_LEAST {
+        RaiseWhy::Base(base_at)
+    } else {
+        RaiseWhy::Cents(short_of_cents?)
+    };
+    Some(Raise { factor, why })
 }
 
 /// What one of `unit` is worth when one of `base` is worth `base_worth`, unrounded.
@@ -454,7 +478,7 @@ mod tests {
         // Chips at 1 are cheaper, but the dinar is what the euro is worked out from.
         let r = sample();
         let rows = vec![row("c", "Chips", 1), row("RSD", "RSD", 100), row("EUR", "EUR", 11_800)];
-        assert_eq!(raise_for(&rows, 2, &r), Some(10));
+        assert_eq!(raise_for(&rows, 2, &r), Some(Raise { factor: 10, why: RaiseWhy::Base(1) }));
     }
 
     /// The lev with cents at 60 090 against the dinar at 1 000: four figures, one zero. Ten
@@ -467,14 +491,14 @@ mod tests {
             row("RSD", "RSD", 1000),
             with_cents(row("LEV", "LEV", 60_090)),
         ];
-        assert_eq!(raise_for(&rows, 2, &r), Some(10));
-        assert_eq!(raise_for(&rows, 0, &r), Some(10), "asked at the euro, the lev still counts");
+        assert_eq!(raise_for(&rows, 2, &r), Some(Raise { factor: 10, why: RaiseWhy::Cents(2) }));
+        assert_eq!(raise_for(&rows, 0, &r), None, "asked at the euro, the lev says nothing");
         // Without cents the lev is fine at four figures.
         let plain = vec![row("RSD", "RSD", 1000), row("LEV", "LEV", 60_090)];
         assert_eq!(raise_for(&plain, 1, &r), None);
         // Worked out from the rates, not from the row: a lev typed as 600 000 is not trusted.
         let off = vec![row("RSD", "RSD", 1000), with_cents(row("LEV", "LEV", 600_000))];
-        assert_eq!(raise_for(&off, 1, &r), Some(10));
+        assert_eq!(raise_for(&off, 1, &r).map(|x| x.factor), Some(10));
         // After multiplying, the rows are refined to two zeros.
         let raised = vec![row("RSD", "RSD", 10_000), with_cents(row("LEV", "LEV", 600_000))];
         assert_eq!(raise_for(&raised, 1, &r), None);

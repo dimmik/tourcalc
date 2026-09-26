@@ -485,9 +485,15 @@ pub const TEXTS: Texts = Texts {
         rate_nothing_to_compare: "There is no other currency here to work it out against.",
         rate_offline: "Cannot get the rate right now — try again later.",
         rate_out_of_range: "The worth would come out too large or too small.",
-        raise_offer: |f| format!(
-            "For the rates to come out exact, multiply every worth by {f} and fill in today's rate \
-             for every currency the source knows?"
+        raise_base: |name, worth, f| format!(
+            "{name} is worth only {worth}, and everything is worked out from it — at least 1 000 \
+             is needed for four exact figures. Multiply every worth by {f} and fill in today's \
+             rate for every currency the source knows?"
+        ),
+        raise_cents: |name, worth, f| format!(
+            "{name} came out at {worth}. With cents its worth should end in two zeros, so that a \
+             cent is a whole number too. Multiply every worth by {f} and fill in today's rate for \
+             every currency the source knows?"
         ),
         raise_yes: "Multiply",
         raise_no: "Keep as is",

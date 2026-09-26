@@ -606,8 +606,10 @@ pub struct DialogTexts {
     pub rate_nothing_to_compare: &'static str,
     pub rate_offline: &'static str,
     pub rate_out_of_range: &'static str,
-    /// Multiply every worth by this, so the rates come out to four figures?
-    pub raise_offer: fn(i32) -> String,
+    /// Multiply every worth by this? Because the base (name, worth) is too small for four
+    /// figures, or a currency with cents (name, worth) does not end in two zeros.
+    pub raise_base: fn(&str, &str, i32) -> String,
+    pub raise_cents: fn(&str, &str, i32) -> String,
     pub raise_yes: &'static str,
     pub raise_no: &'static str,
     pub raised: fn(i32) -> String,
