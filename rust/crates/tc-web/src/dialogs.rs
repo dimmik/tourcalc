@@ -938,9 +938,14 @@ pub fn CurrenciesDialog(
     let raise_declined = RwSignal::new(false);
     let fetched: StoredValue<Option<crate::rates::Rates>> = StoredValue::new(None);
     let rate_rows = move || -> Vec<crate::rates::Row> {
-        rows.get_untracked()
-            .iter()
-            .map(|c| crate::rates::Row { id: c.id.clone(), name: c.name.clone(), rate: c.rate })
+        let all = rows.get_untracked();
+        all.iter()
+            .map(|c| crate::rates::Row {
+                id: c.id.clone(),
+                name: c.name.clone(),
+                rate: c.rate,
+                cents: c.effective_cents(&all),
+            })
             .collect()
     };
     let note_for = move |at: usize, note: RateNote| {
