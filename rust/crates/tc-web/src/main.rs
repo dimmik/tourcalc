@@ -23,6 +23,7 @@ mod people;
 mod place;
 mod chart;
 mod push;
+mod rates;
 mod settings;
 mod settings_page;
 mod show_in;

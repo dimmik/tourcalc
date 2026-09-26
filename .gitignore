@@ -13,3 +13,6 @@ packages/
 !/.vscode/tasks.json
 !/.vscode/launch.json
 
+
+# Python bytecode from the helper scripts in tools/
+__pycache__/

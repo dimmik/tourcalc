@@ -320,8 +320,8 @@ fn copy_to_clipboard(text: &str) {
 
 /// Which currency the amounts are shown in.
 ///
-/// Only the tour's own list, and only when there is more than one: changing it is a change
-/// to the tour, so it goes through the queue like any other edit and everyone sees it.
+/// Only the tour's own list, and only when there is more than one. Choosing is this device's
+/// business: remembered here, nothing saved, nobody told (`show_in`).
 #[component]
 fn CurrencyPicker(tour: Tour, shown_in: RwSignal<Option<String>>) -> impl IntoView {
     // Nothing here is an edit: the choice stays on this device, and the tour is not saved.

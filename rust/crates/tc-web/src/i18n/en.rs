@@ -401,6 +401,8 @@ pub const TEXTS: Texts = Texts {
         category: "Category",
         new_category: "+ new",
         last_used: "Last used — tap another one if it is wrong.",
+        only_category: "The only category so far — add another if it is wrong; with none, this \
+            is a payback between people.",
         category_name: "Category name",
         add: "Add",
         date: "Date",
@@ -448,14 +450,14 @@ pub const TEXTS: Texts = Texts {
             in” in the header instead.",
         rates: "Rates",
         rates_note: "“Worth” is what one unit is worth on any scale you like — only the ratio \
-            matters. If one euro is 118 dinars, put 100 next to the dinar and 11800 next to the \
-            euro.",
+            matters. If one euro is 118 dinars, put 1000 next to the dinar and 118000 next to the \
+            euro — or let “today's rates for all” do it.",
         add_currency: "add a currency…",
         worth: "worth",
         remove: "Remove",
         rename_note: "Renaming keeps the amounts: expenses stay attached to the currency they \
             were entered in, whatever you call it now. Removing one converts its expenses into \
-            the cheapest currency left, at the tour's rates.",
+            the cheapest real currency left (not chips), at the tour's rates.",
         with_cents: "with cents",
         with_cents_hint: "Amounts in this currency are entered and shown with a decimal part: 3.50",
         absorb: |c, into| format!("fold {c} into {into}"),
@@ -470,6 +472,44 @@ pub const TEXTS: Texts = Texts {
         will_absorb: |n, c, into| format!(
             "{n} {} in {c} will move into {into}, and {c} will go.",
             en_plural(n as i64, "expense", "expenses")
+        ),
+        will_threshold_cents: "“Don't count debts under” will be counted in cents: 49 means 0.49, \
+            and smaller debts than before will show.",
+        will_threshold_whole: "“Don't count debts under” will be counted in whole units: 49 means \
+            49, not 0.49.",
+        rate_button: "today's rate",
+        rate_base: "the others are worked out from this one",
+        rate_asking: "asking…",
+        rate_all: "Today's rates for all",
+        rate_kept: |name, against| format!("No rate for “{name}” — it keeps its worth against {against}."),
+        rate_was: |was, date| format!("was {was} · rate of {date} ·"),
+        rate_date: |day, month| {
+            const MONTHS: [&str; 12] =
+                ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            format!("{} {day}", MONTHS[(month as usize).clamp(1, 12) - 1])
+        },
+        rate_source_hint: "Your browser gets the rate from open.er-api.com itself; that service             sees your IP address.",
+        rate_unknown: |name| format!("Not sure what currency “{name}” is — enter its worth by hand."),
+        rate_not_at_source: |code| format!("The source has no rate for {code}."),
+        rate_nothing_to_compare: "There is no other currency here to work it out against. If \
+            the tour still has “coin”, rename it to the currency you count in — RSD, EUR…",
+        rate_offline: "Cannot get the rate right now — try again later.",
+        rate_out_of_range: "The worth would come out too large or too small.",
+        raise_base: |name, worth, f| format!(
+            "{name} is worth only {worth}, and everything is worked out from it — at least 1 000 \
+             is needed for four exact figures. Multiply every worth by {f} and fill in today's \
+             rate for every currency the source knows?"
+        ),
+        raise_cents: |name, worth, f| format!(
+            "{name} came out at {worth}. With cents its worth should end in two zeros, so that a \
+             cent is a whole number too. Multiply every worth by {f} and fill in today's rate for \
+             every currency the source knows?"
+        ),
+        raise_yes: "Multiply",
+        raise_no: "Don't multiply",
+        raised: |f| format!(
+            "Every worth multiplied by {f}, then today's rates filled in; a currency the source \
+             does not know keeps its ratio."
         ),
         restore_question: "Restore this version? The tour stays as it is — the version is added \
             as a separate copy.",

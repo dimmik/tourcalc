@@ -9,8 +9,50 @@
     read the same database.
 </p>
 
+<h3>26 September 2026</h3>
+<ul>
+    <li><b>The first expense of a tour gets a category.</b> In an empty tour there was nothing
+        to guess the category from, so a new expense opened with none; saved without a look,
+        it counted as a payback between people and was left out of the money spent. When there
+        is only one category to offer, a new expense now starts in it.</li>
+    <li><b>“Today's rates for all”.</b> Setting several currencies meant pressing each one's
+        button, and a small base kept asking to multiply every worth first. Now one button sets
+        them all: the cheapest by the market becomes 10 000 (more, if a currency with cents
+        needs its two zeros) and the rest follow; chips keep their worth against the rest.</li>
+    <li><b>“Today's rate” no longer hangs or breaks the page.</b> On a bad network it waited
+        indefinitely, and closing the dialog before the answer came threw an error. It now gives
+        up after ten seconds, and an answer to a closed dialog is dropped.</li>
+    <li><b>Smaller fixes around currencies.</b> A removed currency's expenses go into real money,
+        not into chips; an expense edited offline keeps its amount if the currency's cents were
+        switched meanwhile; a currency added offline is not added twice when the save is
+        retried; the dialog says when the debt threshold turns into cents; the text pages label
+        an expense with its own currency; “Keep as is” is now “Don't multiply”.</li>
+    <li><b>A currency just added keeps its “today's rate”.</b> At the default worth it could be
+        the cheapest in the tour, and was then taken for the one the others are worked out
+        from — so it had no button at all. Only the tour's own currencies are that now, and
+        that one says so where the button would be.</li>
+    <li><b>Removing a currency after changing the worths keeps its expenses right.</b> When
+        the worths were rescaled — multiplied for “today's rate”, or a dinar retyped from 100
+        to 1 000 — and a currency removed in the same save, its expenses were converted at the
+        wrong scale: a 410-dinar coffee became 41.</li>
+    <li><b>Amounts with cents in version lines and notifications.</b> They showed the stored
+        hundredths: “44 (4400 Eur)” for 44.00 €. They now read 44.00, and a new worth no longer
+        adds “Currency: Eur -> Eur” to every changed expense.</li>
+    <li><b>A new tour starts at 10 000</b>, and so does a currency added to one, so that
+        “today's rate” comes out to four figures without offering to multiply.</li>
+</ul>
+
 <h3>25 September 2026</h3>
 <ul>
+    <li><b>“Today's rate” beside each currency.</b> A currency's worth had to be looked up
+        and typed by hand, and was usually a few weeks old by the end of a trip. Now a button
+        fills it in from the day's market rate, against the cheapest currency of the tour,
+        rounded to four figures; nothing is saved until Save, and a line says what the worth
+        was. When the cheapest worth is too small for four figures, or a currency with cents
+        would not end in two zeros (the lev at 60 090 against the dinar at 1 000), the dialog
+        offers to multiply every worth first and then fills in today's rate for all of them. A new
+        currency now starts at 10 000 rather than 100, so there is room for the four figures
+        and the two zeros without multiplying.</li>
     <li><b>“Show amounts in” changes only your screen.</b> Picking a currency there used to
         save the tour: it made a version, told everybody subscribed that the amounts were now
         in another currency, and moved the tour's main currency for all. Now it is remembered

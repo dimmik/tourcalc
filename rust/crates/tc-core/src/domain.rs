@@ -38,12 +38,17 @@ pub struct Currency {
     pub extras: Extras,
 }
 
+/// The currency a new tour starts with. Worth 10 000, not the C#'s 100: alone it is worth
+/// nothing in particular, but it is usually renamed into the tour's cheapest currency, and at
+/// 10 000 the currencies added beside it come out to four figures and two zeros without
+/// multiplying (see the web client's `rates`). A stored tour keeps whatever it was saved with;
+/// this is only for one that has no currencies yet.
 impl Default for Currency {
     fn default() -> Self {
         Currency {
             id: CurrencyId::new("coin"),
             name: "coin".to_owned(),
-            rate: 100,
+            rate: 10_000,
             extras: Extras::default(),
         }
     }

@@ -1,0 +1,733 @@
+//! "Today's rate": a currency's worth filled in from the market rate, in the currencies dialog.
+//!
+//! The browser asks `open.er-api.com` itself - not through our server: the source's terms let
+//! anyone read it but not pass it on, and it needs no key. One request, in dollars, serves
+//! every currency (a cross rate is a division), and it is kept for as long as the source says
+//! it is current - it updates once a day.
+//!
+//! Nothing here changes the tour. It works out numbers for the dialog's rows, which somebody
+//! then saves or not. Everything but the request is plain functions, tested natively.
+//!
+//! **Which currency is which.** Tours name currencies however they liked - `EUR`, `Eur`,
+//! `Din`, `EURc` - and the `id` is whatever the C# made of the first name. So a currency is
+//! recognised by its `id` first and its name second: an ISO code, a synonym, or either with a
+//! trailing `c` for a hundredth ("EURc" - from before a currency could have cents itself).
+//!
+//! **Against what.** The cheapest other currency the source knows keeps its worth; the rest
+//! are worked out from it. Rounded to four significant figures - 117 500, not 117 563 - which
+//! is closer than anybody settling a trip cares about, and reads better. When the cheapest is
+//! under 1 000 that is not four figures, so the dialog offers to multiply every worth by a
+//! power of ten first (`raise_factor`): the ratios stay, the numbers get room. The same for a
+//! currency with cents under 100 000: four figures and two zeros, so a cent is worth a whole
+//! number too - the lev at 60 090 against the dinar at 1 000 is 601 000 against 10 000.
+
+use std::collections::HashMap;
+
+/// The source, as its terms ask to be credited.
+pub const SOURCE_NAME: &str = "ExchangeRate-API";
+pub const SOURCE_LINK: &str = "https://www.exchangerate-api.com";
+const URL: &str = "https://open.er-api.com/v6/latest/USD";
+const CACHE: &str = "__tcw_rates_USD";
+
+/// A currency as the source knows it: its ISO code, and how many of the tour's units make one
+/// of it - 1 for "EUR", 100 for "EURc".
+#[derive(Clone, Debug, PartialEq)]
+pub struct Unit {
+    pub iso: String,
+    pub per: i64,
+}
+
+/// Names that are not ISO codes but mean one.
+const SYNONYMS: &[(&str, &str)] = &[
+    ("DIN", "RSD"),
+    ("ДИН", "RSD"),
+    ("ДИНАР", "RSD"),
+    ("LEV", "BGN"),
+    ("ЛЕВ", "BGN"),
+    ("KM", "BAM"),
+    ("КМ", "BAM"),
+    ("РУБ", "RUB"),
+    ("₽", "RUB"),
+    ("ЕВРО", "EUR"),
+    ("EURO", "EUR"),
+    ("€", "EUR"),
+    ("$", "USD"),
+];
+
+/// What one piece of text - an id or a name - says the currency is, if anything.
+fn unit_of(text: &str) -> Option<Unit> {
+    let up = text.trim().to_uppercase();
+    let whole = |s: &str| -> Option<String> {
+        if let Some((_, iso)) = SYNONYMS.iter().find(|(k, _)| *k == s) {
+            return Some((*iso).to_owned());
+        }
+        (s.chars().count() == 3 && s.chars().all(|c| c.is_ascii_uppercase())).then(|| s.to_owned())
+    };
+    if let Some(iso) = whole(&up) {
+        return Some(Unit { iso, per: 1 });
+    }
+    // "EURc", "BAMc", "LEVc", "EUR¢": the hundredth of what is before it.
+    let base = up.strip_suffix('C').or_else(|| up.strip_suffix('¢'))?;
+    whole(base.trim()).map(|iso| Unit { iso, per: 100 })
+}
+
+/// What a currency may be, most likely first: by its id, then by its name.
+pub fn units_of(id: &str, name: &str) -> Vec<Unit> {
+    let mut out: Vec<Unit> = Vec::new();
+    for u in [unit_of(id), unit_of(name)].into_iter().flatten() {
+        if !out.contains(&u) {
+            out.push(u);
+        }
+    }
+    out
+}
+
+/// The id a new currency gets from its name: the ISO code when the name is one ("EUR", "Din"
+/// → "RSD"), so that the next tour's EUR is the same `EUR`. Not for a hundredth - "EURc" is
+/// what the "with cents" box replaces - and not when the code is taken.
+pub fn id_for_new(name: &str, taken: &[&str]) -> Option<String> {
+    let unit = unit_of(name).filter(|u| u.per == 1)?;
+    (!taken.iter().any(|t| t.eq_ignore_ascii_case(&unit.iso))).then_some(unit.iso)
+}
+
+/// The source's answer: how many of each currency one dollar buys, and when it was so.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Rates {
+    pub per_usd: HashMap<String, f64>,
+    /// When the source last updated, seconds since the epoch - "rate of 25.09".
+    pub updated: i64,
+    /// When it will next - until then there is no point asking again.
+    pub next: i64,
+}
+
+pub fn parse(json: &str) -> Option<Rates> {
+    let v: serde_json::Value = serde_json::from_str(json).ok()?;
+    if v.get("result")?.as_str()? != "success" {
+        return None;
+    }
+    let per_usd: HashMap<String, f64> = v
+        .get("rates")?
+        .as_object()?
+        .iter()
+        .filter_map(|(k, r)| r.as_f64().filter(|r| *r > 0.0).map(|r| (k.clone(), r)))
+        .collect();
+    Some(Rates {
+        per_usd,
+        updated: v.get("time_last_update_unix").and_then(|t| t.as_i64()).unwrap_or(0),
+        next: v.get("time_next_update_unix").and_then(|t| t.as_i64()).unwrap_or(0),
+    })
+}
+
+/// Why no rate: said as it is, and the worth left alone.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Why {
+    /// Not a currency anything here recognises ("Chips") - its name.
+    Unknown(String),
+    /// Recognised, but the source has no rate for it - its code.
+    NotAtSource(String),
+    /// No other currency the source knows, to work it out against.
+    NothingToCompare,
+    /// No answer from the source, and none kept from before.
+    Offline,
+    /// The number would not fit.
+    OutOfRange,
+}
+
+/// A row of the dialog, as far as rates go.
+#[derive(Clone, Debug)]
+pub struct Row {
+    pub id: String,
+    pub name: String,
+    pub rate: i32,
+    /// "with cents": its worth wants two zeros after its four figures.
+    pub cents: bool,
+    /// Already one of the tour's currencies, not one being added: only such a worth means
+    /// anything - a new row's is the default until somebody changes it.
+    pub saved: bool,
+}
+
+/// Of `(row, worth, saved)`, the one the others are worked out from: the cheapest of the
+/// tour's own currencies, and of the new ones only when there are no others. A currency just
+/// added sits at the default 10 000, which says nothing about what it is worth - taken for
+/// the base, it lost its own button (a PLN added beside a euro at 1 000 000).
+fn cheapest_of(candidates: impl Iterator<Item = (usize, i32, bool)> + Clone) -> Option<usize> {
+    let saved = candidates.clone().filter(|(_, _, s)| *s).min_by_key(|(_, rate, _)| *rate);
+    saved
+        .or_else(|| candidates.min_by_key(|(_, rate, _)| *rate))
+        .map(|(i, _, _)| i)
+}
+
+/// Which unit of `row` the source has, or why none.
+fn resolve(row: &Row, rates: &Rates) -> Result<Unit, Why> {
+    let all = units_of(&row.id, &row.name);
+    let Some(first) = all.first() else {
+        return Err(Why::Unknown(row.name.trim().to_owned()));
+    };
+    all.iter()
+        .find(|u| rates.per_usd.contains_key(&u.iso))
+        .cloned()
+        .ok_or_else(|| Why::NotAtSource(first.iso.clone()))
+}
+
+/// The row every other is worked out against: the cheapest the source knows, other than
+/// `group` (the currency asked about, in any of its units).
+pub fn reference(rows: &[Row], group: &str, rates: &Rates) -> Option<usize> {
+    let known: Vec<(usize, i32, bool)> = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.rate > 0 && !r.name.trim().is_empty())
+        .filter_map(|(i, r)| resolve(r, rates).ok().map(|u| (i, r, u)))
+        .filter(|(_, _, u)| u.iso != group)
+        .map(|(i, r, _)| (i, r.rate, r.saved))
+        .collect();
+    cheapest_of(known.into_iter())
+}
+
+/// What goes where the button would be.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Place {
+    /// "Today's rate".
+    Button,
+    /// The one the others are worked out from - said, so its missing button is not a puzzle.
+    Base,
+    /// Nothing: a blank row, or nothing to work it out against.
+    Nothing,
+}
+
+/// Whether a row gets the button: not the one the others are worked out against, and not in
+/// a tour where there is nothing else to work it out against. Decided without the rates -
+/// the button is there before anybody asks the source.
+pub fn place(rows: &[Row], at: usize) -> Place {
+    let Some(row) = rows.get(at) else { return Place::Nothing };
+    if row.name.trim().is_empty() {
+        return Place::Nothing;
+    }
+    let known: Vec<(usize, i32, bool, String)> = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.rate > 0 && !r.name.trim().is_empty())
+        .filter_map(|(i, r)| {
+            units_of(&r.id, &r.name).first().map(|u| (i, r.rate, r.saved, u.iso.clone()))
+        })
+        .collect();
+    let mine = units_of(&row.id, &row.name).first().map(|u| u.iso.clone());
+    // Alone, or only beside its own cents: nothing to work it out against. An unrecognised
+    // one ("Chips") beside others keeps the button - pressed, it says it is not recognised.
+    if !known.iter().any(|(_, _, _, iso)| Some(iso) != mine.as_ref()) {
+        return Place::Nothing;
+    }
+    // The one the others are worked out against - chosen as `reference` chooses it.
+    let base = cheapest_of(known.iter().map(|(i, rate, saved, _)| (*i, *rate, *saved)));
+    if base == Some(at) {
+        Place::Base
+    } else {
+        Place::Button
+    }
+}
+
+pub fn has_button(rows: &[Row], at: usize) -> bool {
+    place(rows, at) == Place::Button
+}
+
+/// `x` to four significant figures, as a whole number - and never below 1.
+pub fn round4(x: f64) -> i64 {
+    if !x.is_finite() || x <= 0.0 {
+        return 0;
+    }
+    let digits = x.log10().floor() as i32 + 1;
+    let scale = 10f64.powi((digits - 4).max(0));
+    (((x / scale).round() * scale) as i64).max(1)
+}
+
+/// The base's worth has to be at least this for four significant figures everywhere...
+const BASE_AT_LEAST: f64 = 1_000.0;
+/// ...and a currency with cents this, for two zeros after them.
+const CENTS_AT_LEAST: f64 = 100_000.0;
+
+/// The smallest power of ten that lifts every `(worth, at least)` to its floor. `None` when
+/// none is needed, or the largest worth would no longer fit.
+pub fn raise_factor(floors: &[(f64, f64)], largest: f64) -> Option<i32> {
+    let mut f: i64 = 1;
+    while f < 1_000_000_000 && floors.iter().any(|(w, min)| *w > 0.0 && w * (f as f64) < *min) {
+        f *= 10;
+    }
+    (f > 1 && largest * f as f64 <= i32::MAX as f64).then_some(f as i32)
+}
+
+/// A multiplier worth offering, and the row that is the reason for it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Raise {
+    pub factor: i32,
+    pub why: RaiseWhy,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum RaiseWhy {
+    /// The base, worth under 1 000: not four figures for what is worked out from it.
+    Base(usize),
+    /// A currency with cents, under 100 000: not two zeros after its four figures.
+    Cents(usize),
+}
+
+/// The multiplier to offer after working out row `at`: when the base is worth under 1 000, or
+/// the currency asked about has cents and comes out under 100 000. Only that currency - the
+/// euro asked about says nothing of the lev. What it comes out at is worked out from the
+/// rates, not read from the row.
+pub fn raise_for(rows: &[Row], at: usize, rates: &Rates) -> Option<Raise> {
+    let unit = resolve(rows.get(at)?, rates).ok()?;
+    let base_at = reference(rows, &unit.iso, rates)?;
+    let base_row = &rows[base_at];
+    let base = resolve(base_row, rates).ok()?;
+    let mut floors = vec![(base_row.rate as f64, BASE_AT_LEAST)];
+    let mut short_of_cents = None;
+    let mut largest: f64 = 0.0;
+    for (i, r) in rows.iter().enumerate().filter(|(_, r)| !r.name.trim().is_empty()) {
+        largest = largest.max(r.rate as f64);
+        let Ok(u) = resolve(r, rates) else { continue };
+        if i == base_at || u.iso != unit.iso {
+            continue;
+        }
+        let worth = worth_against(&u, &base, base_row.rate, rates);
+        largest = largest.max(worth);
+        if r.cents && u.per == 1 {
+            floors.push((worth, CENTS_AT_LEAST));
+            if worth < CENTS_AT_LEAST && short_of_cents.is_none() {
+                short_of_cents = Some(i);
+            }
+        }
+    }
+    let factor = raise_factor(&floors, largest)?;
+    let why = if (base_row.rate as f64) < BASE_AT_LEAST {
+        RaiseWhy::Base(base_at)
+    } else {
+        RaiseWhy::Cents(short_of_cents?)
+    };
+    Some(Raise { factor, why })
+}
+
+/// What one of `unit` is worth when one of `base` is worth `base_worth`, unrounded.
+fn worth_against(unit: &Unit, base: &Unit, base_worth: i32, rates: &Rates) -> f64 {
+    // One unit in dollars, over one unit of the base in dollars.
+    let usd = |u: &Unit| 1.0 / (rates.per_usd[&u.iso] * u.per as f64);
+    base_worth as f64 * usd(unit) / usd(base)
+}
+
+/// The worth "today's rates for all" starts the base at - raised by tens when a currency
+/// with cents needs room for two zeros.
+const NORMAL_BASE: f64 = 10_000.0;
+
+/// "Today's rates for all": every worth set afresh.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Normalized {
+    /// `(row, new worth)` for every row that changes.
+    pub worths: Vec<(usize, i32)>,
+    /// The row that is now the base: the cheapest currency by today's market, not by the
+    /// worths it had - a lira that strengthened past the euro stops being the base.
+    pub base: usize,
+    /// Rows the source does not know (chips), kept in proportion to `kept_against` - a
+    /// currency of the tour whose old worth meant something. `None` when there was none.
+    pub unknown: Vec<usize>,
+    pub kept_against: Option<usize>,
+}
+
+/// Every known currency at today's rate, the cheapest of them at 10 000 - or 100 000, a
+/// million, whatever makes each currency with cents come out to two zeros - and every unknown
+/// one moved in proportion, so that chips are worth what they were against the money.
+///
+/// What the worths were before does not matter for the known ones: added at the default 10 000
+/// or years old, they all come out of the one answer. It is what makes adding the currencies
+/// and pressing one button enough.
+pub fn normalize(rows: &[Row], rates: &Rates) -> Result<Normalized, Why> {
+    let live = |r: &Row| !r.name.trim().is_empty();
+    let known: Vec<(usize, Unit)> = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| live(r))
+        .filter_map(|(i, r)| resolve(r, rates).ok().map(|u| (i, u)))
+        .collect();
+    if known.is_empty() {
+        return Err(Why::NothingToCompare);
+    }
+    // One unit of each in dollars; the cheapest is the base.
+    let usd = |u: &Unit| 1.0 / (rates.per_usd[&u.iso] * u.per as f64);
+    let (base, base_unit) = known
+        .iter()
+        .min_by(|(_, a), (_, b)| usd(a).total_cmp(&usd(b)))
+        .cloned()
+        .expect("not empty");
+    let ratio = |u: &Unit| usd(u) / usd(&base_unit);
+
+    // Room for two zeros after four figures, for every currency with cents.
+    let mut base_worth = NORMAL_BASE;
+    for (i, u) in &known {
+        if rows[*i].cents && u.per == 1 {
+            while base_worth * ratio(u) < CENTS_AT_LEAST && base_worth < 1e9 {
+                base_worth *= 10.0;
+            }
+        }
+    }
+
+    // The unknown ones keep their proportion to a currency whose old worth meant something:
+    // the cheapest of the tour's own known ones, as `reference` would choose.
+    let kept_against = cheapest_of(
+        known
+            .iter()
+            .map(|(i, _)| (*i, rows[*i].rate, rows[*i].saved))
+            .filter(|(_, rate, saved)| *saved && *rate > 0),
+    );
+    let unknown: Vec<usize> = rows
+        .iter()
+        .enumerate()
+        .filter(|(i, r)| live(r) && !known.iter().any(|(k, _)| k == i))
+        .map(|(i, _)| i)
+        .collect();
+
+    let mut worths: Vec<(usize, i32)> = Vec::new();
+    let mut put = |i: usize, w: f64| -> Result<(), Why> {
+        let w = if i == base { w.round() as i64 } else { round4(w) };
+        if w < 1 || w > i32::MAX as i64 {
+            return Err(Why::OutOfRange);
+        }
+        if w as i32 != rows[i].rate {
+            worths.push((i, w as i32));
+        }
+        Ok(())
+    };
+    for (i, u) in &known {
+        put(*i, base_worth * ratio(u))?;
+    }
+    if let Some(k) = kept_against {
+        let (_, ku) = known.iter().find(|(i, _)| *i == k).expect("known");
+        let scale = base_worth * ratio(ku) / rows[k].rate as f64;
+        for i in &unknown {
+            put(*i, rows[*i].rate as f64 * scale)?;
+        }
+    }
+    worths.sort_by_key(|(i, _)| *i);
+    Ok(Normalized { worths, base, unknown, kept_against })
+}
+
+/// Today's worth of the currency in row `at` - and of its other units in the tour (EUR and
+/// EURc both) - worked out against the cheapest other currency: `(row, new worth)`.
+pub fn refine(rows: &[Row], at: usize, rates: &Rates) -> Result<Vec<(usize, i32)>, Why> {
+    let row = rows.get(at).ok_or(Why::NothingToCompare)?;
+    let unit = resolve(row, rates)?;
+    let base_at = reference(rows, &unit.iso, rates).ok_or(Why::NothingToCompare)?;
+    let base_row = &rows[base_at];
+    let base = resolve(base_row, rates)?;
+    let mut out = Vec::new();
+    for (i, r) in rows.iter().enumerate() {
+        if r.name.trim().is_empty() || i == base_at {
+            continue;
+        }
+        let Ok(u) = resolve(r, rates) else { continue };
+        if u.iso != unit.iso {
+            continue;
+        }
+        let worth = round4(worth_against(&u, &base, base_row.rate, rates));
+        if worth < 1 || worth > i32::MAX as i64 {
+            return Err(Why::OutOfRange);
+        }
+        out.push((i, worth as i32));
+    }
+    Ok(out)
+}
+
+/// The rates: kept from earlier while the source says they are current, else asked for. An
+/// answer kept from earlier is still better than none when the source cannot be reached.
+#[cfg(target_arch = "wasm32")]
+pub async fn fetch() -> Result<Rates, Why> {
+    let storage = web_sys::window().and_then(|w| w.local_storage().ok().flatten());
+    let kept = storage
+        .as_ref()
+        .and_then(|s| s.get_item(CACHE).ok().flatten())
+        .and_then(|text| parse(&text));
+    let now = (js_sys::Date::now() / 1000.0) as i64;
+    if let Some(r) = kept.as_ref().filter(|r| now < r.next) {
+        return Ok(r.clone());
+    }
+    let asked = async {
+        let resp = gloo_net::http::Request::get(URL)
+            .abort_signal(deadline().as_ref())
+            .send()
+            .await
+            .ok()?;
+        if !resp.ok() {
+            return None;
+        }
+        let text = resp.text().await.ok()?;
+        parse(&text).map(|r| (r, text))
+    }
+    .await;
+    match asked {
+        Some((rates, text)) => {
+            if let Some(s) = storage {
+                let _ = s.set_item(CACHE, &text);
+            }
+            Ok(rates)
+        }
+        None => kept.ok_or(Why::Offline),
+    }
+}
+
+/// Ten seconds, then give up: on a phone on a bad network the request could otherwise hang for
+/// minutes with "asking…" on every button, and the dialog would be closed before it answered.
+/// `AbortSignal.timeout` is not in every browser this runs in; without it, no deadline.
+#[cfg(target_arch = "wasm32")]
+fn deadline() -> Option<web_sys::AbortSignal> {
+    let ctor = js_sys::Reflect::get(&js_sys::global(), &"AbortSignal".into()).ok()?;
+    js_sys::Reflect::has(&ctor, &"timeout".into())
+        .unwrap_or(false)
+        .then(|| web_sys::AbortSignal::timeout_with_u32(10_000))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn fetch() -> Result<Rates, Why> {
+    Err(Why::Offline)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample() -> Rates {
+        parse(include_str!("../../../fixtures/er-api.latest.usd.json")).expect("the sample parses")
+    }
+
+    fn row(id: &str, name: &str, rate: i32) -> Row {
+        Row { id: id.into(), name: name.into(), rate, cents: false, saved: true }
+    }
+
+    fn new_row(name: &str, rate: i32) -> Row {
+        Row { saved: false, ..row("", name, rate) }
+    }
+
+    fn with_cents(r: Row) -> Row {
+        Row { cents: true, ..r }
+    }
+
+    fn u(iso: &str, per: i64) -> Unit {
+        Unit { iso: iso.into(), per }
+    }
+
+    #[test]
+    fn the_sample_answer_is_read() {
+        let r = sample();
+        assert_eq!(r.per_usd["USD"], 1.0);
+        for code in ["EUR", "RSD", "BAM", "BGN", "RUB"] {
+            assert!(r.per_usd.contains_key(code), "{code}");
+        }
+        assert!(r.next > r.updated && r.updated > 0);
+        assert_eq!(parse(r#"{"result":"error","error-type":"unsupported-code"}"#), None);
+        assert_eq!(parse("not json"), None);
+    }
+
+    /// Every id and name the tours have used (see BACKLOG.md), and the synonyms.
+    #[test]
+    fn the_currencies_of_the_tours_are_recognised() {
+        assert_eq!(units_of("coin", "coin"), vec![]);
+        assert_eq!(units_of("EUR", "EUR"), vec![u("EUR", 1)]);
+        assert_eq!(units_of("Eur", "Eur"), vec![u("EUR", 1)]);
+        assert_eq!(units_of("RSD", "Din"), vec![u("RSD", 1)]);
+        assert_eq!(units_of("Din", "RSD"), vec![u("RSD", 1)]);
+        assert_eq!(units_of("EURc", "EURc"), vec![u("EUR", 100)]);
+        assert_eq!(units_of("Eurc", "Eurc"), vec![u("EUR", 100)]);
+        assert_eq!(units_of("BAMc", "BAMc"), vec![u("BAM", 100)]);
+        assert_eq!(units_of("USD", "USD"), vec![u("USD", 1)]);
+        assert_eq!(units_of("LEV", "LEV"), vec![u("BGN", 1)]);
+        assert_eq!(units_of("LEVc", "LEVc"), vec![u("BGN", 100)]);
+        assert_eq!(units_of("x7k2q3a", "KM"), vec![u("BAM", 1)]);
+        assert_eq!(units_of("x7k2q3a", "руб"), vec![u("RUB", 1)]);
+        assert_eq!(units_of("x7k2q3a", "Chips"), vec![]);
+        // A three-letter id that is no currency, and a name that is: both, id first.
+        assert_eq!(units_of("abc", "EUR"), vec![u("ABC", 1), u("EUR", 1)]);
+    }
+
+    #[test]
+    fn a_new_currency_named_by_its_code_gets_the_code_as_id() {
+        assert_eq!(id_for_new("eur", &[]), Some("EUR".into()));
+        assert_eq!(id_for_new("Din", &[]), Some("RSD".into()));
+        assert_eq!(id_for_new("EUR", &["Eur"]), None);
+        assert_eq!(id_for_new("EURc", &[]), None);
+        assert_eq!(id_for_new("Chips", &[]), None);
+    }
+
+    #[test]
+    fn four_significant_figures() {
+        assert_eq!(round4(117_563.2), 117_600);
+        assert_eq!(round4(60_114.0), 60_110);
+        assert_eq!(round4(1_175.6), 1_176);
+        assert_eq!(round4(117.56), 118);
+        assert_eq!(round4(0.2), 1);
+    }
+
+    /// The tour of 2025-26: RSD 1 000, and the rest from it.
+    #[test]
+    fn worths_are_worked_out_against_the_cheapest() {
+        let r = sample();
+        let rows = vec![
+            row("RSD", "RSD", 1000),
+            row("Eur", "Eur", 11_800),
+            row("BAMc", "BAMc", 6_000),
+            row("", "", 100),
+        ];
+        let eur = r.per_usd["RSD"] / r.per_usd["EUR"] * 1000.0;
+        assert_eq!(refine(&rows, 1, &r), Ok(vec![(1, round4(eur) as i32)]));
+        let bam_cent = r.per_usd["RSD"] / r.per_usd["BAM"] * 10.0;
+        assert_eq!(refine(&rows, 2, &r), Ok(vec![(2, round4(bam_cent) as i32)]));
+        assert_eq!(reference(&rows, "EUR", &r), Some(0));
+        // The cheapest is the base, whatever it is: BAMc at 600 is cheaper than the dinar.
+        let mut cheap_bam = rows.clone();
+        cheap_bam[2].rate = 600;
+        assert_eq!(reference(&cheap_bam, "EUR", &r), Some(2));
+    }
+
+    #[test]
+    fn a_currency_and_its_cents_are_refined_together() {
+        let r = sample();
+        let rows = vec![row("RSD", "RSD", 1000), row("EUR", "EUR", 117_000), row("EURc", "EURc", 1_170)];
+        let got = refine(&rows, 2, &r).expect("rates");
+        let eur = got.iter().find(|(i, _)| *i == 1).expect("EUR too").1 as f64;
+        let cent = got.iter().find(|(i, _)| *i == 2).expect("EURc").1 as f64;
+        assert!((eur / cent - 100.0).abs() < 0.2, "{eur} / {cent}");
+        // EURc on its own, without EUR: worked out from the euro and divided.
+        let alone = vec![row("RSD", "RSD", 1000), row("EURc", "EURc", 1_170)];
+        assert_eq!(refine(&alone, 1, &r).expect("rates")[0].1 as f64, cent);
+    }
+
+    #[test]
+    fn what_cannot_be_done_is_said() {
+        let r = sample();
+        let rows = vec![row("RSD", "RSD", 1000), row("c1", "Chips", 5), row("XXQ", "XXQ", 7)];
+        assert_eq!(refine(&rows, 1, &r), Err(Why::Unknown("Chips".into())));
+        assert_eq!(refine(&rows, 2, &r), Err(Why::NotAtSource("XXQ".into())));
+        let alone = vec![row("EUR", "EUR", 100), row("EURc", "EURc", 1)];
+        assert_eq!(refine(&alone, 0, &r), Err(Why::NothingToCompare));
+        // Chips are cheaper than dinars, but unknown - the dinar is still the base.
+        let chips_first = vec![row("c1", "Chips", 1), row("RSD", "RSD", 1000), row("EUR", "EUR", 1)];
+        assert_eq!(reference(&chips_first, "EUR", &r), Some(1));
+    }
+
+    #[test]
+    fn the_button_is_not_on_the_base_nor_alone() {
+        let rows = vec![row("RSD", "RSD", 1000), row("Eur", "Eur", 11_800), row("c", "Chips", 5), row("", "", 100)];
+        assert!(!has_button(&rows, 0), "the base");
+        assert!(has_button(&rows, 1));
+        assert!(has_button(&rows, 2), "says it does not know chips");
+        assert!(!has_button(&rows, 3), "the blank row");
+        assert!(!has_button(&[row("coin", "coin", 100)], 0));
+        assert!(!has_button(&[row("EUR", "EUR", 100), row("EURc", "EURc", 1)], 0));
+    }
+
+    /// A currency just added sits at the default worth, which may well be the smallest in the
+    /// tour - it is still not the base, and keeps its button.
+    #[test]
+    fn a_new_currency_is_never_the_base() {
+        let r = sample();
+        let rows = vec![
+            with_cents(row("EUR", "EUR", 1_000_000)),
+            row("RSD", "RSD", 850_000),
+            new_row("PLN", 10_000),
+        ];
+        assert_eq!(place(&rows, 2), Place::Button, "the new PLN");
+        assert_eq!(place(&rows, 1), Place::Base, "the dinar, saved");
+        assert_eq!(reference(&rows, "PLN", &r), Some(1));
+        // Nothing saved that the source knows: then a new one is the base after all.
+        let all_new = vec![new_row("RSD", 10_000), new_row("EUR", 10_000)];
+        assert_eq!(place(&all_new, 0), Place::Base);
+        assert_eq!(place(&all_new, 1), Place::Button);
+    }
+
+    /// Every currency added at the default 10 000, one press: the dinar - the cheapest by the
+    /// market - is the base at 10 000, the rest follow, the mark with its two zeros.
+    #[test]
+    fn all_at_the_default_and_one_press() {
+        let r = sample();
+        let rows = vec![
+            with_cents(new_row("EUR", 10_000)),
+            new_row("RSD", 10_000),
+            with_cents(new_row("BAM", 10_000)),
+            new_row("PLN", 10_000),
+            new_row("", 10_000),
+        ];
+        let n = normalize(&rows, &r).expect("rates");
+        assert_eq!(n.base, 1);
+        let w = |i: usize| n.worths.iter().find(|(r, _)| *r == i).map(|(_, w)| *w).unwrap_or(rows[i].rate);
+        assert_eq!(w(1), 10_000);
+        assert_eq!(w(0), round4(10_000.0 * r.per_usd["RSD"] / r.per_usd["EUR"]) as i32);
+        assert_eq!(w(2) % 100, 0, "the mark has its two zeros: {}", w(2));
+        assert!(w(3) > 10_000);
+        assert!(!n.worths.iter().any(|(i, _)| *i == 4), "the blank row is left alone");
+    }
+
+    /// The base is the cheapest by the market, whatever the worths said.
+    #[test]
+    fn a_currency_that_strengthened_stops_being_the_base() {
+        let mut r = sample();
+        // A lira worth more than a euro.
+        r.per_usd.insert("TRY".into(), r.per_usd["EUR"] / 2.0);
+        let rows = vec![row("TRY", "TRY", 1000), row("EUR", "EUR", 40_000)];
+        let n = normalize(&rows, &r).expect("rates");
+        assert_eq!(n.base, 1);
+        assert_eq!(n.worths, vec![(0, 20_000), (1, 10_000)]);
+    }
+
+    /// With cents and barely dearer than the base: the base rises until it has two zeros.
+    #[test]
+    fn two_zeros_raise_the_base() {
+        let r = sample();
+        let rows = vec![row("USD", "USD", 1), with_cents(row("EUR", "EUR", 1))];
+        let n = normalize(&rows, &r).expect("rates");
+        assert_eq!(n.worths[0], (0, 100_000));
+        assert_eq!(n.worths[1].1 % 100, 0);
+    }
+
+    /// Chips keep what they were worth against the dinar the tour already had.
+    #[test]
+    fn chips_keep_their_proportion() {
+        let r = sample();
+        let rows = vec![row("RSD", "RSD", 100), row("c", "Chips", 50), row("EUR", "EUR", 11_800)];
+        let n = normalize(&rows, &r).expect("rates");
+        assert_eq!(n.kept_against, Some(0));
+        assert_eq!(n.unknown, vec![1]);
+        assert!(n.worths.contains(&(0, 10_000)) && n.worths.contains(&(1, 5_000)), "{:?}", n.worths);
+        assert_eq!(normalize(&[row("c", "Chips", 5)], &r), Err(Why::NothingToCompare));
+    }
+
+    #[test]
+    fn a_small_base_is_offered_room() {
+        assert_eq!(raise_factor(&[(100.0, 1000.0)], 11_800.0), Some(10));
+        assert_eq!(raise_factor(&[(1.0, 1000.0)], 120.0), Some(1000));
+        assert_eq!(raise_factor(&[(1000.0, 1000.0)], 117_000.0), None);
+        assert_eq!(raise_factor(&[(5.0, 1000.0)], (i32::MAX / 10) as f64), None, "would not fit");
+        assert_eq!(raise_factor(&[(1000.0, 1000.0), (60_086.0, 100_000.0)], 117_500.0), Some(10));
+        // Chips at 1 are cheaper, but the dinar is what the euro is worked out from.
+        let r = sample();
+        let rows = vec![row("c", "Chips", 1), row("RSD", "RSD", 100), row("EUR", "EUR", 11_800)];
+        assert_eq!(raise_for(&rows, 2, &r), Some(Raise { factor: 10, why: RaiseWhy::Base(1) }));
+    }
+
+    /// The lev with cents at 60 090 against the dinar at 1 000: four figures, one zero. Ten
+    /// times more room gives 601 000 - and the euro, already 117 500, gets no say in it.
+    #[test]
+    fn a_currency_with_cents_is_offered_two_zeros() {
+        let r = sample();
+        let rows = vec![
+            with_cents(row("EUR", "EUR", 117_500)),
+            row("RSD", "RSD", 1000),
+            with_cents(row("LEV", "LEV", 60_090)),
+        ];
+        assert_eq!(raise_for(&rows, 2, &r), Some(Raise { factor: 10, why: RaiseWhy::Cents(2) }));
+        assert_eq!(raise_for(&rows, 0, &r), None, "asked at the euro, the lev says nothing");
+        // Without cents the lev is fine at four figures.
+        let plain = vec![row("RSD", "RSD", 1000), row("LEV", "LEV", 60_090)];
+        assert_eq!(raise_for(&plain, 1, &r), None);
+        // Worked out from the rates, not from the row: a lev typed as 600 000 is not trusted.
+        let off = vec![row("RSD", "RSD", 1000), with_cents(row("LEV", "LEV", 600_000))];
+        assert_eq!(raise_for(&off, 1, &r).map(|x| x.factor), Some(10));
+        // After multiplying, the rows are refined to two zeros.
+        let raised = vec![row("RSD", "RSD", 10_000), with_cents(row("LEV", "LEV", 600_000))];
+        assert_eq!(raise_for(&raised, 1, &r), None);
+        assert_eq!(refine(&raised, 1, &r).expect("rates")[0].1 % 100, 0);
+    }
+}

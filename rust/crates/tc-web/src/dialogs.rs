@@ -111,7 +111,13 @@ pub fn SpendingDialog(
     // One signal per field. Each is `Copy`, so the handlers below can each take their own
     // without any of them owning the form.
     let description = RwSignal::new(draft.description.clone());
-    let category = RwSignal::new(draft.category.clone());
+    // A new expense with no category to guess from - an empty tour, where the only one on
+    // offer is "Common" - takes the only one there is, shown as a guess like any other. Left
+    // empty, a quick save made it a payback: no category is what marks one, and it dropped
+    // out of every total of money spent.
+    let only_one = (!editing && draft.category.trim().is_empty() && known_categories.len() == 1)
+        .then(|| known_categories[0].clone());
+    let category = RwSignal::new(only_one.clone().unwrap_or_else(|| draft.category.clone()));
     // Whether amounts in a currency are hundredths - read and written as "3,50".
     let tour_here = StoredValue::new(tour.clone());
     let cents_in = move |currency: &str| {
@@ -148,7 +154,7 @@ pub fn SpendingDialog(
     let errors: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
     // A new expense opens in the category last used, and says so: it is a guess, and one
     // that is wrong often enough that it has to look different from a choice.
-    let guessed = RwSignal::new(!editing && !draft.category.trim().is_empty());
+    let guessed = RwSignal::new(!editing && !category.get_untracked().trim().is_empty());
     let more = RwSignal::new(false);
     let adding = RwSignal::new(false);
     let fresh_category = RwSignal::new(String::new());
@@ -186,6 +192,7 @@ pub fn SpendingDialog(
             cents_in(&currency.get_untracked()),
         )
         .unwrap_or(Cents::ZERO);
+        d.in_cents = Some(cents_in(&currency.get_untracked()));
         d.from = PersonId::new(from.get_untracked());
         d.everyone = everyone.get_untracked();
         d.by_weight = by_weight.get_untracked();
@@ -497,7 +504,7 @@ pub fn SpendingDialog(
                 </div>
                 <Show when=move || guessed.get()>
                     <div class="tcn-hint" style="margin-top:4px">
-                        {t().dialogs.last_used}
+                        {if only_one.is_some() { t().dialogs.only_category } else { t().dialogs.last_used }}
                     </div>
                 </Show>
                 <Show when=move || adding.get()>
@@ -929,6 +936,208 @@ pub fn CurrenciesDialog(
     // yes, back to 6 000 no - as long as nobody has ticked or unticked it by hand.
     let typing: RwSignal<Option<(usize, i32)>> = RwSignal::new(None);
 
+    // "Today's rate" (`crate::rates`): what each row was told - the worth it had, or why there
+    // is no rate - and the question in flight, and the offer to multiply every worth first.
+    let rate_notes: RwSignal<Vec<(usize, RateNote)>> = RwSignal::new(Vec::new());
+    let asking: RwSignal<Option<usize>> = RwSignal::new(None);
+    // (row asked about, multiplier, why - said in words).
+    let raise_offer: RwSignal<Option<(usize, i32, String)>> = RwSignal::new(None);
+    let raised: RwSignal<Option<i32>> = RwSignal::new(None);
+    let raise_declined = RwSignal::new(false);
+    let fetched: StoredValue<Option<crate::rates::Rates>> = StoredValue::new(None);
+    let rate_rows = move || -> Vec<crate::rates::Row> {
+        let all = rows.get_untracked();
+        all.iter()
+            .map(|c| crate::rates::Row {
+                id: c.id.clone(),
+                name: c.name.clone(),
+                rate: c.rate,
+                cents: c.effective_cents(&all),
+                saved: !c.id.is_empty()
+                    && original.with_value(|t| t.currencies.iter().any(|x| x.id.as_str() == c.id)),
+            })
+            .collect()
+    };
+    let note_for = move |at: usize, note: RateNote| {
+        rate_notes.update(|all| {
+            all.retain(|(r, _)| *r != at);
+            all.push((at, note));
+        });
+    };
+    // `quiet`: a row nobody asked about says nothing when it has no rate (chips).
+    let work_out = move |at: usize, quiet: bool| {
+        let Some(rates) = fetched.get_value() else { return };
+        match crate::rates::refine(&rate_rows(), at, &rates) {
+            Ok(changes) => {
+                let date = rate_date(rates.updated);
+                let before = rows.get_untracked();
+                typing.set(None);
+                rows.update(|all| {
+                    for (i, worth) in &changes {
+                        if let Some(row) = all.get_mut(*i) {
+                            row.rate = *worth;
+                        }
+                    }
+                });
+                for (i, _) in changes {
+                    let was = before.get(i).map(|c| c.rate).unwrap_or_default();
+                    note_for(i, RateNote::Was(was, date.clone()));
+                }
+            }
+            Err(why) if !quiet => note_for(at, RateNote::Failed(rate_failure(&why))),
+            Err(_) => {}
+        }
+    };
+    let ask_rate = move |at: usize| {
+        if asking.get_untracked().is_some() {
+            return;
+        }
+        asking.set(Some(at));
+        raise_offer.set(None);
+        spawn_local(async move {
+            let got = crate::rates::fetch().await;
+            // Closed (or saved) while the question was out: nothing here to put the answer
+            // in, and reading what is gone panics - `set` merely does nothing, `get` does not.
+            if rows.try_get_untracked().is_none() {
+                return;
+            }
+            asking.set(None);
+            match got {
+                Err(why) => note_for(at, RateNote::Failed(rate_failure(&why))),
+                Ok(rates) => {
+                    // The rate first, so the offer that may follow is about a number on screen.
+                    fetched.set_value(Some(rates.clone()));
+                    work_out(at, false);
+                    if raise_declined.get_untracked() {
+                        return;
+                    }
+                    let now = rate_rows();
+                    if let Some(raise) = crate::rates::raise_for(&now, at, &rates) {
+                        let d = &t().dialogs;
+                        let said = |i: usize| {
+                            let r = &now[i];
+                            (r.name.trim().to_owned(), crate::ui::amount(Cents(r.rate as i64), false))
+                        };
+                        let why = match raise.why {
+                            crate::rates::RaiseWhy::Base(i) => {
+                                let (name, worth) = said(i);
+                                (d.raise_base)(&name, &worth, raise.factor)
+                            }
+                            crate::rates::RaiseWhy::Cents(i) => {
+                                let (name, worth) = said(i);
+                                (d.raise_cents)(&name, &worth, raise.factor)
+                            }
+                        };
+                        raise_offer.set(Some((at, raise.factor, why)));
+                    }
+                }
+            }
+        });
+    };
+    // "Today's rates for all" (`rates::normalize`): every known currency afresh, the cheapest
+    // of them by the market at 10 000 (or more, for two zeros), the unknown in proportion.
+    let all_note: RwSignal<Option<String>> = RwSignal::new(None);
+    let ask_all = move || {
+        if asking.get_untracked().is_some() {
+            return;
+        }
+        asking.set(Some(ASKING_ALL));
+        raise_offer.set(None);
+        all_note.set(None);
+        spawn_local(async move {
+            let got = crate::rates::fetch().await;
+            if rows.try_get_untracked().is_none() {
+                return;
+            }
+            asking.set(None);
+            let rates = match got {
+                Ok(r) => r,
+                Err(why) => return all_note.set(Some(rate_failure(&why))),
+            };
+            let now = rate_rows();
+            let done = match crate::rates::normalize(&now, &rates) {
+                Ok(n) => n,
+                Err(why) => return all_note.set(Some(rate_failure(&why))),
+            };
+            fetched.set_value(Some(rates.clone()));
+            let date = rate_date(rates.updated);
+            typing.set(None);
+            raised.set(None);
+            rows.update(|all| {
+                for (i, worth) in &done.worths {
+                    if let Some(row) = all.get_mut(*i) {
+                        row.rate = *worth;
+                    }
+                }
+            });
+            let mut notes: Vec<(usize, RateNote)> = done
+                .worths
+                .iter()
+                .filter(|(i, _)| !done.unknown.contains(i))
+                .map(|(i, _)| (*i, RateNote::Was(now[*i].rate, date.clone())))
+                .collect();
+            for i in &done.unknown {
+                let note = match done.kept_against {
+                    Some(k) => (t().dialogs.rate_kept)(now[*i].name.trim(), now[k].name.trim()),
+                    None => (t().dialogs.rate_unknown)(now[*i].name.trim()),
+                };
+                notes.push((*i, RateNote::Kept(note)));
+            }
+            rate_notes.set(notes);
+        });
+    };
+
+    let answer_raise = move |yes: bool| {
+        let Some((at, factor, _)) = raise_offer.get_untracked() else { return };
+        raise_offer.set(None);
+        if yes {
+            // What each row was before any of this, for its "was" line: the multiplied figure
+            // would say nothing anybody typed.
+            let originals: Vec<i32> = {
+                let notes = rate_notes.get_untracked();
+                rows.get_untracked()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| {
+                        notes
+                            .iter()
+                            .find_map(|(r, n)| match n {
+                                RateNote::Was(w, _) if *r == i => Some(*w),
+                                _ => None,
+                            })
+                            .unwrap_or(c.rate)
+                    })
+                    .collect()
+            };
+            typing.set(None);
+            rows.update(|all| {
+                for row in all.iter_mut().filter(|c| !c.is_blank()) {
+                    row.rate = row.rate.saturating_mul(factor);
+                }
+            });
+            raised.update(|r| *r = Some(r.unwrap_or(1).saturating_mul(factor)));
+            rate_notes.set(Vec::new());
+            // Every currency the source knows, not only the one asked about: a worth that was
+            // already off (the dinar set to 100 beside a lev at 60 100) would otherwise be
+            // multiplied as it was, and "made exact" would be true of one row only.
+            work_out(at, false);
+            let all = rate_rows();
+            for i in (0..all.len()).filter(|i| *i != at && crate::rates::has_button(&all, *i)) {
+                work_out(i, true);
+            }
+            rate_notes.update(|notes| {
+                for (i, note) in notes.iter_mut() {
+                    if let (RateNote::Was(was, _), Some(o)) = (note, originals.get(*i)) {
+                        *was = *o;
+                    }
+                }
+            });
+        } else {
+            // The rate is already in; only the offer is turned down, for this dialog.
+            raise_declined.set(true);
+        }
+    };
+
     // What saving would do to the expenses, said before it is done: a removed currency's
     // expenses converted, amounts rounded by switching cents off, an EURc folded in.
     let kept_now = move || -> Vec<CurrencyDraft> {
@@ -954,18 +1163,30 @@ pub fn CurrenciesDialog(
                 for (c, into, n) in &p.absorbed {
                     notes.push((t().dialogs.will_absorb)(*n, c, into));
                 }
+                // The "don't count debts under" threshold is a number of the smallest coins of
+                // the currency the tour is read in: cents in, it means a hundred times less.
+                let was = tour.currency().with_cents();
+                let now = kept.iter().find(|c| c.id == main).or(kept.first()).map(|c| c.cents);
+                if let Some(now) = now.filter(|now| *now != was) {
+                    notes.push(if now {
+                        t().dialogs.will_threshold_cents.to_owned()
+                    } else {
+                        t().dialogs.will_threshold_whole.to_owned()
+                    });
+                }
                 notes
             }
         })
     });
 
     let submit = move |_| {
-        let kept = kept_now();
-        let mut found = edit::currency_problems(&kept);
+        let mut kept = kept_now();
+        let found = edit::currency_problems(&kept);
         if !found.is_empty() {
             problems.set(found);
             return;
         }
+        original.with_value(|t| edit::settle_new_ids(t, &mut kept));
         let chosen = if kept.iter().any(|c| c.id == main.get()) {
             main.get()
         } else {
@@ -1018,12 +1239,33 @@ pub fn CurrenciesDialog(
                 <div class="tcn-hint" style="margin: 0 0 8px 0">
                     {t().dialogs.rates_note}
                 </div>
+                <div class="tcw-rate-all">
+                    <button type="button" class="tcn-btn tcn-btn-sm"
+                            disabled=move || asking.get().is_some()
+                            on:click=move |_| ask_all()>
+                        {move || if asking.get() == Some(ASKING_ALL) {
+                            t().dialogs.rate_asking
+                        } else {
+                            t().dialogs.rate_all
+                        }}
+                    </button>
+                    {move || all_note.get().map(|why| view! {
+                        <span class="tcw-rate-note is-failed">{why}</span>
+                    })}
+                </div>
 
-                {move || rows.get()
-                    .into_iter()
+                {move || {
+                    let all = rows.get();
+                    let for_rates = rate_rows();
+                    all.into_iter()
                     .enumerate()
                     .map(|(i, c)| {
                         let blank = c.is_blank();
+                        let place = crate::rates::place(&for_rates, i);
+                        let rate_button = place == crate::rates::Place::Button;
+                        let refined = move || rate_notes.with(|n| {
+                            n.iter().any(|(r, x)| *r == i && matches!(x, RateNote::Was(..)))
+                        });
                         view! {
                             <div class="tcn-currow">
                                 <input class="tcn-input tcn-cur-name" type="text"
@@ -1045,6 +1287,7 @@ pub fn CurrenciesDialog(
                                        } />
                                 <span class="tcn-cur-worth-label">{t().dialogs.worth}</span>
                                 <input class="tcn-input tcn-cur-rate" type="number" min="1"
+                                       class:tcw-refined=refined
                                        prop:value=c.rate
                                        on:input=move |ev| {
                                            let rate = event_target_value(&ev).trim().parse().unwrap_or(0);
@@ -1064,7 +1307,13 @@ pub fn CurrenciesDialog(
                                     view! {
                                         <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
                                                 title=t().dialogs.remove
-                                                on:click=move |_| rows.update(|all| { all.remove(i); })>
+                                                on:click=move |_| {
+                                                    rows.update(|all| { all.remove(i); });
+                                                    // They were said of rows by place.
+                                                    rate_notes.set(Vec::new());
+                                                    typing.set(None);
+                                                    raise_offer.set(None);
+                                                }>
                                             "✕"
                                         </button>
                                     }.into_any()
@@ -1130,12 +1379,64 @@ pub fn CurrenciesDialog(
                                                 {(t().dialogs.absorb)(&sname, &name)}
                                             </label>
                                         })}
+                                        {(place == crate::rates::Place::Base).then(|| view! {
+                                            <span class="tcn-hint tcw-rate-base">{t().dialogs.rate_base}</span>
+                                        })}
+                                        {rate_button.then(|| view! {
+                                            <button type="button" class="tcn-linkbtn tcw-rate-btn"
+                                                    disabled=move || asking.get().is_some()
+                                                    on:click=move |_| ask_rate(i)>
+                                                {move || if asking.get() == Some(i) {
+                                                    t().dialogs.rate_asking
+                                                } else {
+                                                    t().dialogs.rate_button
+                                                }}
+                                            </button>
+                                        })}
                                     </div>
+                                    {move || rate_notes.get().into_iter().find(|(r, _)| *r == i).map(|(_, note)| match note {
+                                        RateNote::Was(was, date) => view! {
+                                            <div class="tcw-rate-note">
+                                                {(t().dialogs.rate_was)(&crate::ui::amount(Cents(was as i64), false), &date)}
+                                                " "
+                                                <a href=crate::rates::SOURCE_LINK target="_blank" rel="noopener"
+                                                   title=t().dialogs.rate_source_hint>
+                                                    {crate::rates::SOURCE_NAME}
+                                                </a>
+                                            </div>
+                                        }.into_any(),
+                                        RateNote::Failed(why) => view! {
+                                            <div class="tcw-rate-note is-failed">{why}</div>
+                                        }.into_any(),
+                                        RateNote::Kept(said) => view! {
+                                            <div class="tcw-rate-note">{said}</div>
+                                        }.into_any(),
+                                    })}
+                                    {move || raise_offer.get().filter(|(at, _, _)| *at == i).map(|(_, _, why)| view! {
+                                        <div class="tcn-chip tcn-chip-amber tcw-wraps tcw-raise">
+                                            <div>{why}</div>
+                                            <div class="tcw-raise-buttons">
+                                                <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
+                                                        on:click=move |_| answer_raise(true)>
+                                                    {t().dialogs.raise_yes}
+                                                </button>
+                                                <button type="button" class="tcn-btn tcn-btn-sm"
+                                                        on:click=move |_| answer_raise(false)>
+                                                    {t().dialogs.raise_no}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    })}
                                 }
                             })}
                         }
                     })
-                    .collect_view()}
+                    .collect_view()
+                }}
+
+                {move || raised.get().map(|f| view! {
+                    <div class="tcn-hint">{(t().dialogs.raised)(f)}</div>
+                })}
 
                 {move || {
                     let notes = plan.get();
@@ -1152,6 +1453,40 @@ pub fn CurrenciesDialog(
             </div>
         </Modal>
     }
+}
+
+/// What "today's rate" said of a row: the worth it had before, and the date of the rate - or
+/// why there is none.
+#[derive(Clone, Debug)]
+enum RateNote {
+    Was(i32, String),
+    Failed(String),
+    /// A currency the source does not know, moved in proportion to another: said as it is.
+    Kept(String),
+}
+
+/// `asking` while "today's rates for all" is out, rather than one row's.
+const ASKING_ALL: usize = usize::MAX;
+
+fn rate_failure(why: &crate::rates::Why) -> String {
+    use crate::rates::Why;
+    let d = &t().dialogs;
+    match why {
+        Why::Unknown(name) => (d.rate_unknown)(name),
+        Why::NotAtSource(code) => (d.rate_not_at_source)(code),
+        Why::NothingToCompare => d.rate_nothing_to_compare.to_owned(),
+        Why::Offline => d.rate_offline.to_owned(),
+        Why::OutOfRange => d.rate_out_of_range.to_owned(),
+    }
+}
+
+/// The day of a rate, on the reader's calendar.
+fn rate_date(unix: i64) -> String {
+    if cfg!(not(target_arch = "wasm32")) || unix <= 0 {
+        return String::new();
+    }
+    let day = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(unix as f64 * 1000.0));
+    (t().dialogs.rate_date)(day.get_date(), day.get_month() + 1)
 }
 
 /// What this tour used to be.

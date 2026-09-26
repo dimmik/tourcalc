@@ -541,6 +541,8 @@ pub struct DialogTexts {
     pub category: &'static str,
     pub new_category: &'static str,
     pub last_used: &'static str,
+    /// The guess when there is nothing to guess from but the one category on offer.
+    pub only_category: &'static str,
     pub category_name: &'static str,
     pub add: &'static str,
     pub date: &'static str,
@@ -592,6 +594,36 @@ pub struct DialogTexts {
     pub will_move: fn(usize, &str, &str) -> String,
     pub will_round: fn(usize) -> String,
     pub will_absorb: fn(usize, &str, &str) -> String,
+    /// The main currency gains or loses cents: the debt threshold is counted in them.
+    pub will_threshold_cents: &'static str,
+    pub will_threshold_whole: &'static str,
+    /// "Today's rate": the button, while asking, and after - what the worth was, and the
+    /// date of the rate (then the source's name, as a link).
+    pub rate_button: &'static str,
+    /// Where the button would be, on the currency the others are worked out from.
+    pub rate_base: &'static str,
+    pub rate_asking: &'static str,
+    /// Every currency at once, the cheapest by the market at 10 000.
+    pub rate_all: &'static str,
+    /// An unknown currency (name) moved in proportion to a known one (name).
+    pub rate_kept: fn(&str, &str) -> String,
+    pub rate_was: fn(&str, &str) -> String,
+    /// Day and month.
+    pub rate_date: fn(u32, u32) -> String,
+    /// On the source's link: who is asked, and what they see.
+    pub rate_source_hint: &'static str,
+    pub rate_unknown: fn(&str) -> String,
+    pub rate_not_at_source: fn(&str) -> String,
+    pub rate_nothing_to_compare: &'static str,
+    pub rate_offline: &'static str,
+    pub rate_out_of_range: &'static str,
+    /// Multiply every worth by this? Because the base (name, worth) is too small for four
+    /// figures, or a currency with cents (name, worth) does not end in two zeros.
+    pub raise_base: fn(&str, &str, i32) -> String,
+    pub raise_cents: fn(&str, &str, i32) -> String,
+    pub raise_yes: &'static str,
+    pub raise_no: &'static str,
+    pub raised: fn(i32) -> String,
     pub restore_question: &'static str,
     pub cannot_read_version: &'static str,
     pub restored_name: fn(&str, &str, &str) -> String,

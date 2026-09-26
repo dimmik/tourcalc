@@ -157,12 +157,13 @@
         </div>
         <p>
             Rates are given as <b>worth</b>, on any scale you like — only the ratio matters. If
-            one euro is 118 dinars, put 100 next to the dinar and 11800 next to the euro.
+            one euro is 118 dinars, put 1000 next to the dinar and 118000 next to the euro.
         </p>
         <p>
             Every expense stays attached to the currency it was entered in. <b>Renaming a
             currency is safe</b> — the amounts keep their meaning. <b>Removing one</b> converts
-            the expenses entered in it into the cheapest currency left, at the tour's rates, and
+            the expenses entered in it into the cheapest real currency left (not into chips), at
+            the tour's rates, and
             the dialog says how many before you save.
         </p>
         <p>
@@ -171,6 +172,22 @@
             times the cheapest one or more (a euro against dinars) start with cents; any
             currency can be switched in the currencies dialog, and every figure stays what it
             was. An older “EURc” beside a euro can be folded into it there too.
+        </p>
+        <p>
+            <b>Today's rates for all</b> sets every currency at once: add them all — they start
+            at 10 000 — press it, and the cheapest of them by the market becomes 10 000 and the
+            rest follow (a currency with cents gets room for two zeros). One the source does not
+            know keeps its worth against the rest. <b>today's rate</b> beside a currency fills in its worth from the day's market
+            rate, against the cheapest currency of the tour — rounded to four figures, since
+            nobody settles a trip to the last dinar. Nothing is saved until you press Save, and
+            the line under it says what the worth was. When the cheapest currency is worth
+            under 1 000, or a currency with cents would come out under 100 000 (so that a cent
+            is worth a whole number too), the dialog first offers to multiply every worth by 10 or 100 so the
+            rates come out exact, and then fills in today's rate for every currency it
+            knows. The rates come from
+            <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">ExchangeRate-API</a>,
+            once a day; your browser asks it directly, so that service sees your IP address. A
+            currency it does not know — casino chips, say — keeps the worth you give it.
         </p>
     </section>
 

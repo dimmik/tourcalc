@@ -87,6 +87,26 @@ pub struct SpendingDraft {
     /// an edit queued before the field existed, which is how those were treated anyway.
     #[serde(default)]
     pub editing: bool,
+    /// Whether `amount` is hundredths - the currency's cents as they were when the edit was
+    /// made. Waiting in the queue while somebody switched that currency's cents, it would be
+    /// read in the other unit: 12 € as 0,12 € or 1 200 €. `None` for an edit queued before
+    /// this was recorded - taken as it is, as it always was.
+    #[serde(default)]
+    pub in_cents: Option<bool>,
+}
+
+/// `amount`, recorded as hundredths or not, in the unit `currency` counts in now.
+fn in_units_now(amount: Cents, recorded: Option<bool>, tour: &Tour, currency: &tc_core::CurrencyId) -> Cents {
+    match recorded {
+        Some(was) if was != tour.counts_cents(currency) => {
+            if was {
+                tc_core::money::convert(amount, 1, 100)
+            } else {
+                Cents(amount.0.saturating_mul(100))
+            }
+        }
+        _ => amount,
+    }
 }
 
 fn by_weight() -> bool {
@@ -125,6 +145,7 @@ impl SpendingDraft {
             // starts a new expense the same way.
             currency_id: tour.currency().id.as_str().to_owned(),
             editing: false,
+            in_cents: None,
         }
     }
 
@@ -153,6 +174,7 @@ impl SpendingDraft {
             colour: tc_core::extras::str_of(&spending.extras, COLOUR),
             currency_id: spending.currency.id.as_str().to_owned(),
             editing: true,
+            in_cents: None,
         }
     }
 
@@ -241,7 +263,12 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
         Some(existing) => {
             existing.description = draft.description.clone();
             existing.category = draft.category.clone();
-            existing.amount = draft.amount;
+            let currency = if draft.currency_id.is_empty() {
+                existing.currency.id.clone()
+            } else {
+                tc_core::CurrencyId::new(draft.currency_id.clone())
+            };
+            existing.amount = in_units_now(draft.amount, draft.in_cents, tour, &currency);
             existing.from = draft.from.clone();
             set_date(existing, &draft.date);
             set_colour(existing, &draft.colour);
@@ -263,17 +290,18 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
         // Not there: this is the add. Replaying it again finds the spending and updates it
         // instead of adding a second one.
         None => {
+            let currency = tour
+                .currencies
+                .iter()
+                .find(|c| c.id.as_str() == draft.currency_id)
+                .cloned()
+                .unwrap_or_else(|| tour.currency().clone());
             let mut fresh = Spending {
                 id,
                 description: draft.description.clone(),
                 category: draft.category.clone(),
-                amount: draft.amount,
-                currency: tour
-                    .currencies
-                    .iter()
-                    .find(|c| c.id.as_str() == draft.currency_id)
-                    .cloned()
-                    .unwrap_or_else(|| tour.currency().clone()),
+                amount: in_units_now(draft.amount, draft.in_cents, tour, &currency.id),
+                currency,
                 from: draft.from.clone(),
                 remembered_split: matches!(split, Split::Everyone)
                     .then(|| split_for(draft.by_weight, Vec::new())),
@@ -538,9 +566,12 @@ impl CurrencyDraft {
     }
 
     /// A row for a currency to be added: cents decided by its worth until somebody decides.
+    /// Worth 10 000 to start: a currency added as the cheapest leaves room for the others to
+    /// come out to four figures and, with cents, two zeros after them - a mark or a lev at
+    /// sixty times the dinar is 601 100 - without "today's rate" having to offer to multiply.
     pub fn blank() -> CurrencyDraft {
         CurrencyDraft {
-            rate: 100,
+            rate: 10_000,
             cents_auto: true,
             ..Default::default()
         }
@@ -597,6 +628,26 @@ pub fn put_currencies(tour: &Tour, kept: &[CurrencyDraft], main: &str) -> Tour {
     plan_currencies(tour, kept, main).tour
 }
 
+/// Gives every currency being added its id now, when the edit is recorded: the ISO code when
+/// its name is one and it is free, a fresh id otherwise.
+///
+/// Decided when the edit is carried out, a save that reached the server but whose answer was
+/// lost was replayed as a second addition - the `EUR` taken by the first, the second got a
+/// random id, and the tour had two euros. The same reason spendings get theirs up front.
+pub fn settle_new_ids(tour: &Tour, kept: &mut [CurrencyDraft]) {
+    let mut taken: Vec<String> = tour
+        .currencies
+        .iter()
+        .map(|c| c.id.as_str().to_owned())
+        .chain(kept.iter().map(|c| c.id.clone()).filter(|id| !id.is_empty()))
+        .collect();
+    for c in kept.iter_mut().filter(|c| c.id.is_empty()) {
+        let refs: Vec<&str> = taken.iter().map(String::as_str).collect();
+        c.id = crate::rates::id_for_new(&c.name, &refs).unwrap_or_else(new_id);
+        taken.push(c.id.clone());
+    }
+}
+
 /// What saving the currencies dialog will do, worked out before it is done - so the dialog
 /// can say it, and refuse what cannot be done.
 #[derive(Clone, Debug)]
@@ -614,10 +665,14 @@ pub struct CurrencyPlan {
 ///
 /// In this order, each step on what the last one left:
 ///
-/// 1. names and worths as the dialog has them; a new currency starts with the cents it was
+/// 1. a currency that is gone takes its expenses into the cheapest one left, at the worths
+///    the tour had **before** this edit - they used to be read, silently, in the main
+///    currency instead. Before, not after: the dialog may have rescaled every worth ("today's
+///    rate" multiplying by 10, or a dinar retyped from 100 to 1 000), and the removed
+///    currency's worth is only known on the old scale - read against a new one, a 410-dinar
+///    coffee came out at 41;
+/// 2. names and worths as the dialog has them; a new currency starts with the cents it was
 ///    given, and has nothing to convert;
-/// 2. a currency that is gone takes its expenses into the cheapest one left, at the worths
-///    the tour lists - they used to be read, silently, in the main currency instead;
 /// 3. a currency whose cents were switched has its expenses and the worths rescaled
 ///    (`tc_core::units::switch_cents`), which keeps every figure;
 /// 4. an "EURc" beside a euro that now has cents of its own is folded into it.
@@ -635,8 +690,48 @@ pub fn plan_currencies(
         absorbed: Vec::new(),
     };
 
-    // 1. What is kept, as named and worth now - cents as they were, for the moment.
-    let mut new_ids = Vec::new();
+    // 1. What is gone, and had expenses in it - on the tour's own worths, one scale.
+    let gone: Vec<tc_core::Currency> = tour
+        .currencies
+        .iter()
+        .filter(|old| !kept.iter().any(|c| c.id == old.id.as_str()))
+        .cloned()
+        .collect();
+    let mut orphans: Vec<tc_core::Currency> = Vec::new();
+    for old in gone {
+        if !next.spendings.iter().any(|s| s.currency.id == old.id) {
+            continue;
+        }
+        // Money into money: of what is left, the cheapest currency that is a currency - chips
+        // cheaper than the dinar are not where a removed euro's expenses belong. Only when
+        // nothing left is recognisable, the cheapest of whatever there is.
+        let left: Vec<&tc_core::Currency> = next
+            .currencies
+            .iter()
+            .filter(|c| c.id != old.id && kept.iter().any(|k| k.id == c.id.as_str()))
+            .collect();
+        let money: Vec<&&tc_core::Currency> = left
+            .iter()
+            .filter(|c| !crate::rates::units_of(c.id.as_str(), &c.name).is_empty())
+            .collect();
+        let into = money
+            .iter()
+            .min_by_key(|c| c.rate)
+            .map(|c| (**c).clone())
+            .or_else(|| left.iter().min_by_key(|c| c.rate).map(|c| (*c).clone()));
+        match into {
+            Some(into) => {
+                let n = move_spendings(&mut next, &old.id, &into.id);
+                plan.moved.push((old.name.clone(), into.name.clone(), n));
+            }
+            // Nothing of the old tour is kept - only new currencies: see after step 2.
+            None => orphans.push(old),
+        }
+    }
+
+    // 2. What is kept, as named and worth now - cents as they were, for the moment. A new
+    // currency named by its code gets the code as its id (`rates::id_for_new`).
+    let mut new_ids: Vec<tc_core::CurrencyId> = Vec::new();
     next.currencies = kept
         .iter()
         .map(|c| {
@@ -648,10 +743,23 @@ pub fn plan_currencies(
                 .find(|old| old.id.as_str() == c.id)
                 .cloned()
                 .unwrap_or_else(|| {
+                    let taken: Vec<&str> = tour
+                        .currencies
+                        .iter()
+                        .map(|x| x.id.as_str())
+                        .chain(new_ids.iter().map(|x| x.as_str()))
+                        .collect();
+                    // Settled when the edit was recorded (`settle_new_ids`), so a replay finds
+                    // the currency it added; an edit queued before that is settled here.
+                    let id = if c.id.is_empty() {
+                        crate::rates::id_for_new(&c.name, &taken).unwrap_or_else(new_id)
+                    } else {
+                        c.id.clone()
+                    };
                     let mut new = tc_core::Currency {
-                        id: tc_core::CurrencyId::new(new_id()),
+                        id: tc_core::CurrencyId::new(id),
                         name: String::new(),
-                        rate: 100,
+                        rate: 10_000,
                         extras: Default::default(),
                     };
                     new.set_with_cents(c.effective_cents(kept));
@@ -664,17 +772,9 @@ pub fn plan_currencies(
         })
         .collect();
 
-    // 2. What is gone, and had expenses in it.
-    let gone: Vec<tc_core::Currency> = tour
-        .currencies
-        .iter()
-        .filter(|old| !kept.iter().any(|c| c.id == old.id.as_str()))
-        .cloned()
-        .collect();
-    for old in gone {
-        if !next.spendings.iter().any(|s| s.currency.id == old.id) {
-            continue;
-        }
+    // Every old currency replaced by new ones at once: there is no old worth to go by on the
+    // other side, so the new one's is taken as it is - the best there is.
+    for old in orphans {
         let Some(into) = cheapest(&next, None).cloned() else { continue };
         next.currencies.push(old.clone());
         let n = move_spendings(&mut next, &old.id, &into.id);
@@ -730,6 +830,9 @@ pub struct PaymentDraft {
     pub currency_id: String,
     pub from: PersonId,
     pub to: PersonId,
+    /// As on [`SpendingDraft::in_cents`].
+    #[serde(default)]
+    pub in_cents: Option<bool>,
 }
 
 impl PaymentDraft {
@@ -741,6 +844,7 @@ impl PaymentDraft {
             currency_id: t.currency.id.as_str().to_owned(),
             from: t.from.clone(),
             to: t.to.clone(),
+            in_cents: Some(t.currency.with_cents()),
         }
     }
 }
@@ -769,7 +873,7 @@ pub fn record_payment(tour: &Tour, draft: &PaymentDraft) -> Tour {
         id,
         description: draft.description.clone(),
         category: String::new(),
-        amount: draft.amount,
+        amount: in_units_now(draft.amount, draft.in_cents, tour, &currency.id),
         currency,
         from: draft.from.clone(),
         split: Split::Equally(vec![draft.to.clone()]),
@@ -814,6 +918,7 @@ mod split_tests {
             colour: String::new(),
             currency_id: t.currency().id.as_str().to_owned(),
             editing: false,
+            in_cents: None,
         }
     }
 
@@ -926,6 +1031,91 @@ mod currency_tests {
 
     fn in_dinars(t: &Tour) -> Vec<Cents> {
         t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect()
+    }
+
+    /// An edit of 12 whole euros waited in the queue while somebody gave the euro cents: it
+    /// lands as 12,00 €, not 0,12 €. And the other way round.
+    #[test]
+    fn a_queued_amount_follows_a_switch_of_cents() {
+        let t = tour(); // EUR without cents
+        let mut draft = SpendingDraft::of(&t.spendings[0]); // 12 EUR
+        draft.in_cents = Some(false);
+        let mut with_cents = t.clone();
+        tc_core::units::switch_cents(&mut with_cents, &tc_core::CurrencyId::new("EUR"), true);
+        assert_eq!(put_spending(&with_cents, &draft).spendings[0].amount, Cents(1200));
+        // Recorded in hundredths, applied where the euro has none any more.
+        draft.amount = Cents(1250);
+        draft.in_cents = Some(true);
+        assert_eq!(put_spending(&t, &draft).spendings[0].amount, Cents(13));
+        // Queued before this was recorded: as it is.
+        draft.in_cents = None;
+        assert_eq!(put_spending(&with_cents, &draft).spendings[0].amount, Cents(1250));
+    }
+
+    /// A save whose answer was lost is replayed: the euro it added is found, not added again.
+    #[test]
+    fn a_replayed_addition_adds_one_currency() {
+        let t = tour();
+        let mut kept = drafts(&t);
+        kept.retain(|c| c.id != "EUR");
+        kept.push(CurrencyDraft { name: "EUR".into(), rate: 117_500, ..CurrencyDraft::blank() });
+        settle_new_ids(&t, &mut kept);
+        assert!(kept.iter().all(|c| !c.id.is_empty()), "every currency has its id before it is saved");
+        let once = put_currencies(&t, &kept, "RSD");
+        let twice = put_currencies(&once, &kept, "RSD");
+        let euros = twice.currencies.iter().filter(|c| c.name == "EUR").count();
+        assert_eq!(euros, 1, "{:?}", twice.currencies.iter().map(|c| c.id.as_str()).collect::<Vec<_>>());
+    }
+
+    /// Chips cheaper than the dinar: a removed euro's expenses still go into dinars.
+    #[test]
+    fn a_removed_currency_goes_into_money_not_chips() {
+        let mut t = tour();
+        t.currencies.push(tc_core::Currency {
+            id: tc_core::CurrencyId::new("chips"),
+            name: "Chips".into(),
+            rate: 1,
+            extras: Default::default(),
+        });
+        let mut kept = drafts(&t);
+        kept.retain(|c| c.id != "EUR");
+        let plan = plan_currencies(&t, &kept, "RSD");
+        assert_eq!(plan.moved, vec![("EUR".to_owned(), "RSD".to_owned(), 1)]);
+    }
+
+    /// Every worth multiplied by ten ("today's rate") and the EURc removed, in one save: the
+    /// coffee in EURc is still 410 dinars, not 41.
+    #[test]
+    fn removing_a_currency_while_rescaling_keeps_its_expenses() {
+        let t = tour();
+        let before = in_dinars(&t);
+        let mut kept = drafts(&t);
+        kept.retain(|c| c.id != "EURc");
+        for c in kept.iter_mut() {
+            c.rate *= 10;
+        }
+        let plan = plan_currencies(&t, &kept, "RSD");
+        assert_eq!(in_dinars(&plan.tour), before);
+        assert_eq!(plan.moved, vec![("EURc".to_owned(), "RSD".to_owned(), 1)]);
+    }
+
+    #[test]
+    fn a_new_currency_named_by_its_code_is_keyed_by_it() {
+        let t = tour();
+        let mut kept = drafts(&t);
+        for (name, rate) in [("bam", 60_000), ("Eur", 117_000), ("Chips", 5)] {
+            kept.push(CurrencyDraft { name: name.into(), rate, ..CurrencyDraft::blank() });
+        }
+        let ids: Vec<String> = plan_currencies(&t, &kept, "RSD")
+            .tour
+            .currencies
+            .iter()
+            .map(|c| c.id.as_str().to_owned())
+            .collect();
+        assert_eq!(&ids[..4], ["RSD", "EUR", "EURc", "BAM"]);
+        // EUR is taken; chips are no code: both get an id of the usual kind.
+        assert!(ids[4] != "EUR" && ids[4].len() == 7, "{ids:?}");
+        assert!(ids[5].len() == 7, "{ids:?}");
     }
 
     #[test]
