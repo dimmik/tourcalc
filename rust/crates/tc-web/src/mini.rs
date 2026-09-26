@@ -543,6 +543,8 @@ fn MiniPerson(
     let for_edit = person.clone();
     let for_delete = person.clone();
     let for_spend = person.clone();
+    // Whom they pay for - only somebody who pays for themselves can pay for others.
+    let pays_for_others = person.parent.is_none().then(|| person.id.clone());
     let tour_for_spend = tour.clone();
     let name = person.name.clone();
     let weight = person.weight;
@@ -643,6 +645,12 @@ fn MiniPerson(
                                 }>
                             {t().mini.edit}
                         </button>
+                        {pays_for_others.clone().map(|who| view! {
+                            <button type="button" class="tcm-btn"
+                                    on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
+                                {t().mini.pays_for_button}
+                            </button>
+                        })}
                         <button type="button" class="tcm-btn is-danger"
                                 on:click={
                                     let who = for_delete.clone();
@@ -1153,6 +1161,9 @@ pub fn MiniDialogs(
                 }.into_any(),
                 Dialog::Versions => view! {
                     <VersionsDialog tour=tour on_close=close />
+                }.into_any(),
+                Dialog::Dependants(payer) => view! {
+                    <crate::dialogs::DependantsDialog tour=tour payer=payer on_close=close on_apply=apply />
                 }.into_any(),
             })
         }}

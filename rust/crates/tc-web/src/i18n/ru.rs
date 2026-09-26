@@ -104,6 +104,7 @@ pub const TEXTS: Texts = Texts {
         drafts_section: |sum| format!("Черновики · {sum}"),
     },
     mini: MiniTexts {
+        pays_for_button: "+ платит за…",
         settling_hint: "Идёт расчёт по туру",
         settling: "расчёт",
         archived_hint: "В архиве, скрыт из списка по умолчанию",
@@ -199,6 +200,7 @@ pub const TEXTS: Texts = Texts {
         json: "json",
     },
     queue: QueueTexts {
+        pays_for: |names| format!("за кого платит: {names}"),
         expense_removed: "удалена трата",
         person_removed: "удалён участник",
         renamed: |name| format!("новое название «{name}»"),
@@ -393,6 +395,11 @@ pub const TEXTS: Texts = Texts {
         go_to_tours: "К моим турам",
     },
     dialogs: DialogTexts {
+        dependants_of: |name| format!("{name} платит за"),
+        dependant_add: "добавить…",
+        dependant_weight: "вес",
+        dependants_note: "Вес 100 — доля взрослого; 50 — половина, например за ребёнка. ✕ убирает \
+            человека отсюда: он остаётся в туре и снова платит за себя сам.",
         cancel: "Отмена",
         save: "Сохранить",
         carried: "Восстановлено то, что вы вводили в прошлый раз.",
@@ -521,6 +528,7 @@ pub const TEXTS: Texts = Texts {
         restore: "Восстановить",
     },
     people: PeopleTexts {
+        pays_for_button: "+ Платит за…",
         paid: "Вклад",
         charged: "Доля",
         balance: "Баланс",

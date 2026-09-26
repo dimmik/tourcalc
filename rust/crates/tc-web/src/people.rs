@@ -506,6 +506,8 @@ fn PersonBlock(
 
     let for_edit = person.clone();
     let for_delete = person.clone();
+    // Whom they pay for - only somebody who pays for themselves can pay for others.
+    let payer = person.parent.is_none().then(|| person.id.clone());
     let person_for_why = person.clone();
     let person_for_pweight = person.clone();
     let tour_for_why = tour.clone();
@@ -678,6 +680,12 @@ fn PersonBlock(
                             }>
                         {t().people.edit}
                     </button>
+                    {payer.clone().map(|who| view! {
+                        <button type="button" class="tcn-btn tcn-btn-sm"
+                                on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
+                            {t().people.pays_for_button}
+                        </button>
+                    })}
                     <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
                             on:click={
                                 let who = for_delete.clone();
