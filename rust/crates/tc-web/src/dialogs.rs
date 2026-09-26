@@ -98,6 +98,7 @@ pub fn SpendingDialog(
     let people_split = people_paid.clone();
     let headcount = tour.persons.len();
     let currencies = tour.currencies.clone();
+    let currencies_for_hint = StoredValue::new(tour.currencies.clone());
     let editing = draft.id.is_some();
     // The categories this tour already uses, plus the one the app always offers.
     let known_categories = {
@@ -320,6 +321,15 @@ pub fn SpendingDialog(
                     {if currencies.len() > 1 {
                         view! {
                             <select class="tcn-amount-curr"
+                                    title=move || {
+                                        let now = currency.get();
+                                        currencies_for_hint.with_value(|all| {
+                                            all.iter()
+                                                .find(|c| c.id.as_str() == now)
+                                                .and_then(|c| crate::rates::short_name(c.id.as_str(), &c.name))
+                                        })
+                                        .unwrap_or_default()
+                                    }
                                     on:change=move |ev| currency.set(event_target_value(&ev))>
                                 {currencies
                                     .iter()
@@ -344,6 +354,18 @@ pub fn SpendingDialog(
                         }.into_any()
                     }}
                 </div>
+                // What the currency is, for a code that says little - a phone shows no tooltip.
+                {move || {
+                    let now = currency.get();
+                    currencies_for_hint
+                        .with_value(|all| {
+                            all.iter()
+                                .find(|c| c.id.as_str() == now)
+                                .or(all.first())
+                                .and_then(|c| crate::rates::short_name(c.id.as_str(), &c.name))
+                        })
+                        .map(|what| view! { <div class="tcw-cur-hint tcw-amount-hint">{what}</div> })
+                }}
             </div>
 
             <div class="tcn-field">
@@ -1191,8 +1213,9 @@ pub fn CurrenciesDialog(
                         .map(|c| {
                             let id = c.id.clone();
                             let mine = id.clone();
+                            let what = crate::rates::short_name(&c.id, &c.name).unwrap_or_default();
                             view! {
-                                <span class="tcn-chip tcn-filter-chip"
+                                <span class="tcn-chip tcn-filter-chip" title=what
                                       class:is-on=move || main.get() == mine
                                       on:click=move |_| main.set(id.clone())>
                                     {c.name.clone()}
@@ -1336,6 +1359,12 @@ pub fn CurrenciesDialog(
                                     }.into_any()
                                 }}
                             </div>
+                            // What the code is, for a code that says little: "ALL" - the
+                            // Albanian lek. Follows the name as it is typed.
+                            {(!blank)
+                                .then(|| crate::rates::short_name(&c.id, &c.name))
+                                .flatten()
+                                .map(|what| view! { <div class="tcw-cur-hint">{what}</div> })}
                             {(!blank).then(|| {
                                 // Follows the rate as it is typed, until chosen by hand.
                                 let cents_now = move || {

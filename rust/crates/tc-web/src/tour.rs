@@ -342,7 +342,8 @@ fn CurrencyPicker(tour: Tour, shown_in: RwSignal<Option<String>>) -> impl IntoVi
         shown_in.set(chosen);
     };
     view! {
-        <select class="tcn-input" style="width:auto; padding:4px 8px; font-size:13px;"
+        // No wider than it was for the names added to the options: the closed box cuts them.
+        <select class="tcn-input" style="width:auto; max-width:14em; padding:4px 8px; font-size:13px;"
                 aria-label=t().tour.show_in
                 on:change=move |ev| pick(event_target_value(&ev))>
             <option value="" selected=!showing_other>{(t().tour.show_in_main)(&main_name)}</option>
@@ -353,7 +354,12 @@ fn CurrencyPicker(tour: Tour, shown_in: RwSignal<Option<String>>) -> impl IntoVi
                 .map(|c| {
                     let id = c.id.as_str().to_owned();
                     let selected = id == current;
-                    view! { <option value=id selected=selected>{c.name.clone()}</option> }
+                    // "ALL — албанский лек · Албания": what the code is, while choosing.
+                    let label = match crate::rates::short_name(c.id.as_str(), &c.name) {
+                        Some(what) => format!("{} — {what}", c.name),
+                        None => c.name.clone(),
+                    };
+                    view! { <option value=id selected=selected>{label}</option> }
                 })
                 .collect_view()}
         </select>

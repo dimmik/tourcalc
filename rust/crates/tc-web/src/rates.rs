@@ -128,6 +128,37 @@ pub fn suggestions() -> Vec<(String, String)> {
     })
 }
 
+thread_local! {
+    static SHORT: std::cell::RefCell<HashMap<String, Option<String>>> = std::cell::RefCell::new(HashMap::new());
+}
+
+/// What a currency of the tour is, in a few words of the reader's language, for wherever it is
+/// shown by its code: "албанский лек · Албания" for ALL - EUR is obvious, ALL is not. With the
+/// country only when there is one country; "1/100" for an old "EURc". `None` for a currency
+/// the source does not know (chips), or where the browser has no names.
+pub fn short_name(id: &str, name: &str) -> Option<String> {
+    let unit = units_of(id, name).into_iter().next()?;
+    let whole = SHORT.with(|cache| {
+        if let Some(known) = cache.borrow().get(&unit.iso) {
+            return known.clone();
+        }
+        let lang = crate::i18n::lang().code();
+        let currency = display_names("currency", lang).and_then(|n| n(&unit.iso));
+        let countries = countries_of(&unit.iso);
+        let country = match countries.as_slice() {
+            [one] => display_names("region", lang).and_then(|n| n(one)),
+            _ => None,
+        };
+        let said = currency.map(|c| match country {
+            Some(place) => format!("{c} · {place}"),
+            None => c,
+        });
+        cache.borrow_mut().insert(unit.iso.clone(), said.clone());
+        said
+    })?;
+    Some(if unit.per == 100 { format!("{whole}, 1/100") } else { whole })
+}
+
 /// The suggestions a name typed and left matches - by code, currency or country, in either
 /// language, any case: for when the list under the box did not help (some browsers match its
 /// codes only). At most `limit`.
