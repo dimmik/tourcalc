@@ -541,6 +541,8 @@ pub struct DialogTexts {
     pub category: &'static str,
     pub new_category: &'static str,
     pub last_used: &'static str,
+    /// The guess when there is nothing to guess from but the one category on offer.
+    pub only_category: &'static str,
     pub category_name: &'static str,
     pub add: &'static str,
     pub date: &'static str,

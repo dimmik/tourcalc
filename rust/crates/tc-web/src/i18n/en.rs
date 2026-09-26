@@ -401,6 +401,8 @@ pub const TEXTS: Texts = Texts {
         category: "Category",
         new_category: "+ new",
         last_used: "Last used — tap another one if it is wrong.",
+        only_category: "The only category so far — add another if it is wrong; with none, this \
+            is a payback between people.",
         category_name: "Category name",
         add: "Add",
         date: "Date",

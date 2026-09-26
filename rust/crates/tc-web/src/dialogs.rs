@@ -111,7 +111,13 @@ pub fn SpendingDialog(
     // One signal per field. Each is `Copy`, so the handlers below can each take their own
     // without any of them owning the form.
     let description = RwSignal::new(draft.description.clone());
-    let category = RwSignal::new(draft.category.clone());
+    // A new expense with no category to guess from - an empty tour, where the only one on
+    // offer is "Common" - takes the only one there is, shown as a guess like any other. Left
+    // empty, a quick save made it a payback: no category is what marks one, and it dropped
+    // out of every total of money spent.
+    let only_one = (!editing && draft.category.trim().is_empty() && known_categories.len() == 1)
+        .then(|| known_categories[0].clone());
+    let category = RwSignal::new(only_one.clone().unwrap_or_else(|| draft.category.clone()));
     // Whether amounts in a currency are hundredths - read and written as "3,50".
     let tour_here = StoredValue::new(tour.clone());
     let cents_in = move |currency: &str| {
@@ -148,7 +154,7 @@ pub fn SpendingDialog(
     let errors: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
     // A new expense opens in the category last used, and says so: it is a guess, and one
     // that is wrong often enough that it has to look different from a choice.
-    let guessed = RwSignal::new(!editing && !draft.category.trim().is_empty());
+    let guessed = RwSignal::new(!editing && !category.get_untracked().trim().is_empty());
     let more = RwSignal::new(false);
     let adding = RwSignal::new(false);
     let fresh_category = RwSignal::new(String::new());
@@ -498,7 +504,7 @@ pub fn SpendingDialog(
                 </div>
                 <Show when=move || guessed.get()>
                     <div class="tcn-hint" style="margin-top:4px">
-                        {t().dialogs.last_used}
+                        {if only_one.is_some() { t().dialogs.only_category } else { t().dialogs.last_used }}
                     </div>
                 </Show>
                 <Show when=move || adding.get()>
