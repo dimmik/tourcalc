@@ -513,6 +513,20 @@ impl TourDraft {
     }
 }
 
+/// What a tour made from nothing is sent as: a name, nobody yet, and the euro - with cents,
+/// worth 10 000 - as its currency. It used to start with "coin", a stand-in that nearly every
+/// tour renamed first thing; the euro is what most of them were renamed to, and a tour that
+/// counts in something else renames it just the same.
+pub fn new_tour_body(name: &str) -> serde_json::Value {
+    serde_json::json!({
+        "Name": name,
+        "Persons": [],
+        "Spendings": [],
+        "Currencies": [{"_id": "EUR", "Name": "EUR", "CurrencyRate": 10_000, "WithCents": true}],
+        "TourCurrencyId": "EUR",
+    })
+}
+
 pub fn put_tour(tour: &Tour, draft: &TourDraft) -> Tour {
     let mut next = tour.clone();
     next.name = draft.name.trim().to_owned();
@@ -1127,6 +1141,16 @@ mod currency_tests {
         // Cleared again, a new one is just a spare blank.
         rename_row(&mut rows, 3, String::new(), Some(1000));
         assert_eq!(rows.len(), 4);
+    }
+
+    /// A new tour counts in euros, with cents: 3,50 € can be written from the first expense.
+    #[test]
+    fn a_new_tour_is_in_euros() {
+        let t = Tour::from_json(&new_tour_body("Trip").to_string()).expect("a tour");
+        assert_eq!(t.currency().id.as_str(), "EUR");
+        assert_eq!(t.currencies.len(), 1);
+        assert!(t.currency().with_cents());
+        assert_eq!(t.currency().rate, 10_000);
     }
 
     /// A currency of the tour with its name cleared is not saved away: the dialog says so.
