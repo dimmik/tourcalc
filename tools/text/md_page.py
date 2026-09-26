@@ -2,7 +2,7 @@
 """A review or plan written in Markdown, as one HTML page to publish as an artifact.
 
 Standard library only - no `markdown` package on a fresh machine. Covers what the repository's
-own .md files use: headings, paragraphs, lists (one level, with wrapped lines), tables, rules,
+own .md files use: headings, paragraphs, indented code, lists (one level, with wrapped lines), tables, rules,
 **bold**, *italic*, ~~struck~~, `code` and [links](url).
 
     tools/text/md_page.py currencies-review-20260926.md out.html --title "Ревью валют"
@@ -70,6 +70,16 @@ def convert(md):
                     cells.append(f'<td>{pill(rendered) or rendered}</td>')
                 t += '<tr>' + ''.join(cells) + '</tr>'
             out.append(t + '</tbody></table></div>')
+            continue
+        if line.startswith('    ') and items is None and not para:
+            flush()
+            block = []
+            while i < len(lines) and (lines[i].startswith('    ') or not lines[i].strip()):
+                block.append(lines[i][4:])
+                i += 1
+            while block and not block[-1].strip():
+                block.pop()
+            out.append('<pre>' + html.escape('\n'.join(block)) + '</pre>')
             continue
         m = re.match(r'(#{1,3}) (.*)', line)
         if m:
@@ -143,6 +153,8 @@ p > i:only-child { color: var(--soft); font-style: normal; font-size: .92rem; di
 a { color: var(--accent); }
 code { font: .86em/1.4 "IBM Plex Mono", ui-monospace, Consolas, monospace; background: var(--code);
   padding: .1em .35em; border-radius: 4px; overflow-wrap: anywhere; }
+pre { font: .84rem/1.5 "IBM Plex Mono", ui-monospace, Consolas, monospace; background: var(--code);
+  padding: 10px 12px; border-radius: 8px; overflow-x: auto; margin: 0 0 1em; }
 hr { border: 0; border-top: 1px solid var(--line); margin: 2.4em 0; }
 .table { overflow-x: auto; margin: 0 0 1.2em; background: var(--paper);
   border: 1px solid var(--line); border-radius: 10px; }
