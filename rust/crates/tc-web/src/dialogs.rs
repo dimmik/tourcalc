@@ -58,12 +58,21 @@ fn Modal(
         });
     }
 
+    // Opened to be typed in: the cursor goes to its first box (or the one it marks
+    // `data-first`), so that the first letters are not lost - "add a person", then the name.
+    let card = NodeRef::<leptos::html::Div>::new();
+    Effect::new(move |_| {
+        if let Some(el) = card.get() {
+            request_animation_frame(move || crate::ui::focus_first_in(&el));
+        }
+    });
+
     view! {
         <div class="tcn-modal"
              // Closing on *click* and not on mousedown: releasing the button over the mask
              // after a drag that started inside the dialog is not "click outside".
              on:click=move |_| on_close.run(())>
-            <div class="tcn-modal-card" on:click=|ev| ev.stop_propagation()>
+            <div class="tcn-modal-card" node_ref=card on:click=|ev| ev.stop_propagation()>
                 <div class="tcn-modal-head">
                     <div class="tcn-modal-title">{title}</div>
                     <button type="button" class="tcn-modal-x" on:click=move |_| on_close.run(())>
@@ -1280,6 +1289,9 @@ pub fn CurrenciesDialog(
                         view! {
                             <div class="tcn-currow">
                                 <input class="tcn-input tcn-cur-name" type="text"
+                                       // Opened, the dialog's cursor goes here: to the row for
+                                       // a new currency, not into the first one's name.
+                                       data-first=blank.then_some("")
                                        list="tcw-currency-list" autocomplete="off"
                                        placeholder=if blank { t().dialogs.add_currency } else { "" }
                                        prop:value=c.name.clone()

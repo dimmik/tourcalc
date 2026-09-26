@@ -22,6 +22,8 @@ web-sys = { version = "0.3", features = [
     "MessageEvent", "MessagePort",
     # "Today's rate": a request that gives up rather than hanging on a bad network.
     "AbortSignal",
+    # A form that opens puts the cursor in its first box: typing starts at once.
+    "HtmlElement",
 ] }
 console_error_panic_hook = "0.1"
 serde = { version = "1", features = ["derive"] }

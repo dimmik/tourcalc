@@ -163,6 +163,9 @@ pub fn TourListPage() -> impl IntoView {
     let (state, set_state) = signal(Load::Loading);
     let search = RwSignal::new(String::new());
     let adding = RwSignal::new(false);
+    // "+ New tour" opens the form to type its name in: the cursor is there already.
+    let name_box = NodeRef::<leptos::html::Input>::new();
+    crate::ui::focus_when_shown(name_box);
     let new_name = RwSignal::new(String::new());
     let new_code = RwSignal::new(String::new());
     let new_json = RwSignal::new(String::new());
@@ -395,6 +398,7 @@ pub fn TourListPage() -> impl IntoView {
                     <div class="tcn-field">
                         <div class="tcn-field-label">{t().list.tour_name}</div>
                         <input class="tcn-input" type="text" placeholder=t().list.tour_name_example
+                               node_ref=name_box
                                prop:value=move || new_name.get()
                                on:input=move |ev| new_name.set(event_target_value(&ev)) />
                     </div>

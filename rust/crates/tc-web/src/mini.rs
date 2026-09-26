@@ -1185,6 +1185,9 @@ pub fn MiniList(
     bells: crate::push::Bells,
 ) -> impl IntoView {
     let more: RwSignal<Option<String>> = RwSignal::new(None);
+    // "+ tour" opens the fields to type its name in: the cursor is there already.
+    let name_box = NodeRef::<leptos::html::Input>::new();
+    crate::ui::focus_when_shown(name_box);
     let total = tours.len();
     // Under this many the list fits on a screen and a find box is clutter.
     let searchable = total > 8;
@@ -1242,6 +1245,7 @@ pub fn MiniList(
             <div class="tcm-sub">
                 <div class="tcm-fields">
                     <input class="tcm-input" type="text" placeholder=t().mini.tour_name
+                           node_ref=name_box
                            prop:value=move || new_name.get()
                            on:input=move |ev| new_name.set(event_target_value(&ev)) />
                     <input class="tcm-input tcm-input-xs" type="text" placeholder=t().mini.code
