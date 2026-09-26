@@ -418,9 +418,19 @@ fn App() -> impl IntoView {
 
     // A share link is not a screen: it exchanges the code for a token and then goes where
     // it was pointing. Done once, when that is the route we arrived on.
+    //
+    // The link's code is added to the ones already held, not put in their place: somebody in
+    // three companies sees the tours of all three, as they did in the app. It used to replace
+    // them, and every link from one company hid the tours of the others. Should the server
+    // refuse the lot, the link's code alone - which is what the app fell back to as well.
     if let Route::Goto(code, id) = route.get_untracked() {
         spawn_local(async move {
-            match api::log_in_with_md5(&code).await {
+            let all = api::codes_with(&api::my_codes().await, &code);
+            let signed = match api::log_in_with_md5(&all).await {
+                Err(_) if all != code.trim().to_uppercase() => api::log_in_with_md5(&code).await,
+                other => other,
+            };
+            match signed {
                 Ok(()) => {
                     signed_in.set(true);
                     go(&format!("/tour/{id}"), set_route)

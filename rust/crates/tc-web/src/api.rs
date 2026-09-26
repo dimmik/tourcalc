@@ -256,6 +256,49 @@ pub async fn log_in_with_md5(code_md5: &str) -> Result<(), Failed> {
     Ok(())
 }
 
+/// The access codes this device is signed in with, hashed, in the order the token has them.
+///
+/// A token carries as many as a person has companies - the hiking one, the work one - joined
+/// by ';', and sees the tours of all of them; the app has done so since 2022. Empty when
+/// signed out, when the server cannot be asked, or with the master key, which needs none.
+pub async fn my_codes() -> Vec<String> {
+    if token().is_none() {
+        return Vec::new();
+    }
+    match get("/api/Auth/whoami").await {
+        Ok(text) => codes_in_whoami(&text),
+        Err(_) => Vec::new(),
+    }
+}
+
+fn codes_in_whoami(json: &str) -> Vec<String> {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else { return Vec::new() };
+    if v.get("IsMaster").and_then(|m| m.as_bool()).unwrap_or(false) {
+        return Vec::new();
+    }
+    v.get("AccessCodeMD5")
+        .and_then(|c| c.as_str())
+        .unwrap_or("")
+        .split(';')
+        .map(|c| c.trim().to_uppercase())
+        .filter(|c| !c.is_empty())
+        .collect()
+}
+
+/// The codes to sign in with after a share link: the ones already held, in their order, and
+/// the link's added at the end - as the app did. First stays first: a tour created without
+/// naming a code goes under the first, so a new link does not change where new tours go.
+pub fn codes_with(mine: &[String], link: &str) -> String {
+    let link = link.trim().to_uppercase();
+    let mut all: Vec<String> = Vec::new();
+    for c in mine.iter().cloned().chain(std::iter::once(link)) {
+        if !c.is_empty() && !all.contains(&c) {
+            all.push(c);
+        }
+    }
+    all.join(";")
+}
+
 /// What a read says when the server has no such tour for this login.
 /// What a 404 on a tour says.
 pub fn not_found() -> &'static str {
@@ -562,6 +605,24 @@ async fn post_subscription(what: &str, sub: &PushSubscription) -> Result<String,
             .map_err(|e| Failed::ours((t().errors.cannot_read_answer)(&e.to_string()))),
         401 => Err(Failed::answered(401, expired())),
         s => Err(Failed::answered(s, (t().errors.server_answered)(s))),
+    }
+}
+
+#[cfg(test)]
+mod code_tests {
+    use super::{codes_in_whoami, codes_with};
+
+    #[test]
+    fn a_share_link_adds_its_code_to_the_ones_held() {
+        let mine = codes_in_whoami(r#"{"Type":"AccessCode","IsMaster":false,"AccessCodeMD5":"AAA;bbb"}"#);
+        assert_eq!(mine, vec!["AAA", "BBB"]);
+        assert_eq!(codes_with(&mine, "ccc"), "AAA;BBB;CCC");
+        // Already held: nothing changes, and the order stays.
+        assert_eq!(codes_with(&mine, "aaa"), "AAA;BBB");
+        // Signed out, or the master key: only the link's.
+        assert_eq!(codes_with(&[], "ccc"), "CCC");
+        assert!(codes_in_whoami(r#"{"Type":"Master","IsMaster":true,"AccessCodeMD5":""}"#).is_empty());
+        assert!(codes_in_whoami("not json").is_empty());
     }
 }
 
