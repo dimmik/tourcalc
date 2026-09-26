@@ -1,4 +1,5 @@
-# Throws away the build caches of branches that no longer exist.
+# Throws away the build caches of branches that no longer exist - and, once a day, whatever
+# nothing has read for three days.
 #
 # The repository's Actions cache is capped at 10 GB, and a Rust image build writes about a
 # gigabyte of layers per branch plus another 0.6 GB of compiled test build. With half a
@@ -8,6 +9,13 @@
 #
 # Deleting a branch is the moment its caches stop being useful, so that is when they go.
 #
+# That was not enough, found on 26.09.2026: a branch that lives on - prod above all - keeps
+# every layer every build of it ever wrote, because a build writes the layers it made and
+# nothing removes the ones it no longer uses. Prod alone had grown to 6.9 GB in 343 entries,
+# the cap was passed again, and three builds running were nine minutes long. A layer a build
+# needs is read by every build that needs it; one nobody has read for three days is one of
+# those left behind. So those go too, every day.
+#
 # One catch, found the hard way: a build that is already running can be exporting to those
 # caches, and buildx fails the whole build when the export does ("error writing layer blob:
 # not_found"). The image build therefore exports with `ignore-error=true`; see
@@ -16,6 +24,9 @@ name: Tidy caches
 
 on:
   delete:
+  # Every day, for the layers the living branches have left behind.
+  schedule:
+    - cron: '17 3 * * *'
   # And by hand, to clear what the branches deleted before this existed left behind.
   workflow_dispatch:
 
@@ -51,10 +62,32 @@ jobs:
           # alone: this is about branches that were merged and deleted.
           gh api --paginate repos/{owner}/{repo}/branches --jq '.[].name' \
             | sed 's|^|refs/heads/|' | sort > /tmp/alive
-          gh cache list --limit 100 --json id,ref --jq '.[] | [.id, .ref] | @tsv' > /tmp/caches
+          # Every entry, not the first hundred `gh cache list` stops at: there are hundreds.
+          gh api --paginate 'repos/{owner}/{repo}/actions/caches?per_page=100' \
+            --jq '.actions_caches[] | [.id, .ref] | @tsv' > /tmp/caches
           while IFS=$'\t' read -r id ref; do
             case "$ref" in
               refs/heads/*) grep -qxF "$ref" /tmp/alive || { echo "deleting $id ($ref)"; gh cache delete "$id"; } ;;
               *) ;;
             esac
           done < /tmp/caches
+
+      - name: Whatever nobody has read for three days
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          # ISO times in UTC compare as text.
+          cutoff=$(date -u -d '3 days ago' '+%Y-%m-%dT%H:%M:%SZ')
+          gh api --paginate 'repos/{owner}/{repo}/actions/caches?per_page=100' \
+            --jq '.actions_caches[] | [.id, .last_accessed_at, .ref, .size_in_bytes] | @tsv' \
+            | awk -F'\t' -v c="$cutoff" '$2 < c' > /tmp/stale
+          echo "$(wc -l < /tmp/stale) entries not read since $cutoff," \
+               "$(awk -F'\t' '{s += $4} END {printf "%.0f", s / 1048576}' /tmp/stale) MB"
+          while IFS=$'\t' read -r id _ ref _; do
+            echo "deleting $id ($ref)"
+            # One already gone - another run, or GitHub's own eviction - is not a failure.
+            gh cache delete "$id" || true
+          done < /tmp/stale
