@@ -914,7 +914,7 @@ pub fn CurrenciesDialog(
     on_apply: Callback<Operation>,
 ) -> impl IntoView {
     let with_blank = |mut rows: Vec<CurrencyDraft>| -> Vec<CurrencyDraft> {
-        while rows.last().is_some_and(|c| c.is_blank()) {
+        while rows.last().is_some_and(|c| c.is_new() && c.is_blank()) {
             rows.pop();
         }
         rows.push(CurrencyDraft::blank());
@@ -1261,25 +1261,7 @@ pub fn CurrenciesDialog(
                                        on:input=move |ev| {
                                            let text = event_target_value(&ev);
                                            let against = ref_worth();
-                                           rows.update(|all| {
-                                               if let Some(row) = all.get_mut(i) {
-                                                   // A new currency starts level with the
-                                                   // reference - "1 = 1" - until its rate is
-                                                   // typed or fetched.
-                                                   if row.is_blank() {
-                                                       if let Some(w) = against {
-                                                           row.rate = w;
-                                                       }
-                                                   }
-                                                   row.name = text;
-                                               }
-                                               // Always exactly one empty row at the end:
-                                               // typing into the last one makes the next.
-                                               while all.last().is_some_and(|c| c.is_blank()) {
-                                                   all.pop();
-                                               }
-                                               all.push(CurrencyDraft::blank());
-                                           });
+                                           rows.update(|all| edit::rename_row(all, i, text, against));
                                            // The first currency of all is the reference.
                                            if reference.get_untracked().is_none() {
                                                reference.set(Some(i));
@@ -1314,6 +1296,7 @@ pub fn CurrenciesDialog(
                                     view! {
                                         <span class="tcn-cur-worth-label">"="</span>
                                         <input class="tcn-input tcn-cur-rate" type="text" inputmode="decimal"
+                                               aria-label=(t().dialogs.rate_aria)(c.name.trim(), &base_name)
                                                class:tcw-refined=refined
                                                prop:value=rate_of(c.rate)
                                                on:input=move |ev| {

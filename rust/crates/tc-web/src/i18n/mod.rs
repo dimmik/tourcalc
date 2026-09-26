@@ -610,6 +610,8 @@ pub struct DialogTexts {
     pub rate_not_found: fn(&str) -> String,
     /// Before the currencies a name looks like.
     pub rate_maybe: &'static str,
+    /// What a rate box is, for a screen reader: of which currency, in which.
+    pub rate_aria: fn(&str, &str) -> String,
     pub rate_was: fn(&str, &str) -> String,
     /// Day and month.
     pub rate_date: fn(u32, u32) -> String,

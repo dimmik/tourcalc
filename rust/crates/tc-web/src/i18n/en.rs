@@ -480,6 +480,7 @@ pub const TEXTS: Texts = Texts {
         rate_asking: "asking…",
         rate_all: "Today's rates for all",
         rate_maybe: "Is it one of these?",
+        rate_aria: |name, base| format!("{name} in {base}"),
         rate_not_found: |name| format!("No currency “{name}” found — pick one from the list, by code, \
             name or country; or keep it as your own, like chips."),
         rate_kept: |name, against| format!("No rate for “{name}” — it keeps its worth against {against}."),

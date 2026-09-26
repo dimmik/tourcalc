@@ -495,6 +495,7 @@ pub const TEXTS: Texts = Texts {
         rate_asking: "спрашиваю…",
         rate_all: "Уточнить все курсы",
         rate_maybe: "Может, это:",
+        rate_aria: |name, base| format!("Курс {name} в {base}"),
         rate_not_found: |name| format!("Валюты «{name}» не нашлось — выберите из подсказки по коду, \
             названию или стране; или оставьте своей, как фишки."),
         rate_kept: |name, against| format!("Курса «{name}» нет — соотношение к {against} сохранено."),

@@ -50,6 +50,11 @@ pub fn known_codes() -> Vec<&'static str> {
         .collect()
 }
 
+fn is_known_code(code: &str) -> bool {
+    static KNOWN: std::sync::OnceLock<std::collections::HashSet<&'static str>> = std::sync::OnceLock::new();
+    KNOWN.get_or_init(|| known_codes().into_iter().collect()).contains(code)
+}
+
 thread_local! {
     static SUGGESTIONS: std::cell::OnceCell<Vec<(String, String)>> = const { std::cell::OnceCell::new() };
 }
@@ -62,11 +67,21 @@ const EURO_COUNTRIES: &[&str] = &[
 ];
 
 /// The countries a code is the currency of, as region codes: the first two letters of an ISO
-/// code are its country's - BY for BYN, BD for BDT - except the euro, and the X… ones that
-/// belong to no single country (XOF, XAF, XCD…).
+/// code are its country's - BY for BYN, BD for BDT - except for the currencies several
+/// countries share, listed here so that "Ecuador" finds the dollar and "Senegal" the franc.
+/// Other X… codes belong to no country (XDR).
 fn countries_of(code: &str) -> Vec<&str> {
     match code {
         "EUR" => EURO_COUNTRIES.to_vec(),
+        "USD" => vec!["US", "EC", "SV", "PA", "TL", "PR", "FM", "MH", "PW", "TC", "VG", "BQ"],
+        "XOF" => vec!["BJ", "BF", "CI", "GW", "ML", "NE", "SN", "TG"],
+        "XAF" => vec!["CM", "CF", "TD", "CG", "GQ", "GA"],
+        "XCD" => vec!["AG", "DM", "GD", "KN", "LC", "VC", "AI", "MS"],
+        "XPF" => vec!["PF", "NC", "WF"],
+        "AUD" => vec!["AU", "NR", "KI", "TV"],
+        "NZD" => vec!["NZ", "CK", "NU", "PN", "TK"],
+        "CHF" => vec!["CH", "LI"],
+        "DKK" => vec!["DK", "GL"],
         _ if code.starts_with('X') => Vec::new(),
         _ => vec![&code[..2]],
     }
@@ -177,7 +192,9 @@ fn unit_of(text: &str) -> Option<Unit> {
         if let Some((_, iso)) = SYNONYMS.iter().find(|(k, _)| *k == s) {
             return Some((*iso).to_owned());
         }
-        (s.chars().count() == 3 && s.chars().all(|c| c.is_ascii_uppercase())).then(|| s.to_owned())
+        // A code only if it is one the source knows: "ABC" or "Fun" is somebody's own currency,
+        // to be told "not found" when named - not a code the button then has no rate for.
+        is_known_code(s).then(|| s.to_owned())
     };
     if let Some(iso) = whole(&up) {
         return Some(Unit { iso, per: 1 });
@@ -496,8 +513,6 @@ pub fn normalize(rows: &[Row], rates: &Rates) -> Result<Normalized, Why> {
         .expect("not empty");
     let ratio = |u: &Unit| usd(u) / usd(&base_unit);
 
-    let base_worth = NORMAL_BASE;
-
     // The unknown ones keep their proportion to a currency whose old worth meant something:
     // the cheapest of the tour's own known ones, as `reference` would choose.
     let kept_against = cheapest_of(
@@ -512,6 +527,22 @@ pub fn normalize(rows: &[Row], rates: &Rates) -> Result<Normalized, Why> {
         .filter(|(i, r)| live(r) && !known.iter().any(|(k, _)| k == i))
         .map(|(i, _)| i)
         .collect();
+
+    // The base at 10 000 - more, when an unknown currency far cheaper than it would come out
+    // below four figures (chips a hundred thousand to the dinar), rather than refusing.
+    let mut base_worth = NORMAL_BASE;
+    if let Some(k) = kept_against {
+        let (_, ku) = known.iter().find(|(i, _)| *i == k).expect("known");
+        let per_base = ratio(ku) / rows[k].rate as f64;
+        let smallest = unknown
+            .iter()
+            .map(|i| rows[*i].rate as f64 * per_base)
+            .filter(|w| *w > 0.0)
+            .fold(f64::INFINITY, f64::min);
+        while base_worth * smallest < 1000.0 && base_worth < 1e12 {
+            base_worth *= 10.0;
+        }
+    }
 
     let mut worths: Vec<(usize, i64)> = Vec::new();
     let mut put = |i: usize, w: f64| -> Result<(), Why> {
@@ -668,7 +699,9 @@ mod tests {
         assert_eq!(units_of("x7k2q3a", "руб"), vec![u("RUB", 1)]);
         assert_eq!(units_of("x7k2q3a", "Chips"), vec![]);
         // A three-letter id that is no currency, and a name that is: both, id first.
-        assert_eq!(units_of("abc", "EUR"), vec![u("ABC", 1), u("EUR", 1)]);
+        // A three-letter id that is no currency the source knows, and a name that is: the name.
+        assert_eq!(units_of("abc", "EUR"), vec![u("EUR", 1)]);
+        assert_eq!(units_of("Fun", "Fun"), vec![]);
     }
 
     #[test]
@@ -725,10 +758,13 @@ mod tests {
 
     #[test]
     fn what_cannot_be_done_is_said() {
-        let r = sample();
-        let rows = vec![row("RSD", "RSD", 1000), row("c1", "Chips", 5), row("XXQ", "XXQ", 7)];
+        let mut r = sample();
+        let rows = vec![row("RSD", "RSD", 1000), row("c1", "Chips", 5), row("XXQ", "XXQ", 7), row("BAM", "BAM", 60_000)];
         assert_eq!(refine(&rows, 1, &r), Err(Why::Unknown("Chips".into())));
-        assert_eq!(refine(&rows, 2, &r), Err(Why::NotAtSource("XXQ".into())));
+        assert_eq!(refine(&rows, 2, &r), Err(Why::Unknown("XXQ".into())), "no code the source knows");
+        // One the kept list has, missing from today's answer.
+        r.per_usd.remove("BAM");
+        assert_eq!(refine(&rows, 3, &r), Err(Why::NotAtSource("BAM".into())));
         let alone = vec![row("EUR", "EUR", 100), row("EURc", "EURc", 1)];
         assert_eq!(refine(&alone, 0, &r), Err(Why::NothingToCompare));
         // Chips are cheaper than dinars, but unknown - the dinar is still the base.
@@ -809,6 +845,11 @@ mod tests {
         assert_eq!(n.unknown, vec![1]);
         assert!(n.worths.contains(&(0, 10_000)) && n.worths.contains(&(1, 5_000)), "{:?}", n.worths);
         assert_eq!(normalize(&[row("c", "Chips", 5)], &r), Err(Why::NothingToCompare));
+        // Chips a hundred thousand to the dinar: the base rises instead of refusing.
+        let tiny = vec![row("RSD", "RSD", 100_000), row("c", "Chips", 1), row("EUR", "EUR", 11_800_000)];
+        let n = normalize(&tiny, &r).expect("rates");
+        let chips = n.worths.iter().find(|(i, _)| *i == 1).expect("chips").1;
+        assert!(chips >= 1000, "{chips}");
     }
 
     /// An old tour, the dinar at 100: ×100 first, so the rouble comes out as 1,223 and not 1,22.
@@ -838,7 +879,9 @@ mod tests {
         assert_eq!(countries_of("BYN"), vec!["BY"]);
         assert_eq!(countries_of("BDT"), vec!["BD"]);
         assert!(countries_of("EUR").contains(&"DE") && countries_of("EUR").contains(&"ME"));
-        assert!(countries_of("XOF").is_empty());
+        assert!(countries_of("USD").contains(&"EC"));
+        assert!(countries_of("XOF").contains(&"SN"));
+        assert!(countries_of("XDR").is_empty());
     }
 
     #[test]

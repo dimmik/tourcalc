@@ -595,6 +595,35 @@ impl CurrencyDraft {
     pub fn is_blank(&self) -> bool {
         self.name.trim().is_empty()
     }
+
+    /// A row for a currency being added, not one of the tour's: no id yet.
+    pub fn is_new(&self) -> bool {
+        self.id.is_empty()
+    }
+}
+
+/// Row `at` of the currencies dialog renamed to `text`, and the list kept ending in exactly
+/// one empty row for the next currency.
+///
+/// A new currency named for the first time starts level with the reference (`level_with`)
+/// until it is given a rate. One of the tour's own keeps its worth and its place whatever its
+/// name goes through: renaming it on a phone means clearing the box and typing again, and
+/// the empty moment used to be read as "gone" - the last row was dropped as a spare blank,
+/// and retyped it came back as a new currency at the default worth, its expenses converted
+/// away on save and every rate against it off by a hundred.
+pub fn rename_row(rows: &mut Vec<CurrencyDraft>, at: usize, text: String, level_with: Option<i64>) {
+    if let Some(row) = rows.get_mut(at) {
+        if row.is_new() && row.is_blank() {
+            if let Some(w) = level_with {
+                row.rate = w;
+            }
+        }
+        row.name = text;
+    }
+    while rows.last().is_some_and(|c| c.is_new() && c.is_blank()) {
+        rows.pop();
+    }
+    rows.push(CurrencyDraft::blank());
 }
 
 /// Why this set of currencies cannot be saved, if it cannot.
@@ -1066,6 +1095,27 @@ mod currency_tests {
         let twice = put_currencies(&once, &kept, "RSD");
         let euros = twice.currencies.iter().filter(|c| c.name == "EUR").count();
         assert_eq!(euros, 1, "{:?}", twice.currencies.iter().map(|c| c.id.as_str()).collect::<Vec<_>>());
+    }
+
+    /// Renaming the last currency by clearing its box and typing again: it is still the same
+    /// currency, with its worth - not dropped, not re-added at the default.
+    #[test]
+    fn a_currency_renamed_through_an_empty_box_is_kept() {
+        let t = tour(); // RSD 1000, EUR 117000, EURc 1170
+        let mut rows = drafts(&t);
+        rows.push(CurrencyDraft::blank());
+        rename_row(&mut rows, 2, String::new(), Some(1000));
+        assert_eq!(rows.len(), 4, "the emptied EURc stays, and one blank row after it");
+        assert_eq!((rows[2].id.as_str(), rows[2].rate), ("EURc", 1170));
+        rename_row(&mut rows, 2, "Cent".into(), Some(1000));
+        assert_eq!((rows[2].id.as_str(), rows[2].name.as_str(), rows[2].rate), ("EURc", "Cent", 1170));
+        assert!(rows[3].is_new() && rows[3].is_blank() && rows.len() == 4);
+        // A new one is named: level with the reference, and a blank row follows.
+        rename_row(&mut rows, 3, "PLN".into(), Some(1000));
+        assert_eq!((rows[3].rate, rows.len()), (1000, 5));
+        // Cleared again, a new one is just a spare blank.
+        rename_row(&mut rows, 3, String::new(), Some(1000));
+        assert_eq!(rows.len(), 4);
     }
 
     /// Chips cheaper than the dinar: a removed euro's expenses still go into dinars.
