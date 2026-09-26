@@ -87,7 +87,7 @@ impl std::fmt::Display for Cents {
 /// The C# version does this in `double` and then rounds (`Spending.AmountInCurrentCurrency`).
 /// Here the intermediate product is `i128`, so nothing is lost before the one rounding step
 /// that we choose ourselves - half away from zero, matching `Math.Round`'s default.
-pub fn convert(amount: Cents, from_rate: i32, to_rate: i32) -> Cents {
+pub fn convert(amount: Cents, from_rate: i64, to_rate: i64) -> Cents {
     if from_rate == to_rate || to_rate == 0 {
         return amount;
     }

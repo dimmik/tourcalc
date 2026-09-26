@@ -539,8 +539,9 @@ pub fn put_tour(tour: &Tour, draft: &TourDraft) -> Tour {
 pub struct CurrencyDraft {
     pub id: String,
     pub name: String,
-    /// What one unit is worth on any scale you like - only the ratio matters.
-    pub rate: i32,
+    /// What one unit is worth on any scale you like - only the ratio matters. The dialog shows
+    /// it as a rate against another currency and chooses the scale itself (`rates::room`).
+    pub rate: i64,
     /// Amounts are hundredths, read and written with a decimal part. See `tc_core::units`.
     #[serde(default)]
     pub cents: bool,
@@ -583,7 +584,7 @@ impl CurrencyDraft {
         if !self.cents_auto {
             return self.cents;
         }
-        let others: Vec<i32> = all
+        let others: Vec<i64> = all
             .iter()
             .filter(|c| !c.is_blank() && !std::ptr::eq(*c, self))
             .map(|c| c.rate)

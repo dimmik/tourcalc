@@ -583,7 +583,6 @@ pub struct DialogTexts {
     pub rates: &'static str,
     pub rates_note: &'static str,
     pub add_currency: &'static str,
-    pub worth: &'static str,
     pub remove: &'static str,
     pub rename_note: &'static str,
     pub with_cents: &'static str,
@@ -617,13 +616,6 @@ pub struct DialogTexts {
     pub rate_nothing_to_compare: &'static str,
     pub rate_offline: &'static str,
     pub rate_out_of_range: &'static str,
-    /// Multiply every worth by this? Because the base (name, worth) is too small for four
-    /// figures, or a currency with cents (name, worth) does not end in two zeros.
-    pub raise_base: fn(&str, &str, i32) -> String,
-    pub raise_cents: fn(&str, &str, i32) -> String,
-    pub raise_yes: &'static str,
-    pub raise_no: &'static str,
-    pub raised: fn(i32) -> String,
     pub restore_question: &'static str,
     pub cannot_read_version: &'static str,
     pub restored_name: fn(&str, &str, &str) -> String,

@@ -14,12 +14,13 @@
 //! trailing `c` for a hundredth ("EURc" - from before a currency could have cents itself).
 //!
 //! **Against what.** The cheapest other currency the source knows keeps its worth; the rest
-//! are worked out from it. Rounded to four significant figures - 117 500, not 117 563 - which
-//! is closer than anybody settling a trip cares about, and reads better. When the cheapest is
-//! under 1 000 that is not four figures, so the dialog offers to multiply every worth by a
-//! power of ten first (`raise_factor`): the ratios stay, the numbers get room. The same for a
-//! currency with cents under 100 000: four figures and two zeros, so a cent is worth a whole
-//! number too - the lev at 60 090 against the dinar at 1 000 is 601 000 against 10 000.
+//! are worked out from it. Rounded to four significant figures - 117,5 dinars to the euro, not
+//! 117,563 - which is closer than anybody settling a trip cares about.
+//!
+//! **Worths and rates.** A tour stores each currency's *worth*, an integer on a scale of its own
+//! (the dinar 1 000, the euro 117 500); only the ratio means anything. The dialog shows rates
+//! instead - "1 EUR = 117,5 RSD" - and chooses the scale itself (`room`), so nobody has to be
+//! asked to multiply anything.
 
 use std::collections::HashMap;
 
@@ -138,9 +139,7 @@ pub enum Why {
 pub struct Row {
     pub id: String,
     pub name: String,
-    pub rate: i32,
-    /// "with cents": its worth wants two zeros after its four figures.
-    pub cents: bool,
+    pub rate: i64,
     /// Already one of the tour's currencies, not one being added: only such a worth means
     /// anything - a new row's is the default until somebody changes it.
     pub saved: bool,
@@ -150,7 +149,7 @@ pub struct Row {
 /// tour's own currencies, and of the new ones only when there are no others. A currency just
 /// added sits at the default 10 000, which says nothing about what it is worth - taken for
 /// the base, it lost its own button (a PLN added beside a euro at 1 000 000).
-fn cheapest_of(candidates: impl Iterator<Item = (usize, i32, bool)> + Clone) -> Option<usize> {
+fn cheapest_of(candidates: impl Iterator<Item = (usize, i64, bool)> + Clone) -> Option<usize> {
     let saved = candidates.clone().filter(|(_, _, s)| *s).min_by_key(|(_, rate, _)| *rate);
     saved
         .or_else(|| candidates.min_by_key(|(_, rate, _)| *rate))
@@ -172,7 +171,7 @@ fn resolve(row: &Row, rates: &Rates) -> Result<Unit, Why> {
 /// The row every other is worked out against: the cheapest the source knows, other than
 /// `group` (the currency asked about, in any of its units).
 pub fn reference(rows: &[Row], group: &str, rates: &Rates) -> Option<usize> {
-    let known: Vec<(usize, i32, bool)> = rows
+    let known: Vec<(usize, i64, bool)> = rows
         .iter()
         .enumerate()
         .filter(|(_, r)| r.rate > 0 && !r.name.trim().is_empty())
@@ -202,7 +201,7 @@ pub fn place(rows: &[Row], at: usize) -> Place {
     if row.name.trim().is_empty() {
         return Place::Nothing;
     }
-    let known: Vec<(usize, i32, bool, String)> = rows
+    let known: Vec<(usize, i64, bool, String)> = rows
         .iter()
         .enumerate()
         .filter(|(_, r)| r.rate > 0 && !r.name.trim().is_empty())
@@ -225,6 +224,31 @@ pub fn place(rows: &[Row], at: usize) -> Place {
     }
 }
 
+/// The row the dialog reads every other rate against - "1 EUR = 117,5 **RSD**": the one
+/// `place` calls the base, and when no currency is recognised at all, the cheapest of the
+/// tour's own (chips against chips still have a rate). `None` only for a list of blank rows.
+pub fn display_base(rows: &[Row]) -> Option<usize> {
+    if let Some(base) = (0..rows.len()).find(|i| place(rows, *i) == Place::Base) {
+        return Some(base);
+    }
+    cheapest_of(
+        rows.iter()
+            .enumerate()
+            .filter(|(_, r)| r.rate > 0 && !r.name.trim().is_empty())
+            .map(|(i, r)| (i, r.rate, r.saved)),
+    )
+}
+
+/// The power of ten to multiply every worth by before today's rate for row `at` is worked
+/// out: its base at 10 000 at least, so the rate comes out to four figures (see [`room`]).
+pub fn refine_room(rows: &[Row], at: usize, rates: &Rates) -> i64 {
+    let Some(unit) = rows.get(at).and_then(|r| resolve(r, rates).ok()) else { return 1 };
+    let Some(base) = reference(rows, &unit.iso, rates) else { return 1 };
+    let worths: Vec<i64> = rows.iter().filter(|r| !r.name.trim().is_empty()).map(|r| r.rate).collect();
+    room(&worths, &[rows[base].rate as f64], 10_000.0, false)
+}
+
+#[cfg(test)]
 pub fn has_button(rows: &[Row], at: usize) -> bool {
     place(rows, at) == Place::Button
 }
@@ -239,88 +263,89 @@ pub fn round4(x: f64) -> i64 {
     (((x / scale).round() * scale) as i64).max(1)
 }
 
-/// The base's worth has to be at least this for four significant figures everywhere...
-const BASE_AT_LEAST: f64 = 1_000.0;
-/// ...and a currency with cents this, for two zeros after them.
-const CENTS_AT_LEAST: f64 = 100_000.0;
+/// The most a worth may be: far below `i64::MAX`, so that `Tour::convert`, which multiplies
+/// two of them in `i128`, and any rescaling here stay well clear of it.
+pub const MAX_WORTH: i64 = 1_000_000_000_000_000;
 
-/// The smallest power of ten that lifts every `(worth, at least)` to its floor. `None` when
-/// none is needed, or the largest worth would no longer fit.
-pub fn raise_factor(floors: &[(f64, f64)], largest: f64) -> Option<i32> {
+/// A worth read as a rate: how many of the reference one unit of it is - "117,5" for the euro
+/// against the dinar. Four significant figures, a whole number from 1 000 up, `decimal` as the
+/// reader writes it; no thousands gaps, as it goes into a box to be typed over.
+pub fn rate_text(worth: i64, against: i64, decimal: char) -> String {
+    if against <= 0 || worth <= 0 {
+        return String::new();
+    }
+    let x = worth as f64 / against as f64;
+    if x >= 1000.0 {
+        return format!("{}", x.round() as i64);
+    }
+    let digits = x.log10().floor() as i32 + 1;
+    let decimals = (4 - digits).max(0) as usize;
+    let mut s = format!("{x:.decimals$}");
+    if s.contains('.') {
+        while s.ends_with('0') {
+            s.pop();
+        }
+        if s.ends_with('.') {
+            s.pop();
+        }
+    }
+    s.replace('.', &decimal.to_string())
+}
+
+/// A rate as somebody typed it: "117,5", "117.5", "0,0085", "19 000". `None` for anything
+/// that is not a positive number.
+pub fn parse_rate(text: &str) -> Option<f64> {
+    let cleaned: String = text
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '\u{202f}' && *c != '\u{a0}')
+        .map(|c| if c == ',' { '.' } else { c })
+        .collect();
+    if cleaned.matches('.').count() > 1 {
+        return None;
+    }
+    cleaned.parse::<f64>().ok().filter(|x| x.is_finite() && *x > 0.0)
+}
+
+/// The power of ten to multiply every worth by, so that each of `wanted` - worths about to be
+/// written, unrounded - is at least `floor`, and (when `exact`) a whole number: a rate typed
+/// as "1,2226" against a dinar at 100 is 122,26, which only ×100 keeps. 1 when nothing needs
+/// it; never so much that `worths` would pass [`MAX_WORTH`].
+///
+/// The ratios stay what they were, and nobody sees the worths, so this is done without asking.
+pub fn room(worths: &[i64], wanted: &[f64], floor: f64, exact: bool) -> i64 {
+    let largest = worths
+        .iter()
+        .map(|w| *w as f64)
+        .chain(wanted.iter().copied())
+        .fold(0.0_f64, f64::max);
+    let short = |f: f64| {
+        wanted.iter().any(|w| {
+            let x = w * f;
+            x < floor || (exact && (x - x.round()).abs() > x * 1e-9)
+        })
+    };
     let mut f: i64 = 1;
-    while f < 1_000_000_000 && floors.iter().any(|(w, min)| *w > 0.0 && w * (f as f64) < *min) {
+    while short(f as f64) && largest * (f as f64) * 10.0 <= MAX_WORTH as f64 && f < 1_000_000_000_000 {
         f *= 10;
     }
-    (f > 1 && largest * f as f64 <= i32::MAX as f64).then_some(f as i32)
-}
-
-/// A multiplier worth offering, and the row that is the reason for it.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Raise {
-    pub factor: i32,
-    pub why: RaiseWhy,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum RaiseWhy {
-    /// The base, worth under 1 000: not four figures for what is worked out from it.
-    Base(usize),
-    /// A currency with cents, under 100 000: not two zeros after its four figures.
-    Cents(usize),
-}
-
-/// The multiplier to offer after working out row `at`: when the base is worth under 1 000, or
-/// the currency asked about has cents and comes out under 100 000. Only that currency - the
-/// euro asked about says nothing of the lev. What it comes out at is worked out from the
-/// rates, not read from the row.
-pub fn raise_for(rows: &[Row], at: usize, rates: &Rates) -> Option<Raise> {
-    let unit = resolve(rows.get(at)?, rates).ok()?;
-    let base_at = reference(rows, &unit.iso, rates)?;
-    let base_row = &rows[base_at];
-    let base = resolve(base_row, rates).ok()?;
-    let mut floors = vec![(base_row.rate as f64, BASE_AT_LEAST)];
-    let mut short_of_cents = None;
-    let mut largest: f64 = 0.0;
-    for (i, r) in rows.iter().enumerate().filter(|(_, r)| !r.name.trim().is_empty()) {
-        largest = largest.max(r.rate as f64);
-        let Ok(u) = resolve(r, rates) else { continue };
-        if i == base_at || u.iso != unit.iso {
-            continue;
-        }
-        let worth = worth_against(&u, &base, base_row.rate, rates);
-        largest = largest.max(worth);
-        if r.cents && u.per == 1 {
-            floors.push((worth, CENTS_AT_LEAST));
-            if worth < CENTS_AT_LEAST && short_of_cents.is_none() {
-                short_of_cents = Some(i);
-            }
-        }
-    }
-    let factor = raise_factor(&floors, largest)?;
-    let why = if (base_row.rate as f64) < BASE_AT_LEAST {
-        RaiseWhy::Base(base_at)
-    } else {
-        RaiseWhy::Cents(short_of_cents?)
-    };
-    Some(Raise { factor, why })
+    f
 }
 
 /// What one of `unit` is worth when one of `base` is worth `base_worth`, unrounded.
-fn worth_against(unit: &Unit, base: &Unit, base_worth: i32, rates: &Rates) -> f64 {
+fn worth_against(unit: &Unit, base: &Unit, base_worth: i64, rates: &Rates) -> f64 {
     // One unit in dollars, over one unit of the base in dollars.
     let usd = |u: &Unit| 1.0 / (rates.per_usd[&u.iso] * u.per as f64);
     base_worth as f64 * usd(unit) / usd(base)
 }
 
-/// The worth "today's rates for all" starts the base at - raised by tens when a currency
-/// with cents needs room for two zeros.
+/// The worth "today's rates for all" gives the base: room for four figures and more.
 const NORMAL_BASE: f64 = 10_000.0;
 
 /// "Today's rates for all": every worth set afresh.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Normalized {
     /// `(row, new worth)` for every row that changes.
-    pub worths: Vec<(usize, i32)>,
+    pub worths: Vec<(usize, i64)>,
     /// The row that is now the base: the cheapest currency by today's market, not by the
     /// worths it had - a lira that strengthened past the euro stops being the base.
     pub base: usize,
@@ -330,9 +355,8 @@ pub struct Normalized {
     pub kept_against: Option<usize>,
 }
 
-/// Every known currency at today's rate, the cheapest of them at 10 000 - or 100 000, a
-/// million, whatever makes each currency with cents come out to two zeros - and every unknown
-/// one moved in proportion, so that chips are worth what they were against the money.
+/// Every known currency at today's rate, the cheapest of them at 10 000, and every unknown one
+/// moved in proportion, so that chips are worth what they were against the money.
 ///
 /// What the worths were before does not matter for the known ones: added at the default 10 000
 /// or years old, they all come out of the one answer. It is what makes adding the currencies
@@ -357,15 +381,7 @@ pub fn normalize(rows: &[Row], rates: &Rates) -> Result<Normalized, Why> {
         .expect("not empty");
     let ratio = |u: &Unit| usd(u) / usd(&base_unit);
 
-    // Room for two zeros after four figures, for every currency with cents.
-    let mut base_worth = NORMAL_BASE;
-    for (i, u) in &known {
-        if rows[*i].cents && u.per == 1 {
-            while base_worth * ratio(u) < CENTS_AT_LEAST && base_worth < 1e9 {
-                base_worth *= 10.0;
-            }
-        }
-    }
+    let base_worth = NORMAL_BASE;
 
     // The unknown ones keep their proportion to a currency whose old worth meant something:
     // the cheapest of the tour's own known ones, as `reference` would choose.
@@ -382,14 +398,14 @@ pub fn normalize(rows: &[Row], rates: &Rates) -> Result<Normalized, Why> {
         .map(|(i, _)| i)
         .collect();
 
-    let mut worths: Vec<(usize, i32)> = Vec::new();
+    let mut worths: Vec<(usize, i64)> = Vec::new();
     let mut put = |i: usize, w: f64| -> Result<(), Why> {
         let w = if i == base { w.round() as i64 } else { round4(w) };
-        if w < 1 || w > i32::MAX as i64 {
+        if !(1..=MAX_WORTH).contains(&w) {
             return Err(Why::OutOfRange);
         }
-        if w as i32 != rows[i].rate {
-            worths.push((i, w as i32));
+        if w != rows[i].rate {
+            worths.push((i, w));
         }
         Ok(())
     };
@@ -409,7 +425,7 @@ pub fn normalize(rows: &[Row], rates: &Rates) -> Result<Normalized, Why> {
 
 /// Today's worth of the currency in row `at` - and of its other units in the tour (EUR and
 /// EURc both) - worked out against the cheapest other currency: `(row, new worth)`.
-pub fn refine(rows: &[Row], at: usize, rates: &Rates) -> Result<Vec<(usize, i32)>, Why> {
+pub fn refine(rows: &[Row], at: usize, rates: &Rates) -> Result<Vec<(usize, i64)>, Why> {
     let row = rows.get(at).ok_or(Why::NothingToCompare)?;
     let unit = resolve(row, rates)?;
     let base_at = reference(rows, &unit.iso, rates).ok_or(Why::NothingToCompare)?;
@@ -425,10 +441,10 @@ pub fn refine(rows: &[Row], at: usize, rates: &Rates) -> Result<Vec<(usize, i32)
             continue;
         }
         let worth = round4(worth_against(&u, &base, base_row.rate, rates));
-        if worth < 1 || worth > i32::MAX as i64 {
+        if !(1..=MAX_WORTH).contains(&worth) {
             return Err(Why::OutOfRange);
         }
-        out.push((i, worth as i32));
+        out.push((i, worth));
     }
     Ok(out)
 }
@@ -494,17 +510,14 @@ mod tests {
         parse(include_str!("../../../fixtures/er-api.latest.usd.json")).expect("the sample parses")
     }
 
-    fn row(id: &str, name: &str, rate: i32) -> Row {
-        Row { id: id.into(), name: name.into(), rate, cents: false, saved: true }
+    fn row(id: &str, name: &str, rate: i64) -> Row {
+        Row { id: id.into(), name: name.into(), rate, saved: true }
     }
 
-    fn new_row(name: &str, rate: i32) -> Row {
+    fn new_row(name: &str, rate: i64) -> Row {
         Row { saved: false, ..row("", name, rate) }
     }
 
-    fn with_cents(r: Row) -> Row {
-        Row { cents: true, ..r }
-    }
 
     fn u(iso: &str, per: i64) -> Unit {
         Unit { iso: iso.into(), per }
@@ -572,9 +585,9 @@ mod tests {
             row("", "", 100),
         ];
         let eur = r.per_usd["RSD"] / r.per_usd["EUR"] * 1000.0;
-        assert_eq!(refine(&rows, 1, &r), Ok(vec![(1, round4(eur) as i32)]));
+        assert_eq!(refine(&rows, 1, &r), Ok(vec![(1, round4(eur))]));
         let bam_cent = r.per_usd["RSD"] / r.per_usd["BAM"] * 10.0;
-        assert_eq!(refine(&rows, 2, &r), Ok(vec![(2, round4(bam_cent) as i32)]));
+        assert_eq!(refine(&rows, 2, &r), Ok(vec![(2, round4(bam_cent))]));
         assert_eq!(reference(&rows, "EUR", &r), Some(0));
         // The cheapest is the base, whatever it is: BAMc at 600 is cheaper than the dinar.
         let mut cheap_bam = rows.clone();
@@ -625,7 +638,7 @@ mod tests {
     fn a_new_currency_is_never_the_base() {
         let r = sample();
         let rows = vec![
-            with_cents(row("EUR", "EUR", 1_000_000)),
+            row("EUR", "EUR", 1_000_000),
             row("RSD", "RSD", 850_000),
             new_row("PLN", 10_000),
         ];
@@ -639,14 +652,14 @@ mod tests {
     }
 
     /// Every currency added at the default 10 000, one press: the dinar - the cheapest by the
-    /// market - is the base at 10 000, the rest follow, the mark with its two zeros.
+    /// market - is the base at 10 000, the rest follow.
     #[test]
     fn all_at_the_default_and_one_press() {
         let r = sample();
         let rows = vec![
-            with_cents(new_row("EUR", 10_000)),
+            new_row("EUR", 10_000),
             new_row("RSD", 10_000),
-            with_cents(new_row("BAM", 10_000)),
+            new_row("BAM", 10_000),
             new_row("PLN", 10_000),
             new_row("", 10_000),
         ];
@@ -654,8 +667,7 @@ mod tests {
         assert_eq!(n.base, 1);
         let w = |i: usize| n.worths.iter().find(|(r, _)| *r == i).map(|(_, w)| *w).unwrap_or(rows[i].rate);
         assert_eq!(w(1), 10_000);
-        assert_eq!(w(0), round4(10_000.0 * r.per_usd["RSD"] / r.per_usd["EUR"]) as i32);
-        assert_eq!(w(2) % 100, 0, "the mark has its two zeros: {}", w(2));
+        assert_eq!(w(0), round4(10_000.0 * r.per_usd["RSD"] / r.per_usd["EUR"]));
         assert!(w(3) > 10_000);
         assert!(!n.worths.iter().any(|(i, _)| *i == 4), "the blank row is left alone");
     }
@@ -672,16 +684,6 @@ mod tests {
         assert_eq!(n.worths, vec![(0, 20_000), (1, 10_000)]);
     }
 
-    /// With cents and barely dearer than the base: the base rises until it has two zeros.
-    #[test]
-    fn two_zeros_raise_the_base() {
-        let r = sample();
-        let rows = vec![row("USD", "USD", 1), with_cents(row("EUR", "EUR", 1))];
-        let n = normalize(&rows, &r).expect("rates");
-        assert_eq!(n.worths[0], (0, 100_000));
-        assert_eq!(n.worths[1].1 % 100, 0);
-    }
-
     /// Chips keep what they were worth against the dinar the tour already had.
     #[test]
     fn chips_keep_their_proportion() {
@@ -694,40 +696,51 @@ mod tests {
         assert_eq!(normalize(&[row("c", "Chips", 5)], &r), Err(Why::NothingToCompare));
     }
 
+    /// An old tour, the dinar at 100: ×100 first, so the rouble comes out as 1,223 and not 1,22.
     #[test]
-    fn a_small_base_is_offered_room() {
-        assert_eq!(raise_factor(&[(100.0, 1000.0)], 11_800.0), Some(10));
-        assert_eq!(raise_factor(&[(1.0, 1000.0)], 120.0), Some(1000));
-        assert_eq!(raise_factor(&[(1000.0, 1000.0)], 117_000.0), None);
-        assert_eq!(raise_factor(&[(5.0, 1000.0)], (i32::MAX / 10) as f64), None, "would not fit");
-        assert_eq!(raise_factor(&[(1000.0, 1000.0), (60_086.0, 100_000.0)], 117_500.0), Some(10));
-        // Chips at 1 are cheaper, but the dinar is what the euro is worked out from.
+    fn a_small_base_gets_room_before_the_rate() {
         let r = sample();
-        let rows = vec![row("c", "Chips", 1), row("RSD", "RSD", 100), row("EUR", "EUR", 11_800)];
-        assert_eq!(raise_for(&rows, 2, &r), Some(Raise { factor: 10, why: RaiseWhy::Base(1) }));
+        let rows = vec![row("RUB", "RUB", 180), row("EUR", "EUR", 11_800), row("RSD", "RSD", 100)];
+        assert_eq!(refine_room(&rows, 0, &r), 100);
+        assert_eq!(display_base(&rows), Some(2));
+        let chips = vec![row("a", "Chips", 5), row("b", "Tokens", 50)];
+        assert_eq!(display_base(&chips), Some(0), "nothing recognised: the cheapest");
     }
 
-    /// The lev with cents at 60 090 against the dinar at 1 000: four figures, one zero. Ten
-    /// times more room gives 601 000 - and the euro, already 117 500, gets no say in it.
     #[test]
-    fn a_currency_with_cents_is_offered_two_zeros() {
-        let r = sample();
-        let rows = vec![
-            with_cents(row("EUR", "EUR", 117_500)),
-            row("RSD", "RSD", 1000),
-            with_cents(row("LEV", "LEV", 60_090)),
-        ];
-        assert_eq!(raise_for(&rows, 2, &r), Some(Raise { factor: 10, why: RaiseWhy::Cents(2) }));
-        assert_eq!(raise_for(&rows, 0, &r), None, "asked at the euro, the lev says nothing");
-        // Without cents the lev is fine at four figures.
-        let plain = vec![row("RSD", "RSD", 1000), row("LEV", "LEV", 60_090)];
-        assert_eq!(raise_for(&plain, 1, &r), None);
-        // Worked out from the rates, not from the row: a lev typed as 600 000 is not trusted.
-        let off = vec![row("RSD", "RSD", 1000), with_cents(row("LEV", "LEV", 600_000))];
-        assert_eq!(raise_for(&off, 1, &r).map(|x| x.factor), Some(10));
-        // After multiplying, the rows are refined to two zeros.
-        let raised = vec![row("RSD", "RSD", 10_000), with_cents(row("LEV", "LEV", 600_000))];
-        assert_eq!(raise_for(&raised, 1, &r), None);
-        assert_eq!(refine(&raised, 1, &r).expect("rates")[0].1 % 100, 0);
+    fn a_worth_reads_as_a_rate() {
+        assert_eq!(rate_text(1_175_000, 10_000, ','), "117,5");
+        assert_eq!(rate_text(12_226, 10_000, '.'), "1.223");
+        assert_eq!(rate_text(11_800, 100, ','), "118");
+        assert_eq!(rate_text(190_000_000, 10_000, ','), "19000");
+        assert_eq!(rate_text(85, 10_000, ','), "0,0085");
+        assert_eq!(rate_text(10_000, 10_000, ','), "1");
+        assert_eq!(rate_text(5, 0, ','), "");
+    }
+
+    #[test]
+    fn a_rate_is_read_as_typed() {
+        assert_eq!(parse_rate("117,5"), Some(117.5));
+        assert_eq!(parse_rate(" 117.5 "), Some(117.5));
+        assert_eq!(parse_rate("19 000"), Some(19_000.0));
+        assert_eq!(parse_rate("0,0085"), Some(0.0085));
+        assert_eq!(parse_rate("1.234,5"), None);
+        assert_eq!(parse_rate("0"), None);
+        assert_eq!(parse_rate("-3"), None);
+        assert_eq!(parse_rate("abc"), None);
+    }
+
+    /// Enough room is made without asking, and no more than is needed.
+    #[test]
+    fn room_is_made_quietly() {
+        // 117,5 against a dinar at 100: 11 750, whole - nothing to do.
+        assert_eq!(room(&[100, 11_800], &[11_750.0], 1.0, true), 1);
+        // 1,2226 against the same dinar: 122,26 - ×100 keeps it whole.
+        assert_eq!(room(&[100, 11_800], &[122.26], 1.0, true), 100);
+        // A base under 10 000 before today's rate: up to 10 000.
+        assert_eq!(room(&[100, 11_800], &[100.0], 10_000.0, false), 100);
+        assert_eq!(room(&[10_000], &[10_000.0], 10_000.0, false), 1);
+        // Never past the ceiling, whatever is asked.
+        assert!(room(&[MAX_WORTH / 5], &[0.5], 10_000.0, false) < 10);
     }
 }

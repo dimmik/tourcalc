@@ -981,6 +981,24 @@ mod tests {
     }
 
     #[test]
+    fn a_worth_past_a_32_bit_integer_is_kept() {
+        // The C# stored worths as `int`; this server keeps `i64`, and the currencies dialog may
+        // choose a scale past 2 147 483 647 - a euro against a rupiah, say.
+        let json = serde_json::json!({
+            "Id": "t", "Name": "t", "Persons": [],
+            "Currencies": [
+                {"_id": "IDR", "Name": "IDR", "CurrencyRate": 10_000},
+                {"_id": "EUR", "Name": "EUR", "CurrencyRate": 190_000_000_000i64}
+            ],
+            "TourCurrencyId": "IDR", "Spendings": []
+        });
+        let tour = Tour::from_json(&json.to_string()).expect("tour");
+        let back = to_tour(&to_document(&tour).expect("a document")).expect("a tour");
+        assert_eq!(back.currencies[1].rate, 190_000_000_000);
+        assert_eq!(back.currencies[0].rate, 10_000);
+    }
+
+    #[test]
     fn a_tour_becomes_a_document_and_comes_back() {
         let json = include_str!("../../../fixtures/zscph2y.tour.json");
         let tour = Tour::from_json(json).expect("fixture");

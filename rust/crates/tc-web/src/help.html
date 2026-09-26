@@ -156,8 +156,10 @@
             <div>A switch for you alone. It converts what is on your screen and changes nothing in the tour; this device remembers it for each tour, and <b>reset</b> beside it goes back to the main currency.</div>
         </div>
         <p>
-            Rates are given as <b>worth</b>, on any scale you like — only the ratio matters. If
-            one euro is 118 dinars, put 1000 next to the dinar and 118000 next to the euro.
+            Each currency has a <b>rate</b> against the <b>reference</b> — the cheapest currency of
+            the tour, the one the others are worked out from: “1 EUR = 117.5 RSD”. Type it with a
+            point or a comma; four figures are plenty. A new currency starts level with the
+            reference until you give it its rate.
         </p>
         <p>
             Every expense stays attached to the currency it was entered in. <b>Renaming a
@@ -174,20 +176,15 @@
             was. An older “EURc” beside a euro can be folded into it there too.
         </p>
         <p>
-            <b>Today's rates for all</b> sets every currency at once: add them all — they start
-            at 10 000 — press it, and the cheapest of them by the market becomes 10 000 and the
-            rest follow (a currency with cents gets room for two zeros). One the source does not
-            know keeps its worth against the rest. <b>today's rate</b> beside a currency fills in its worth from the day's market
-            rate, against the cheapest currency of the tour — rounded to four figures, since
-            nobody settles a trip to the last dinar. Nothing is saved until you press Save, and
-            the line under it says what the worth was. When the cheapest currency is worth
-            under 1 000, or a currency with cents would come out under 100 000 (so that a cent
-            is worth a whole number too), the dialog first offers to multiply every worth by 10 or 100 so the
-            rates come out exact, and then fills in today's rate for every currency it
-            knows. The rates come from
+            <b>Today's rates for all</b> sets every currency at once: add them all, press it, and
+            each gets the day's market rate, the cheapest of them by the market becoming the
+            reference. <b>today's rate</b> beside a currency does the same for that one. Rates are
+            rounded to four figures, since nobody settles a trip to the last dinar; nothing is
+            saved until you press Save, and a line under each says what its rate was. A currency
+            the source does not know — casino chips, say — keeps its rate against the rest. The
+            rates come from
             <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">ExchangeRate-API</a>,
-            once a day; your browser asks it directly, so that service sees your IP address. A
-            currency it does not know — casino chips, say — keeps the worth you give it.
+            once a day; your browser asks it directly, so that service sees your IP address.
         </p>
     </section>
 

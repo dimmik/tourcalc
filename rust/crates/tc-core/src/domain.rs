@@ -34,7 +34,7 @@ pub struct Currency {
     pub id: CurrencyId,
     pub name: String,
     /// Rate against the tour's base, times 100 - as it is stored today.
-    pub rate: i32,
+    pub rate: i64,
     pub extras: Extras,
 }
 
@@ -548,7 +548,7 @@ pub mod wire {
         #[serde(default = "coin")]
         pub name: String,
         #[serde(default = "hundred")]
-        pub currency_rate: i32,
+        pub currency_rate: i64,
         /// Everything this struct did not name. See [`Extras`].
         #[serde(flatten)]
         pub rest: serde_json::Map<String, serde_json::Value>,
@@ -557,7 +557,7 @@ pub mod wire {
     fn coin() -> String {
         "coin".to_owned()
     }
-    fn hundred() -> i32 {
+    fn hundred() -> i64 {
         100
     }
 
