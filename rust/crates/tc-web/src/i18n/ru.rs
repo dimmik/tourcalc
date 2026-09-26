@@ -653,6 +653,7 @@ pub const TEXTS: Texts = Texts {
         tour_no_name: "У тура должно быть название.",
         tour_no_days: "Тур длится хотя бы день.",
         no_currency: "В туре должна быть хотя бы одна валюта",
+        currency_no_name: "У валюты нет названия — впишите его или удалите валюту ✕",
         rate_zero: |n| format!("У «{n}» курс должен быть больше нуля"),
         duplicate_currency: |n| format!("«{n}» указана несколько раз — названия должны быть разными"),
         amount_not_a_number: "Сумма — не число",

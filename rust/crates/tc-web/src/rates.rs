@@ -27,7 +27,10 @@ use std::collections::HashMap;
 /// The source, as its terms ask to be credited.
 pub const SOURCE_NAME: &str = "ExchangeRate-API";
 pub const SOURCE_LINK: &str = "https://www.exchangerate-api.com";
+// Only the browser asks: natively, in the tests, these stand unused.
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 const URL: &str = "https://open.er-api.com/v6/latest/USD";
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 const CACHE: &str = "__tcw_rates_USD";
 
 /// A currency as the source knows it: its ISO code, and how many of the tour's units make one
@@ -264,6 +267,7 @@ pub struct Rates {
     pub next: i64,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 pub fn parse(json: &str) -> Option<Rates> {
     let v: serde_json::Value = serde_json::from_str(json).ok()?;
     if v.get("result")?.as_str()? != "success" {

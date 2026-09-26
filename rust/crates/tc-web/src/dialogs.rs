@@ -936,7 +936,7 @@ pub fn CurrenciesDialog(
     on_apply: Callback<Operation>,
 ) -> impl IntoView {
     let with_blank = |mut rows: Vec<CurrencyDraft>| -> Vec<CurrencyDraft> {
-        while rows.last().is_some_and(|c| c.is_new() && c.is_blank()) {
+        while rows.last().is_some_and(CurrencyDraft::is_spare) {
             rows.pop();
         }
         rows.push(CurrencyDraft::blank());
@@ -995,7 +995,7 @@ pub fn CurrenciesDialog(
     let scale_all = move |f: i64| {
         if f > 1 {
             rows.update(|all| {
-                for c in all.iter_mut().filter(|c| !c.is_blank()) {
+                for c in all.iter_mut().filter(|c| !c.is_spare()) {
                     c.rate = c.rate.saturating_mul(f);
                 }
             });
@@ -1117,7 +1117,7 @@ pub fn CurrenciesDialog(
         };
         let wanted = rate * against as f64;
         let worths: Vec<i64> = rows.with_untracked(|all| {
-            all.iter().filter(|c| !c.is_blank()).map(|c| c.rate).collect()
+            all.iter().filter(|c| !c.is_spare()).map(|c| c.rate).collect()
         });
         let f = crate::rates::room(&worths, &[wanted], 1.0, true);
         scale_all(f);
@@ -1137,7 +1137,7 @@ pub fn CurrenciesDialog(
     let kept_now = move || -> Vec<CurrencyDraft> {
         let all = rows.get();
         all.iter()
-            .filter(|c| !c.is_blank())
+            .filter(|c| !c.is_spare())
             .map(|c| CurrencyDraft { cents: c.effective_cents(&all), cents_auto: false, ..c.clone() })
             .collect()
     };
@@ -1268,7 +1268,9 @@ pub fn CurrenciesDialog(
                     all.into_iter()
                     .enumerate()
                     .map(|(i, c)| {
-                        let blank = c.is_blank();
+                        // Only the spare row at the end: one of the tour's own with its name
+                        // being retyped keeps its rate and its ✕.
+                        let blank = c.is_spare();
                         let is_base = base == Some(i);
                         let rate_button = !is_base
                             && crate::rates::place(&for_rates, i) != crate::rates::Place::Nothing;
@@ -1285,6 +1287,14 @@ pub fn CurrenciesDialog(
                                            let text = event_target_value(&ev);
                                            let against = ref_worth();
                                            rows.update(|all| edit::rename_row(all, i, text, against));
+                                           // The reference was a currency just added, emptied and
+                                           // dropped as the spare row: read against another.
+                                           let lost = reference.get_untracked().is_some_and(|r| {
+                                               rows.with_untracked(|all| all.get(r).is_none_or(CurrencyDraft::is_spare))
+                                           });
+                                           if lost {
+                                               reference.set(crate::rates::display_base(&rate_rows()));
+                                           }
                                            // The first currency of all is the reference.
                                            if reference.get_untracked().is_none() {
                                                reference.set(Some(i));

@@ -643,6 +643,7 @@ pub const TEXTS: Texts = Texts {
         tour_no_name: "A tour needs a name.",
         tour_no_days: "A tour lasts at least a day.",
         no_currency: "A tour needs at least one currency",
+        currency_no_name: "A currency has no name — give it one, or remove it with ✕",
         rate_zero: |n| format!("“{n}” needs a worth above zero"),
         duplicate_currency: |n| format!("“{n}” is listed more than once — names have to be unique"),
         amount_not_a_number: "The amount is not a number",

@@ -600,6 +600,12 @@ impl CurrencyDraft {
     pub fn is_new(&self) -> bool {
         self.id.is_empty()
     }
+
+    /// The empty row at the end of the dialog, for the next currency - not one of the tour's
+    /// whose name is being retyped, which is still that currency.
+    pub fn is_spare(&self) -> bool {
+        self.is_new() && self.is_blank()
+    }
 }
 
 /// Row `at` of the currencies dialog renamed to `text`, and the list kept ending in exactly
@@ -613,14 +619,14 @@ impl CurrencyDraft {
 /// away on save and every rate against it off by a hundred.
 pub fn rename_row(rows: &mut Vec<CurrencyDraft>, at: usize, text: String, level_with: Option<i64>) {
     if let Some(row) = rows.get_mut(at) {
-        if row.is_new() && row.is_blank() {
+        if row.is_spare() {
             if let Some(w) = level_with {
                 row.rate = w;
             }
         }
         row.name = text;
     }
-    while rows.last().is_some_and(|c| c.is_new() && c.is_blank()) {
+    while rows.last().is_some_and(CurrencyDraft::is_spare) {
         rows.pop();
     }
     rows.push(CurrencyDraft::blank());
@@ -636,12 +642,17 @@ pub fn currency_problems(kept: &[CurrencyDraft]) -> Vec<String> {
         problems.push(t().checks.no_currency.to_owned());
         return problems;
     }
+    // One of the tour's own, its name cleared and not typed again: removing it is what ✕ is
+    // for - saved like this it went, its expenses converted, on the strength of an empty box.
+    if kept.iter().any(|c| c.is_blank()) {
+        problems.push(t().checks.currency_no_name.to_owned());
+    }
     for c in kept.iter().filter(|c| c.rate <= 0) {
         problems.push((t().checks.rate_zero)(c.name.trim()));
     }
     for (i, c) in kept.iter().enumerate() {
         let name = c.name.trim();
-        if kept[..i].iter().any(|other| other.name.trim() == name) {
+        if !name.is_empty() && kept[..i].iter().any(|other| other.name.trim() == name) {
             problems.push((t().checks.duplicate_currency)(name));
         }
     }
@@ -1116,6 +1127,17 @@ mod currency_tests {
         // Cleared again, a new one is just a spare blank.
         rename_row(&mut rows, 3, String::new(), Some(1000));
         assert_eq!(rows.len(), 4);
+    }
+
+    /// A currency of the tour with its name cleared is not saved away: the dialog says so.
+    #[test]
+    fn a_currency_left_without_a_name_is_not_removed() {
+        let t = tour();
+        let mut kept = drafts(&t);
+        kept[2].name.clear(); // the EURc, its box emptied
+        assert!(!currency_problems(&kept).is_empty());
+        assert!(!kept[2].is_spare(), "still that currency");
+        assert!(CurrencyDraft::blank().is_spare());
     }
 
     /// Chips cheaper than the dinar: a removed euro's expenses still go into dinars.

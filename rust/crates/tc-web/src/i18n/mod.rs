@@ -383,6 +383,8 @@ pub struct CheckTexts {
     pub tour_no_name: &'static str,
     pub tour_no_days: &'static str,
     pub no_currency: &'static str,
+    /// A currency of the tour whose name was cleared.
+    pub currency_no_name: &'static str,
     pub rate_zero: fn(&str) -> String,
     pub duplicate_currency: fn(&str) -> String,
     pub amount_not_a_number: &'static str,

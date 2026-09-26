@@ -249,7 +249,7 @@ pub fn cents_sibling<'a>(tour: &'a Tour, of: &CurrencyId) -> Option<&'a Currency
 /// goes by its name instead: the ones people count in cents.
 pub fn cents_by_default(rate: i64, name: &str, others: &[i64]) -> bool {
     match others.iter().copied().filter(|r| *r > 0).min() {
-        Some(cheapest) if cheapest < rate => rate as i64 >= 30 * cheapest as i64,
+        Some(cheapest) if cheapest < rate => rate >= 30 * cheapest,
         _ => {
             let n = name.trim().to_uppercase();
             ["EUR", "USD", "BAM", "BGN", "GBP", "CHF", "ЕВРО", "EURO", "KM", "LEV"]
