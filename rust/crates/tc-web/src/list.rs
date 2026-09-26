@@ -217,7 +217,7 @@ pub fn TourListPage() -> impl IntoView {
         // Anything that says *which* tour it was - the id, the access code, the state - is
         // dropped, because this is a new tour and not that one.
         let body = if pasted.is_empty() {
-            serde_json::json!({ "Name": name, "Persons": [], "Spendings": [] })
+            crate::edit::new_tour_body(&name)
         } else {
             match serde_json::from_str::<serde_json::Value>(&pasted) {
                 Ok(mut v) => {
