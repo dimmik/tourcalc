@@ -75,6 +75,48 @@ pub fn unit(tour: &tc_core::Tour) -> String {
     }
 }
 
+/// Puts the cursor in `node` once it is on the screen - for a form that opens: somebody who
+/// opened "add a person" starts typing the name at once, and the letters went nowhere.
+/// After the frame, so that whatever shows the form has laid it out.
+pub fn focus_when_shown(node: NodeRef<leptos::html::Input>) {
+    Effect::new(move |_| {
+        if let Some(el) = node.get() {
+            request_animation_frame(move || {
+                let _ = el.focus();
+                caret_to_end(&el);
+            });
+        }
+    });
+}
+
+/// In a dialog just opened, the box to type in first: the one marked `data-first`, else the
+/// first text box of its body - not a checkbox, not something disabled.
+pub fn focus_first_in(root: &web_sys::Element) {
+    use wasm_bindgen::JsCast;
+    let pick = root.query_selector("[data-first]").ok().flatten().or_else(|| {
+        root.query_selector(
+            ".tcn-modal-body input:not([type=checkbox]):not([type=radio]):not([disabled]), \
+             .tcn-modal-body textarea",
+        )
+        .ok()
+        .flatten()
+    });
+    if let Some(el) = pick.and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok()) {
+        let _ = el.focus();
+        caret_to_end(&el);
+    }
+}
+
+/// In a box that already says something - a name being edited - the cursor after it, where
+/// typing goes on, and not before it. Boxes that have no caret (numbers) are left as they are.
+fn caret_to_end(el: &web_sys::HtmlElement) {
+    use wasm_bindgen::JsCast;
+    if let Some(input) = el.dyn_ref::<web_sys::HtmlInputElement>() {
+        let end = input.value().encode_utf16().count() as u32;
+        let _ = input.set_selection_range(end, end);
+    }
+}
+
 /// An amount followed by its unit, when there is one: "47 124 RSD".
 pub fn money_in(c: Cents, unit: &str) -> String {
     if unit.is_empty() {

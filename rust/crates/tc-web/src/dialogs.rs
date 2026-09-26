@@ -58,12 +58,21 @@ fn Modal(
         });
     }
 
+    // Opened to be typed in: the cursor goes to its first box (or the one it marks
+    // `data-first`), so that the first letters are not lost - "add a person", then the name.
+    let card = NodeRef::<leptos::html::Div>::new();
+    Effect::new(move |_| {
+        if let Some(el) = card.get() {
+            request_animation_frame(move || crate::ui::focus_first_in(&el));
+        }
+    });
+
     view! {
         <div class="tcn-modal"
              // Closing on *click* and not on mousedown: releasing the button over the mask
              // after a drag that started inside the dialog is not "click outside".
              on:click=move |_| on_close.run(())>
-            <div class="tcn-modal-card" on:click=|ev| ev.stop_propagation()>
+            <div class="tcn-modal-card" node_ref=card on:click=|ev| ev.stop_propagation()>
                 <div class="tcn-modal-head">
                     <div class="tcn-modal-title">{title}</div>
                     <button type="button" class="tcn-modal-x" on:click=move |_| on_close.run(())>
@@ -1280,6 +1289,9 @@ pub fn CurrenciesDialog(
                         view! {
                             <div class="tcn-currow">
                                 <input class="tcn-input tcn-cur-name" type="text"
+                                       // Opened, the dialog's cursor goes here: to the row for
+                                       // a new currency, not into the first one's name.
+                                       data-first=blank.then_some("")
                                        list="tcw-currency-list" autocomplete="off"
                                        placeholder=if blank { t().dialogs.add_currency } else { "" }
                                        prop:value=c.name.clone()
@@ -1545,6 +1557,96 @@ fn rate_date(unix: i64) -> String {
     }
     let day = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(unix as f64 * 1000.0));
     (t().dialogs.rate_date)(day.get_date(), day.get_month() + 1)
+}
+
+/// Whom somebody pays for: those already paid for, and new ones - one row each, name and
+/// weight, the row for the next appearing as the last is filled, as in the currencies dialog.
+/// Saved as one edit of the tour.
+#[component]
+pub fn DependantsDialog(
+    tour: Tour,
+    payer: PersonId,
+    on_close: Callback<()>,
+    on_apply: Callback<Operation>,
+) -> impl IntoView {
+    let name = tour.person(&payer).map(|p| p.name.clone()).unwrap_or_default();
+    let rows = RwSignal::new(edit::dependants_of(&tour, &payer));
+    let problems: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
+    let payer = StoredValue::new(payer);
+
+    let submit = move |_| {
+        let mut all = rows.get_untracked();
+        let wrong = edit::dependant_problems(&all);
+        if !wrong.is_empty() {
+            problems.set(wrong.into_iter().map(String::from).collect());
+            return;
+        }
+        edit::settle_dependant_ids(&mut all);
+        let kept: Vec<edit::DependantDraft> = all.into_iter().filter(|r| !r.is_spare()).collect();
+        on_apply.run(Operation::SetDependants { payer: payer.get_value(), rows: kept });
+    };
+    let footer = ViewFn::from(move || {
+        view! {
+            <button type="button" class="tcn-btn" on:click=move |_| on_close.run(())>{t().dialogs.cancel}</button>
+            <button type="button" class="tcn-btn tcn-btn-primary" on:click=submit>{t().dialogs.save}</button>
+        }
+    });
+
+    view! {
+        <Modal title=(t().dialogs.dependants_of)(&name) on_close=on_close footer=footer>
+            <Show when=move || !problems.get().is_empty()>
+                <div class="tcn-errors">
+                    {move || problems.get().into_iter().map(|p| view! { <div>{p}</div> }).collect_view()}
+                </div>
+            </Show>
+            <div class="tcn-field">
+                {move || rows.get()
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, r)| {
+                        let spare = r.is_spare();
+                        view! {
+                            <div class="tcn-currow">
+                                // Opened, the cursor goes to the row for somebody new.
+                                <input class="tcn-input tcw-dep-name" type="text"
+                                       data-first=spare.then_some("")
+                                       placeholder=if spare { t().dialogs.dependant_add } else { "" }
+                                       prop:value=r.name.clone()
+                                       on:input=move |ev| {
+                                           let text = event_target_value(&ev);
+                                           rows.update(|all| edit::rename_dependant(all, i, text));
+                                       } />
+                                <span class="tcn-cur-worth-label">{t().dialogs.dependant_weight}</span>
+                                <input class="tcn-input tcn-cur-rate tcw-dep-weight" type="text" inputmode="numeric"
+                                       aria-label=t().dialogs.dependant_weight
+                                       prop:value=r.weight.to_string()
+                                       on:change=move |ev| {
+                                           let w = event_target_value(&ev).trim().parse::<i32>().unwrap_or(0);
+                                           rows.update(|all| {
+                                               if let Some(row) = all.get_mut(i) {
+                                                   row.weight = w;
+                                               }
+                                           });
+                                       } />
+                                {if spare {
+                                    view! { <span class="tcn-currow-spacer"></span> }.into_any()
+                                } else {
+                                    view! {
+                                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
+                                                title=t().dialogs.remove
+                                                on:click=move |_| rows.update(|all| { all.remove(i); })>
+                                            "✕"
+                                        </button>
+                                    }.into_any()
+                                }}
+                            </div>
+                        }
+                    })
+                    .collect_view()}
+                <div class="tcn-hint">{t().dialogs.dependants_note}</div>
+            </div>
+        </Modal>
+    }
 }
 
 /// What this tour used to be.

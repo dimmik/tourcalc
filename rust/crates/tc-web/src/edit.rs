@@ -468,6 +468,118 @@ pub fn put_person(tour: &Tour, draft: &PersonDraft) -> Tour {
     next
 }
 
+// --- the people somebody pays for ---------------------------------------------------------
+
+/// A row of "Дима pays for": one of the people Дима pays for, or one being added.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct DependantDraft {
+    /// Somebody already in the tour; `None` only while a new one is being typed - the id is
+    /// settled when the edit is recorded (`settle_dependant_ids`), so a replay finds them.
+    pub id: Option<PersonId>,
+    pub name: String,
+    pub weight: i32,
+}
+
+impl DependantDraft {
+    /// The row at the end for the next one: a whole share, as a new person starts.
+    pub fn blank() -> DependantDraft {
+        DependantDraft { id: None, name: String::new(), weight: 100 }
+    }
+
+    pub fn is_spare(&self) -> bool {
+        self.id.is_none() && self.name.trim().is_empty()
+    }
+}
+
+/// Whom `payer` pays for, as rows of the dialog, with the spare row at the end.
+pub fn dependants_of(tour: &Tour, payer: &PersonId) -> Vec<DependantDraft> {
+    let mut rows: Vec<DependantDraft> = tour
+        .persons
+        .iter()
+        .filter(|p| p.parent.as_ref() == Some(payer))
+        .map(|p| DependantDraft { id: Some(p.id.clone()), name: p.name.clone(), weight: p.weight })
+        .collect();
+    rows.push(DependantDraft::blank());
+    rows
+}
+
+/// Row `at` renamed, and exactly one spare row kept at the end - as in the currencies dialog,
+/// and for the same reason: somebody already paid for whose name is retyped stays who they
+/// are, not dropped as a spare.
+pub fn rename_dependant(rows: &mut Vec<DependantDraft>, at: usize, text: String) {
+    if let Some(row) = rows.get_mut(at) {
+        row.name = text;
+    }
+    while rows.last().is_some_and(DependantDraft::is_spare) {
+        rows.pop();
+    }
+    rows.push(DependantDraft::blank());
+}
+
+/// What stops these rows from being saved, if anything.
+pub fn dependant_problems(rows: &[DependantDraft]) -> Vec<&'static str> {
+    let kept: Vec<&DependantDraft> = rows.iter().filter(|r| !r.is_spare()).collect();
+    let mut wrong = Vec::new();
+    if kept.iter().any(|r| r.name.trim().is_empty()) {
+        wrong.push(t().checks.no_name);
+    }
+    if kept.iter().any(|r| r.weight <= 0) {
+        wrong.push(t().checks.no_weight);
+    }
+    wrong
+}
+
+/// Every new row given its id now, when the edit is recorded - see [`settle_new_ids`].
+pub fn settle_dependant_ids(rows: &mut [DependantDraft]) {
+    for r in rows.iter_mut().filter(|r| r.id.is_none() && !r.name.trim().is_empty()) {
+        r.id = Some(PersonId::new(new_id()));
+    }
+}
+
+/// The tour with `payer` paying for exactly these people.
+///
+/// Those already in the tour get the name and weight the dialog has; the new ones join, paid
+/// for by `payer`. One who was paid for by `payer` and is no longer among the rows pays for
+/// themselves again - taken out of the family, not out of the tour: they may have paid for
+/// things, and their share of every expense is still theirs.
+///
+/// A replay onto a tour where `payer` is gone, or is now paid for by somebody else, changes
+/// nothing: only somebody paying for themselves pays for others.
+pub fn put_dependants(tour: &Tour, payer: &PersonId, rows: &[DependantDraft]) -> Tour {
+    let fit = tour.persons.iter().any(|p| &p.id == payer && p.parent.is_none());
+    if !fit {
+        return tour.clone();
+    }
+    let mut next = tour.clone();
+    next.spendings.retain(|s| s.kind != Kind::Planned);
+    let rows: Vec<&DependantDraft> = rows.iter().filter(|r| !r.is_spare()).collect();
+
+    for p in next.persons.iter_mut().filter(|p| p.parent.as_ref() == Some(payer)) {
+        if !rows.iter().any(|r| r.id.as_ref() == Some(&p.id)) {
+            p.parent = None;
+        }
+    }
+    for r in rows {
+        let id = r.id.clone().unwrap_or_else(|| PersonId::new(new_id()));
+        match next.persons.iter_mut().find(|p| p.id == id) {
+            Some(p) => {
+                p.name = r.name.trim().to_owned();
+                p.weight = r.weight;
+                p.parent = Some(payer.clone());
+            }
+            None => next.persons.push(Person {
+                id,
+                name: r.name.trim().to_owned(),
+                weight: r.weight,
+                parent: Some(payer.clone()),
+                group: None,
+                extras: Default::default(),
+            }),
+        }
+    }
+    next
+}
+
 /// Removes a person - unless an expense still holds them, and then nothing changes.
 ///
 /// The screen asks before recording this (see `tc_core::removal`), so a refusal here is
@@ -1261,5 +1373,66 @@ mod currency_tests {
         let old = r#"{"id":"EUR","name":"EUR","rate":117000}"#;
         let d: CurrencyDraft = serde_json::from_str(old).expect("reads");
         assert!(!d.cents && !d.cents_auto && !d.absorb);
+    }
+}
+
+#[cfg(test)]
+mod dependants_tests {
+    use super::*;
+
+    /// Саша pays for Валечка; Дима pays for himself.
+    fn tour() -> Tour {
+        let json = serde_json::json!({
+            "Id": "t", "Name": "t",
+            "Persons": [
+                {"GUID": "sasha", "Name": "Саша", "Weight": 100},
+                {"GUID": "valya", "Name": "Валечка", "Weight": 100, "ParentId": "sasha"},
+                {"GUID": "dima", "Name": "Дима", "Weight": 100}
+            ],
+            "Spendings": []
+        });
+        Tour::from_json(&json.to_string()).expect("tour")
+    }
+
+    fn parent_of(t: &Tour, name: &str) -> Option<String> {
+        t.persons.iter().find(|p| p.name == name).and_then(|p| p.parent.as_ref().map(|x| x.as_str().to_owned()))
+    }
+
+    #[test]
+    fn new_ones_join_and_those_there_are_edited() {
+        let t = tour();
+        let sasha = PersonId::new("sasha");
+        let mut rows = dependants_of(&t, &sasha);
+        assert_eq!(rows.len(), 2, "Валечка and the spare row");
+        rename_dependant(&mut rows, 1, "Петя".into());
+        rows[1].weight = 60;
+        rows[0].name = "Валя".into();
+        settle_dependant_ids(&mut rows);
+        let next = put_dependants(&t, &sasha, &rows);
+        assert_eq!(parent_of(&next, "Валя").as_deref(), Some("sasha"));
+        assert_eq!(parent_of(&next, "Петя").as_deref(), Some("sasha"));
+        assert_eq!(next.persons.iter().find(|p| p.name == "Петя").map(|p| p.weight), Some(60));
+        // Replayed: still one Петя.
+        let again = put_dependants(&next, &sasha, &rows);
+        assert_eq!(again.persons.iter().filter(|p| p.name == "Петя").count(), 1);
+    }
+
+    #[test]
+    fn one_taken_out_pays_for_themselves_and_stays() {
+        let t = tour();
+        let sasha = PersonId::new("sasha");
+        let next = put_dependants(&t, &sasha, &[DependantDraft::blank()]);
+        assert_eq!(next.persons.len(), 3, "nobody leaves the tour");
+        assert_eq!(parent_of(&next, "Валечка"), None);
+    }
+
+    #[test]
+    fn only_somebody_paying_for_themselves_pays_for_others() {
+        let t = tour();
+        let rows = vec![DependantDraft { id: Some(PersonId::new("x")), name: "Икс".into(), weight: 100 }];
+        assert_eq!(put_dependants(&t, &PersonId::new("valya"), &rows), t, "paid for by Саша");
+        assert_eq!(put_dependants(&t, &PersonId::new("gone"), &rows), t, "not in the tour");
+        let blank_name = vec![DependantDraft { id: Some(PersonId::new("valya")), name: " ".into(), weight: 100 }];
+        assert!(!dependant_problems(&blank_name).is_empty());
     }
 }

@@ -95,6 +95,7 @@ pub const TEXTS: Texts = Texts {
         drafts_section: |sum| format!("Drafts · {sum}"),
     },
     mini: MiniTexts {
+        pays_for_button: "+ pays for…",
         settling_hint: "The tour is being settled up",
         settling: "settling",
         archived_hint: "Archived, hidden from the default list",
@@ -188,6 +189,7 @@ pub const TEXTS: Texts = Texts {
         json: "json",
     },
     queue: QueueTexts {
+        pays_for: |names| format!("paid for: {names}"),
         expense_removed: "an expense removed",
         person_removed: "somebody removed",
         renamed: |name| format!("renamed to “{name}”"),
@@ -380,6 +382,11 @@ pub const TEXTS: Texts = Texts {
         go_to_tours: "Go to my tours",
     },
     dialogs: DialogTexts {
+        dependants_of: |name| format!("{name} pays for"),
+        dependant_add: "add someone…",
+        dependant_weight: "weight",
+        dependants_note: "Weight 100 is a grown-up's share; 50 half of it, say for a child. ✕ takes \
+            somebody out: they stay in the tour and pay for themselves again.",
         cancel: "Cancel",
         save: "Save",
         carried: "Carried over from what you were typing.",
@@ -510,6 +517,7 @@ pub const TEXTS: Texts = Texts {
         restore: "Restore",
     },
     people: PeopleTexts {
+        pays_for_button: "+ Pays for…",
         paid: "Paid",
         charged: "Charged",
         balance: "Balance",

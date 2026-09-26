@@ -45,6 +45,11 @@ pub enum Operation {
     },
     /// One of the suggested payments, recorded as having happened.
     RecordPayment(PaymentDraft),
+    /// Whom somebody pays for: those already paid for as they are now, and the new ones.
+    SetDependants {
+        payer: PersonId,
+        rows: Vec<crate::edit::DependantDraft>,
+    },
 }
 
 impl Operation {
@@ -60,6 +65,12 @@ impl Operation {
             Operation::PutPerson(d) if d.editing => {
                 let id = d.id.as_ref()?;
                 (!tour.persons.iter().any(|p| &p.id == id)).then(|| short(&d.name))
+            }
+            // The one who paid is gone: nobody to be paid for by.
+            Operation::SetDependants { payer, rows } => {
+                (!tour.persons.iter().any(|p| &p.id == payer)).then(|| {
+                    rows.iter().filter(|r| !r.is_spare()).map(|r| short(&r.name)).collect::<Vec<_>>().join(", ")
+                })
             }
             _ => None,
         }
@@ -87,6 +98,7 @@ impl Operation {
             Operation::EditTour(draft) => edit::put_tour(tour, draft),
             Operation::SetCurrencies { kept, main } => edit::put_currencies(tour, kept, main),
             Operation::RecordPayment(draft) => edit::record_payment(tour, draft),
+            Operation::SetDependants { payer, rows } => edit::put_dependants(tour, payer, rows),
         }
     }
 
@@ -108,6 +120,14 @@ impl Operation {
             Operation::EditTour(d) => (t().queue.the_tour)(&short(&d.name)),
             Operation::SetCurrencies { .. } => t().queue.the_currencies.into(),
             Operation::RecordPayment(d) => (t().queue.paid)(&short(&d.description)),
+            Operation::SetDependants { rows, .. } => (t().queue.pays_for)(
+                &rows
+                    .iter()
+                    .filter(|r| !r.is_spare())
+                    .map(|r| short(&r.name))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ),
         }
     }
 }

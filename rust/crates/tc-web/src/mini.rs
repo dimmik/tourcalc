@@ -543,6 +543,8 @@ fn MiniPerson(
     let for_edit = person.clone();
     let for_delete = person.clone();
     let for_spend = person.clone();
+    // Whom they pay for - only somebody who pays for themselves can pay for others.
+    let pays_for_others = person.parent.is_none().then(|| person.id.clone());
     let tour_for_spend = tour.clone();
     let name = person.name.clone();
     let weight = person.weight;
@@ -643,6 +645,12 @@ fn MiniPerson(
                                 }>
                             {t().mini.edit}
                         </button>
+                        {pays_for_others.clone().map(|who| view! {
+                            <button type="button" class="tcm-btn tcw-pays-for"
+                                    on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
+                                {t().mini.pays_for_button}
+                            </button>
+                        })}
                         <button type="button" class="tcm-btn is-danger"
                                 on:click={
                                     let who = for_delete.clone();
@@ -1154,6 +1162,9 @@ pub fn MiniDialogs(
                 Dialog::Versions => view! {
                     <VersionsDialog tour=tour on_close=close />
                 }.into_any(),
+                Dialog::Dependants(payer) => view! {
+                    <crate::dialogs::DependantsDialog tour=tour payer=payer on_close=close on_apply=apply />
+                }.into_any(),
             })
         }}
     }
@@ -1185,6 +1196,9 @@ pub fn MiniList(
     bells: crate::push::Bells,
 ) -> impl IntoView {
     let more: RwSignal<Option<String>> = RwSignal::new(None);
+    // "+ tour" opens the fields to type its name in: the cursor is there already.
+    let name_box = NodeRef::<leptos::html::Input>::new();
+    crate::ui::focus_when_shown(name_box);
     let total = tours.len();
     // Under this many the list fits on a screen and a find box is clutter.
     let searchable = total > 8;
@@ -1242,6 +1256,7 @@ pub fn MiniList(
             <div class="tcm-sub">
                 <div class="tcm-fields">
                     <input class="tcm-input" type="text" placeholder=t().mini.tour_name
+                           node_ref=name_box
                            prop:value=move || new_name.get()
                            on:input=move |ev| new_name.set(event_target_value(&ev)) />
                     <input class="tcm-input tcm-input-xs" type="text" placeholder=t().mini.code

@@ -15,6 +15,7 @@
 |---|---|---|
 | [`people-tab/`](people-tab/) | вкладка People с одним макетом строки | [`../rust/BACKLOG.md`](../rust/BACKLOG.md), [`../review-2026-09-22.md`](../review-2026-09-22.md) раздел 1 |
 | [`settings-narrow/`](settings-narrow/) | настройки на узком экране: как сейчас и три раскладки | переписка от 24.09.2026; `python3 build.py` пересобирает `proto.html` |
+| [`add-dependants/`](add-dependants/) | «+ Платит за…»: завести тех, за кого человек платит, прямо от него — обычный интерфейс и mini | переписка от 26.09.2026; `capture.py` снимает живую разметку и стили, `build.py` собирает `proto.html` |
 
 ## people-tab
 

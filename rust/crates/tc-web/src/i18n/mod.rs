@@ -468,6 +468,8 @@ pub struct ListTexts {
 /// on; so the Russian words are nouns and present or future tenses, which are the same
 /// for everyone.
 pub struct PeopleTexts {
+    /// On a person who pays for themselves: open whom they pay for.
+    pub pays_for_button: &'static str,
     pub paid: &'static str,
     pub charged: &'static str,
     pub balance: &'static str,
@@ -522,6 +524,11 @@ pub struct PeopleTexts {
 
 /// The forms: an expense, a person, the tour, its currencies, its versions.
 pub struct DialogTexts {
+    /// "Дима Т. pays for": the dialog of whom somebody pays for.
+    pub dependants_of: fn(&str) -> String,
+    pub dependant_add: &'static str,
+    pub dependant_weight: &'static str,
+    pub dependants_note: &'static str,
     pub cancel: &'static str,
     pub save: &'static str,
     pub carried: &'static str,
@@ -790,6 +797,8 @@ pub struct BalanceTexts {
 
 /// How a waiting edit is named in "Saved here, waiting to be sent: …".
 pub struct QueueTexts {
+    /// Whom somebody pays for, changed: the names.
+    pub pays_for: fn(&str) -> String,
     pub expense_removed: &'static str,
     pub person_removed: &'static str,
     pub renamed: fn(&str) -> String,
@@ -804,6 +813,7 @@ pub struct QueueTexts {
 
 /// The small interface, which says the same things in fewer letters.
 pub struct MiniTexts {
+    pub pays_for_button: &'static str,
     pub settling_hint: &'static str,
     pub settling: &'static str,
     pub archived_hint: &'static str,

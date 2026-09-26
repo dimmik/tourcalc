@@ -54,6 +54,8 @@ pub enum Dialog {
     Currencies,
     /// What this tour used to be, and putting one of those back.
     Versions,
+    /// Whom this person pays for: those already paid for, and new ones.
+    Dependants(PersonId),
 }
 
 /// How old what is on screen is, and a way to ask for newer.
@@ -1124,6 +1126,9 @@ fn TourView(
                 }.into_any(),
                 Dialog::Versions => view! {
                     <VersionsDialog tour=tour_for_versions.clone() on_close=close />
+                }.into_any(),
+                Dialog::Dependants(payer) => view! {
+                    <crate::dialogs::DependantsDialog tour=tour payer=payer on_close=close on_apply=apply />
                 }.into_any(),
             })
         }}

@@ -16,6 +16,9 @@ use leptos::task::spawn_local;
 #[component]
 pub fn SignIn(on_done: Callback<()>) -> impl IntoView {
     let code = RwSignal::new(String::new());
+    // The one thing to do on this screen is type the code.
+    let code_box = NodeRef::<leptos::html::Input>::new();
+    crate::ui::focus_when_shown(code_box);
     // Here because a login ran out, not because nobody had signed in: say so, or a reader
     // who was reading a tour a moment ago is greeted like a stranger.
     let error = RwSignal::new(if api::take_expired() {
@@ -64,6 +67,7 @@ pub fn SignIn(on_done: Callback<()>) -> impl IntoView {
                 <div class="tcn-field">
                     <div class="tcn-label">{t().shell.access_code}</div>
                     <input class="tcn-input tcn-login-input" type="text" placeholder=t().shell.your_code
+                           node_ref=code_box
                            autocomplete="off" autocapitalize="off" spellcheck="false"
                            prop:disabled=move || busy.get()
                            prop:value=move || code.get()
