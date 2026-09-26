@@ -681,7 +681,7 @@ fn PersonBlock(
                         {t().people.edit}
                     </button>
                     {payer.clone().map(|who| view! {
-                        <button type="button" class="tcn-btn tcn-btn-sm"
+                        <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for"
                                 on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
                             {t().people.pays_for_button}
                         </button>

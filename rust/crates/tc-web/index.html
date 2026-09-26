@@ -188,6 +188,10 @@
            cents - the EURc to fold into it. */
         .tcw-cur-cents { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: -2px 0 10px 2px; font-size: 13px; }
         .tcw-cur-cents .tcn-switchline { margin: 0; }
+        /* "+ Pays for…": its own look beside Edit - the accent, lightly, not Spend's solid one */
+        .tcn-btn.tcw-pays-for, .tcm-shell .tcm-btn.tcw-pays-for {
+            color: var(--tcn-primary, #4f46e5); border-color: var(--tcn-primary, #4f46e5);
+            background: var(--tcn-primary-soft, #eef2ff); }
         /* "Дима pays for": a name as typed - not upper case, as a currency's code is */
         .tcw-dep-name { flex: 1 1 80px; min-width: 0; }
         /* a rate: "= [117,5] RSD"; on the reference, what it is instead */
