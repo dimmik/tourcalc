@@ -38,6 +38,121 @@ pub struct Unit {
     pub per: i64,
 }
 
+/// The currencies the source knows, kept with the app (`currency_codes.txt`): what the
+/// currencies dialog suggests when a currency is being named.
+const CODES: &str = include_str!("currency_codes.txt");
+
+pub fn known_codes() -> Vec<&'static str> {
+    CODES
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+        .flat_map(str::split_whitespace)
+        .collect()
+}
+
+thread_local! {
+    static SUGGESTIONS: std::cell::OnceCell<Vec<(String, String)>> = const { std::cell::OnceCell::new() };
+}
+
+/// The euro's countries: its code says none of them, and somebody typing "Герм" means it.
+/// With Montenegro and Kosovo, which use it without being in the eurozone.
+const EURO_COUNTRIES: &[&str] = &[
+    "AT", "BE", "HR", "CY", "EE", "FI", "FR", "DE", "GR", "IE", "IT", "LV", "LT", "LU", "MT",
+    "NL", "PT", "SK", "SI", "ES", "ME", "XK",
+];
+
+/// The countries a code is the currency of, as region codes: the first two letters of an ISO
+/// code are its country's - BY for BYN, BD for BDT - except the euro, and the X… ones that
+/// belong to no single country (XOF, XAF, XCD…).
+fn countries_of(code: &str) -> Vec<&str> {
+    match code {
+        "EUR" => EURO_COUNTRIES.to_vec(),
+        _ if code.starts_with('X') => Vec::new(),
+        _ => vec![&code[..2]],
+    }
+}
+
+/// Every code the source knows, with what it is called - its name and its country's, in the
+/// reader's language first and then in the other: "BYN", "белорусский рубль · Беларусь ·
+/// Belarusian Ruble · Belarus". A suggestion list matches the words as well as the code, so
+/// "Белар", "Belar" and "Бангла" find theirs, "рубль" finds both roubles, and nobody has to
+/// look up that the Belarusian rouble is BYN. The names are the browser's own
+/// (`Intl.DisplayNames`); where it has none, the code alone. Worked out once.
+pub fn suggestions() -> Vec<(String, String)> {
+    SUGGESTIONS.with(|s| {
+        s.get_or_init(|| {
+            let mine = crate::i18n::lang();
+            let order: Vec<&str> = std::iter::once(mine.code())
+                .chain(crate::i18n::Lang::ALL.iter().map(|l| l.code()).filter(|c| *c != mine.code()))
+                .collect();
+            let namers: Vec<_> = order
+                .iter()
+                .map(|lang| (display_names("currency", lang), display_names("region", lang)))
+                .collect();
+            known_codes()
+                .into_iter()
+                .map(|code| {
+                    let mut parts: Vec<String> = Vec::new();
+                    for (currency, region) in &namers {
+                        let name = currency.as_ref().and_then(|n| n(code));
+                        let places: Vec<String> = countries_of(code)
+                            .into_iter()
+                            .filter_map(|r| region.as_ref().and_then(|n| n(r)))
+                            .collect();
+                        for part in name.into_iter().chain((!places.is_empty()).then(|| places.join(", "))) {
+                            if !parts.contains(&part) {
+                                parts.push(part);
+                            }
+                        }
+                    }
+                    (code.to_owned(), parts.join(" · "))
+                })
+                .collect()
+        })
+        .clone()
+    })
+}
+
+/// The suggestions a name typed and left matches - by code, currency or country, in either
+/// language, any case: for when the list under the box did not help (some browsers match its
+/// codes only). At most `limit`.
+pub fn matching(text: &str, limit: usize) -> Vec<(String, String)> {
+    let wanted = text.trim().to_lowercase();
+    if wanted.chars().count() < 2 {
+        return Vec::new();
+    }
+    suggestions()
+        .into_iter()
+        .filter(|(code, label)| format!("{code} {label}").to_lowercase().contains(&wanted))
+        .take(limit)
+        .collect()
+}
+
+/// The browser's names of currencies or of regions, in `lang`.
+#[cfg(target_arch = "wasm32")]
+fn display_names(kind: &str, lang: &str) -> Option<impl Fn(&str) -> Option<String>> {
+    use wasm_bindgen::{JsCast, JsValue};
+    let intl = js_sys::Reflect::get(&js_sys::global(), &"Intl".into()).ok()?;
+    let ctor: js_sys::Function = js_sys::Reflect::get(&intl, &"DisplayNames".into()).ok()?.dyn_into().ok()?;
+    let options = js_sys::Object::new();
+    js_sys::Reflect::set(&options, &"type".into(), &kind.into()).ok()?;
+    let locales = js_sys::Array::of1(&lang.into());
+    let namer = js_sys::Reflect::construct(&ctor, &js_sys::Array::of2(&locales, &options)).ok()?;
+    let of: js_sys::Function = js_sys::Reflect::get(&namer, &"of".into()).ok()?.dyn_into().ok()?;
+    Some(move |code: &str| {
+        of.call1(&namer, &JsValue::from_str(code))
+            .ok()?
+            .as_string()
+            // Where it does not know the currency, it says the code back.
+            .filter(|n| n != code)
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn display_names(_kind: &str, _lang: &str) -> Option<fn(&str) -> Option<String>> {
+    None
+}
+
 /// Names that are not ISO codes but mean one.
 const SYNONYMS: &[(&str, &str)] = &[
     ("DIN", "RSD"),
@@ -705,6 +820,25 @@ mod tests {
         assert_eq!(display_base(&rows), Some(2));
         let chips = vec![row("a", "Chips", 5), row("b", "Tokens", 50)];
         assert_eq!(display_base(&chips), Some(0), "nothing recognised: the cheapest");
+    }
+
+    /// The list kept with the app is the source's own - refreshed with the sample, it says so.
+    #[test]
+    fn the_kept_list_is_the_sources() {
+        let mut from_source: Vec<String> = sample().per_usd.keys().cloned().collect();
+        from_source.sort();
+        let kept: Vec<String> = known_codes().into_iter().map(String::from).collect();
+        assert_eq!(kept, from_source);
+        assert!(kept.iter().all(|c| c.len() == 3 && c.chars().all(|x| x.is_ascii_uppercase())));
+        assert_eq!(suggestions().len(), kept.len());
+    }
+
+    #[test]
+    fn a_code_says_its_country() {
+        assert_eq!(countries_of("BYN"), vec!["BY"]);
+        assert_eq!(countries_of("BDT"), vec!["BD"]);
+        assert!(countries_of("EUR").contains(&"DE") && countries_of("EUR").contains(&"ME"));
+        assert!(countries_of("XOF").is_empty());
     }
 
     #[test]

@@ -451,7 +451,7 @@ pub const TEXTS: Texts = Texts {
         rates: "Rates",
         rates_note: "A rate is how many of the reference currency one unit is worth: 117.5 \
             dinars to the euro. “Today's rates for all” fills them in.",
-        add_currency: "add a currency…",
+        add_currency: "code, currency or country…",
         remove: "Remove",
         rename_note: "Renaming keeps the amounts: expenses stay attached to the currency they \
             were entered in, whatever you call it now. Removing one converts its expenses into \
@@ -479,6 +479,9 @@ pub const TEXTS: Texts = Texts {
         rate_base: "the others are worked out from this one",
         rate_asking: "asking…",
         rate_all: "Today's rates for all",
+        rate_maybe: "Is it one of these?",
+        rate_not_found: |name| format!("No currency “{name}” found — pick one from the list, by code, \
+            name or country; or keep it as your own, like chips."),
         rate_kept: |name, against| format!("No rate for “{name}” — it keeps its worth against {against}."),
         rate_was: |was, date| format!("was {was} · rate of {date} ·"),
         rate_date: |day, month| {

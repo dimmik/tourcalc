@@ -1211,6 +1211,14 @@ pub fn CurrenciesDialog(
                 <div class="tcn-hint" style="margin: 0 0 8px 0">
                     {t().dialogs.rates_note}
                 </div>
+                // What a name box suggests: every currency the rates source knows, by code
+                // and by name - "дин" finds RSD as well as "RS" does.
+                <datalist id="tcw-currency-list">
+                    {crate::rates::suggestions()
+                        .into_iter()
+                        .map(|(code, name)| view! { <option value=code label=name></option> })
+                        .collect_view()}
+                </datalist>
                 <div class="tcw-rate-all">
                     <button type="button" class="tcn-btn tcn-btn-sm"
                             disabled=move || asking.get().is_some()
@@ -1247,6 +1255,7 @@ pub fn CurrenciesDialog(
                         view! {
                             <div class="tcn-currow">
                                 <input class="tcn-input tcn-cur-name" type="text"
+                                       list="tcw-currency-list" autocomplete="off"
                                        placeholder=if blank { t().dialogs.add_currency } else { "" }
                                        prop:value=c.name.clone()
                                        on:input=move |ev| {
@@ -1275,6 +1284,24 @@ pub fn CurrenciesDialog(
                                            if reference.get_untracked().is_none() {
                                                reference.set(Some(i));
                                            }
+                                       }
+                                       on:change=move |ev| {
+                                           // Named and left: say so if it is no currency the
+                                           // rates know - it may be chips, and that is fine,
+                                           // but it may be a typo for one that has a rate.
+                                           let name = event_target_value(&ev);
+                                           let id = rows.with_untracked(|all| all.get(i).map(|c| c.id.clone())).unwrap_or_default();
+                                           let unknown = !name.trim().is_empty()
+                                               && crate::rates::units_of(&id, &name).is_empty();
+                                           let maybe = if unknown { crate::rates::matching(&name, 4) } else { Vec::new() };
+                                           rate_notes.update(|all| {
+                                               all.retain(|(r, n)| *r != i || matches!(n, RateNote::Was(..)));
+                                               if unknown && maybe.is_empty() {
+                                                   all.push((i, RateNote::Kept((t().dialogs.rate_not_found)(name.trim()))));
+                                               } else if unknown {
+                                                   all.push((i, RateNote::Maybe(maybe)));
+                                               }
+                                           });
                                        } />
                                 {if blank {
                                     view! { <span class="tcn-currow-spacer"></span> }.into_any()
@@ -1415,6 +1442,28 @@ pub fn CurrenciesDialog(
                                         RateNote::Kept(said) => view! {
                                             <div class="tcw-rate-note">{said}</div>
                                         }.into_any(),
+                                        RateNote::Maybe(found) => view! {
+                                            <div class="tcw-rate-note tcw-rate-maybe">
+                                                {t().dialogs.rate_maybe}
+                                                {found.into_iter().map(|(code, label)| {
+                                                    let pick = code.clone();
+                                                    view! {
+                                                        <button type="button" class="tcn-linkbtn"
+                                                                on:click=move |_| {
+                                                                    let code = pick.clone();
+                                                                    rows.update(|all| {
+                                                                        if let Some(row) = all.get_mut(i) {
+                                                                            row.name = code;
+                                                                        }
+                                                                    });
+                                                                    rate_notes.update(|all| all.retain(|(r, _)| *r != i));
+                                                                }>
+                                                            {format!("{code} — {label}")}
+                                                        </button>
+                                                    }
+                                                }).collect_view()}
+                                            </div>
+                                        }.into_any(),
                                     })}
                                 }
                             })}
@@ -1448,6 +1497,8 @@ enum RateNote {
     Failed(String),
     /// A currency the source does not know, moved in proportion to another: said as it is.
     Kept(String),
+    /// A name that is no currency, and the ones it looks like - one press to take a code.
+    Maybe(Vec<(String, String)>),
 }
 
 /// `asking` while "today's rates for all" is out, rather than one row's.

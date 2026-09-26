@@ -606,6 +606,10 @@ pub struct DialogTexts {
     pub rate_all: &'static str,
     /// An unknown currency (name) moved in proportion to a known one (name).
     pub rate_kept: fn(&str, &str) -> String,
+    /// A name that is no currency the rates know.
+    pub rate_not_found: fn(&str) -> String,
+    /// Before the currencies a name looks like.
+    pub rate_maybe: &'static str,
     pub rate_was: fn(&str, &str) -> String,
     /// Day and month.
     pub rate_date: fn(u32, u32) -> String,
