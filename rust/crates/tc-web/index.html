@@ -188,9 +188,12 @@
            cents - the EURc to fold into it. */
         .tcw-cur-cents { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: -2px 0 10px 2px; font-size: 13px; }
         .tcw-cur-cents .tcn-switchline { margin: 0; }
-        /* "today's rate": the button beside "with cents", the worth it filled in, and what it said */
+        /* a rate: "= [117,5] RSD"; on the reference, what it is instead */
+        .tcw-rate-unit { flex: 0 0 auto; min-width: 2.4em; font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        .tcw-rate-ref { flex: 0 1 12em; font-size: 12px; line-height: 1.3; text-align: right;
+            color: var(--tcn-muted, #6b7280); }
+        /* "today's rate": the button beside "with cents", the rate it filled in, and what it said */
         .tcw-cur-cents .tcw-rate-btn { padding: 0; margin-left: auto; font-size: 13px; }
-        .tcw-cur-cents .tcw-rate-base { margin: 0 0 0 auto; font-size: 12px; }
         .tcw-rate-all { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 12px; }
         .tcw-rate-all .tcw-rate-note { margin: 0; }
         .tcw-cur-cents .tcw-rate-btn:disabled { opacity: .55; cursor: default; }
@@ -198,10 +201,11 @@
         .tcw-rate-note { margin: -6px 0 10px 2px; font-size: 12px; color: var(--tcn-muted, #6b7280); }
         .tcw-rate-note a { color: inherit; }
         .tcw-rate-note.is-failed { color: var(--tcn-red, #b91c1c); }
-        .tcw-raise { display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-            margin: -4px 0 12px; padding: 10px 12px; border-radius: var(--tcn-radius-sm, 8px);
-            font-weight: 500; line-height: 1.4; }
-        .tcw-raise-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+        /* what a currency's code means: "albanian lek · Albania" */
+        .tcw-cur-hint { margin: -4px 0 4px 2px; font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        .tcw-amount-hint { margin: 4px 0 0; text-align: right; }
+        .tcw-rate-maybe { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+        .tcw-rate-maybe .tcn-linkbtn { padding: 0; text-align: left; font-weight: 500; }
 
         .tcw-done {
             margin-bottom: 14px;

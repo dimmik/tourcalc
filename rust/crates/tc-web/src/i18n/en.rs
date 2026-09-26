@@ -449,11 +449,9 @@ pub const TEXTS: Texts = Texts {
             of the tour — changing it affects everyone. To change only what you see, use “show \
             in” in the header instead.",
         rates: "Rates",
-        rates_note: "“Worth” is what one unit is worth on any scale you like — only the ratio \
-            matters. If one euro is 118 dinars, put 1000 next to the dinar and 118000 next to the \
-            euro — or let “today's rates for all” do it.",
-        add_currency: "add a currency…",
-        worth: "worth",
+        rates_note: "A rate is how many of the reference currency one unit is worth: 117.5 \
+            dinars to the euro. “Today's rates for all” fills them in.",
+        add_currency: "code, currency or country…",
         remove: "Remove",
         rename_note: "Renaming keeps the amounts: expenses stay attached to the currency they \
             were entered in, whatever you call it now. Removing one converts its expenses into \
@@ -481,6 +479,10 @@ pub const TEXTS: Texts = Texts {
         rate_base: "the others are worked out from this one",
         rate_asking: "asking…",
         rate_all: "Today's rates for all",
+        rate_maybe: "Is it one of these?",
+        rate_aria: |name, base| format!("{name} in {base}"),
+        rate_not_found: |name| format!("No currency “{name}” found — pick one from the list, by code, \
+            name or country; or keep it as your own, like chips."),
         rate_kept: |name, against| format!("No rate for “{name}” — it keeps its worth against {against}."),
         rate_was: |was, date| format!("was {was} · rate of {date} ·"),
         rate_date: |day, month| {
@@ -495,22 +497,6 @@ pub const TEXTS: Texts = Texts {
             the tour still has “coin”, rename it to the currency you count in — RSD, EUR…",
         rate_offline: "Cannot get the rate right now — try again later.",
         rate_out_of_range: "The worth would come out too large or too small.",
-        raise_base: |name, worth, f| format!(
-            "{name} is worth only {worth}, and everything is worked out from it — at least 1 000 \
-             is needed for four exact figures. Multiply every worth by {f} and fill in today's \
-             rate for every currency the source knows?"
-        ),
-        raise_cents: |name, worth, f| format!(
-            "{name} came out at {worth}. With cents its worth should end in two zeros, so that a \
-             cent is a whole number too. Multiply every worth by {f} and fill in today's rate for \
-             every currency the source knows?"
-        ),
-        raise_yes: "Multiply",
-        raise_no: "Don't multiply",
-        raised: |f| format!(
-            "Every worth multiplied by {f}, then today's rates filled in; a currency the source \
-             does not know keeps its ratio."
-        ),
         restore_question: "Restore this version? The tour stays as it is — the version is added \
             as a separate copy.",
         cannot_read_version: "could not read that version",
@@ -657,6 +643,7 @@ pub const TEXTS: Texts = Texts {
         tour_no_name: "A tour needs a name.",
         tour_no_days: "A tour lasts at least a day.",
         no_currency: "A tour needs at least one currency",
+        currency_no_name: "A currency has no name — give it one, or remove it with ✕",
         rate_zero: |n| format!("“{n}” needs a worth above zero"),
         duplicate_currency: |n| format!("“{n}” is listed more than once — names have to be unique"),
         amount_not_a_number: "The amount is not a number",

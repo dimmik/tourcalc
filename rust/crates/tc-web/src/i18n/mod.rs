@@ -383,6 +383,8 @@ pub struct CheckTexts {
     pub tour_no_name: &'static str,
     pub tour_no_days: &'static str,
     pub no_currency: &'static str,
+    /// A currency of the tour whose name was cleared.
+    pub currency_no_name: &'static str,
     pub rate_zero: fn(&str) -> String,
     pub duplicate_currency: fn(&str) -> String,
     pub amount_not_a_number: &'static str,
@@ -583,7 +585,6 @@ pub struct DialogTexts {
     pub rates: &'static str,
     pub rates_note: &'static str,
     pub add_currency: &'static str,
-    pub worth: &'static str,
     pub remove: &'static str,
     pub rename_note: &'static str,
     pub with_cents: &'static str,
@@ -607,6 +608,12 @@ pub struct DialogTexts {
     pub rate_all: &'static str,
     /// An unknown currency (name) moved in proportion to a known one (name).
     pub rate_kept: fn(&str, &str) -> String,
+    /// A name that is no currency the rates know.
+    pub rate_not_found: fn(&str) -> String,
+    /// Before the currencies a name looks like.
+    pub rate_maybe: &'static str,
+    /// What a rate box is, for a screen reader: of which currency, in which.
+    pub rate_aria: fn(&str, &str) -> String,
     pub rate_was: fn(&str, &str) -> String,
     /// Day and month.
     pub rate_date: fn(u32, u32) -> String,
@@ -617,13 +624,6 @@ pub struct DialogTexts {
     pub rate_nothing_to_compare: &'static str,
     pub rate_offline: &'static str,
     pub rate_out_of_range: &'static str,
-    /// Multiply every worth by this? Because the base (name, worth) is too small for four
-    /// figures, or a currency with cents (name, worth) does not end in two zeros.
-    pub raise_base: fn(&str, &str, i32) -> String,
-    pub raise_cents: fn(&str, &str, i32) -> String,
-    pub raise_yes: &'static str,
-    pub raise_no: &'static str,
-    pub raised: fn(i32) -> String,
     pub restore_question: &'static str,
     pub cannot_read_version: &'static str,
     pub restored_name: fn(&str, &str, &str) -> String,

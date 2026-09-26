@@ -32,7 +32,7 @@ struct Expected {
 struct ExpectedCurrency {
     id: String,
     name: String,
-    rate: i32,
+    rate: i64,
 }
 
 #[derive(Debug, Deserialize)]

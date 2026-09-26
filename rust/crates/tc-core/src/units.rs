@@ -247,9 +247,9 @@ pub fn cents_sibling<'a>(tour: &'a Tour, of: &CurrencyId) -> Option<&'a Currency
 /// worth at least thirty of the cheapest currency's - a euro against dinars (≈ 117), a mark
 /// against dinars (≈ 60). A tour's only or cheapest currency has nothing to compare with, and
 /// goes by its name instead: the ones people count in cents.
-pub fn cents_by_default(rate: i32, name: &str, others: &[i32]) -> bool {
+pub fn cents_by_default(rate: i64, name: &str, others: &[i64]) -> bool {
     match others.iter().copied().filter(|r| *r > 0).min() {
-        Some(cheapest) if cheapest < rate => rate as i64 >= 30 * cheapest as i64,
+        Some(cheapest) if cheapest < rate => rate >= 30 * cheapest,
         _ => {
             let n = name.trim().to_uppercase();
             ["EUR", "USD", "BAM", "BGN", "GBP", "CHF", "ЕВРО", "EURO", "KM", "LEV"]
@@ -263,7 +263,7 @@ pub fn cents_by_default(rate: i32, name: &str, others: &[i32]) -> bool {
 mod tests {
     use super::*;
 
-    fn tour(currencies: &[(&str, i32, bool)], spendings: &[(&str, i64)]) -> Tour {
+    fn tour(currencies: &[(&str, i64, bool)], spendings: &[(&str, i64)]) -> Tour {
         let mut json = serde_json::json!({
             "Id": "t", "Name": "t", "Persons": [{"GUID": "p", "Name": "P", "Weight": 100}],
             "Currencies": [], "Currency": {"Name": currencies[0].0, "CurrencyRate": currencies[0].1},
