@@ -107,10 +107,23 @@ fn money(s: Option<&Spending>, tour: &Tour) -> String {
     match s {
         None => " (0)".to_owned(),
         Some(s) if tour.currencies.len() > 1 => {
-            format!(" ({} {})", s.amount.0, s.currency.name)
+            format!(" ({} {})", amount(s, tour), s.currency.name)
         }
-        Some(s) => format!(" ({})", s.amount.0),
+        Some(s) => format!(" ({})", amount(s, tour)),
     }
+}
+
+/// An expense's amount as its currency counts it: 44.00 for a currency with cents, whose
+/// amounts are hundredths - printed raw, it read "4400 Eur" in every version and notification.
+/// Whether it has cents is the tour's say, not the copy inside the expense, which can be stale.
+/// Plain digits otherwise, as these lines always had.
+fn amount(s: &Spending, tour: &Tour) -> String {
+    let n = s.amount.0;
+    if !tour.counts_cents(&s.currency.id) {
+        return n.to_string();
+    }
+    let sign = if n < 0 { "-" } else { "" };
+    format!("{sign}{}.{:02}", n.unsigned_abs() / 100, n.unsigned_abs() % 100)
 }
 
 /// People edited in place: the two lists are paired by id, so a rename is seen as a rename
@@ -153,7 +166,9 @@ fn describe_spendings(old: &Tour, new: &Tour, out: &mut String) {
         if was.amount != is.amount {
             out.push_str(&format!(
                 "{}: {} -> {}; ",
-                was.description, was.amount.0, is.amount.0
+                was.description,
+                amount(was, old),
+                amount(is, new)
             ));
         }
         let was_all_of_them = was.split == tc_core::Split::Everyone;
@@ -186,11 +201,13 @@ fn describe_spendings(old: &Tour, new: &Tour, out: &mut String) {
                 was.description, was.category, is.category
             ));
         }
-        if was.currency != is.currency {
+        // By id: the copy of the currency inside an expense also changes when its worth or its
+        // cents do, and compared whole it announced "Currency: Eur -> Eur".
+        if was.currency.id != is.currency.id {
             out.push_str(&format!(
                 " {} ({} {}) Currency: {} -> {}",
                 was.description,
-                was.amount.0,
+                amount(was, old),
                 was.currency.name,
                 was.currency.name,
                 is.currency.name
@@ -218,4 +235,41 @@ where
     old.iter()
         .filter_map(|was| new.iter().find(|is| id(is) == id(was)).map(|is| (was, is)))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A euro with cents, one expense of 44.00 in it, and the copy of the currency inside the
+    /// expense as the tour had it.
+    fn tour(amount: i64, copy_rate: i32) -> Tour {
+        let json = serde_json::json!({
+            "Id": "t", "Name": "t", "Persons": [{"GUID": "p", "Name": "P", "Weight": 100}],
+            "Currencies": [
+                {"_id": "RSD", "Name": "RSD", "CurrencyRate": 1000},
+                {"_id": "EUR", "Name": "Eur", "CurrencyRate": 117_500, "WithCents": true}
+            ],
+            "TourCurrencyId": "RSD",
+            "Spendings": [
+                {"GUID": "a", "Description": "44", "Type": "Food", "AmountInCents": amount,
+                 "FromGuid": "p", "ToAll": true, "ToGuid": [],
+                 "Currency": {"_id": "EUR", "Name": "Eur", "CurrencyRate": copy_rate}}
+            ]
+        });
+        Tour::from_json(&json.to_string()).expect("tour")
+    }
+
+    #[test]
+    fn an_amount_with_cents_is_written_with_its_cents() {
+        let said = describe_change(&tour(4400, 117_500), &tour(4445, 117_500)).expect("a change");
+        assert!(said.contains("44: 44.00 -> 44.45"), "{said}");
+    }
+
+    /// The copy inside the expense is refreshed with the worth; the currency is the same one.
+    #[test]
+    fn a_new_worth_is_not_a_change_of_currency() {
+        let said = describe_change(&tour(4400, 117_000), &tour(4445, 117_500)).unwrap_or_default();
+        assert!(!said.contains("Currency:"), "{said}");
+    }
 }

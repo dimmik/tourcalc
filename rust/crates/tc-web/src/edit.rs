@@ -617,10 +617,14 @@ pub struct CurrencyPlan {
 ///
 /// In this order, each step on what the last one left:
 ///
-/// 1. names and worths as the dialog has them; a new currency starts with the cents it was
+/// 1. a currency that is gone takes its expenses into the cheapest one left, at the worths
+///    the tour had **before** this edit - they used to be read, silently, in the main
+///    currency instead. Before, not after: the dialog may have rescaled every worth ("today's
+///    rate" multiplying by 10, or a dinar retyped from 100 to 1 000), and the removed
+///    currency's worth is only known on the old scale - read against a new one, a 410-dinar
+///    coffee came out at 41;
+/// 2. names and worths as the dialog has them; a new currency starts with the cents it was
 ///    given, and has nothing to convert;
-/// 2. a currency that is gone takes its expenses into the cheapest one left, at the worths
-///    the tour lists - they used to be read, silently, in the main currency instead;
 /// 3. a currency whose cents were switched has its expenses and the worths rescaled
 ///    (`tc_core::units::switch_cents`), which keeps every figure;
 /// 4. an "EURc" beside a euro that now has cents of its own is folded into it.
@@ -638,7 +642,35 @@ pub fn plan_currencies(
         absorbed: Vec::new(),
     };
 
-    // 1. What is kept, as named and worth now - cents as they were, for the moment. A new
+    // 1. What is gone, and had expenses in it - on the tour's own worths, one scale.
+    let gone: Vec<tc_core::Currency> = tour
+        .currencies
+        .iter()
+        .filter(|old| !kept.iter().any(|c| c.id == old.id.as_str()))
+        .cloned()
+        .collect();
+    let mut orphans: Vec<tc_core::Currency> = Vec::new();
+    for old in gone {
+        if !next.spendings.iter().any(|s| s.currency.id == old.id) {
+            continue;
+        }
+        let into = next
+            .currencies
+            .iter()
+            .filter(|c| c.id != old.id && kept.iter().any(|k| k.id == c.id.as_str()))
+            .min_by_key(|c| c.rate)
+            .cloned();
+        match into {
+            Some(into) => {
+                let n = move_spendings(&mut next, &old.id, &into.id);
+                plan.moved.push((old.name.clone(), into.name.clone(), n));
+            }
+            // Nothing of the old tour is kept - only new currencies: see after step 2.
+            None => orphans.push(old),
+        }
+    }
+
+    // 2. What is kept, as named and worth now - cents as they were, for the moment. A new
     // currency named by its code gets the code as its id (`rates::id_for_new`).
     let mut new_ids: Vec<tc_core::CurrencyId> = Vec::new();
     next.currencies = kept
@@ -675,17 +707,9 @@ pub fn plan_currencies(
         })
         .collect();
 
-    // 2. What is gone, and had expenses in it.
-    let gone: Vec<tc_core::Currency> = tour
-        .currencies
-        .iter()
-        .filter(|old| !kept.iter().any(|c| c.id == old.id.as_str()))
-        .cloned()
-        .collect();
-    for old in gone {
-        if !next.spendings.iter().any(|s| s.currency.id == old.id) {
-            continue;
-        }
+    // Every old currency replaced by new ones at once: there is no old worth to go by on the
+    // other side, so the new one's is taken as it is - the best there is.
+    for old in orphans {
         let Some(into) = cheapest(&next, None).cloned() else { continue };
         next.currencies.push(old.clone());
         let n = move_spendings(&mut next, &old.id, &into.id);
@@ -937,6 +961,22 @@ mod currency_tests {
 
     fn in_dinars(t: &Tour) -> Vec<Cents> {
         t.spendings.iter().map(|s| t.convert(s.amount, &s.currency)).collect()
+    }
+
+    /// Every worth multiplied by ten ("today's rate") and the EURc removed, in one save: the
+    /// coffee in EURc is still 410 dinars, not 41.
+    #[test]
+    fn removing_a_currency_while_rescaling_keeps_its_expenses() {
+        let t = tour();
+        let before = in_dinars(&t);
+        let mut kept = drafts(&t);
+        kept.retain(|c| c.id != "EURc");
+        for c in kept.iter_mut() {
+            c.rate *= 10;
+        }
+        let plan = plan_currencies(&t, &kept, "RSD");
+        assert_eq!(in_dinars(&plan.tour), before);
+        assert_eq!(plan.moved, vec![("EURc".to_owned(), "RSD".to_owned(), 1)]);
     }
 
     #[test]

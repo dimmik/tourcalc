@@ -9,6 +9,19 @@
     read the same database.
 </p>
 
+<h3>26 September 2026</h3>
+<ul>
+    <li><b>Removing a currency after changing the worths keeps its expenses right.</b> When
+        the worths were rescaled — multiplied for “today's rate”, or a dinar retyped from 100
+        to 1 000 — and a currency removed in the same save, its expenses were converted at the
+        wrong scale: a 410-dinar coffee became 41.</li>
+    <li><b>Amounts with cents in version lines and notifications.</b> They showed the stored
+        hundredths: “44 (4400 Eur)” for 44.00 €. They now read 44.00, and a new worth no longer
+        adds “Currency: Eur -> Eur” to every changed expense.</li>
+    <li><b>A new tour starts at 10 000</b>, and so does a currency added to one, so that
+        “today's rate” comes out to four figures without offering to multiply.</li>
+</ul>
+
 <h3>25 September 2026</h3>
 <ul>
     <li><b>“Today's rate” beside each currency.</b> A currency's worth had to be looked up
