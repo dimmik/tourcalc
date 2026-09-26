@@ -312,6 +312,101 @@ fn worth_against(unit: &Unit, base: &Unit, base_worth: i32, rates: &Rates) -> f6
     base_worth as f64 * usd(unit) / usd(base)
 }
 
+/// The worth "today's rates for all" starts the base at - raised by tens when a currency
+/// with cents needs room for two zeros.
+const NORMAL_BASE: f64 = 10_000.0;
+
+/// "Today's rates for all": every worth set afresh.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Normalized {
+    /// `(row, new worth)` for every row that changes.
+    pub worths: Vec<(usize, i32)>,
+    /// The row that is now the base: the cheapest currency by today's market, not by the
+    /// worths it had - a lira that strengthened past the euro stops being the base.
+    pub base: usize,
+    /// Rows the source does not know (chips), kept in proportion to `kept_against` - a
+    /// currency of the tour whose old worth meant something. `None` when there was none.
+    pub unknown: Vec<usize>,
+    pub kept_against: Option<usize>,
+}
+
+/// Every known currency at today's rate, the cheapest of them at 10 000 - or 100 000, a
+/// million, whatever makes each currency with cents come out to two zeros - and every unknown
+/// one moved in proportion, so that chips are worth what they were against the money.
+///
+/// What the worths were before does not matter for the known ones: added at the default 10 000
+/// or years old, they all come out of the one answer. It is what makes adding the currencies
+/// and pressing one button enough.
+pub fn normalize(rows: &[Row], rates: &Rates) -> Result<Normalized, Why> {
+    let live = |r: &Row| !r.name.trim().is_empty();
+    let known: Vec<(usize, Unit)> = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| live(r))
+        .filter_map(|(i, r)| resolve(r, rates).ok().map(|u| (i, u)))
+        .collect();
+    if known.is_empty() {
+        return Err(Why::NothingToCompare);
+    }
+    // One unit of each in dollars; the cheapest is the base.
+    let usd = |u: &Unit| 1.0 / (rates.per_usd[&u.iso] * u.per as f64);
+    let (base, base_unit) = known
+        .iter()
+        .min_by(|(_, a), (_, b)| usd(a).total_cmp(&usd(b)))
+        .cloned()
+        .expect("not empty");
+    let ratio = |u: &Unit| usd(u) / usd(&base_unit);
+
+    // Room for two zeros after four figures, for every currency with cents.
+    let mut base_worth = NORMAL_BASE;
+    for (i, u) in &known {
+        if rows[*i].cents && u.per == 1 {
+            while base_worth * ratio(u) < CENTS_AT_LEAST && base_worth < 1e9 {
+                base_worth *= 10.0;
+            }
+        }
+    }
+
+    // The unknown ones keep their proportion to a currency whose old worth meant something:
+    // the cheapest of the tour's own known ones, as `reference` would choose.
+    let kept_against = cheapest_of(
+        known
+            .iter()
+            .map(|(i, _)| (*i, rows[*i].rate, rows[*i].saved))
+            .filter(|(_, rate, saved)| *saved && *rate > 0),
+    );
+    let unknown: Vec<usize> = rows
+        .iter()
+        .enumerate()
+        .filter(|(i, r)| live(r) && !known.iter().any(|(k, _)| k == i))
+        .map(|(i, _)| i)
+        .collect();
+
+    let mut worths: Vec<(usize, i32)> = Vec::new();
+    let mut put = |i: usize, w: f64| -> Result<(), Why> {
+        let w = if i == base { w.round() as i64 } else { round4(w) };
+        if w < 1 || w > i32::MAX as i64 {
+            return Err(Why::OutOfRange);
+        }
+        if w as i32 != rows[i].rate {
+            worths.push((i, w as i32));
+        }
+        Ok(())
+    };
+    for (i, u) in &known {
+        put(*i, base_worth * ratio(u))?;
+    }
+    if let Some(k) = kept_against {
+        let (_, ku) = known.iter().find(|(i, _)| *i == k).expect("known");
+        let scale = base_worth * ratio(ku) / rows[k].rate as f64;
+        for i in &unknown {
+            put(*i, rows[*i].rate as f64 * scale)?;
+        }
+    }
+    worths.sort_by_key(|(i, _)| *i);
+    Ok(Normalized { worths, base, unknown, kept_against })
+}
+
 /// Today's worth of the currency in row `at` - and of its other units in the tour (EUR and
 /// EURc both) - worked out against the cheapest other currency: `(row, new worth)`.
 pub fn refine(rows: &[Row], at: usize, rates: &Rates) -> Result<Vec<(usize, i32)>, Why> {
@@ -352,7 +447,11 @@ pub async fn fetch() -> Result<Rates, Why> {
         return Ok(r.clone());
     }
     let asked = async {
-        let resp = gloo_net::http::Request::get(URL).send().await.ok()?;
+        let resp = gloo_net::http::Request::get(URL)
+            .abort_signal(deadline().as_ref())
+            .send()
+            .await
+            .ok()?;
         if !resp.ok() {
             return None;
         }
@@ -369,6 +468,17 @@ pub async fn fetch() -> Result<Rates, Why> {
         }
         None => kept.ok_or(Why::Offline),
     }
+}
+
+/// Ten seconds, then give up: on a phone on a bad network the request could otherwise hang for
+/// minutes with "asking…" on every button, and the dialog would be closed before it answered.
+/// `AbortSignal.timeout` is not in every browser this runs in; without it, no deadline.
+#[cfg(target_arch = "wasm32")]
+fn deadline() -> Option<web_sys::AbortSignal> {
+    let ctor = js_sys::Reflect::get(&js_sys::global(), &"AbortSignal".into()).ok()?;
+    js_sys::Reflect::has(&ctor, &"timeout".into())
+        .unwrap_or(false)
+        .then(|| web_sys::AbortSignal::timeout_with_u32(10_000))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -526,6 +636,62 @@ mod tests {
         let all_new = vec![new_row("RSD", 10_000), new_row("EUR", 10_000)];
         assert_eq!(place(&all_new, 0), Place::Base);
         assert_eq!(place(&all_new, 1), Place::Button);
+    }
+
+    /// Every currency added at the default 10 000, one press: the dinar - the cheapest by the
+    /// market - is the base at 10 000, the rest follow, the mark with its two zeros.
+    #[test]
+    fn all_at_the_default_and_one_press() {
+        let r = sample();
+        let rows = vec![
+            with_cents(new_row("EUR", 10_000)),
+            new_row("RSD", 10_000),
+            with_cents(new_row("BAM", 10_000)),
+            new_row("PLN", 10_000),
+            new_row("", 10_000),
+        ];
+        let n = normalize(&rows, &r).expect("rates");
+        assert_eq!(n.base, 1);
+        let w = |i: usize| n.worths.iter().find(|(r, _)| *r == i).map(|(_, w)| *w).unwrap_or(rows[i].rate);
+        assert_eq!(w(1), 10_000);
+        assert_eq!(w(0), round4(10_000.0 * r.per_usd["RSD"] / r.per_usd["EUR"]) as i32);
+        assert_eq!(w(2) % 100, 0, "the mark has its two zeros: {}", w(2));
+        assert!(w(3) > 10_000);
+        assert!(!n.worths.iter().any(|(i, _)| *i == 4), "the blank row is left alone");
+    }
+
+    /// The base is the cheapest by the market, whatever the worths said.
+    #[test]
+    fn a_currency_that_strengthened_stops_being_the_base() {
+        let mut r = sample();
+        // A lira worth more than a euro.
+        r.per_usd.insert("TRY".into(), r.per_usd["EUR"] / 2.0);
+        let rows = vec![row("TRY", "TRY", 1000), row("EUR", "EUR", 40_000)];
+        let n = normalize(&rows, &r).expect("rates");
+        assert_eq!(n.base, 1);
+        assert_eq!(n.worths, vec![(0, 20_000), (1, 10_000)]);
+    }
+
+    /// With cents and barely dearer than the base: the base rises until it has two zeros.
+    #[test]
+    fn two_zeros_raise_the_base() {
+        let r = sample();
+        let rows = vec![row("USD", "USD", 1), with_cents(row("EUR", "EUR", 1))];
+        let n = normalize(&rows, &r).expect("rates");
+        assert_eq!(n.worths[0], (0, 100_000));
+        assert_eq!(n.worths[1].1 % 100, 0);
+    }
+
+    /// Chips keep what they were worth against the dinar the tour already had.
+    #[test]
+    fn chips_keep_their_proportion() {
+        let r = sample();
+        let rows = vec![row("RSD", "RSD", 100), row("c", "Chips", 50), row("EUR", "EUR", 11_800)];
+        let n = normalize(&rows, &r).expect("rates");
+        assert_eq!(n.kept_against, Some(0));
+        assert_eq!(n.unknown, vec![1]);
+        assert!(n.worths.contains(&(0, 10_000)) && n.worths.contains(&(1, 5_000)), "{:?}", n.worths);
+        assert_eq!(normalize(&[row("c", "Chips", 5)], &r), Err(Why::NothingToCompare));
     }
 
     #[test]

@@ -20,6 +20,8 @@ web-sys = { version = "0.3", features = [
     "Clipboard", "Document", "HtmlDocument", "HtmlTextAreaElement", "Element",
     # A tapped notification: the worker tells the app which tour to open.
     "MessageEvent", "MessagePort",
+    # "Today's rate": a request that gives up rather than hanging on a bad network.
+    "AbortSignal",
 ] }
 console_error_panic_hook = "0.1"
 serde = { version = "1", features = ["derive"] }

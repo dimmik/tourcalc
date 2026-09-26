@@ -11,6 +11,18 @@
 
 <h3>26 September 2026</h3>
 <ul>
+    <li><b>“Today's rates for all”.</b> Setting several currencies meant pressing each one's
+        button, and a small base kept asking to multiply every worth first. Now one button sets
+        them all: the cheapest by the market becomes 10 000 (more, if a currency with cents
+        needs its two zeros) and the rest follow; chips keep their worth against the rest.</li>
+    <li><b>“Today's rate” no longer hangs or breaks the page.</b> On a bad network it waited
+        indefinitely, and closing the dialog before the answer came threw an error. It now gives
+        up after ten seconds, and an answer to a closed dialog is dropped.</li>
+    <li><b>Smaller fixes around currencies.</b> A removed currency's expenses go into real money,
+        not into chips; an expense edited offline keeps its amount if the currency's cents were
+        switched meanwhile; a currency added offline is not added twice when the save is
+        retried; the dialog says when the debt threshold turns into cents; the text pages label
+        an expense with its own currency; “Keep as is” is now “Don't multiply”.</li>
     <li><b>A currency just added keeps its “today's rate”.</b> At the default worth it could be
         the cheapest in the tour, and was then taken for the one the others are worked out
         from — so it had no button at all. Only the tour's own currencies are that now, and

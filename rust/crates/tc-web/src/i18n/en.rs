@@ -449,13 +449,13 @@ pub const TEXTS: Texts = Texts {
         rates: "Rates",
         rates_note: "“Worth” is what one unit is worth on any scale you like — only the ratio \
             matters. If one euro is 118 dinars, put 1000 next to the dinar and 118000 next to the \
-            euro.",
+            euro — or let “today's rates for all” do it.",
         add_currency: "add a currency…",
         worth: "worth",
         remove: "Remove",
         rename_note: "Renaming keeps the amounts: expenses stay attached to the currency they \
             were entered in, whatever you call it now. Removing one converts its expenses into \
-            the cheapest currency left, at the tour's rates.",
+            the cheapest real currency left (not chips), at the tour's rates.",
         with_cents: "with cents",
         with_cents_hint: "Amounts in this currency are entered and shown with a decimal part: 3.50",
         absorb: |c, into| format!("fold {c} into {into}"),
@@ -471,9 +471,15 @@ pub const TEXTS: Texts = Texts {
             "{n} {} in {c} will move into {into}, and {c} will go.",
             en_plural(n as i64, "expense", "expenses")
         ),
+        will_threshold_cents: "“Don't count debts under” will be counted in cents: 49 means 0.49, \
+            and smaller debts than before will show.",
+        will_threshold_whole: "“Don't count debts under” will be counted in whole units: 49 means \
+            49, not 0.49.",
         rate_button: "today's rate",
         rate_base: "the others are worked out from this one",
         rate_asking: "asking…",
+        rate_all: "Today's rates for all",
+        rate_kept: |name, against| format!("No rate for “{name}” — it keeps its worth against {against}."),
         rate_was: |was, date| format!("was {was} · rate of {date} ·"),
         rate_date: |day, month| {
             const MONTHS: [&str; 12] =
@@ -483,7 +489,8 @@ pub const TEXTS: Texts = Texts {
         rate_source_hint: "Your browser gets the rate from open.er-api.com itself; that service             sees your IP address.",
         rate_unknown: |name| format!("Not sure what currency “{name}” is — enter its worth by hand."),
         rate_not_at_source: |code| format!("The source has no rate for {code}."),
-        rate_nothing_to_compare: "There is no other currency here to work it out against.",
+        rate_nothing_to_compare: "There is no other currency here to work it out against. If \
+            the tour still has “coin”, rename it to the currency you count in — RSD, EUR…",
         rate_offline: "Cannot get the rate right now — try again later.",
         rate_out_of_range: "The worth would come out too large or too small.",
         raise_base: |name, worth, f| format!(
@@ -497,7 +504,7 @@ pub const TEXTS: Texts = Texts {
              every currency the source knows?"
         ),
         raise_yes: "Multiply",
-        raise_no: "Keep as is",
+        raise_no: "Don't multiply",
         raised: |f| format!(
             "Every worth multiplied by {f}, then today's rates filled in; a currency the source \
              does not know keeps its ratio."

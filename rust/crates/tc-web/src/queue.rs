@@ -443,6 +443,7 @@ mod tests {
             colour: String::new(),
             currency_id: t.currency().id.as_str().to_owned(),
             editing: false,
+            in_cents: None,
         })
     }
 

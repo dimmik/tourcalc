@@ -1052,6 +1052,17 @@ fn spending_page(
             .replace('\u{202f}', ""),
         None => String::new(),
     };
+    // Beside the amount, the currency it is in: an expense in euros in a tour in dinars read
+    // "44.00 RSD" when this was always the tour's own currency. A new one is in the tour's.
+    let cur = match spending {
+        Some(s) if !loaded.currency.is_empty() => tour
+            .currencies
+            .iter()
+            .find(|c| c.id == s.currency.id)
+            .map(|c| c.name.clone())
+            .unwrap_or_else(|| loaded.currency.clone()),
+        _ => loaded.currency.clone(),
+    };
     let description = spending.map(|s| s.description.as_str()).unwrap_or("");
     let category = spending.map(|s| s.category.as_str()).unwrap_or("");
     let from = spending.map(|s| s.from.clone());
@@ -1152,7 +1163,7 @@ fn spending_page(
 </form>
 {delete}"#,
             header = loaded.header("Expenses"),
-            cur = esc(&loaded.currency),
+            cur = esc(&cur),
             description = esc(description),
             category = esc(category),
             all = if to_all { " checked" } else { "" },
