@@ -946,6 +946,8 @@ pub fn CurrenciesDialog(
                 name: c.name.clone(),
                 rate: c.rate,
                 cents: c.effective_cents(&all),
+                saved: !c.id.is_empty()
+                    && original.with_value(|t| t.currencies.iter().any(|x| x.id.as_str() == c.id)),
             })
             .collect()
     };
@@ -1168,7 +1170,8 @@ pub fn CurrenciesDialog(
                     .enumerate()
                     .map(|(i, c)| {
                         let blank = c.is_blank();
-                        let rate_button = crate::rates::has_button(&for_rates, i);
+                        let place = crate::rates::place(&for_rates, i);
+                        let rate_button = place == crate::rates::Place::Button;
                         let refined = move || rate_notes.with(|n| {
                             n.iter().any(|(r, x)| *r == i && matches!(x, RateNote::Was(..)))
                         });
@@ -1283,6 +1286,9 @@ pub fn CurrenciesDialog(
                                                        } />
                                                 {(t().dialogs.absorb)(&sname, &name)}
                                             </label>
+                                        })}
+                                        {(place == crate::rates::Place::Base).then(|| view! {
+                                            <span class="tcn-hint tcw-rate-base">{t().dialogs.rate_base}</span>
                                         })}
                                         {rate_button.then(|| view! {
                                             <button type="button" class="tcn-linkbtn tcw-rate-btn"

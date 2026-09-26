@@ -141,6 +141,20 @@ pub struct Row {
     pub rate: i32,
     /// "with cents": its worth wants two zeros after its four figures.
     pub cents: bool,
+    /// Already one of the tour's currencies, not one being added: only such a worth means
+    /// anything - a new row's is the default until somebody changes it.
+    pub saved: bool,
+}
+
+/// Of `(row, worth, saved)`, the one the others are worked out from: the cheapest of the
+/// tour's own currencies, and of the new ones only when there are no others. A currency just
+/// added sits at the default 10 000, which says nothing about what it is worth - taken for
+/// the base, it lost its own button (a PLN added beside a euro at 1 000 000).
+fn cheapest_of(candidates: impl Iterator<Item = (usize, i32, bool)> + Clone) -> Option<usize> {
+    let saved = candidates.clone().filter(|(_, _, s)| *s).min_by_key(|(_, rate, _)| *rate);
+    saved
+        .or_else(|| candidates.min_by_key(|(_, rate, _)| *rate))
+        .map(|(i, _, _)| i)
 }
 
 /// Which unit of `row` the source has, or why none.
@@ -158,38 +172,61 @@ fn resolve(row: &Row, rates: &Rates) -> Result<Unit, Why> {
 /// The row every other is worked out against: the cheapest the source knows, other than
 /// `group` (the currency asked about, in any of its units).
 pub fn reference(rows: &[Row], group: &str, rates: &Rates) -> Option<usize> {
-    rows.iter()
+    let known: Vec<(usize, i32, bool)> = rows
+        .iter()
         .enumerate()
         .filter(|(_, r)| r.rate > 0 && !r.name.trim().is_empty())
-        .filter_map(|(i, r)| resolve(r, rates).ok().map(|u| (i, r.rate, u)))
+        .filter_map(|(i, r)| resolve(r, rates).ok().map(|u| (i, r, u)))
         .filter(|(_, _, u)| u.iso != group)
-        .min_by_key(|(_, rate, _)| *rate)
-        .map(|(i, _, _)| i)
+        .map(|(i, r, _)| (i, r.rate, r.saved))
+        .collect();
+    cheapest_of(known.into_iter())
+}
+
+/// What goes where the button would be.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Place {
+    /// "Today's rate".
+    Button,
+    /// The one the others are worked out from - said, so its missing button is not a puzzle.
+    Base,
+    /// Nothing: a blank row, or nothing to work it out against.
+    Nothing,
 }
 
 /// Whether a row gets the button: not the one the others are worked out against, and not in
 /// a tour where there is nothing else to work it out against. Decided without the rates -
 /// the button is there before anybody asks the source.
-pub fn has_button(rows: &[Row], at: usize) -> bool {
-    let Some(row) = rows.get(at) else { return false };
+pub fn place(rows: &[Row], at: usize) -> Place {
+    let Some(row) = rows.get(at) else { return Place::Nothing };
     if row.name.trim().is_empty() {
-        return false;
+        return Place::Nothing;
     }
-    let known: Vec<(usize, i32, String)> = rows
+    let known: Vec<(usize, i32, bool, String)> = rows
         .iter()
         .enumerate()
         .filter(|(_, r)| r.rate > 0 && !r.name.trim().is_empty())
-        .filter_map(|(i, r)| units_of(&r.id, &r.name).first().map(|u| (i, r.rate, u.iso.clone())))
+        .filter_map(|(i, r)| {
+            units_of(&r.id, &r.name).first().map(|u| (i, r.rate, r.saved, u.iso.clone()))
+        })
         .collect();
     let mine = units_of(&row.id, &row.name).first().map(|u| u.iso.clone());
     // Alone, or only beside its own cents: nothing to work it out against. An unrecognised
     // one ("Chips") beside others keeps the button - pressed, it says it is not recognised.
-    if !known.iter().any(|(_, _, iso)| Some(iso) != mine.as_ref()) {
-        return false;
+    if !known.iter().any(|(_, _, _, iso)| Some(iso) != mine.as_ref()) {
+        return Place::Nothing;
     }
-    // The cheapest known currency is the one the others are worked out against.
-    let base = known.iter().min_by_key(|(_, rate, _)| *rate).map(|(i, _, _)| *i);
-    base != Some(at)
+    // The one the others are worked out against - chosen as `reference` chooses it.
+    let base = cheapest_of(known.iter().map(|(i, rate, saved, _)| (*i, *rate, *saved)));
+    if base == Some(at) {
+        Place::Base
+    } else {
+        Place::Button
+    }
+}
+
+pub fn has_button(rows: &[Row], at: usize) -> bool {
+    place(rows, at) == Place::Button
 }
 
 /// `x` to four significant figures, as a whole number - and never below 1.
@@ -348,7 +385,11 @@ mod tests {
     }
 
     fn row(id: &str, name: &str, rate: i32) -> Row {
-        Row { id: id.into(), name: name.into(), rate, cents: false }
+        Row { id: id.into(), name: name.into(), rate, cents: false, saved: true }
+    }
+
+    fn new_row(name: &str, rate: i32) -> Row {
+        Row { saved: false, ..row("", name, rate) }
     }
 
     fn with_cents(r: Row) -> Row {
@@ -466,6 +507,25 @@ mod tests {
         assert!(!has_button(&rows, 3), "the blank row");
         assert!(!has_button(&[row("coin", "coin", 100)], 0));
         assert!(!has_button(&[row("EUR", "EUR", 100), row("EURc", "EURc", 1)], 0));
+    }
+
+    /// A currency just added sits at the default worth, which may well be the smallest in the
+    /// tour - it is still not the base, and keeps its button.
+    #[test]
+    fn a_new_currency_is_never_the_base() {
+        let r = sample();
+        let rows = vec![
+            with_cents(row("EUR", "EUR", 1_000_000)),
+            row("RSD", "RSD", 850_000),
+            new_row("PLN", 10_000),
+        ];
+        assert_eq!(place(&rows, 2), Place::Button, "the new PLN");
+        assert_eq!(place(&rows, 1), Place::Base, "the dinar, saved");
+        assert_eq!(reference(&rows, "PLN", &r), Some(1));
+        // Nothing saved that the source knows: then a new one is the base after all.
+        let all_new = vec![new_row("RSD", 10_000), new_row("EUR", 10_000)];
+        assert_eq!(place(&all_new, 0), Place::Base);
+        assert_eq!(place(&all_new, 1), Place::Button);
     }
 
     #[test]

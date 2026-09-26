@@ -486,6 +486,7 @@ pub const TEXTS: Texts = Texts {
             ru_plural(n as i64, "трата", "траты", "трат")
         ),
         rate_button: "уточнить курс",
+        rate_base: "от неё считаются остальные",
         rate_asking: "спрашиваю…",
         rate_was: |was, date| format!("было {was} · курс на {date} ·"),
         rate_date: |day, month| format!("{day:02}.{month:02}"),

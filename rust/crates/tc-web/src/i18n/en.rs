@@ -472,6 +472,7 @@ pub const TEXTS: Texts = Texts {
             en_plural(n as i64, "expense", "expenses")
         ),
         rate_button: "today's rate",
+        rate_base: "the others are worked out from this one",
         rate_asking: "asking…",
         rate_was: |was, date| format!("was {was} · rate of {date} ·"),
         rate_date: |day, month| {

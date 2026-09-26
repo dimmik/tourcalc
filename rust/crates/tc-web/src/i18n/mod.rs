@@ -595,6 +595,8 @@ pub struct DialogTexts {
     /// "Today's rate": the button, while asking, and after - what the worth was, and the
     /// date of the rate (then the source's name, as a link).
     pub rate_button: &'static str,
+    /// Where the button would be, on the currency the others are worked out from.
+    pub rate_base: &'static str,
     pub rate_asking: &'static str,
     pub rate_was: fn(&str, &str) -> String,
     /// Day and month.
