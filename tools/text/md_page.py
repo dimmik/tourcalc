@@ -3,11 +3,11 @@
 
 Standard library only - no `markdown` package on a fresh machine. Covers what the repository's
 own .md files use: headings, paragraphs, lists (one level, with wrapped lines), tables, rules,
-**bold**, *italic*, `code` and [links](url).
+**bold**, *italic*, ~~struck~~, `code` and [links](url).
 
     tools/text/md_page.py currencies-review-20260926.md out.html --title "Ревью валют"
 
-Reviews get one extra: a severity word ("высокая", "средняя", "низкая", "косметика", with
+Reviews get one extra: a severity word ("высокая", "средняя", "низкая", "косметика", "снято", with
 "(…)" after it allowed) at the end of a `## ` heading after "·", or alone in a table cell,
 becomes a coloured pill - so what needs attention reads at a glance.
 """
@@ -16,12 +16,13 @@ import html
 import re
 from pathlib import Path
 
-SEVERITY = {'высокая': 'high', 'средняя': 'mid', 'низкая': 'low', 'косметика': 'cos'}
+SEVERITY = {'высокая': 'high', 'средняя': 'mid', 'низкая': 'low', 'косметика': 'cos', 'снято': 'cos'}
 
 
 def inline(text):
     out = html.escape(text, quote=False)
     out = re.sub(r'`([^`]+)`', r'<code>\1</code>', out)
+    out = re.sub(r'~~([^~]+)~~', r'<s>\1</s>', out)
     out = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', out)
     out = re.sub(r'(?<![\w*])\*([^*\s][^*]*)\*(?![\w*])', r'<i>\1</i>', out)
     # A path inside the repository means nothing on a published page: its text stays.
