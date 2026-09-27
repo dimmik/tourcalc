@@ -150,18 +150,31 @@ impl Which {
     }
 }
 
-/// A debt in words, so that a minus sign never has to be interpreted.
-fn direction(amount: Cents) -> &'static str {
-    if amount.0 > 0 {
-        t().people.owes
-    } else if amount.0 < 0 {
-        t().people.gets
-    } else {
-        t().people.settled
+/// A balance as a sign and an amount: what they put in less what their share cost, which is
+/// how the legend defines it. "+6 870" comes to them, "−3 205" is theirs to pay, and nothing
+/// either way is "settled". `debt` counts the other way (positive is owing) - hence the flip.
+///
+/// Signs, not words: "gets 6 870" and "owes 3 205" took a column of their own, and a phone on
+/// its side had room for the numbers but not for the words. The words have not gone - they
+/// are the title and the label a screen reader says ([`balance_words`]). The sign once meant
+/// the debt here ("−5 055" beside "gets 5 055"); one rule for every place ends that.
+fn signed(debt: Cents) -> String {
+    match debt.0 {
+        0 => t().people.settled.to_owned(),
+        n if n > 0 => format!("\u{2212}{}", money(debt)),
+        _ => format!("+{}", money(Cents(-debt.0))),
     }
 }
 
-/// The same, with the amount and its currency: what the chip on a card says.
+fn signed_in(debt: Cents, unit: &str) -> String {
+    if debt.is_zero() || unit.is_empty() {
+        signed(debt)
+    } else {
+        format!("{}\u{a0}{unit}", signed(debt))
+    }
+}
+
+/// The same in words, with the amount and its currency: said, not shown - see [`signed`].
 fn balance_words(amount: Cents, unit: &str) -> String {
     match amount.0 {
         0 => t().people.settled.to_owned(),
@@ -658,7 +671,9 @@ fn PersonBlock(
                             ().into_any()
                         }}
                     </span>
-                    <span class=format!("tcn-chip tcw-row-chip {chip_class}")>{words_row.clone()}</span>
+                    <span class=format!("tcn-chip tcw-row-chip {chip_class}") title=words_row.clone()>
+                        {signed_in(shown, &unit_for_stats.get_value())}
+                    </span>
                     <span class="tcn-person-caret">
                         {move || if is_open.get() { view!{<Icon name="chevron-down"/>} } else { view!{<Icon name="chevron-right"/>} }}
                     </span>
@@ -741,7 +756,10 @@ fn PersonBlock(
                     // says it already.
                     {split_family.then(|| view! {
                         <span class="tcw-table-only">
-                            {t().people.own} " " <b>{balance_words(debt, &unit_for_stats.get_value())}</b>
+                            {t().people.own} " "
+                            <b title=balance_words(debt, &unit_for_stats.get_value())>
+                                {signed_in(debt, &unit_for_stats.get_value())}
+                            </b>
                         </span>
                     })}
                 </div>
@@ -813,27 +831,21 @@ fn Stat(
         Which::Balance => "",
     };
 
+    // What the sign means, for a reader who hovers and for one who listens.
+    let said = (which == Which::Balance).then(|| balance_words(amount, &unit));
+
     view! {
         <div class="tcn-stat">
             <span class="tcn-stat-label">{which.label()}</span>
             <button type="button" class=format!("tcn-statbtn {tint}")
+                    title=said.clone() aria-label=said
                     on:click=move |_| sheet.set(Some((which, person.clone())))>
-                {(which == Which::Balance).then(|| view! {
-                    // The chip on the same card says "gets 5 055" while this cell used to
-                    // say "-5 055": one number, two languages, five centimetres apart.
-                    <span class="tcn-statbtn-dir">{direction(amount)}</span>
-                })}
-                {if which == Which::Balance {
-                    if amount.is_zero() { String::new() } else { money(amount.abs()) }
-                } else {
-                    money(amount)
-                }}
+                {if which == Which::Balance { signed(amount) } else { money(amount) }}
                 {(!(which == Which::Balance && amount.is_zero()) && !unit.is_empty())
                     .then(|| view! { <small>"\u{a0}" {unit.clone()}</small> })}
                 {own.map(|d| view! {
                     <span class="tcn-statbtn-note">
-                        {t().people.own} " " {direction(d)} " "
-                        {(!d.is_zero()).then(|| money_in(d.abs(), &unit))}
+                        {t().people.own} " " {signed_in(d, &unit)}
                     </span>
                 })}
             </button>
@@ -1184,6 +1196,16 @@ mod tests {
         // 0,60 € each: 0,80 is not a bill anybody pays.
         assert_eq!(next(&in_currency(true, 240))[0].1, 60);
         assert_eq!(next(&in_currency(true, 240))[0].2, None);
+    }
+
+    /// The sign is the balance - put in less charged - so owing is minus, whatever `debt`
+    /// counts in; and nothing either way says so in words.
+    #[test]
+    fn a_balance_is_a_sign_and_nothing_is_settled() {
+        assert!(signed(Cents(320_500)).starts_with('\u{2212}'), "owes 3 205: minus");
+        assert!(signed(Cents(-687_000)).starts_with('+'), "gets 6 870: plus");
+        assert_eq!(signed(Cents(0)), t().people.settled);
+        assert!(!signed_in(Cents(0), "RUB").contains("RUB"), "no unit on settled");
     }
 
     #[test]

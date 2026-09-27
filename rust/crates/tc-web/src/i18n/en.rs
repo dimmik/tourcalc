@@ -542,7 +542,7 @@ pub const TEXTS: Texts = Texts {
         total_weight: "total weight",
         legend_paid: " — what they put in · ",
         legend_charged: " — what their part of the spending cost · ",
-        legend_balance: " — the difference. Tap any of the three for the itemised list.",
+        legend_balance: " — the difference: + comes to them, − is theirs to pay. Tap any of the three for the itemised list.",
         nobody_yet: "No participants yet",
         nobody_yet_hint: "Add everyone who takes part - then you can start recording expenses.",
         nobody_called: |q| format!("Nobody here is called “{q}”"),
