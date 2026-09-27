@@ -217,6 +217,7 @@ pub fn SpendingDialog(
     // for a new expense: an edit that was abandoned is the expense as it already is.
     let tour_id = StoredValue::new(tour.id.as_str().to_owned());
     let blank = StoredValue::new(SpendingDraft::new(&tour));
+    let on_behalf = draft.on_behalf;
     let carried = RwSignal::new(carried_over);
     let close = Callback::new({
         let current = current.clone();
@@ -233,7 +234,10 @@ pub fn SpendingDialog(
         description.set(fresh.description.clone());
         category.set(fresh.category.clone());
         amount.set(String::new());
-        from.set(fresh.from.as_str().to_owned());
+        // Blank, but still for whom it was opened for.
+        if !on_behalf {
+            from.set(fresh.from.as_str().to_owned());
+        }
         everyone.set(fresh.everyone);
         by_weight.set(fresh.by_weight);
         to.set(fresh.to.clone());
@@ -273,6 +277,15 @@ pub fn SpendingDialog(
         if d.id.is_none() {
             d.id = Some(tc_core::SpendingId::new(edit::new_id()));
             d.editing = false;
+            // Whom the next one starts from - unless this one was recorded for somebody else.
+            // Then it is whoever it would have been before: with nothing remembered yet that
+            // is the payer of the latest expense, which this one is about to become.
+            let tour_id = tour_id.get_value();
+            if !d.on_behalf {
+                crate::settings::remember_payer(&tour_id, d.from.as_str());
+            } else if crate::settings::remembered_payer(&tour_id).is_none() {
+                crate::settings::remember_payer(&tour_id, blank.get_value().from.as_str());
+            }
         }
         crate::drafts::forget_spending(&tour_id.get_value());
         on_apply.run(Operation::PutSpending(d));

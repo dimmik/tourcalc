@@ -93,6 +93,34 @@ pub struct SpendingDraft {
     /// this was recorded - taken as it is, as it always was.
     #[serde(default)]
     pub in_cents: Option<bool>,
+    /// Opened to record what somebody else pays - from "who pays next" or their card: saving
+    /// it leaves alone whom this device's next expense starts from (see [`default_payer`]).
+    /// The form's business only, never queued.
+    #[serde(skip)]
+    pub on_behalf: bool,
+}
+
+/// Whom a new expense starts from: whoever this device last recorded one for, as long as
+/// they are still on the tour; failing that, whoever paid the latest real expense; failing
+/// that, the first person.
+///
+/// The app's rule (`TourPage.razor`, `GetDefaultFromGuid`). This client used to start every
+/// expense from the first person in the list, so whoever held the phone picked themselves
+/// out of it every time. The rows the app writes itself - "X …" for a payment marked paid,
+/// "Family …" inside a family - are not somebody paying, and are passed over.
+pub fn default_payer(tour: &Tour, remembered: Option<&str>) -> PersonId {
+    if let Some(id) = remembered.filter(|id| tour.persons.iter().any(|p| p.id.as_str() == *id)) {
+        return PersonId::new(id);
+    }
+    tour.spendings
+        .iter()
+        .filter(|s| s.kind == Kind::Real)
+        .filter(|s| !s.description.starts_with("X ") && !s.description.starts_with("Family "))
+        .filter(|s| tour.person(&s.from).is_some())
+        .max_by(|a, b| a.when().cmp(&b.when()))
+        .map(|s| s.from.clone())
+        .or_else(|| tour.persons.first().map(|p| p.id.clone()))
+        .unwrap_or_else(|| PersonId::new(""))
 }
 
 /// `amount`, recorded as hundredths or not, in the unit `currency` counts in now.
@@ -130,11 +158,7 @@ impl SpendingDraft {
             description: String::new(),
             category: last_category(tour),
             amount: Cents::ZERO,
-            from: tour
-                .persons
-                .first()
-                .map(|p| p.id.clone())
-                .unwrap_or_else(|| PersonId::new("")),
+            from: default_payer(tour, crate::settings::remembered_payer(tour.id.as_str()).as_deref()),
             everyone: true,
             to: Vec::new(),
             by_weight: true,
@@ -146,6 +170,16 @@ impl SpendingDraft {
             currency_id: tour.currency().id.as_str().to_owned(),
             editing: false,
             in_cents: None,
+            on_behalf: false,
+        }
+    }
+
+    /// A new expense that `payer` pays, recorded by somebody else.
+    pub fn paid_by(tour: &Tour, payer: &PersonId) -> SpendingDraft {
+        SpendingDraft {
+            from: payer.clone(),
+            on_behalf: true,
+            ..SpendingDraft::new(tour)
         }
     }
 
@@ -175,6 +209,7 @@ impl SpendingDraft {
             currency_id: spending.currency.id.as_str().to_owned(),
             editing: true,
             in_cents: None,
+            on_behalf: false,
         }
     }
 
@@ -1086,6 +1121,7 @@ mod split_tests {
             currency_id: t.currency().id.as_str().to_owned(),
             editing: false,
             in_cents: None,
+            on_behalf: false,
         }
     }
 
@@ -1434,5 +1470,49 @@ mod dependants_tests {
         assert_eq!(put_dependants(&t, &PersonId::new("gone"), &rows), t, "not in the tour");
         let blank_name = vec![DependantDraft { id: Some(PersonId::new("valya")), name: " ".into(), weight: 100 }];
         assert!(!dependant_problems(&blank_name).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod payer_tests {
+    use super::*;
+
+    /// Anna first in the list; Boris paid the latest real expense, Vera a later "X" row.
+    fn tour() -> Tour {
+        let json = serde_json::json!({
+            "Id": "t", "Name": "t",
+            "Persons": [
+                {"GUID": "anna", "Name": "Anna", "Weight": 100},
+                {"GUID": "boris", "Name": "Boris", "Weight": 100},
+                {"GUID": "vera", "Name": "Vera", "Weight": 100}
+            ],
+            "Spendings": [
+                {"GUID": "a", "Description": "dinner", "Type": "Food", "AmountInCents": 100,
+                 "FromGuid": "anna", "ToAll": true, "ToGuid": [], "DateCreated": "2026-09-01T10:00:00Z"},
+                {"GUID": "b", "Description": "taxi", "Type": "Taxi", "AmountInCents": 100,
+                 "FromGuid": "boris", "ToAll": true, "ToGuid": [], "DateCreated": "2026-09-03T10:00:00Z"},
+                {"GUID": "c", "Description": "X Vera -> Anna", "Type": "", "AmountInCents": 100,
+                 "FromGuid": "vera", "ToAll": false, "ToGuid": ["anna"], "DateCreated": "2026-09-04T10:00:00Z"}
+            ]
+        });
+        Tour::from_json(&json.to_string()).expect("tour")
+    }
+
+    #[test]
+    fn a_new_expense_starts_from_whoever_this_device_recorded_last() {
+        assert_eq!(default_payer(&tour(), Some("vera")).as_str(), "vera");
+    }
+
+    #[test]
+    fn otherwise_from_whoever_paid_the_latest_real_expense() {
+        assert_eq!(default_payer(&tour(), None).as_str(), "boris", "not the X row");
+        assert_eq!(default_payer(&tour(), Some("gone")).as_str(), "boris", "somebody since removed");
+    }
+
+    #[test]
+    fn a_tour_without_expenses_starts_from_the_first_person() {
+        let mut t = tour();
+        t.spendings.clear();
+        assert_eq!(default_payer(&t, None).as_str(), "anna");
     }
 }

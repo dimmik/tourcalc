@@ -261,13 +261,14 @@ pub fn PeopleTab(
     // not what anybody there is deciding.
     let settling = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
     let unit_for_next = unit.clone();
+    let tour_for_next = tour.clone();
 
     view! {
         // First on the tab the tour opens on: at a table with the bill coming, it is the one
         // thing looked for, and the legend below belongs with the list it explains.
         {(!settling && !next.is_empty()).then(|| view! {
             <div class="tcn-section">
-                <NextPayerCard next=next unit=unit_for_next />
+                <NextPayerCard tour=tour_for_next next=next unit=unit_for_next dialog=dialog />
             </div>
         })}
         <div class="tcn-section">
@@ -402,9 +403,20 @@ pub fn PeopleTab(
 
 /// "Who pays next · Anna": the biggest debt, the bill that evens it out, and who comes after.
 #[component]
-fn NextPayerCard(next: Vec<NextPayer>, unit: String) -> impl IntoView {
+fn NextPayerCard(
+    tour: Tour,
+    next: Vec<NextPayer>,
+    unit: String,
+    dialog: RwSignal<Option<Dialog>>,
+) -> impl IntoView {
     let first = next[0].clone();
     let then = next.get(1).cloned();
+    // "Dima, you pay - I'll put it down": the expense is recorded from this phone in their
+    // name, and the next "+ Spend" still starts from whoever holds the phone.
+    let payer = first.head.id.clone();
+    let record = move |_| dialog.set(Some(Dialog::Spending(
+        crate::edit::SpendingDraft::paid_by(&tour, &payer),
+    )));
     view! {
         <div class="tcw-next" title=t().people.next_hint>
             <div class="tcw-next-head">
@@ -422,6 +434,11 @@ fn NextPayerCard(next: Vec<NextPayer>, unit: String) -> impl IntoView {
                     {(t().people.next_then)(&n.head.name, &money_in(n.owes, &unit))}
                 </div>
             })}
+            <div>
+                <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for" on:click=record>
+                    {(t().people.next_spend)(&first.head.name)}
+                </button>
+            </div>
         </div>
     }
 }
@@ -717,8 +734,7 @@ fn PersonBlock(
                                 let tour = tour_for_compact_spend.clone();
                                 let who = for_compact_spend.clone();
                                 move |_| {
-                                    let mut draft = crate::edit::SpendingDraft::new(&tour);
-                                    draft.from = who.id.clone();
+                                    let draft = crate::edit::SpendingDraft::paid_by(&tour, &who.id);
                                     dialog.set(Some(Dialog::Spending(draft)));
                                 }
                             }>
@@ -744,8 +760,7 @@ fn PersonBlock(
                                 let tour = tour_for_spend.clone();
                                 let who = for_spend.clone();
                                 move |_| {
-                                    let mut draft = crate::edit::SpendingDraft::new(&tour);
-                                    draft.from = who.id.clone();
+                                    let draft = crate::edit::SpendingDraft::paid_by(&tour, &who.id);
                                     dialog.set(Some(Dialog::Spending(draft)));
                                 }
                             }>

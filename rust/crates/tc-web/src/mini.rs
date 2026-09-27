@@ -414,9 +414,18 @@ fn MiniPeople(
                 Some(bill) => format!("{} {}", t().people.next_hint, (t().people.next_evens)(&money(bill))),
                 None => t().people.next_hint.to_owned(),
             };
+            let t_for_spend = tour.clone();
+            let payer = n.head.id.clone();
             view! {
                 <div class="tcm-next" title=why>
-                    {(t().mini.next_to_pay)(&n.head.name, &money(n.owes))}
+                    <span>{(t().mini.next_to_pay)(&n.head.name, &money(n.owes))}</span>
+                    <button type="button" class="tcm-btn tcw-pays-for"
+                            title=(t().people.spend_for)(&n.head.name)
+                            on:click=move |_| dialog.set(Some(Dialog::Spending(
+                                SpendingDraft::paid_by(&t_for_spend, &payer),
+                            )))>
+                        {t().mini.spend}
+                    </button>
                 </div>
             }
         })}
@@ -649,8 +658,7 @@ fn MiniPerson(
                                     let t = tour_for_spend.clone();
                                     let who = for_spend.clone();
                                     move |_| {
-                                        let mut draft = SpendingDraft::new(&t);
-                                        draft.from = who.id.clone();
+                                        let draft = SpendingDraft::paid_by(&t, &who.id);
                                         dialog.set(Some(Dialog::Spending(draft)));
                                     }
                                 }>

@@ -530,6 +530,7 @@ pub const TEXTS: Texts = Texts {
     },
     people: PeopleTexts {
         next_title: "Кому платить следующим",
+        next_spend: |who| format!("💸 Записать трату — платит {who}"),
         next_owes: |amount| format!("Самый большой долг — {amount}."),
         next_evens: |bill| format!("Общий счёт примерно до {bill} как раз его закроет."),
         next_then: |who, amount| format!("Дальше — {who}, {amount}."),

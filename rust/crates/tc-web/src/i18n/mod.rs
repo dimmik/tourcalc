@@ -475,6 +475,7 @@ pub struct PeopleTexts {
     pub next_evens: fn(&str) -> String,
     pub next_then: fn(&str, &str) -> String,
     pub next_hint: &'static str,
+    pub next_spend: fn(&str) -> String,
     /// On a person who pays for themselves: open whom they pay for.
     pub pays_for_button: &'static str,
     pub paid: &'static str,

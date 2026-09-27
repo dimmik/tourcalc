@@ -519,6 +519,7 @@ pub const TEXTS: Texts = Texts {
     },
     people: PeopleTexts {
         next_title: "Who pays next",
+        next_spend: |who| format!("💸 Record an expense {who} pays"),
         next_owes: |amount| format!("Owes the most: {amount}."),
         next_evens: |bill| format!("A bill for everyone of up to about {bill} evens that out."),
         next_then: |who, amount| format!("After them: {who}, {amount}."),
