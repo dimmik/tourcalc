@@ -226,11 +226,29 @@
             .tcw-row-figs .tcn-statbtn { text-align: right; padding: 3px 6px; border-color: transparent;
                 background: none; }
             .tcw-row-figs .tcn-statbtn:hover { border-color: var(--tcn-border, #e5e7eb); }
+            /* ...except the balance: a chip, as on a phone held upright - it is the figure a row
+               is looked at for, and a chip is what finds it at a glance. Grey for somebody paid
+               for (their Stat is muted), red and green otherwise, the chip's own colours. */
+            .tcw-row-figs .tcn-stat:last-child .tcn-statbtn { display: inline-block; width: auto;
+                max-width: 100%; padding: 2px 9px; border-radius: 999px; font-size: 12.5px;
+                background: var(--tcn-surface-2, #f3f4f6); border-color: var(--tcn-border, #e5e7eb);
+                color: var(--tcn-muted, #6b7280); }
+            .tcw-row-figs .tcn-stat:last-child .tcn-statbtn.is-owing { background: var(--tcn-red-soft, #fdecef);
+                border-color: #f5cdd6; color: var(--tcn-red, #b91c1c); }
+            .tcw-row-figs .tcn-stat:last-child .tcn-statbtn.is-owed { background: var(--tcn-green-soft, #e7f7f1);
+                border-color: #c4ece0; color: var(--tcn-green, #047857); }
             .tcw-row-chip { display: none; }
             .tcw-narrow-only { display: none !important; }
             .tcw-table-only { display: inline; }
             .tcw-open > .tcn-person-actions { margin: 0 0 6px auto; }
             .tcw-legend { display: block; }
+        }
+        /* No mouse, no hover frame: a phone on its side had Paid and Charged looking like plain
+           text though each opens its list. The dotted underline is the app's own "tap and it
+           explains itself" (as on "total weight 890"); under the figure, not the whole cell. */
+        @media (min-width: 640px) and (hover: none) {
+            .tcw-row-figs .tcn-stat:not(:last-child) .tcn-statbtn { text-decoration: underline dotted;
+                text-decoration-thickness: 1px; text-underline-offset: 3px; }
         }
         @media (min-width: 960px) {
             .tcw-row-acts { display: flex; gap: 6px; flex: 0 0 13.5em; justify-content: flex-end; }
