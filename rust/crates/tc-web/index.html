@@ -203,13 +203,14 @@
         .tcw-legend { display: none; }
         .tcw-legend.is-shown { display: block; }
         .tcw-table-only { display: none; }
-        /* From a phone on its side (~560px) the row is a line of a table: Paid, Charged and
-           Balance in fixed columns, so they line up from one person to the next, each one line
-           tall - the row is no thicker than on a phone held upright. The labels are shown on
-           the first line only, where they head the columns. The buttons join the row where
-           there is room for them (below). */
-        @media (min-width: 560px) {
-            .tcw-row-figs { display: grid; grid-template-columns: 7em 7em 11em; gap: 4px;
+        /* From a phone on its side (640px and up) the row is a line of a table: Paid, Charged
+           and Balance in fixed columns, so they line up from one person to the next, each one
+           line tall - the row is no thicker than on a phone held upright. Not from 560: at 568
+           (a small phone on its side) the columns left the name one letter a line. The labels
+           are shown on the first line only, where they head the columns. The buttons join the
+           row where there is room for them (below). */
+        @media (min-width: 640px) {
+            .tcw-row-figs { display: grid; grid-template-columns: 6.5em 6.5em 8em; gap: 4px;
                 flex: 0 0 auto; align-items: center; }
             .tcw-row-figs .tcn-stat { text-align: right; }
             .tcw-row-figs .tcn-stat-label { display: none; }
@@ -228,13 +229,12 @@
             .tcw-row-acts { display: flex; gap: 6px; flex: 0 0 13.5em; justify-content: flex-end; }
             .tcw-below-wide { display: none !important; }
         }
-        /* "↑": back to the top of a long list. Round, quiet, and above "+ Spend" where there
-           is one - in the same column, so a thumb finds both in one place */
-        .tcw-top { position: fixed; right: max(16px, calc(50vw - 528px)); bottom: 20px; z-index: 44;
+        /* "↑": back to the top of a long list. Round, quiet, and at the bottom left: on the
+           right, above "+ Spend", it stood in the column of the rows' 💸 and covered one */
+        .tcw-top { position: fixed; left: max(16px, calc(50vw - 528px)); bottom: 20px; z-index: 44;
             width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--tcn-border, #e5e7eb);
             background: var(--tcn-surface, #fff); color: var(--tcn-primary, #4f46e5); font-size: 20px;
             line-height: 1; cursor: pointer; box-shadow: var(--tcn-shadow, 0 4px 12px rgba(0,0,0,.12)); }
-        .tcw-top.is-above-fab { bottom: 84px; right: calc(max(16px, calc(50vw - 528px)) + 4px); }
         .tcw-top:focus-visible { outline: 2px solid var(--tcn-primary, #4f46e5); outline-offset: 2px; }
         /* The statistics: a chosen category's way to its expenses, and the things inside it
            as links to theirs */

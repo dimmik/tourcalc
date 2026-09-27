@@ -262,6 +262,27 @@ pub fn PeopleTab(
     } = people;
 
     let fams = families(&tour);
+    let common = common_weight(&tour);
+    // Whether anybody on screen is open: somebody opened and then searched out of the list,
+    // or tucked into a folded family, is not a figure the legend can be explaining.
+    let showing_figures = {
+        let tour = tour.clone();
+        let fams = fams.clone();
+        Memo::new(move |_| {
+            let opened = open.get();
+            if opened.is_empty() {
+                return false;
+            }
+            let needle = search.get().trim().to_lowercase();
+            let unfolded = kids_open.get();
+            matching(&tour, &fams, &needle).iter().any(|fam| {
+                let head = fam.head.id.as_str();
+                opened.iter().any(|id| id == head)
+                    || (unfolded.iter().any(|id| id == head)
+                        && fam.kids.iter().any(|k| opened.iter().any(|id| id == k.id.as_str())))
+            })
+        })
+    };
     let count = tour.persons.len();
     let searchable = count >= SEARCH_FROM;
     let tour_for_search = tour.clone();
@@ -356,7 +377,7 @@ pub fn PeopleTab(
             // one, on a phone once somebody is open. It explained three words nobody could
             // see while the list was folded.
             <Show when=move || { count > 0 }>
-                <div class="tcn-hint tcw-legend" class:is-shown=move || !open.get().is_empty()
+                <div class="tcn-hint tcw-legend" class:is-shown=move || showing_figures.get()
                      style="margin: -4px 2px 10px 2px">
                     <b>{t().people.paid}</b>{t().people.legend_paid}<b>{t().people.charged}</b>
                     {t().people.legend_charged}<b>{t().people.balance}</b>
@@ -395,7 +416,7 @@ pub fn PeopleTab(
                             shown
                                 .into_iter()
                                 .map(|fam| view! {
-                                    <FamilyBlock tour=tour_for_search.clone() fam=fam
+                                    <FamilyBlock tour=tour_for_search.clone() fam=fam common=common
                                                  transfers=transfers.clone() open=open
                                                  kids_open=kids_open sheet=sheet
                                                  dialog=dialog delete=delete />
@@ -462,6 +483,9 @@ fn NextPayerCard(
 fn FamilyBlock(
     tour: Tour,
     fam: Family,
+    /// The weight nearly everybody shares - see [`common_weight`]. Worked out once for the
+    /// list, not once a line.
+    common: i32,
     transfers: Vec<Transfer>,
     open: RwSignal<Vec<String>>,
     kids_open: RwSignal<Vec<String>>,
@@ -505,7 +529,7 @@ fn FamilyBlock(
         <div class="tcn-family" class:has-kids=move || { covers > 0 }
              class:is-open=move || { covers > 0 && showing.get() }>
             <PersonBlock tour=tour.clone() person=fam.head.clone() covers=covers
-                         family_weight=fam.weight transfers=transfers.clone()
+                         family_weight=fam.weight common=common transfers=transfers.clone()
                          open=open sheet=sheet dialog=dialog delete=delete />
 
             <Show when=move || { covers > 0 }>
@@ -523,7 +547,7 @@ fn FamilyBlock(
                         .iter()
                         .map(|kid| view! {
                             <PersonBlock tour=tour.clone() person=kid.clone() covers=0
-                                         family_weight=0 transfers=transfers.clone()
+                                         family_weight=0 common=common transfers=transfers.clone()
                                          open=open sheet=sheet
                                          dialog=dialog delete=delete />
                         })
@@ -541,6 +565,7 @@ fn PersonBlock(
     /// How many people this person pays for. Zero for everybody else.
     covers: usize,
     family_weight: i32,
+    common: i32,
     transfers: Vec<Transfer>,
     open: RwSignal<Vec<String>>,
     sheet: RwSignal<Option<(Which, Person)>>,
@@ -603,7 +628,6 @@ fn PersonBlock(
     let unit_for_stats = StoredValue::new(unit.clone());
     let paid = balances.get(&person.id).map(|b| b.spent).unwrap_or_default();
     let charged = balances.get(&person.id).map(|b| b.received).unwrap_or_default();
-    let common = common_weight(&tour);
     let paid_by = person
         .parent
         .as_ref()
@@ -688,7 +712,7 @@ fn PersonBlock(
                     // One line, like the chip it stands in for: the payer's own debt would make
                     // it two, so that one is in the open block's facts.
                     <Stat which=Which::Balance person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
-                          amount=shown own=None />
+                          amount=shown own=None muted=is_child />
                 </div>
                 <div class="tcw-row-acts">
                     <button type="button" class="tcn-btn tcn-btn-sm"
@@ -770,7 +794,7 @@ fn PersonBlock(
                     <Stat which=Which::Charged person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
                           amount=charged own=None />
                     <Stat which=Which::Balance person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
-                          amount=shown own=split_family.then_some(debt) />
+                          amount=shown own=split_family.then_some(debt) muted=is_child />
                 </div>
                 <div class="tcn-person-actions">
                     <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary tcw-narrow-only"
@@ -822,10 +846,15 @@ fn Stat(
     own: Option<Cents>,
     sheet: RwSignal<Option<(Which, Person)>>,
     unit: String,
+    /// Somebody paid for: their balance is theirs to know, not theirs to settle, and it is
+    /// drawn in grey - as their chip is, and as the help says - not red or green.
+    #[prop(optional)]
+    muted: bool,
 ) -> impl IntoView {
     let tint = match which {
         Which::Paid => "is-paid",
         Which::Charged => "",
+        Which::Balance if muted => "",
         Which::Balance if amount.0 > 0 => "is-owing",
         Which::Balance if amount.0 < 0 => "is-owed",
         Which::Balance => "",

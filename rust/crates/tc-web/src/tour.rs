@@ -1093,7 +1093,7 @@ fn TourView(
                       unit=unit_stats.clone() sifting=sifting tab=tab />
         </Show>
 
-        <crate::ui::ToTop above_fab=true />
+        <crate::ui::ToTop />
 
         <button type="button" class="tcn-btn tcn-btn-primary tcn-fab"
                 on:click={
