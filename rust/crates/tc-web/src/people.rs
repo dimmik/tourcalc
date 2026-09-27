@@ -714,7 +714,15 @@ fn PersonBlock(
                     <Stat which=Which::Balance person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
                           amount=shown own=None muted=is_child />
                 </div>
+                // Edit last, so that it stands in one column down the list: somebody paid for
+                // has no "+ Pays for…", and with Edit first theirs slid right into its place.
                 <div class="tcw-row-acts">
+                    {payer.clone().map(|who| view! {
+                        <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for"
+                                on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
+                            {t().people.pays_for_button}
+                        </button>
+                    })}
                     <button type="button" class="tcn-btn tcn-btn-sm"
                             on:click={
                                 let who = for_row_edit.clone();
@@ -722,12 +730,6 @@ fn PersonBlock(
                             }>
                         {t().people.edit}
                     </button>
-                    {payer.clone().map(|who| view! {
-                        <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for"
-                                on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
-                            {t().people.pays_for_button}
-                        </button>
-                    })}
                 </div>
                 <button type="button"
                         class="tcn-btn tcn-btn-sm tcn-btn-primary tcn-person-spend"
@@ -746,6 +748,10 @@ fn PersonBlock(
             </div>
 
             <Show when=move || is_open.get()>
+              // One block, so that where the row already carries the figures and the buttons,
+              // Delete - all that is left - sits at the end of the facts' line instead of on a
+              // line of its own under every open person.
+              <div class="tcw-open">
                 // What the roomy card's head used to carry, and the row has no room for.
                 <div class="tcn-person-facts">
                     <span>
@@ -831,6 +837,7 @@ fn PersonBlock(
                         {t().people.delete}
                     </button>
                 </div>
+              </div>
             </Show>
         </div>
     }
