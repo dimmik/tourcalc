@@ -115,7 +115,11 @@ pub fn ToTop(
         if let Some(w) = web_sys::window() {
             let y = w.scroll_y().unwrap_or(0.0);
             let screen = w.inner_height().ok().and_then(|h| h.as_f64()).unwrap_or(800.0);
-            far.set(y > screen * 2.0);
+            // Scroll events come by the dozen a second; only a change is worth telling.
+            let now = y > screen * 2.0;
+            if far.get_untracked() != now {
+                far.set(now);
+            }
         }
     };
     // Asked at once, not only on the next scroll: the tour's screen is rebuilt after every
