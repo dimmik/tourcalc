@@ -5,7 +5,9 @@
 
 Где что: Rust-порт — [`rust/`](rust/): устройство — [`rust/GUIDE.md`](rust/GUIDE.md),
 хроника решений — [`rust/README.md`](rust/README.md), отложенное —
-[`rust/BACKLOG.md`](rust/BACKLOG.md). Ревью — `review-*.md` в корне.
+[`rust/BACKLOG.md`](rust/BACKLOG.md), тонкие и неочевидные места кода —
+[`rust/nuances.md`](rust/nuances.md) (прочитать, прежде чем «упрощать»; новое такое место —
+дописать туда). Ревью — `review-*.md` в корне.
 
 ## Git
 

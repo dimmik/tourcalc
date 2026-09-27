@@ -13,6 +13,7 @@ rust/crates/*/dist/
 # a full rebuild.
 rust/README.md
 rust/GUIDE.md
+rust/nuances.md
 # The work log gains a line with nearly every task; the .NET image copies the whole context.
 ai-worklog.md
 
