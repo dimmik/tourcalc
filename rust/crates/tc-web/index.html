@@ -224,6 +224,10 @@
             /* over the figure's own right edge, not the cell's: the button holds its text 6px
                in, plus its 1px border. The balance's chip starts at the cell's edge itself. */
             .tcw-row-figs .tcn-stat:not(:last-child) .tcn-stat-label { padding-right: 7px; }
+            /* The balance keeps close to Charged: its chip is shorter than its column, and
+               right-aligned it left a hole between the two. Left-aligned, the signs line up down
+               the list - "+" and "−" read as a column of their own. */
+            .tcw-row-figs .tcn-stat:last-child { text-align: left; padding-left: 14px; }
             /* figures in a table, not three boxes a line: the frame shows on hover, as a hint
                that each opens its list */
             .tcw-row-figs .tcn-statbtn { text-align: right; padding: 3px 6px; border-color: transparent;
