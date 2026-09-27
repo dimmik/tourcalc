@@ -117,6 +117,24 @@ pub fn remember_tour_order(by: &str, downwards: bool) {
     }
 }
 
+fn payer_key(tour: &str) -> String {
+    format!("__tcw_payer_{tour}")
+}
+
+/// Whom this device last recorded a new expense for on this tour - who is holding the
+/// phone, as a rule. See `edit::default_payer`.
+pub fn remembered_payer(tour: &str) -> Option<String> {
+    storage()
+        .and_then(|s| s.get_item(&payer_key(tour)).ok().flatten())
+        .filter(|id| !id.is_empty())
+}
+
+pub fn remember_payer(tour: &str, person: &str) {
+    if let Some(s) = storage() {
+        let _ = s.set_item(&payer_key(tour), person);
+    }
+}
+
 fn compact_key(tour: &str) -> String {
     format!("__tcw_compact_{tour}")
 }

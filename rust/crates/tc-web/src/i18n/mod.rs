@@ -394,6 +394,8 @@ pub struct CheckTexts {
 
 /// The ring in Stats.
 pub struct ChartTexts {
+    /// Under a chosen category: its expenses, on the Expenses tab.
+    pub show_expenses: fn(&str) -> String,
     pub all_of_them: &'static str,
     pub what_money_went_on: &'static str,
     pub total: &'static str,
@@ -468,6 +470,14 @@ pub struct ListTexts {
 /// on; so the Russian words are nouns and present or future tenses, which are the same
 /// for everyone.
 pub struct PeopleTexts {
+    /// Who had better pay the next shared bill: the heading beside their name, the biggest
+    /// debt, the bill that evens it out, the one after them, and why it is asked at all.
+    pub next_title: &'static str,
+    pub next_owes: fn(&str) -> String,
+    pub next_evens: fn(&str) -> String,
+    pub next_then: fn(&str, &str) -> String,
+    pub next_hint: &'static str,
+    pub next_spend: fn(&str) -> String,
     /// On a person who pays for themselves: open whom they pay for.
     pub pays_for_button: &'static str,
     pub paid: &'static str,
@@ -683,6 +693,7 @@ pub struct SyncTexts {
 
 /// A tour's page: its header, its tabs, and what deleting from it asks.
 pub struct TourTexts {
+    pub to_top: &'static str,
     pub delete_expense: fn(&str) -> String,
     pub delete_person: fn(&str) -> String,
     pub delete_person_then: fn(&str, &[String]) -> String,
@@ -813,6 +824,7 @@ pub struct QueueTexts {
 
 /// The small interface, which says the same things in fewer letters.
 pub struct MiniTexts {
+    pub next_to_pay: fn(&str, &str) -> String,
     pub pays_for_button: &'static str,
     pub settling_hint: &'static str,
     pub settling: &'static str,

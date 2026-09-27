@@ -42,6 +42,9 @@ pub fn MiniTour(
     /// Owned by the page, so an edit does not send the reader back to the first tab - and
     /// so that switching between the two interfaces leaves the reader on the same tab.
     tab: RwSignal<Tab>,
+    /// The categories the expense list is narrowed to - the roomy interface's own, so that a
+    /// category picked from the statistics is still picked in either.
+    picked: RwSignal<Vec<String>>,
 ) -> impl IntoView {
     let show_family = RwSignal::new(false);
 
@@ -186,12 +189,14 @@ pub fn MiniTour(
             </Show>
             <Show when=move || tab.get() == Tab::Expenses>
                 <MiniExpenses tour=for_expenses.clone() real=real.clone()
-                              unit=unit_expenses.clone() dialog=dialog delete=delete />
+                              unit=unit_expenses.clone() dialog=dialog delete=delete
+                              picked=picked />
             </Show>
             <Show when=move || tab.get() == Tab::Stats>
-                <MiniStats tour=for_stats.clone() unit=unit_stats.clone() />
+                <MiniStats tour=for_stats.clone() unit=unit_stats.clone() tab=tab picked=picked />
             </Show>
         </div>
+        <crate::ui::ToTop />
     }
 }
 
@@ -400,8 +405,35 @@ fn MiniPeople(
     let common = common_weight(&tour);
     let balances = calculate(&tour, Options::default());
     let in_unit = in_unit(&tour);
+    // Who had better pay the next bill - the roomy interface's card, in one line. Not while
+    // the tour is being settled up: then the payments are what is being decided.
+    let settling = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
+    let next = crate::people::next_to_pay(&tour, &all_transfers, crate::settings::threshold(&tour))
+        .into_iter()
+        .next()
+        .filter(|_| !settling);
 
     view! {
+        {next.map(|n| {
+            let why = match n.evens_at {
+                Some(bill) => format!("{} {}", t().people.next_hint, (t().people.next_evens)(&money(bill))),
+                None => t().people.next_hint.to_owned(),
+            };
+            let t_for_spend = tour.clone();
+            let payer = n.head.id.clone();
+            view! {
+                <div class="tcm-next" title=why>
+                    <span>{(t().mini.next_to_pay)(&n.head.name, &money(n.owes))}</span>
+                    <button type="button" class="tcm-btn tcw-pays-for"
+                            title=(t().people.spend_for)(&n.head.name)
+                            on:click=move |_| dialog.set(Some(Dialog::Spending(
+                                SpendingDraft::paid_by(&t_for_spend, &payer),
+                            )))>
+                        {t().mini.spend}
+                    </button>
+                </div>
+            }
+        })}
         <div class="tcm-bar">
             <button type="button" class="tcm-btn"
                     on:click=move |_| dialog.set(Some(Dialog::Person(PersonDraft::new())))>
@@ -631,8 +663,7 @@ fn MiniPerson(
                                     let t = tour_for_spend.clone();
                                     let who = for_spend.clone();
                                     move |_| {
-                                        let mut draft = SpendingDraft::new(&t);
-                                        draft.from = who.id.clone();
+                                        let draft = SpendingDraft::paid_by(&t, &who.id);
                                         dialog.set(Some(Dialog::Spending(draft)));
                                     }
                                 }>
@@ -674,11 +705,11 @@ fn MiniExpenses(
     unit: String,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
+    picked: RwSignal<Vec<String>>,
 ) -> impl IntoView {
     let search = RwSignal::new(String::new());
     let sort_by = RwSignal::new(Sort::Date);
     let newest_first = RwSignal::new(true);
-    let category = RwSignal::new(String::new());
     let open: RwSignal<Option<String>> = RwSignal::new(None);
 
     let categories = {
@@ -722,11 +753,30 @@ fn MiniExpenses(
             </button>
             {(categories.len() > 1).then(|| view! {
                 <select class="tcm-input tcm-input-xs" title=t().mini.category
-                        on:change=move |ev| category.set(event_target_value(&ev))>
-                    <option value="">{t().mini.all}</option>
+                        on:change=move |ev| {
+                            let c = event_target_value(&ev);
+                            // The several-at-once line is what is already picked.
+                            if c != "*" {
+                                picked.set(if c.is_empty() { Vec::new() } else { vec![c] });
+                            }
+                        }>
+                    <option value="" selected=move || picked.get().is_empty()>{t().mini.all}</option>
+                    // Several at once come from the statistics - "Food" is every "Food / …".
+                    // One line says so; a select cannot show three of its lines chosen.
+                    {move || (picked.get().len() > 1).then(|| view! {
+                        <option value="*" selected=true>{picked.get().join(", ")}</option>
+                    })}
                     {categories
                         .iter()
-                        .map(|c| view! { <option value=c.clone()>{c.clone()}</option> })
+                        .map(|c| {
+                            let mine = c.clone();
+                            view! {
+                                <option value=c.clone()
+                                        selected=move || picked.get().len() == 1 && picked.get()[0] == mine>
+                                    {c.clone()}
+                                </option>
+                            }
+                        })
                         .collect_view()}
                 </select>
             })}
@@ -739,10 +789,10 @@ fn MiniExpenses(
                 }.into_any();
             }
             let needle = search.get().trim().to_lowercase();
-            let wanted = category.get();
+            let wanted = picked.get();
             let mut shown: Vec<Spending> = real
                 .iter()
-                .filter(|s| wanted.is_empty() || s.category == wanted)
+                .filter(|s| wanted.is_empty() || wanted.iter().any(|c| c == s.category.trim()))
                 .filter(|s| {
                     needle.is_empty()
                         || s.description.to_lowercase().contains(&needle)
@@ -999,7 +1049,7 @@ fn pretty_when(when: &str) -> String {
 // --- stats --------------------------------------------------------------------------------
 
 #[component]
-fn MiniStats(tour: Tour, unit: String) -> impl IntoView {
+fn MiniStats(tour: Tour, unit: String, tab: RwSignal<Tab>, picked: RwSignal<Vec<String>>) -> impl IntoView {
     let by_category = RwSignal::new(true);
 
     // Owned, because the closure that draws the bars outlives this function - the view is
@@ -1092,12 +1142,23 @@ fn MiniStats(tour: Tour, unit: String) -> impl IntoView {
                         groups.sort_by_key(|(_, sum, _)| -sum.0);
                         let top = groups.first().map(|(_, s, _)| s.0).unwrap_or(1).max(1);
 
+                        let categories = by_category.get();
                         groups
                             .into_iter()
                             .map(|(key, sum, n)| {
                                 let width = sum.0 * 100 / top;
+                                // By category, a row is the way to its expenses. Not "—",
+                                // which is no category to filter by.
+                                let link = categories && key != "—";
+                                let category = key.clone();
                                 view! {
-                                    <div class="tcm-row">
+                                    <div class="tcm-row" class:is-link=link
+                                         title=link.then(|| (t().chart.show_expenses)(&category))
+                                         on:click=move |_| if link {
+                                             picked.set(vec![category.clone()]);
+                                             tab.set(Tab::Expenses);
+                                             crate::ui::scroll_to_tabs();
+                                         }>
                                         <span class="tcm-main">
                                             <span class="tcm-name">{key}</span>
                                             // Just the number, in the column mini.css keeps

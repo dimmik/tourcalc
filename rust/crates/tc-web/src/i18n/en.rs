@@ -95,6 +95,7 @@ pub const TEXTS: Texts = Texts {
         drafts_section: |sum| format!("Drafts · {sum}"),
     },
     mini: MiniTexts {
+        next_to_pay: |who, amount| format!("Next to pay: {who}, owes {amount}"),
         pays_for_button: "+ pays for…",
         settling_hint: "The tour is being settled up",
         settling: "settling",
@@ -277,6 +278,7 @@ pub const TEXTS: Texts = Texts {
         not_in_it: "Not in it: ",
     },
     tour: TourTexts {
+        to_top: "Back to the top",
         delete_expense: |what| format!("Delete '{what}'?"),
         delete_person: |name| format!("Delete '{name}'?"),
         delete_person_then: |name, also| format!("Delete '{name}'? Then {}.", also.join(", and ")),
@@ -517,6 +519,13 @@ pub const TEXTS: Texts = Texts {
         restore: "Restore",
     },
     people: PeopleTexts {
+        next_title: "Who pays next",
+        next_spend: |who| format!("💸 Record an expense {who} pays"),
+        next_owes: |amount| format!("Owes the most: {amount}."),
+        next_evens: |bill| format!("A bill for everyone of up to about {bill} evens that out."),
+        next_then: |who, amount| format!("After them: {who}, {amount}."),
+        next_hint: "When whoever owes the most pays the next bill for everyone, the fewest \
+                    payments are left to make at the end.",
         pays_for_button: "+ Pays for…",
         paid: "Paid",
         charged: "Charged",
@@ -636,6 +645,7 @@ pub const TEXTS: Texts = Texts {
         cannot_copy: "This browser would not let the page copy it.",
     },
     chart: ChartTexts {
+        show_expenses: |what| format!("Show these expenses: {what} →"),
         all_of_them: "↑ all of them",
         what_money_went_on: "What the money went on",
         total: "total",

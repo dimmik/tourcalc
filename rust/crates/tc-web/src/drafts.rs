@@ -102,7 +102,9 @@ fn untouched_spending(draft: &SpendingDraft) -> bool {
 /// The form a new expense should open with: what was left behind, if there is anything and
 /// the form is otherwise blank. Also says whether that is what happened, so the form can.
 pub fn carry_spending(tour: &Tour, draft: SpendingDraft) -> (SpendingDraft, bool) {
-    if draft.id.is_some() || !untouched_spending(&draft) {
+    // One for somebody in particular is not a blank form: the payer is the point of it. What
+    // was left behind stays kept for the next plain "+ Spend".
+    if draft.id.is_some() || draft.on_behalf || !untouched_spending(&draft) {
         return (draft, false);
     }
     match kept_spending(tour.id.as_str()) {

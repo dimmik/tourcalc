@@ -88,6 +88,50 @@ fn families(tour: &Tour) -> Vec<Family> {
         .collect()
 }
 
+/// Somebody who could pay the next bill: whoever settles for a family, what the family owes,
+/// and the bill for everyone that would leave them square.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NextPayer {
+    pub head: Person,
+    pub owes: Cents,
+    /// A bill split among everybody by weight, paid by this family, moves their balance by
+    /// the bill less their own share of it: `bill × (1 − w/W)`. Evened out at
+    /// `owes × W / (W − w)`, rounded down to a whole unit of the currency the tour is read in
+    /// so that it never overshoots - a whole euro, a whole dinar, since amounts are stored in
+    /// the smallest unit a currency counts in. None when the family is everybody - there is
+    /// nobody else for them to pay for - and when that comes to less than one whole unit: a
+    /// debt of 60 cents asks nobody to pay "a bill of up to about 0".
+    pub evens_at: Option<Cents>,
+}
+
+/// Who had better pay next, the biggest debt first: the families that owe more than the
+/// reader's threshold.
+///
+/// The biggest debtor paying the next shared bill is what keeps the settle-up short - their
+/// debt shrinks, and nobody else's grows past what their own share adds. The amount is what
+/// the card of whoever settles for the family says, so the two cannot disagree.
+pub fn next_to_pay(tour: &Tour, transfers: &[Transfer], too_small: Cents) -> Vec<NextPayer> {
+    let total = tour.persons.iter().map(|p| p.weight as i64).sum::<i64>();
+    let whole = tour.currency().stored_per_whole().max(1) as i128;
+    let mut next: Vec<NextPayer> = families(tour)
+        .into_iter()
+        .filter_map(|fam| {
+            let owes = will_pay(tour, transfers, &fam.head.id, too_small);
+            if owes <= too_small {
+                return None;
+            }
+            let others = total - fam.weight as i64;
+            let evens_at = (others > 0)
+                .then(|| owes.0 as i128 * total as i128 / others as i128 / whole * whole)
+                .filter(|bill| *bill > 0)
+                .map(|bill| Cents(bill as i64));
+            Some(NextPayer { head: fam.head, owes, evens_at })
+        })
+        .collect();
+    next.sort_by(|a, b| b.owes.cmp(&a.owes));
+    next
+}
+
 /// Which of the three figures a sheet is explaining.
 #[derive(Clone, Copy, PartialEq)]
 pub enum Which {
@@ -216,8 +260,21 @@ pub fn PeopleTab(
     let tour_for_weight = tour.clone();
     let transfers_for_sheet = transfers.clone();
     let unit_for_sheet = unit.clone();
+    let next = next_to_pay(&tour, &transfers, crate::settings::threshold(&tour));
+    // A tour being settled up has its payments on the Balance tab; a bill still to come is
+    // not what anybody there is deciding.
+    let settling = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
+    let unit_for_next = unit.clone();
+    let tour_for_next = tour.clone();
 
     view! {
+        // First on the tab the tour opens on: at a table with the bill coming, it is the one
+        // thing looked for, and the legend below belongs with the list it explains.
+        {(!settling && !next.is_empty()).then(|| view! {
+            <div class="tcn-section">
+                <NextPayerCard tour=tour_for_next next=next unit=unit_for_next dialog=dialog />
+            </div>
+        })}
         <div class="tcn-section">
             <div class="tcn-toolbar">
                 <button type="button" class="tcn-btn tcn-btn-primary"
@@ -345,6 +402,48 @@ pub fn PeopleTab(
                             transfers=transfers_for_sheet.clone() unit=unit_for_sheet.clone()
                             close=Callback::new(move |_: ()| sheet.set(None)) />
         })}
+    }
+}
+
+/// "Who pays next · Anna": the biggest debt, the bill that evens it out, and who comes after.
+#[component]
+fn NextPayerCard(
+    tour: Tour,
+    next: Vec<NextPayer>,
+    unit: String,
+    dialog: RwSignal<Option<Dialog>>,
+) -> impl IntoView {
+    let first = next[0].clone();
+    let then = next.get(1).cloned();
+    // "Dima, you pay - I'll put it down": the expense is recorded from this phone in their
+    // name, and the next "+ Spend" still starts from whoever holds the phone.
+    let payer = first.head.id.clone();
+    let record = move |_| dialog.set(Some(Dialog::Spending(
+        crate::edit::SpendingDraft::paid_by(&tour, &payer),
+    )));
+    view! {
+        <div class="tcw-next" title=t().people.next_hint>
+            <div class="tcw-next-head">
+                <span class="tcw-next-title">{t().people.next_title}</span>
+                <b class="tcw-next-name">{first.head.name.clone()}</b>
+            </div>
+            <div>
+                {(t().people.next_owes)(&money_in(first.owes, &unit))}
+                {first.evens_at.map(|bill| {
+                    format!(" {}", (t().people.next_evens)(&money_in(bill, &unit)))
+                })}
+            </div>
+            {then.map(|n| view! {
+                <div class="tcn-hint">
+                    {(t().people.next_then)(&n.head.name, &money_in(n.owes, &unit))}
+                </div>
+            })}
+            <div>
+                <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for" on:click=record>
+                    {(t().people.next_spend)(&first.head.name)}
+                </button>
+            </div>
+        </div>
     }
 }
 
@@ -639,8 +738,7 @@ fn PersonBlock(
                                 let tour = tour_for_compact_spend.clone();
                                 let who = for_compact_spend.clone();
                                 move |_| {
-                                    let mut draft = crate::edit::SpendingDraft::new(&tour);
-                                    draft.from = who.id.clone();
+                                    let draft = crate::edit::SpendingDraft::paid_by(&tour, &who.id);
                                     dialog.set(Some(Dialog::Spending(draft)));
                                 }
                             }>
@@ -666,8 +764,7 @@ fn PersonBlock(
                                 let tour = tour_for_spend.clone();
                                 let who = for_spend.clone();
                                 move |_| {
-                                    let mut draft = crate::edit::SpendingDraft::new(&tour);
-                                    draft.from = who.id.clone();
+                                    let draft = crate::edit::SpendingDraft::paid_by(&tour, &who.id);
                                     dialog.set(Some(Dialog::Spending(draft)));
                                 }
                             }>
@@ -988,4 +1085,112 @@ fn matching(tour: &Tour, families: &[Family], needle: &str) -> Vec<Family> {
             })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tc_core::suggest_settlement;
+
+    /// Anna paid 300 for everybody, and Boris gave her `back` of it.
+    fn dinner(people: serde_json::Value, back: i64) -> Tour {
+        let json = serde_json::json!({
+            "Id": "t", "Name": "t",
+            "Persons": people,
+            "Spendings": [
+                {"GUID": "a", "Description": "dinner", "Type": "Food", "AmountInCents": 30000,
+                 "FromGuid": "anna", "ToAll": true, "ToGuid": []},
+                {"GUID": "b", "Description": "", "Type": "", "AmountInCents": back,
+                 "FromGuid": "boris", "ToAll": false, "ToGuid": ["anna"]}
+            ]
+        });
+        Tour::from_json(&json.to_string()).expect("tour")
+    }
+
+    fn next(tour: &Tour) -> Vec<(String, i64, Option<i64>)> {
+        let transfers = suggest_settlement(tour).expect("settles");
+        next_to_pay(tour, &transfers, Cents(0))
+            .into_iter()
+            .map(|n| (n.head.name, n.owes.0, n.evens_at.map(|c| c.0)))
+            .collect()
+    }
+
+    #[test]
+    fn whoever_owes_the_most_is_first_and_whoever_paid_is_not_there() {
+        let tour = dinner(
+            serde_json::json!([
+                {"GUID": "anna", "Name": "Anna", "Weight": 100},
+                {"GUID": "boris", "Name": "Boris", "Weight": 100},
+                {"GUID": "vera", "Name": "Vera", "Weight": 100},
+                {"GUID": "gleb", "Name": "Gleb", "Weight": 100}
+            ]),
+            3000,
+        );
+        // 75 each, Boris 45 after the 30 he gave back. A bill of B for all four moves
+        // whoever pays it by three quarters of B.
+        let got = next(&tour);
+        assert_eq!(got.len(), 3);
+        assert_eq!(got[0].1, 7_500);
+        assert_eq!(got[0].2, Some(10_000));
+        assert_eq!(got[1].1, 7_500);
+        assert_eq!(got[2], ("Boris".into(), 4_500, Some(6_000)));
+    }
+
+    /// A family owes as one, and is named by whoever pays for it; its bill is bigger, since
+    /// more of it comes back to them as their own share.
+    #[test]
+    fn a_family_owes_as_one() {
+        let tour = dinner(
+            serde_json::json!([
+                {"GUID": "anna", "Name": "Anna", "Weight": 100},
+                {"GUID": "boris", "Name": "Boris", "Weight": 100},
+                {"GUID": "kid", "Name": "Kid", "Weight": 100, "ParentId": "boris"},
+                {"GUID": "vera", "Name": "Vera", "Weight": 100}
+            ]),
+            0,
+        );
+        // Boris's family: 150 of the 300. A bill of B moves them by B/2: 300 evens it.
+        assert_eq!(
+            next(&tour),
+            vec![("Boris".into(), 15_000, Some(30_000)), ("Vera".into(), 7_500, Some(10_000))],
+        );
+    }
+
+    /// Stored amounts are in the smallest unit a currency counts in. Rounding by a hundred
+    /// regardless made a dinar bill of 1 645 read "about 1 600", and a debt of 60 cents
+    /// "a bill of up to about 0".
+    #[test]
+    fn the_bill_is_rounded_to_a_whole_unit_of_the_currency() {
+        let four = serde_json::json!([
+            {"GUID": "anna", "Name": "Anna", "Weight": 100},
+            {"GUID": "boris", "Name": "Boris", "Weight": 100},
+            {"GUID": "vera", "Name": "Vera", "Weight": 100},
+            {"GUID": "gleb", "Name": "Gleb", "Weight": 100}
+        ]);
+        let in_currency = |cents: bool, spent: i64| {
+            let json = serde_json::json!({
+                "Id": "t", "Name": "t", "Persons": four,
+                "Currencies": [{"_id": "C", "Name": "C", "CurrencyRate": 10000, "WithCents": cents}],
+                "TourCurrencyId": "C",
+                "Spendings": [
+                    {"GUID": "a", "Description": "dinner", "Type": "Food", "AmountInCents": spent,
+                     "FromGuid": "anna", "ToAll": true, "ToGuid": []}
+                ]
+            });
+            Tour::from_json(&json.to_string()).expect("tour")
+        };
+        // Dinars: 4 936 spent, 1 234 each; three quarters of a bill is 1 234 at 1 645.
+        assert_eq!(next(&in_currency(false, 4_936))[0].2, Some(1_645));
+        // Euros: 12,34 each; 16,45 is 16 whole euros.
+        assert_eq!(next(&in_currency(true, 4_936))[0].2, Some(1_600));
+        // 0,60 € each: 0,80 is not a bill anybody pays.
+        assert_eq!(next(&in_currency(true, 240))[0].1, 60);
+        assert_eq!(next(&in_currency(true, 240))[0].2, None);
+    }
+
+    #[test]
+    fn nobody_is_suggested_when_nobody_owes() {
+        let tour = dinner(serde_json::json!([{"GUID": "anna", "Name": "Anna", "Weight": 100}]), 0);
+        assert!(next(&tour).is_empty());
+    }
 }

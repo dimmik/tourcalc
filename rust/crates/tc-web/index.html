@@ -192,6 +192,34 @@
         .tcn-btn.tcw-pays-for, .tcm-shell .tcm-btn.tcw-pays-for {
             color: var(--tcn-primary, #4f46e5); border-color: var(--tcn-primary, #4f46e5);
             background: var(--tcn-primary-soft, #eef2ff); }
+        /* "↑": back to the top of a long list. Round, quiet, and above "+ Spend" where there
+           is one - in the same column, so a thumb finds both in one place */
+        .tcw-top { position: fixed; right: max(16px, calc(50vw - 528px)); bottom: 20px; z-index: 44;
+            width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--tcn-border, #e5e7eb);
+            background: var(--tcn-surface, #fff); color: var(--tcn-primary, #4f46e5); font-size: 20px;
+            line-height: 1; cursor: pointer; box-shadow: var(--tcn-shadow, 0 4px 12px rgba(0,0,0,.12)); }
+        .tcw-top.is-above-fab { bottom: 84px; right: calc(max(16px, calc(50vw - 528px)) + 4px); }
+        .tcw-top:focus-visible { outline: 2px solid var(--tcn-primary, #4f46e5); outline-offset: 2px; }
+        /* The statistics: a chosen category's way to its expenses, and the things inside it
+           as links to theirs */
+        .tcw-compo-show { align-self: flex-start; margin: 2px 0 6px 24px; padding: 2px 0; font-size: 13px; }
+        .tcw-compo-child.is-link { cursor: pointer; border-radius: 6px; }
+        .tcw-compo-child.is-link:hover { background: var(--tcn-surface-2, #f3f4f6); }
+        .tcw-compo-child.is-link:focus-visible { outline: 2px solid var(--tcn-primary, #4f46e5); outline-offset: 1px; }
+        .tcm-row.is-link { cursor: pointer; }
+        /* "Who pays next · Anna": above the people, in the accent's soft ground - advice, not
+           a figure of the tour, so lighter than a card and without a border of its own */
+        .tcw-next { display: grid; gap: 4px; padding: 10px 14px; border-radius: var(--tcn-radius-sm, 8px);
+            background: var(--tcn-primary-soft, #eef2ff); color: var(--tcn-text, #111827); font-size: 14px; line-height: 1.4; }
+        .tcw-next-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+        .tcw-next-title { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+            color: var(--tcn-primary, #4f46e5); }
+        .tcw-next-name { font-size: 16px; }
+        .tcw-next .tcn-hint { margin: 0; }
+        .tcw-next .tcw-pays-for { margin-top: 4px; }
+        .tcm-next { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 6px;
+            padding: 5px 8px; border-radius: 6px; background: var(--tcn-primary-soft, #eef2ff); font-size: 13px; }
+        .tcm-next .tcm-btn { margin-left: auto; }
         /* "Дима pays for": a name as typed - not upper case, as a currency's code is */
         .tcw-dep-name { flex: 1 1 80px; min-width: 0; }
         /* a rate: "= [117,5] RSD"; on the reference, what it is instead */

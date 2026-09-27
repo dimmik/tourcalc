@@ -955,7 +955,8 @@ fn TourView(
     if mode.get_untracked() == crate::mode::UiMode::Mini {
         return view! {
             <crate::mini::MiniTour tour=mini_tour reload=reload status=status tab=tab
-                                   apply=apply dialog=dialog delete=delete />
+                                   apply=apply dialog=dialog delete=delete
+                                   picked=sifting.chosen />
             <crate::mini::MiniDialogs tour=mini_dialog_tour dialog=dialog
                                       close=close apply=apply />
         }
@@ -1089,8 +1090,10 @@ fn TourView(
 
         <Show when=move || tab.get() == Tab::Stats>
             <StatsTab tour=tour_for_stats.clone() spendings=real_for_stats.clone()
-                      unit=unit_stats.clone() sifting=sifting />
+                      unit=unit_stats.clone() sifting=sifting tab=tab />
         </Show>
+
+        <crate::ui::ToTop above_fab=true />
 
         <button type="button" class="tcn-btn tcn-btn-primary tcn-fab"
                 on:click={
@@ -1758,7 +1761,13 @@ fn ExpenseDetails(tour: Tour, spending: Spending) -> impl IntoView {
 /// least and would cost the most here, so the numbers are drawn as bars instead - same
 /// information, no library.
 #[component]
-fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting) -> impl IntoView {
+fn StatsTab(
+    tour: Tour,
+    spendings: Vec<Spending>,
+    unit: String,
+    sifting: Sifting,
+    tab: RwSignal<Tab>,
+) -> impl IntoView {
     // What the reader has chosen on the ring - a category, a head of several, or a person -
     // and which of them we are inside, if any. Both live with the page rather than in the
     // chart: the totals below are the other half of the same question, and an edit made
@@ -1966,6 +1975,24 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
         drill.set(None);
         chosen.set(String::new());
     });
+    // "Food / restaurant 2 500" - and then the expenses that make it up. A head stands for
+    // everything under it, so choosing "Food" lights up every "Food / …" chip on the other
+    // tab, and "Food" on its own if there is one: the same `matches` the totals here use.
+    let every_category: Vec<String> = {
+        let mut all: Vec<String> = counted.iter().map(|s| s.category.trim().to_owned()).collect();
+        all.sort();
+        all.dedup();
+        all
+    };
+    let expenses_filter = sifting.chosen;
+    let expenses_search = sifting.search;
+    let show = Callback::new(move |key: String| {
+        expenses_filter.set(crate::chart::categories_under(&key, &every_category));
+        // A search left in the box would hide some of what was asked for.
+        expenses_search.set(String::new());
+        tab.set(Tab::Expenses);
+        crate::ui::scroll_to_tabs();
+    });
     let enter = Callback::new(move |key: String| {
         drill.set(Some(key));
         chosen.set(String::new());
@@ -2008,7 +2035,11 @@ fn StatsTab(tour: Tour, spendings: Vec<Spending>, unit: String, sifting: Sifting
                     {move || view! {
                         <crate::chart::Composition rows=rows() unit=unit_for_pie.clone()
                                                    chosen=chosen crumb=drill.get()
-                                                   into=enter out=leave />
+                                                   into=enter out=leave
+                                                   // By person, the rows are people - and
+                                                   // inside one, their categories, which the
+                                                   // expense filter cannot narrow to them.
+                                                   show=by_category.get().then_some(show) />
                     }}
 
                     <div class="tcn-section-title" style="margin-top:14px">
@@ -2149,15 +2180,17 @@ pub fn tab_of(landing: crate::Landing) -> Tab {
         crate::Landing::Balance => Tab::Balance,
         // Until the tour is here to say. It never shows: the tab is settled the moment
         // there is a tour to settle it from, cached copy included.
-        crate::Landing::Unsaid => Tab::Expenses,
+        crate::Landing::Unsaid => Tab::People,
     }
 }
 
 /// Which tab a tour opens on when the address did not say.
 ///
 /// A tour being settled up opens on the payments, because that is the whole of what anybody
-/// is doing with it; any other one opens where expenses are added, because that is the whole
-/// of what anybody is doing with *it*.
+/// is doing with it. Any other one opens on the people: during a trip a tour is opened to
+/// see who owes what - and who had better pay next - far more often than to read through the
+/// expenses, which are a tab away. The app opens it on the expenses, and the first thing its
+/// readers did was switch away from them.
 ///
 /// Archived does not come into it. The app asks
 /// `(RawTour.IsFinalizing && !RawTour.IsArchived)` (`TourPageNew.razor:339`), so an archived
@@ -2172,7 +2205,7 @@ pub fn opens_on(tour: &Tour) -> Tab {
     if tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING) {
         Tab::Balance
     } else {
-        Tab::Expenses
+        Tab::People
     }
 }
 
@@ -2590,8 +2623,8 @@ mod tests {
     fn archiving_does_not_decide_which_tab_a_tour_opens_on() {
         assert_eq!(opens_on(&flagged(false, true)), Tab::Balance);
         assert_eq!(opens_on(&flagged(true, true)), Tab::Balance, "archived as well");
-        assert_eq!(opens_on(&flagged(true, false)), Tab::Expenses);
-        assert_eq!(opens_on(&flagged(false, false)), Tab::Expenses);
+        assert_eq!(opens_on(&flagged(true, false)), Tab::People);
+        assert_eq!(opens_on(&flagged(false, false)), Tab::People);
     }
 
     /// The app's chip row reads "бухать/вино … Гнездо/ещё … Треш и угар". A byte-order sort

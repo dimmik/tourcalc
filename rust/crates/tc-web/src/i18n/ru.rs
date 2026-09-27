@@ -104,6 +104,7 @@ pub const TEXTS: Texts = Texts {
         drafts_section: |sum| format!("Черновики · {sum}"),
     },
     mini: MiniTexts {
+        next_to_pay: |who, amount| format!("Платить следующим: {who}, долг {amount}"),
         pays_for_button: "+ платит за…",
         settling_hint: "Идёт расчёт по туру",
         settling: "расчёт",
@@ -289,6 +290,7 @@ pub const TEXTS: Texts = Texts {
         not_in_it: "Не участвуют: ",
     },
     tour: TourTexts {
+        to_top: "Наверх",
         delete_expense: |what| format!("Удалить «{what}»?"),
         delete_person: |name| format!("Удалить участника «{name}»?"),
         delete_person_then: |name, also| format!("Удалить участника «{name}»? Тогда {}.", also.join(", и ")),
@@ -528,6 +530,13 @@ pub const TEXTS: Texts = Texts {
         restore: "Восстановить",
     },
     people: PeopleTexts {
+        next_title: "Кому платить следующим",
+        next_spend: |who| format!("💸 Записать трату — платит {who}"),
+        next_owes: |amount| format!("Самый большой долг — {amount}."),
+        next_evens: |bill| format!("Общий счёт примерно до {bill} как раз его закроет."),
+        next_then: |who, amount| format!("Дальше — {who}, {amount}."),
+        next_hint: "Если следующий общий счёт оплачивает тот, чей долг больше всех, в конце \
+                    остаётся меньше всего расчётов.",
         pays_for_button: "+ Платит за…",
         paid: "Вклад",
         charged: "Доля",
@@ -646,6 +655,7 @@ pub const TEXTS: Texts = Texts {
         cannot_copy: "Браузер не дал странице скопировать.",
     },
     chart: ChartTexts {
+        show_expenses: |what| format!("Показать траты: {what} →"),
         all_of_them: "↑ все",
         what_money_went_on: "На что ушли деньги",
         total: "всего",

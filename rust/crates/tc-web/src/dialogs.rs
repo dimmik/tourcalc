@@ -190,6 +190,9 @@ pub fn SpendingDialog(
         adding.set(false);
     };
 
+    // Whether this is for somebody else. A signal, because "start blank" on a carried draft
+    // makes it a plain new expense again.
+    let on_behalf = RwSignal::new(draft.on_behalf);
     let base = draft.clone();
     // The form as it stands, whether it is being saved or left behind. Cloned rather than
     // shared: it holds nothing but signals, which are `Copy`.
@@ -210,6 +213,7 @@ pub fn SpendingDialog(
         d.date = date.get_untracked();
         d.colour = colour.get_untracked();
         d.currency_id = currency.get_untracked();
+        d.on_behalf = on_behalf.get_untracked();
         d
     });
 
@@ -233,7 +237,10 @@ pub fn SpendingDialog(
         description.set(fresh.description.clone());
         category.set(fresh.category.clone());
         amount.set(String::new());
+        // Offered only for a carried draft, and the form it clears is the plain "+ Spend" one
+        // that picked the draft up - whoever the draft was for.
         from.set(fresh.from.as_str().to_owned());
+        on_behalf.set(false);
         everyone.set(fresh.everyone);
         by_weight.set(fresh.by_weight);
         to.set(fresh.to.clone());
@@ -273,6 +280,15 @@ pub fn SpendingDialog(
         if d.id.is_none() {
             d.id = Some(tc_core::SpendingId::new(edit::new_id()));
             d.editing = false;
+            // Whom the next one starts from - unless this one was recorded for somebody else.
+            // Then it is whoever it would have been before: with nothing remembered yet that
+            // is the payer of the latest expense, which this one is about to become.
+            let tour_id = tour_id.get_value();
+            if !d.on_behalf {
+                crate::settings::remember_payer(&tour_id, d.from.as_str());
+            } else if crate::settings::remembered_payer(&tour_id).is_none() {
+                crate::settings::remember_payer(&tour_id, blank.get_value().from.as_str());
+            }
         }
         crate::drafts::forget_spending(&tour_id.get_value());
         on_apply.run(Operation::PutSpending(d));
