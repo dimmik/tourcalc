@@ -226,6 +226,11 @@ pub const SEARCH_FROM: usize = 8;
 
 /// The weight almost everybody shares. Marking it on every line is a column of the same
 /// number; only those who differ from it are worth an "×".
+///
+/// On a tie - two at 100 and two at 50 - the full share, 100, if it is one of them, and
+/// otherwise the heavier. `max_by_key` alone took whichever came last, so the same tour
+/// marked "Anna ×100, Boris ×100" or "Vera ×50, Gosha ×50" depending on the order the
+/// people were added in, and the first made the full shares look like the odd ones.
 pub fn common_weight(tour: &Tour) -> i32 {
     let mut counts: Vec<(i32, usize)> = Vec::new();
     for p in &tour.persons {
@@ -236,7 +241,7 @@ pub fn common_weight(tour: &Tour) -> i32 {
     }
     counts
         .into_iter()
-        .max_by_key(|(_, n)| *n)
+        .max_by_key(|&(w, n)| (n, w == 100, w))
         .map(|(w, _)| w)
         .unwrap_or(100)
 }
@@ -1242,6 +1247,25 @@ mod tests {
         assert!(signed(Cents(-687_000)).starts_with('+'), "gets 6 870: plus");
         assert_eq!(signed(Cents(0)), t().people.settled);
         assert!(!signed_in(Cents(0), "RUB").contains("RUB"), "no unit on settled");
+    }
+
+    /// Two at 100 and two at 50: the full share is the common one, whichever order the
+    /// people were added in; with no 100 in the tie, the heavier.
+    #[test]
+    fn a_tie_for_the_common_weight_goes_to_the_full_share() {
+        let tour_of = |weights: &[i32]| {
+            let people: Vec<serde_json::Value> = weights
+                .iter()
+                .enumerate()
+                .map(|(i, w)| serde_json::json!({"GUID": format!("p{i}"), "Name": format!("P{i}"), "Weight": w}))
+                .collect();
+            Tour::from_json(&serde_json::json!({"Id": "t", "Name": "t", "Persons": people, "Spendings": []}).to_string())
+                .expect("tour")
+        };
+        assert_eq!(common_weight(&tour_of(&[100, 100, 50, 50])), 100);
+        assert_eq!(common_weight(&tour_of(&[50, 50, 100, 100])), 100);
+        assert_eq!(common_weight(&tour_of(&[60, 60, 80, 80])), 80);
+        assert_eq!(common_weight(&tour_of(&[50, 100, 50])), 50, "a majority is a majority");
     }
 
     #[test]
