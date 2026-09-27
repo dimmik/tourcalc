@@ -150,18 +150,31 @@ impl Which {
     }
 }
 
-/// A debt in words, so that a minus sign never has to be interpreted.
-fn direction(amount: Cents) -> &'static str {
-    if amount.0 > 0 {
-        t().people.owes
-    } else if amount.0 < 0 {
-        t().people.gets
-    } else {
-        t().people.settled
+/// A balance as a sign and an amount: what they put in less what their share cost, which is
+/// how the legend defines it. "+6 870" comes to them, "−3 205" is theirs to pay, and nothing
+/// either way is "settled". `debt` counts the other way (positive is owing) - hence the flip.
+///
+/// Signs, not words: "gets 6 870" and "owes 3 205" took a column of their own, and a phone on
+/// its side had room for the numbers but not for the words. The words have not gone - they
+/// are the title and the label a screen reader says ([`balance_words`]). The sign once meant
+/// the debt here ("−5 055" beside "gets 5 055"); one rule for every place ends that.
+fn signed(debt: Cents) -> String {
+    match debt.0 {
+        0 => t().people.settled.to_owned(),
+        n if n > 0 => format!("\u{2212}{}", money(debt)),
+        _ => format!("+{}", money(Cents(-debt.0))),
     }
 }
 
-/// The same, with the amount and its currency: what the chip on a card says.
+fn signed_in(debt: Cents, unit: &str) -> String {
+    if debt.is_zero() || unit.is_empty() {
+        signed(debt)
+    } else {
+        format!("{}\u{a0}{unit}", signed(debt))
+    }
+}
+
+/// The same in words, with the amount and its currency: said, not shown - see [`signed`].
 fn balance_words(amount: Cents, unit: &str) -> String {
     match amount.0 {
         0 => t().people.settled.to_owned(),
@@ -180,7 +193,7 @@ fn meaningful(amount: Cents, too_small: Cents) -> Cents {
 }
 
 /// What the reader has done to the People tab: whose card is open, whose family is showing,
-/// which sheet of numbers is up, the search box, and whether the list is drawn compact.
+/// which sheet of numbers is up, and the search box.
 ///
 /// Owned by the tour page rather than by this tab, for the reason [`crate::tour::Sifting`]
 /// is: the screen below the page is rebuilt after every edit, and a card that saving an
@@ -192,35 +205,45 @@ pub struct People {
     pub open: RwSignal<Vec<String>>,
     pub kids_open: RwSignal<Vec<String>>,
     pub sheet: RwSignal<Option<(Which, Person)>>,
-    /// One line per person, whether or not they are opened out. For a long list on a small
-    /// screen, where the roomy card is three people to a screenful. Remembered for this tour
-    /// on this device.
-    pub compact: RwSignal<bool>,
     pub search: RwSignal<String>,
 }
 
 impl People {
-    pub fn new(tour_id: &str) -> People {
-        let compact = RwSignal::new(crate::settings::compact_people(tour_id));
-        {
-            let id = tour_id.to_owned();
-            Effect::new(move |was: Option<bool>| {
-                let now = compact.get();
-                // Not on the first run: that is the value just read, not a choice.
-                if was.is_some_and(|was| was != now) {
-                    crate::settings::remember_compact_people(&id, now);
-                }
-                now
-            });
-        }
+    pub fn new() -> People {
         People {
             open: RwSignal::new(Vec::new()),
             kids_open: RwSignal::new(Vec::new()),
             sheet: RwSignal::new(None),
-            compact,
             search: RwSignal::new(String::new()),
         }
     }
+}
+
+/// Under this many people the list fits on a screen anyway, and a search box is clutter.
+/// One number for both interfaces: at exactly eight, one of them had the box and the other
+/// did not.
+pub const SEARCH_FROM: usize = 8;
+
+/// The weight almost everybody shares. Marking it on every line is a column of the same
+/// number; only those who differ from it are worth an "×".
+///
+/// On a tie - two at 100 and two at 50 - the full share, 100, if it is one of them, and
+/// otherwise the heavier. `max_by_key` alone took whichever came last, so the same tour
+/// marked "Anna ×100, Boris ×100" or "Vera ×50, Gosha ×50" depending on the order the
+/// people were added in, and the first made the full shares look like the odd ones.
+pub fn common_weight(tour: &Tour) -> i32 {
+    let mut counts: Vec<(i32, usize)> = Vec::new();
+    for p in &tour.persons {
+        match counts.iter_mut().find(|(w, _)| *w == p.weight) {
+            Some((_, n)) => *n += 1,
+            None => counts.push((p.weight, 1)),
+        }
+    }
+    counts
+        .into_iter()
+        .max_by_key(|&(w, n)| (n, w == 100, w))
+        .map(|(w, _)| w)
+        .unwrap_or(100)
 }
 
 #[component]
@@ -240,14 +263,32 @@ pub fn PeopleTab(
         open,
         kids_open,
         sheet,
-        compact,
         search,
     } = people;
 
     let fams = families(&tour);
+    let common = common_weight(&tour);
+    // Whether anybody on screen is open: somebody opened and then searched out of the list,
+    // or tucked into a folded family, is not a figure the legend can be explaining.
+    let showing_figures = {
+        let tour = tour.clone();
+        let fams = fams.clone();
+        Memo::new(move |_| {
+            let opened = open.get();
+            if opened.is_empty() {
+                return false;
+            }
+            let needle = search.get().trim().to_lowercase();
+            let unfolded = kids_open.get();
+            matching(&tour, &fams, &needle).iter().any(|fam| {
+                let head = fam.head.id.as_str();
+                opened.iter().any(|id| id == head)
+                    || (unfolded.iter().any(|id| id == head)
+                        && fam.kids.iter().any(|k| opened.iter().any(|id| id == k.id.as_str())))
+            })
+        })
+    };
     let count = tour.persons.len();
-    // Under this many, the list fits on a screen anyway and a search box is clutter.
-    const SEARCH_FROM: usize = 8;
     let searchable = count >= SEARCH_FROM;
     let tour_for_search = tour.clone();
     let everyone: Vec<String> = tour
@@ -295,14 +336,6 @@ pub fn PeopleTab(
                 </Show>
                 <Show when=move || { count > 1 }>
                     <button type="button" class="tcn-btn tcn-btn-sm"
-                            class:tcn-btn-primary=move || compact.get()
-                            title=t().people.compact_hint
-                            on:click=move |_| compact.update(|c| *c = !*c)>
-                        {t().people.compact}
-                    </button>
-                </Show>
-                <Show when=move || { count > 1 }>
-                    <button type="button" class="tcn-btn tcn-btn-sm"
                             on:click={
                                 let everyone = everyone.clone();
                                 move |_| {
@@ -345,8 +378,12 @@ pub fn PeopleTab(
 
 
 
+            // What the three figures mean - where they are on the screen: always on a wide
+            // one, on a phone once somebody is open. It explained three words nobody could
+            // see while the list was folded.
             <Show when=move || { count > 0 }>
-                <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
+                <div class="tcn-hint tcw-legend" class:is-shown=move || showing_figures.get()
+                     style="margin: -4px 2px 10px 2px">
                     <b>{t().people.paid}</b>{t().people.legend_paid}<b>{t().people.charged}</b>
                     {t().people.legend_charged}<b>{t().people.balance}</b>
                     {t().people.legend_balance}
@@ -367,7 +404,7 @@ pub fn PeopleTab(
         } else {
             view! {
                 <div class="tcn-section">
-                    <div class="tcn-list tcn-people-list" class:is-compact=move || compact.get()>
+                    <div class="tcn-list tcn-people-list is-compact">
                         {move || {
                             let needle = search.get().trim().to_lowercase();
                             let shown = matching(&tour_for_search, &fams, &needle);
@@ -384,9 +421,9 @@ pub fn PeopleTab(
                             shown
                                 .into_iter()
                                 .map(|fam| view! {
-                                    <FamilyBlock tour=tour_for_search.clone() fam=fam
+                                    <FamilyBlock tour=tour_for_search.clone() fam=fam common=common
                                                  transfers=transfers.clone() open=open
-                                                 kids_open=kids_open sheet=sheet compact=compact
+                                                 kids_open=kids_open sheet=sheet
                                                  dialog=dialog delete=delete />
                                 })
                                 .collect_view()
@@ -451,11 +488,13 @@ fn NextPayerCard(
 fn FamilyBlock(
     tour: Tour,
     fam: Family,
+    /// The weight nearly everybody shares - see [`common_weight`]. Worked out once for the
+    /// list, not once a line.
+    common: i32,
     transfers: Vec<Transfer>,
     open: RwSignal<Vec<String>>,
     kids_open: RwSignal<Vec<String>>,
     sheet: RwSignal<Option<(Which, Person)>>,
-    compact: RwSignal<bool>,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
 ) -> impl IntoView {
@@ -495,8 +534,8 @@ fn FamilyBlock(
         <div class="tcn-family" class:has-kids=move || { covers > 0 }
              class:is-open=move || { covers > 0 && showing.get() }>
             <PersonBlock tour=tour.clone() person=fam.head.clone() covers=covers
-                         family_weight=fam.weight transfers=transfers.clone()
-                         open=open sheet=sheet compact=compact dialog=dialog delete=delete />
+                         family_weight=fam.weight common=common transfers=transfers.clone()
+                         open=open sheet=sheet dialog=dialog delete=delete />
 
             <Show when=move || { covers > 0 }>
                 <button type="button" class="tcn-familybar" aria-expanded=move || showing.get().to_string()
@@ -513,8 +552,8 @@ fn FamilyBlock(
                         .iter()
                         .map(|kid| view! {
                             <PersonBlock tour=tour.clone() person=kid.clone() covers=0
-                                         family_weight=0 transfers=transfers.clone()
-                                         open=open sheet=sheet compact=compact
+                                         family_weight=0 common=common transfers=transfers.clone()
+                                         open=open sheet=sheet
                                          dialog=dialog delete=delete />
                         })
                         .collect_view()}
@@ -531,10 +570,10 @@ fn PersonBlock(
     /// How many people this person pays for. Zero for everybody else.
     covers: usize,
     family_weight: i32,
+    common: i32,
     transfers: Vec<Transfer>,
     open: RwSignal<Vec<String>>,
     sheet: RwSignal<Option<(Which, Person)>>,
-    compact: RwSignal<bool>,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
 ) -> impl IntoView {
@@ -592,16 +631,15 @@ fn PersonBlock(
     let unit = crate::ui::unit(&tour);
     let words = balance_words(shown, &unit);
     let unit_for_stats = StoredValue::new(unit.clone());
+    let paid = balances.get(&person.id).map(|b| b.spent).unwrap_or_default();
+    let charged = balances.get(&person.id).map(|b| b.received).unwrap_or_default();
     let paid_by = person
         .parent
         .as_ref()
         .and_then(|p| tour.person(p))
         .map(|p| p.name.clone());
 
-    let name = person.name.clone();
     let weight = person.weight;
-    let colour = avatar_colour(&person.name);
-    let letters = initials(&person.name);
 
     let for_edit = person.clone();
     let for_delete = person.clone();
@@ -614,152 +652,163 @@ fn PersonBlock(
     let balances_for_why = balances.clone();
     let transfers_for_why = transfers.clone();
     let for_spend = person.clone();
-    // The compact row has its own 💸, so it needs its own copies to hand to the dialog.
+    // The row has its own 💸, so it needs its own copies to hand to the dialog.
     let for_compact_spend = person.clone();
     let for_stats = person.clone();
-    let toggle_row = toggle.clone();
-    let words_row = words.clone();
-    let name_row = name.clone();
-    let colour_row = colour.clone();
-    let letters_row = letters.clone();
+    let for_row_stats = person.clone();
+    let for_row_edit = person.clone();
+    let toggle_row = toggle;
+    let words_row = words;
+    let name_row = person.name.clone();
+    let colour_row = avatar_colour(&person.name);
+    let letters_row = initials(&person.name);
     let tour_for_spend = tour.clone();
     let tour_for_compact_spend = tour.clone();
 
     view! {
-        <div class="tcn-person" class:is-child=move || is_child
-             class:is-compact=move || !is_open.get() || compact.get()>
-            // Compact draws the dense row even when the person is opened out: their numbers
-            // appear below it, which is the whole of what opening does in that mode.
-            <Show when=move || !is_open.get() || compact.get()
-                  fallback=move || {
-                      // The roomy head is the handle: clicking it folds the card back down.
-                      // It cannot be a <button> - the figures inside it are buttons
-                      // themselves, and a button inside a button is not markup a browser
-                      // accepts - so the caret beside it is what a keyboard reaches for.
-                      let words = words.clone();
-                      let name = name.clone();
-                      let colour = colour.clone();
-                      let letters = letters.clone();
-                      let paid_by = paid_by.clone();
-                      let toggle = toggle.clone();
-                      let fold = toggle.clone();
-                      view! {
-                          <div class="tcn-person-head is-handle" on:click=toggle>
-                              <span class="tcn-avatar" style=format!("background:{colour}")>
-                                  {letters}
-                              </span>
-                              <div class="tcn-person-id">
-                                  <div class="tcn-person-name">{name}</div>
-                                  <div class="tcn-person-meta" on:click=|ev| ev.stop_propagation()>
-                                      <span>
-                                          {t().people.weight} " "
-                                          <crate::explain::Explain what={
-                                              let t = tour_for_pweight.clone();
-                                              let who = person_for_pweight.clone();
-                                              Callback::new(move |()| {
-                                                  crate::explain::person_weight(&t, &who)
-                                              })
-                                          }>
-                                              <b>{weight}</b>
-                                          </crate::explain::Explain>
-                                      </span>
-                                      {paid_by.map(|n| view! { <span>{t().people.paid_by} " " <b>{n}</b></span> })}
-                                      {(covers > 0).then(|| view! {
-                                          <span>{t().people.pays_for} " " <b>{covers}</b></span>
-                                          <span title=t().people.family_weight_hint>
-                                              {t().people.family_weight} " " <b>{family_weight}</b>
-                                          </span>
-                                      })}
-                                  </div>
-                              </div>
-                              <div class="tcn-person-owe" on:click=|ev| ev.stop_propagation()>
-                                  <crate::explain::Explain what={
-                                      let t = tour_for_why.clone();
-                                      let who = person_for_why.clone();
-                                      let b = balances_for_why.clone();
-                                      let all = transfers_for_why.clone();
-                                      Callback::new(move |()| {
-                                          crate::explain::person_balance(&t, &who, &b, &all)
-                                      })
-                                  }>
-                                      <span class=format!("tcn-chip {chip_class}")>{words}</span>
-                                  </crate::explain::Explain>
-                                  {split_family.then(|| view! {
-                                      <span class="tcn-person-own"
-                                            title=t().people.own_hint>
-                                          {t().people.own} " " {balance_words(debt, &unit_for_stats.get_value())}
-                                      </span>
-                                  })}
-                              </div>
-                              <button type="button" class="tcn-person-fold" title=t().people.collapse
-                                      on:click=move |ev| { ev.stop_propagation(); fold(ev); }>
-                                  <Icon name="chevron-down" />
-                              </button>
-                          </div>
-                      }
-                  }>
-                <div class="tcn-person-row">
-                    <button type="button" class="tcn-person-open"
-                            aria-expanded=move || is_open.get().to_string()
-                            on:click=toggle_row.clone()>
-                        <span class="tcn-avatar tcn-avatar-sm"
-                              style=format!("background:{colour_row}")>{letters_row.clone()}</span>
-                        <span class="tcn-person-id">
-                            <span class="tcn-person-name">{name_row.clone()}</span>
-                            // "weight" costs about forty pixels the name wants: a weight is
-                            // a multiplier, and that is what the × says. A folded family
-                            // shows what the family weighs instead - the payer's own weight
-                            // says little while the people it covers are out of sight.
-                            {if covers == 0 {
-                                view! {
-                                    <span class="tcn-person-meta" title=(t().people.weight_hint)(weight as i64)>
-                                        "×" {weight}
-                                    </span>
-                                }.into_any()
-                            } else {
-                                view! {
-                                    <span class="tcn-chip tcn-chip-kids"
-                                          title=(t().people.family_hint)(covers, family_weight as i64)>
-                                        "👥" {covers} " ×" {family_weight}
-                                    </span>
-                                }.into_any()
-                            }}
-                        </span>
-                        <span class=format!("tcn-chip {chip_class}")>{words_row.clone()}</span>
-                        <span class="tcn-person-caret">
-                            {move || if is_open.get() { view!{<Icon name="chevron-down"/>} } else { view!{<Icon name="chevron-right"/>} }}
-                        </span>
-                    </button>
-                    <button type="button"
-                            class="tcn-btn tcn-btn-sm tcn-btn-primary tcn-person-spend"
-                            title=(t().people.spend_for)(&person.name)
-                            aria-label=(t().people.spend_for)(&person.name)
+        <div class="tcn-person is-compact" class:is-child=move || is_child
+             class:is-open=move || is_open.get()>
+            // One row, whatever the width and whether or not the person is open: opening adds
+            // what is below it and moves nothing in it. The roomy card this replaced swapped
+            // the row for a different one - the name moved, the weight changed places, 💸
+            // vanished from under the finger that had just found it.
+            <div class="tcn-person-row">
+                <button type="button" class="tcn-person-open"
+                        aria-expanded=move || is_open.get().to_string()
+                        on:click=toggle_row.clone()>
+                    <span class="tcn-avatar tcn-avatar-sm"
+                          style=format!("background:{colour_row}")>{letters_row.clone()}</span>
+                    <span class="tcn-person-id">
+                        <span class="tcn-person-name">{name_row.clone()}</span>
+                        // A weight only where it says something: the one almost everybody
+                        // shares is a column of the same number. A family shows what the
+                        // family weighs - the payer's own is in the open block.
+                        {if covers > 0 {
+                            view! {
+                                <span class="tcn-chip tcn-chip-kids"
+                                      title=(t().people.family_hint)(covers, family_weight as i64)>
+                                    "👥" {covers} " ×" {family_weight}
+                                </span>
+                            }.into_any()
+                        } else if weight != common {
+                            view! {
+                                <span class="tcn-person-meta" title=(t().people.weight_hint)(weight as i64)>
+                                    "×" {weight}
+                                </span>
+                            }.into_any()
+                        } else {
+                            ().into_any()
+                        }}
+                    </span>
+                    <span class=format!("tcn-chip tcw-row-chip {chip_class}") title=words_row.clone()>
+                        {signed_in(shown, &unit_for_stats.get_value())}
+                    </span>
+                    <span class="tcn-person-caret">
+                        {move || if is_open.get() { view!{<Icon name="chevron-down"/>} } else { view!{<Icon name="chevron-right"/>} }}
+                    </span>
+                </button>
+                // On a wide screen the row is a line of a table: the three figures and the
+                // everyday buttons are in it, and nothing needs opening to be seen.
+                <div class="tcw-row-figs">
+                    <Stat which=Which::Paid person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
+                          amount=paid own=None />
+                    <Stat which=Which::Charged person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
+                          amount=charged own=None />
+                    // One line, like the chip it stands in for: the payer's own debt would make
+                    // it two, so that one is in the open block's facts.
+                    <Stat which=Which::Balance person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
+                          amount=shown own=None muted=is_child />
+                </div>
+                // Edit last, so that it stands in one column down the list: somebody paid for
+                // has no "+ Pays for…", and with Edit first theirs slid right into its place.
+                <div class="tcw-row-acts">
+                    {payer.clone().map(|who| view! {
+                        <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for"
+                                on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
+                            {t().people.pays_for_button}
+                        </button>
+                    })}
+                    <button type="button" class="tcn-btn tcn-btn-sm"
                             on:click={
-                                let tour = tour_for_compact_spend.clone();
-                                let who = for_compact_spend.clone();
-                                move |_| {
-                                    let draft = crate::edit::SpendingDraft::paid_by(&tour, &who.id);
-                                    dialog.set(Some(Dialog::Spending(draft)));
-                                }
+                                let who = for_row_edit.clone();
+                                move |_| dialog.set(Some(Dialog::Person(PersonDraft::of(&who))))
                             }>
-                        "💸"
+                        {t().people.edit}
                     </button>
                 </div>
-            </Show>
+                <button type="button"
+                        class="tcn-btn tcn-btn-sm tcn-btn-primary tcn-person-spend"
+                        title=(t().people.spend_for)(&person.name)
+                        aria-label=(t().people.spend_for)(&person.name)
+                        on:click={
+                            let tour = tour_for_compact_spend.clone();
+                            let who = for_compact_spend.clone();
+                            move |_| {
+                                let draft = crate::edit::SpendingDraft::paid_by(&tour, &who.id);
+                                dialog.set(Some(Dialog::Spending(draft)));
+                            }
+                        }>
+                    "💸"
+                </button>
+            </div>
 
             <Show when=move || is_open.get()>
-                <div class="tcn-person-stats">
+              // One block, so that where the row already carries the figures and the buttons,
+              // Delete - all that is left - sits at the end of the facts' line instead of on a
+              // line of its own under every open person.
+              <div class="tcw-open">
+                // What the roomy card's head used to carry, and the row has no room for.
+                <div class="tcn-person-facts">
+                    <span>
+                        {t().people.weight} " "
+                        <crate::explain::Explain what={
+                            let t = tour_for_pweight.clone();
+                            let who = person_for_pweight.clone();
+                            Callback::new(move |()| crate::explain::person_weight(&t, &who))
+                        }>
+                            <b>{weight}</b>
+                        </crate::explain::Explain>
+                    </span>
+                    {paid_by.clone().map(|n| view! { <span>{t().people.paid_by} " " <b>{n}</b></span> })}
+                    {(covers > 0).then(|| view! {
+                        <span>{t().people.pays_for} " " <b>{covers}</b></span>
+                        <span title=t().people.family_weight_hint>
+                            {t().people.family_weight} " " <b>{family_weight}</b>
+                        </span>
+                    })}
+                    <span>
+                        <crate::explain::Explain what={
+                            let t = tour_for_why.clone();
+                            let who = person_for_why.clone();
+                            let b = balances_for_why.clone();
+                            let all = transfers_for_why.clone();
+                            Callback::new(move |()| crate::explain::person_balance(&t, &who, &b, &all))
+                        }>
+                            {t().people.why_balance}
+                        </crate::explain::Explain>
+                    </span>
+                    // Where the row carries the figures: on a phone the Balance cell below
+                    // says it already.
+                    {split_family.then(|| view! {
+                        <span class="tcw-table-only">
+                            {t().people.own} " "
+                            <b title=balance_words(debt, &unit_for_stats.get_value())>
+                                {signed_in(debt, &unit_for_stats.get_value())}
+                            </b>
+                        </span>
+                    })}
+                </div>
+                // On a phone: the figures and buttons the wide row already shows.
+                <div class="tcn-person-stats tcw-narrow-only">
                     <Stat which=Which::Paid person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
-                          amount=balances.get(&for_stats.id).map(|b| b.spent).unwrap_or_default()
-                          own=None />
+                          amount=paid own=None />
                     <Stat which=Which::Charged person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
-                          amount=balances.get(&for_stats.id).map(|b| b.received).unwrap_or_default()
-                          own=None />
+                          amount=charged own=None />
                     <Stat which=Which::Balance person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
-                          amount=shown own=split_family.then_some(debt) />
+                          amount=shown own=split_family.then_some(debt) muted=is_child />
                 </div>
                 <div class="tcn-person-actions">
-                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary tcw-narrow-only"
                             on:click={
                                 let tour = tour_for_spend.clone();
                                 let who = for_spend.clone();
@@ -770,7 +819,7 @@ fn PersonBlock(
                             }>
                         {t().people.spend}
                     </button>
-                    <button type="button" class="tcn-btn tcn-btn-sm"
+                    <button type="button" class="tcn-btn tcn-btn-sm tcw-below-wide"
                             on:click={
                                 let who = for_edit.clone();
                                 move |_| dialog.set(Some(Dialog::Person(PersonDraft::of(&who))))
@@ -778,11 +827,13 @@ fn PersonBlock(
                         {t().people.edit}
                     </button>
                     {payer.clone().map(|who| view! {
-                        <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for"
+                        <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for tcw-below-wide"
                                 on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
                             {t().people.pays_for_button}
                         </button>
                     })}
+                    // Not in the wide row: a button that deletes somebody does not belong
+                    // one slip away from Edit on every line of the list.
                     <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
                             on:click={
                                 let who = for_delete.clone();
@@ -791,6 +842,7 @@ fn PersonBlock(
                         {t().people.delete}
                     </button>
                 </div>
+              </div>
             </Show>
         </div>
     }
@@ -806,36 +858,35 @@ fn Stat(
     own: Option<Cents>,
     sheet: RwSignal<Option<(Which, Person)>>,
     unit: String,
+    /// Somebody paid for: their balance is theirs to know, not theirs to settle, and it is
+    /// drawn in grey - as their chip is, and as the help says - not red or green.
+    #[prop(optional)]
+    muted: bool,
 ) -> impl IntoView {
     let tint = match which {
         Which::Paid => "is-paid",
         Which::Charged => "",
+        Which::Balance if muted => "",
         Which::Balance if amount.0 > 0 => "is-owing",
         Which::Balance if amount.0 < 0 => "is-owed",
         Which::Balance => "",
     };
 
+    // What the sign means, for a reader who hovers and for one who listens.
+    let said = (which == Which::Balance).then(|| balance_words(amount, &unit));
+
     view! {
         <div class="tcn-stat">
             <span class="tcn-stat-label">{which.label()}</span>
             <button type="button" class=format!("tcn-statbtn {tint}")
+                    title=said.clone() aria-label=said
                     on:click=move |_| sheet.set(Some((which, person.clone())))>
-                {(which == Which::Balance).then(|| view! {
-                    // The chip on the same card says "gets 5 055" while this cell used to
-                    // say "-5 055": one number, two languages, five centimetres apart.
-                    <span class="tcn-statbtn-dir">{direction(amount)}</span>
-                })}
-                {if which == Which::Balance {
-                    if amount.is_zero() { String::new() } else { money(amount.abs()) }
-                } else {
-                    money(amount)
-                }}
+                {if which == Which::Balance { signed(amount) } else { money(amount) }}
                 {(!(which == Which::Balance && amount.is_zero()) && !unit.is_empty())
                     .then(|| view! { <small>"\u{a0}" {unit.clone()}</small> })}
                 {own.map(|d| view! {
                     <span class="tcn-statbtn-note">
-                        {t().people.own} " " {direction(d)} " "
-                        {(!d.is_zero()).then(|| money_in(d.abs(), &unit))}
+                        {t().people.own} " " {signed_in(d, &unit)}
                     </span>
                 })}
             </button>
@@ -1186,6 +1237,35 @@ mod tests {
         // 0,60 € each: 0,80 is not a bill anybody pays.
         assert_eq!(next(&in_currency(true, 240))[0].1, 60);
         assert_eq!(next(&in_currency(true, 240))[0].2, None);
+    }
+
+    /// The sign is the balance - put in less charged - so owing is minus, whatever `debt`
+    /// counts in; and nothing either way says so in words.
+    #[test]
+    fn a_balance_is_a_sign_and_nothing_is_settled() {
+        assert!(signed(Cents(320_500)).starts_with('\u{2212}'), "owes 3 205: minus");
+        assert!(signed(Cents(-687_000)).starts_with('+'), "gets 6 870: plus");
+        assert_eq!(signed(Cents(0)), t().people.settled);
+        assert!(!signed_in(Cents(0), "RUB").contains("RUB"), "no unit on settled");
+    }
+
+    /// Two at 100 and two at 50: the full share is the common one, whichever order the
+    /// people were added in; with no 100 in the tie, the heavier.
+    #[test]
+    fn a_tie_for_the_common_weight_goes_to_the_full_share() {
+        let tour_of = |weights: &[i32]| {
+            let people: Vec<serde_json::Value> = weights
+                .iter()
+                .enumerate()
+                .map(|(i, w)| serde_json::json!({"GUID": format!("p{i}"), "Name": format!("P{i}"), "Weight": w}))
+                .collect();
+            Tour::from_json(&serde_json::json!({"Id": "t", "Name": "t", "Persons": people, "Spendings": []}).to_string())
+                .expect("tour")
+        };
+        assert_eq!(common_weight(&tour_of(&[100, 100, 50, 50])), 100);
+        assert_eq!(common_weight(&tour_of(&[50, 50, 100, 100])), 100);
+        assert_eq!(common_weight(&tour_of(&[60, 60, 80, 80])), 80);
+        assert_eq!(common_weight(&tour_of(&[50, 100, 50])), 50, "a majority is a majority");
     }
 
     #[test]

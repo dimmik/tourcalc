@@ -105,11 +105,7 @@ pub fn scroll_to_tabs() {
 /// Shown past two screens, not one - a list that is a screen and a half long is back at the
 /// top with a flick, and a button that appears for it is one more thing over the list.
 #[component]
-pub fn ToTop(
-    /// Sits above "+ Spend" where there is one, so that the two do not overlap.
-    #[prop(optional)]
-    above_fab: bool,
-) -> impl IntoView {
+pub fn ToTop() -> impl IntoView {
     let far = RwSignal::new(false);
     let check = move || {
         if let Some(w) = web_sys::window() {
@@ -137,7 +133,7 @@ pub fn ToTop(
     };
     view! {
         <Show when=move || far.get()>
-            <button type="button" class="tcw-top" class:is-above-fab=above_fab
+            <button type="button" class="tcw-top"
                     title=crate::i18n::t().tour.to_top aria-label=crate::i18n::t().tour.to_top
                     on:click=up>"↑"</button>
         </Show>

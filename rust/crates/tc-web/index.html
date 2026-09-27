@@ -192,13 +192,74 @@
         .tcn-btn.tcw-pays-for, .tcm-shell .tcm-btn.tcw-pays-for {
             color: var(--tcn-primary, #4f46e5); border-color: var(--tcn-primary, #4f46e5);
             background: var(--tcn-primary-soft, #eef2ff); }
-        /* "↑": back to the top of a long list. Round, quiet, and above "+ Spend" where there
-           is one - in the same column, so a thumb finds both in one place */
-        .tcw-top { position: fixed; right: max(16px, calc(50vw - 528px)); bottom: 20px; z-index: 44;
+        /* People: one row per person at every width (the grid of roomy cards is gone). The
+           name wraps rather than being cut to "Ва…"; opening adds a block under the row. */
+        .tcn-people-list .tcn-person-open .tcn-person-id { flex-wrap: wrap; row-gap: 0; }
+        .tcn-people-list .tcn-person-open .tcn-person-name { white-space: normal; overflow: visible;
+            text-overflow: clip; overflow-wrap: anywhere; }
+        .tcn-person-facts { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 2px 0 6px 38px;
+            font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        .tcw-row-figs, .tcw-row-acts { display: none; }
+        /* the open block: the facts, the phone's figures across the whole width, the buttons;
+           with the figures gone (the table has them) the buttons end the facts' line */
+        .tcw-open { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; }
+        .tcw-open > .tcn-person-facts { flex: 1 1 auto; }
+        .tcw-open > .tcn-person-stats { flex: 1 1 100%; }
+
+        .tcw-legend { display: none; }
+        .tcw-legend.is-shown { display: block; }
+        .tcw-table-only { display: none; }
+        /* From a phone on its side (640px and up) the row is a line of a table: Paid, Charged
+           and Balance in fixed columns, so they line up from one person to the next, each one
+           line tall - the row is no thicker than on a phone held upright. Not from 560: at 568
+           (a small phone on its side) the columns left the name one letter a line. The labels
+           are shown on the first line only, where they head the columns. The buttons join the
+           row where there is room for them (below). */
+        @media (min-width: 640px) {
+            .tcw-row-figs { display: grid; grid-template-columns: 6.5em 6.5em 8em; gap: 4px;
+                flex: 0 0 auto; align-items: center; }
+            .tcw-row-figs .tcn-stat { text-align: right; }
+            .tcw-row-figs .tcn-stat-label { display: none; }
+            .tcn-people-list > .tcn-family:first-child > .tcn-person .tcw-row-figs .tcn-stat-label { display: block; }
+            /* figures in a table, not three boxes a line: the frame shows on hover, as a hint
+               that each opens its list */
+            .tcw-row-figs .tcn-statbtn { text-align: right; padding: 3px 6px; border-color: transparent;
+                background: none; }
+            .tcw-row-figs .tcn-statbtn:hover { border-color: var(--tcn-border, #e5e7eb); }
+            /* ...except the balance: a chip, as on a phone held upright - it is the figure a row
+               is looked at for, and a chip is what finds it at a glance. Grey for somebody paid
+               for (their Stat is muted), red and green otherwise, the chip's own colours. */
+            .tcw-row-figs .tcn-stat:last-child .tcn-statbtn { display: inline-block; width: auto;
+                max-width: 100%; padding: 2px 9px; border-radius: 999px; font-size: 12.5px;
+                background: var(--tcn-surface-2, #f3f4f6); border-color: var(--tcn-border, #e5e7eb);
+                color: var(--tcn-muted, #6b7280); }
+            .tcw-row-figs .tcn-stat:last-child .tcn-statbtn.is-owing { background: var(--tcn-red-soft, #fdecef);
+                border-color: #f5cdd6; color: var(--tcn-red, #b91c1c); }
+            .tcw-row-figs .tcn-stat:last-child .tcn-statbtn.is-owed { background: var(--tcn-green-soft, #e7f7f1);
+                border-color: #c4ece0; color: var(--tcn-green, #047857); }
+            .tcw-row-chip { display: none; }
+            .tcw-narrow-only { display: none !important; }
+            .tcw-table-only { display: inline; }
+            .tcw-open > .tcn-person-actions { margin: 0 0 6px auto; }
+            .tcw-legend { display: block; }
+        }
+        /* No mouse, no hover frame: a phone on its side had Paid and Charged looking like plain
+           text though each opens its list. The dotted underline is the app's own "tap and it
+           explains itself" (as on "total weight 890"); under the figure, not the whole cell. */
+        @media (min-width: 640px) and (hover: none) {
+            .tcw-row-figs .tcn-stat:not(:last-child) .tcn-statbtn { text-decoration: underline dotted;
+                text-decoration-thickness: 1px; text-underline-offset: 3px; }
+        }
+        @media (min-width: 960px) {
+            .tcw-row-acts { display: flex; gap: 6px; flex: 0 0 13.5em; justify-content: flex-end; }
+            .tcw-below-wide { display: none !important; }
+        }
+        /* "↑": back to the top of a long list. Round, quiet, and at the bottom left: on the
+           right, above "+ Spend", it stood in the column of the rows' 💸 and covered one */
+        .tcw-top { position: fixed; left: max(16px, calc(50vw - 528px)); bottom: 20px; z-index: 44;
             width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--tcn-border, #e5e7eb);
             background: var(--tcn-surface, #fff); color: var(--tcn-primary, #4f46e5); font-size: 20px;
             line-height: 1; cursor: pointer; box-shadow: var(--tcn-shadow, 0 4px 12px rgba(0,0,0,.12)); }
-        .tcw-top.is-above-fab { bottom: 84px; right: calc(max(16px, calc(50vw - 528px)) + 4px); }
         .tcw-top:focus-visible { outline: 2px solid var(--tcn-primary, #4f46e5); outline-offset: 2px; }
         /* The statistics: a chosen category's way to its expenses, and the things inside it
            as links to theirs */

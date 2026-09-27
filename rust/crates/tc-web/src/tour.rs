@@ -541,7 +541,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     // What the reader has filtered the list down to, owned here for the same reason.
     let sifting = Sifting::new();
     // And the same for the People tab: whose card is open, what is in its search box.
-    let people_state = crate::people::People::new(&id);
+    let people_state = crate::people::People::new();
 
     let refresh = Refresh {
         busy: RwSignal::new(false),
@@ -1093,7 +1093,7 @@ fn TourView(
                       unit=unit_stats.clone() sifting=sifting tab=tab />
         </Show>
 
-        <crate::ui::ToTop above_fab=true />
+        <crate::ui::ToTop />
 
         <button type="button" class="tcn-btn tcn-btn-primary tcn-fab"
                 on:click={

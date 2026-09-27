@@ -414,7 +414,10 @@ pub fn forget_everything() {
         "__tcw_queue_",
         "__tcw_refused_",
         "__tcw_lost_",
+        // Nothing writes it any more (People is one list now); what older builds left goes too.
         "__tcw_compact_",
+        // Whom this phone records expenses for - whose phone it was.
+        "__tcw_payer_",
     ];
     let mut doomed = Vec::new();
     for i in 0..s.length().unwrap_or(0) {
