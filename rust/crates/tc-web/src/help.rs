@@ -50,12 +50,16 @@ fn with_latest(log: &str) -> String {
     }
 }
 
-/// The first date heading and the markup of the first entry under it.
+/// The first date heading and the markup of the first entry under it - under *it*: a day
+/// with no list of its own gives nothing, rather than its date over the next day's entry.
 fn latest(log: &str) -> Option<(&str, &str)> {
     let day_at = log.find("<h3>")? + "<h3>".len();
-    let day = &log[day_at..day_at + log[day_at..].find("</h3>")?];
-    let entry_at = day_at + log[day_at..].find("<li>")? + "<li>".len();
-    let entry = &log[entry_at..entry_at + log[entry_at..].find("</li>")?];
+    let day_end = day_at + log[day_at..].find("</h3>")?;
+    let day = &log[day_at..day_end];
+    let rest = &log[day_end..];
+    let section = &rest[..rest.find("<h3>").unwrap_or(rest.len())];
+    let entry_at = section.find("<li>")? + "<li>".len();
+    let entry = &section[entry_at..entry_at + section[entry_at..].find("</li>")?];
     Some((day.trim(), entry.trim()))
 }
 
@@ -73,6 +77,14 @@ mod tests {
         assert!(shown.starts_with("<div class=\"tcw-latest\">"), "above the fold: {shown}");
         assert!(shown.contains("Latest change · 27 September 2026"));
         assert_eq!(shown.matches("<details").count(), 1);
+    }
+
+    #[test]
+    fn a_day_with_no_entries_does_not_borrow_the_next_days() {
+        let log = "<h3>28 September 2026</h3>\n<p>Nothing yet.</p>\n<h3>27 September 2026</h3>\n\
+                   <ul><li>Yesterday's.</li></ul>";
+        assert_eq!(latest(log), None);
+        assert_eq!(with_latest(log), log, "no block rather than a wrong one");
     }
 
     /// The real log parses, and its newest entry is a bold title and its why.
