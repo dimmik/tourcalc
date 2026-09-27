@@ -190,6 +190,9 @@ pub fn SpendingDialog(
         adding.set(false);
     };
 
+    // Whether this is for somebody else. A signal, because "start blank" on a carried draft
+    // makes it a plain new expense again.
+    let on_behalf = RwSignal::new(draft.on_behalf);
     let base = draft.clone();
     // The form as it stands, whether it is being saved or left behind. Cloned rather than
     // shared: it holds nothing but signals, which are `Copy`.
@@ -210,6 +213,7 @@ pub fn SpendingDialog(
         d.date = date.get_untracked();
         d.colour = colour.get_untracked();
         d.currency_id = currency.get_untracked();
+        d.on_behalf = on_behalf.get_untracked();
         d
     });
 
@@ -217,7 +221,6 @@ pub fn SpendingDialog(
     // for a new expense: an edit that was abandoned is the expense as it already is.
     let tour_id = StoredValue::new(tour.id.as_str().to_owned());
     let blank = StoredValue::new(SpendingDraft::new(&tour));
-    let on_behalf = draft.on_behalf;
     let carried = RwSignal::new(carried_over);
     let close = Callback::new({
         let current = current.clone();
@@ -234,10 +237,10 @@ pub fn SpendingDialog(
         description.set(fresh.description.clone());
         category.set(fresh.category.clone());
         amount.set(String::new());
-        // Blank, but still for whom it was opened for.
-        if !on_behalf {
-            from.set(fresh.from.as_str().to_owned());
-        }
+        // Offered only for a carried draft, and the form it clears is the plain "+ Spend" one
+        // that picked the draft up - whoever the draft was for.
+        from.set(fresh.from.as_str().to_owned());
+        on_behalf.set(false);
         everyone.set(fresh.everyone);
         by_weight.set(fresh.by_weight);
         to.set(fresh.to.clone());

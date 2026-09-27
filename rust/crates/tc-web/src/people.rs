@@ -96,8 +96,11 @@ pub struct NextPayer {
     pub owes: Cents,
     /// A bill split among everybody by weight, paid by this family, moves their balance by
     /// the bill less their own share of it: `bill × (1 − w/W)`. Evened out at
-    /// `owes × W / (W − w)`, in whole units, rounded down so that it never overshoots. None
-    /// when the family is everybody - there is nobody else for them to pay for.
+    /// `owes × W / (W − w)`, rounded down to a whole unit of the currency the tour is read in
+    /// so that it never overshoots - a whole euro, a whole dinar, since amounts are stored in
+    /// the smallest unit a currency counts in. None when the family is everybody - there is
+    /// nobody else for them to pay for - and when that comes to less than one whole unit: a
+    /// debt of 60 cents asks nobody to pay "a bill of up to about 0".
     pub evens_at: Option<Cents>,
 }
 
@@ -109,6 +112,7 @@ pub struct NextPayer {
 /// the card of whoever settles for the family says, so the two cannot disagree.
 pub fn next_to_pay(tour: &Tour, transfers: &[Transfer], too_small: Cents) -> Vec<NextPayer> {
     let total = tour.persons.iter().map(|p| p.weight as i64).sum::<i64>();
+    let whole = tour.currency().stored_per_whole().max(1) as i128;
     let mut next: Vec<NextPayer> = families(tour)
         .into_iter()
         .filter_map(|fam| {
@@ -117,10 +121,10 @@ pub fn next_to_pay(tour: &Tour, transfers: &[Transfer], too_small: Cents) -> Vec
                 return None;
             }
             let others = total - fam.weight as i64;
-            let evens_at = (others > 0).then(|| {
-                let bill = owes.0 as i128 * total as i128 / others as i128;
-                Cents((bill / 100 * 100) as i64)
-            });
+            let evens_at = (others > 0)
+                .then(|| owes.0 as i128 * total as i128 / others as i128 / whole * whole)
+                .filter(|bill| *bill > 0)
+                .map(|bill| Cents(bill as i64));
             Some(NextPayer { head: fam.head, owes, evens_at })
         })
         .collect();
@@ -1150,6 +1154,38 @@ mod tests {
             next(&tour),
             vec![("Boris".into(), 15_000, Some(30_000)), ("Vera".into(), 7_500, Some(10_000))],
         );
+    }
+
+    /// Stored amounts are in the smallest unit a currency counts in. Rounding by a hundred
+    /// regardless made a dinar bill of 1 645 read "about 1 600", and a debt of 60 cents
+    /// "a bill of up to about 0".
+    #[test]
+    fn the_bill_is_rounded_to_a_whole_unit_of_the_currency() {
+        let four = serde_json::json!([
+            {"GUID": "anna", "Name": "Anna", "Weight": 100},
+            {"GUID": "boris", "Name": "Boris", "Weight": 100},
+            {"GUID": "vera", "Name": "Vera", "Weight": 100},
+            {"GUID": "gleb", "Name": "Gleb", "Weight": 100}
+        ]);
+        let in_currency = |cents: bool, spent: i64| {
+            let json = serde_json::json!({
+                "Id": "t", "Name": "t", "Persons": four,
+                "Currencies": [{"_id": "C", "Name": "C", "CurrencyRate": 10000, "WithCents": cents}],
+                "TourCurrencyId": "C",
+                "Spendings": [
+                    {"GUID": "a", "Description": "dinner", "Type": "Food", "AmountInCents": spent,
+                     "FromGuid": "anna", "ToAll": true, "ToGuid": []}
+                ]
+            });
+            Tour::from_json(&json.to_string()).expect("tour")
+        };
+        // Dinars: 4 936 spent, 1 234 each; three quarters of a bill is 1 234 at 1 645.
+        assert_eq!(next(&in_currency(false, 4_936))[0].2, Some(1_645));
+        // Euros: 12,34 each; 16,45 is 16 whole euros.
+        assert_eq!(next(&in_currency(true, 4_936))[0].2, Some(1_600));
+        // 0,60 € each: 0,80 is not a bill anybody pays.
+        assert_eq!(next(&in_currency(true, 240))[0].1, 60);
+        assert_eq!(next(&in_currency(true, 240))[0].2, None);
     }
 
     #[test]

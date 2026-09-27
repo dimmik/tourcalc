@@ -118,6 +118,9 @@ pub fn ToTop(
             far.set(y > screen * 2.0);
         }
     };
+    // Asked at once, not only on the next scroll: the tour's screen is rebuilt after every
+    // edit, and a button that waited for a scroll vanished under the reader's thumb each time.
+    check();
     let listener = window_event_listener(leptos::ev::scroll, move |_| check());
     on_cleanup(move || listener.remove());
     let up = move |_| {

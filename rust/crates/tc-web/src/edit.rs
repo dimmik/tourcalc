@@ -95,8 +95,12 @@ pub struct SpendingDraft {
     pub in_cents: Option<bool>,
     /// Opened to record what somebody else pays - from "who pays next" or their card: saving
     /// it leaves alone whom this device's next expense starts from (see [`default_payer`]).
-    /// The form's business only, never queued.
-    #[serde(skip)]
+    ///
+    /// Kept with a draft left unsaved, not skipped: typed into for Dima, closed, and carried
+    /// into the next plain "+ Spend", a draft that forgot this made Dima whom this phone's
+    /// expenses start from the moment it was saved. Queued with the edit too, where nothing
+    /// reads it; absent from an older one, which is "no".
+    #[serde(default)]
     pub on_behalf: bool,
 }
 
