@@ -202,24 +202,33 @@
         .tcw-row-figs, .tcw-row-acts { display: none; }
         .tcw-legend { display: none; }
         .tcw-legend.is-shown { display: block; }
-        /* Wide, the row is a line of a table: Paid, Charged, Balance and the everyday buttons
-           in fixed columns, so they line up from one person to the next. The labels are shown
-           on the first line only, where they head the columns. */
-        @media (min-width: 760px) {
-            .tcw-row-figs { display: grid; grid-template-columns: repeat(3, 8.5em); gap: 6px;
+        .tcw-table-only { display: none; }
+        /* From a phone on its side (~560px) the row is a line of a table: Paid, Charged and
+           Balance in fixed columns, so they line up from one person to the next, each one line
+           tall - the row is no thicker than on a phone held upright. The labels are shown on
+           the first line only, where they head the columns. The buttons join the row where
+           there is room for them (below). */
+        @media (min-width: 560px) {
+            .tcw-row-figs { display: grid; grid-template-columns: 7em 7em 11em; gap: 4px;
                 flex: 0 0 auto; align-items: center; }
             .tcw-row-figs .tcn-stat { text-align: right; }
             .tcw-row-figs .tcn-stat-label { display: none; }
             .tcn-people-list > .tcn-family:first-child > .tcn-person .tcw-row-figs .tcn-stat-label { display: block; }
             /* figures in a table, not three boxes a line: the frame shows on hover, as a hint
                that each opens its list */
-            .tcw-row-figs .tcn-statbtn { text-align: right; padding: 4px 6px; border-color: transparent;
+            .tcw-row-figs .tcn-statbtn { text-align: right; padding: 3px 6px; border-color: transparent;
                 background: none; }
             .tcw-row-figs .tcn-statbtn:hover { border-color: var(--tcn-border, #e5e7eb); }
-            .tcw-row-acts { display: flex; gap: 6px; flex: 0 0 13.5em; justify-content: flex-end; }
+            /* "owes 64,89" on one line, where the phone's three cells put it on two */
+            .tcw-row-figs .tcn-statbtn-dir { display: inline; margin-right: .3em; }
             .tcw-row-chip { display: none; }
             .tcw-narrow-only { display: none !important; }
+            .tcw-table-only { display: inline; }
             .tcw-legend { display: block; }
+        }
+        @media (min-width: 960px) {
+            .tcw-row-acts { display: flex; gap: 6px; flex: 0 0 13.5em; justify-content: flex-end; }
+            .tcw-below-wide { display: none !important; }
         }
         /* "↑": back to the top of a long list. Round, quiet, and above "+ Spend" where there
            is one - in the same column, so a thumb finds both in one place */

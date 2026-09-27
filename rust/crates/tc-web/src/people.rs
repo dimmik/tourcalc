@@ -670,8 +670,10 @@ fn PersonBlock(
                           amount=paid own=None />
                     <Stat which=Which::Charged person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
                           amount=charged own=None />
+                    // One line, like the chip it stands in for: the payer's own debt would make
+                    // it two, so that one is in the open block's facts.
                     <Stat which=Which::Balance person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
-                          amount=shown own=split_family.then_some(debt) />
+                          amount=shown own=None />
                 </div>
                 <div class="tcw-row-acts">
                     <button type="button" class="tcn-btn tcn-btn-sm"
@@ -735,6 +737,13 @@ fn PersonBlock(
                             {t().people.why_balance}
                         </crate::explain::Explain>
                     </span>
+                    // Where the row carries the figures: on a phone the Balance cell below
+                    // says it already.
+                    {split_family.then(|| view! {
+                        <span class="tcw-table-only">
+                            {t().people.own} " " <b>{balance_words(debt, &unit_for_stats.get_value())}</b>
+                        </span>
+                    })}
                 </div>
                 // On a phone: the figures and buttons the wide row already shows.
                 <div class="tcn-person-stats tcw-narrow-only">
@@ -757,7 +766,7 @@ fn PersonBlock(
                             }>
                         {t().people.spend}
                     </button>
-                    <button type="button" class="tcn-btn tcn-btn-sm tcw-narrow-only"
+                    <button type="button" class="tcn-btn tcn-btn-sm tcw-below-wide"
                             on:click={
                                 let who = for_edit.clone();
                                 move |_| dialog.set(Some(Dialog::Person(PersonDraft::of(&who))))
@@ -765,7 +774,7 @@ fn PersonBlock(
                         {t().people.edit}
                     </button>
                     {payer.clone().map(|who| view! {
-                        <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for tcw-narrow-only"
+                        <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for tcw-below-wide"
                                 on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
                             {t().people.pays_for_button}
                         </button>
