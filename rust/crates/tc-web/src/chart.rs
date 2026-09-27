@@ -131,6 +131,12 @@ pub fn matches(chosen: &str, category: &str) -> bool {
     chosen.is_empty() || chosen == category.trim() || chosen == head_of(category)
 }
 
+/// The categories a row of the chart stands for, out of all of them: itself, or - for a head
+/// - everything under it. What the expense list is narrowed to when the row is followed there.
+pub fn categories_under(key: &str, all: &[String]) -> Vec<String> {
+    all.iter().filter(|c| !key.is_empty() && matches(key, c)).cloned().collect()
+}
+
 /// The top level of a set of categories: everything under one head added up under it.
 ///
 /// A head covering exactly one entry keeps that entry's full name - collapsing "Taxi /
@@ -259,6 +265,9 @@ pub fn Composition(
     into: Callback<String>,
     /// ...and back out again.
     out: Callback<()>,
+    /// The expenses behind a row, on the Expenses tab - given where rows are categories.
+    #[prop(optional_no_strip)]
+    show: Option<Callback<String>>,
 ) -> impl IntoView {
     let magic = crate::settings::piechart_magic();
     let slices = StoredValue::new(slices(&rows, magic));
@@ -392,6 +401,8 @@ pub fn Composition(
                             let children = s.row.inside.clone();
                             let parent_colour = s.colour.clone();
                             let open = key.clone();
+                            let show_open = key.clone();
+                            let show_label = s.row.label.clone();
                             let unit_children = unit_rows.clone();
                             view! {
                                 <div style="display:flex; align-items:center; gap:4px">
@@ -471,8 +482,23 @@ pub fn Composition(
                                                 child.amount.0.abs() as f64 * 100.0 / whole as f64
                                             };
                                             let unit = unit.clone();
+                                            let child_key = child.key.clone();
+                                            let key_for_keys = child.key.clone();
+                                            let child_title = show.map(|_| (t().chart.show_expenses)(&child.label));
                                             view! {
-                                                <div style="display:flex; align-items:center;
+                                                // Pressed, one of the things inside: its own
+                                                // expenses - "Food / restaurant", not all food.
+                                                <div class="tcw-compo-child" class:is-link=show.is_some()
+                                                     role=show.map(|_| "button") tabindex=show.map(|_| "0")
+                                                     title=child_title
+                                                     on:click=move |_| if let Some(go) = show { go.run(child_key.clone()) }
+                                                     on:keydown=move |ev| {
+                                                         if let (Some(go), "Enter" | " ") = (show, ev.key().as_str()) {
+                                                             ev.prevent_default();
+                                                             go.run(key_for_keys.clone());
+                                                         }
+                                                     }
+                                                     style="display:flex; align-items:center;
                                                             gap:7px; padding:3px 7px 3px 24px">
                                                     <span style=format!(
                                                         "flex:0 0 auto; width:8px; height:8px; \
@@ -499,6 +525,18 @@ pub fn Composition(
                                         .collect_view()
                                         .into_any()
                                 }}
+
+                                // Chosen, the way to its expenses: pressing the row itself
+                                // already means "light it up on the ring".
+                                {move || (show.is_some() && chosen.get() == show_open).then(|| {
+                                    let key = show_open.clone();
+                                    view! {
+                                        <button type="button" class="tcn-linkbtn tcw-compo-show"
+                                                on:click=move |_| if let Some(go) = show { go.run(key.clone()) }>
+                                            {(t().chart.show_expenses)(&show_label)}
+                                        </button>
+                                    }
+                                })}
                             }
                         })
                         .collect_view()}
@@ -718,6 +756,17 @@ mod tests {
         // more under it than there is - and there is nothing to open.
         assert_eq!(top[1].key, "Taxi / airport");
         assert!(!top[1].has_inside());
+    }
+
+    #[test]
+    fn following_a_head_to_the_expenses_takes_all_of_it() {
+        let all: Vec<String> = ["Food", "Food / restaurant", "Food/shop", "Taxi", "Foodstuff"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(categories_under("Food", &all), ["Food", "Food / restaurant", "Food/shop"]);
+        assert_eq!(categories_under("Food / restaurant", &all), ["Food / restaurant"]);
+        assert!(categories_under("", &all).is_empty());
     }
 
     #[test]

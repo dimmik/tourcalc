@@ -290,6 +290,7 @@ pub const TEXTS: Texts = Texts {
         not_in_it: "Не участвуют: ",
     },
     tour: TourTexts {
+        to_top: "Наверх",
         delete_expense: |what| format!("Удалить «{what}»?"),
         delete_person: |name| format!("Удалить участника «{name}»?"),
         delete_person_then: |name, also| format!("Удалить участника «{name}»? Тогда {}.", also.join(", и ")),
@@ -654,6 +655,7 @@ pub const TEXTS: Texts = Texts {
         cannot_copy: "Браузер не дал странице скопировать.",
     },
     chart: ChartTexts {
+        show_expenses: |what| format!("Показать траты: {what} →"),
         all_of_them: "↑ все",
         what_money_went_on: "На что ушли деньги",
         total: "всего",

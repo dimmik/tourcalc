@@ -394,6 +394,8 @@ pub struct CheckTexts {
 
 /// The ring in Stats.
 pub struct ChartTexts {
+    /// Under a chosen category: its expenses, on the Expenses tab.
+    pub show_expenses: fn(&str) -> String,
     pub all_of_them: &'static str,
     pub what_money_went_on: &'static str,
     pub total: &'static str,
@@ -691,6 +693,7 @@ pub struct SyncTexts {
 
 /// A tour's page: its header, its tabs, and what deleting from it asks.
 pub struct TourTexts {
+    pub to_top: &'static str,
     pub delete_expense: fn(&str) -> String,
     pub delete_person: fn(&str) -> String,
     pub delete_person_then: fn(&str, &[String]) -> String,

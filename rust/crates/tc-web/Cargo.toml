@@ -22,6 +22,8 @@ web-sys = { version = "0.3", features = [
     "MessageEvent", "MessagePort",
     # "Today's rate": a request that gives up rather than hanging on a bad network.
     "AbortSignal",
+    # "↑": back to the top of a long list, gliding rather than jumping.
+    "ScrollToOptions", "ScrollBehavior", "DomRect",
     # A form that opens puts the cursor in its first box: typing starts at once.
     "HtmlElement",
 ] }

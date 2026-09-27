@@ -278,6 +278,7 @@ pub const TEXTS: Texts = Texts {
         not_in_it: "Not in it: ",
     },
     tour: TourTexts {
+        to_top: "Back to the top",
         delete_expense: |what| format!("Delete '{what}'?"),
         delete_person: |name| format!("Delete '{name}'?"),
         delete_person_then: |name, also| format!("Delete '{name}'? Then {}.", also.join(", and ")),
@@ -644,6 +645,7 @@ pub const TEXTS: Texts = Texts {
         cannot_copy: "This browser would not let the page copy it.",
     },
     chart: ChartTexts {
+        show_expenses: |what| format!("Show these expenses: {what} →"),
         all_of_them: "↑ all of them",
         what_money_went_on: "What the money went on",
         total: "total",

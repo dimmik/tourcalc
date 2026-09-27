@@ -78,6 +78,65 @@ pub fn unit(tour: &tc_core::Tour) -> String {
 /// Puts the cursor in `node` once it is on the screen - for a form that opens: somebody who
 /// opened "add a person" starts typing the name at once, and the letters went nowhere.
 /// After the frame, so that whatever shows the form has laid it out.
+/// Brings the start of the tab's content up to just under the tab bar, when the page is
+/// scrolled past it: a jump from the bottom of one tab to another should land at the start
+/// of the other, not at the same depth in it - nor above the tour's header, a screen away
+/// from the list. Under the bar, not at the top of the screen: the bar sticks there, and the
+/// search box scrolled to the top went under it.
+pub fn scroll_to_tabs() {
+    let Some(w) = web_sys::window() else { return };
+    let Some(bar) = w
+        .document()
+        .and_then(|d| d.query_selector(".tcn-tabs, .tcm-tabs").ok().flatten())
+    else {
+        return;
+    };
+    let Some(content) = bar.next_element_sibling() else { return };
+    let under = bar.get_bounding_client_rect().bottom() + 8.0;
+    let top = content.get_bounding_client_rect().top();
+    if top < under {
+        w.scroll_by_with_x_and_y(0.0, top - under);
+    }
+}
+
+/// "↑", floating once a list has been scrolled well down: a hundred expenses in, the way back
+/// to the search box and the filters was a long swipe. Keyboards have Home; phones do not.
+///
+/// Shown past two screens, not one - a list that is a screen and a half long is back at the
+/// top with a flick, and a button that appears for it is one more thing over the list.
+#[component]
+pub fn ToTop(
+    /// Sits above "+ Spend" where there is one, so that the two do not overlap.
+    #[prop(optional)]
+    above_fab: bool,
+) -> impl IntoView {
+    let far = RwSignal::new(false);
+    let check = move || {
+        if let Some(w) = web_sys::window() {
+            let y = w.scroll_y().unwrap_or(0.0);
+            let screen = w.inner_height().ok().and_then(|h| h.as_f64()).unwrap_or(800.0);
+            far.set(y > screen * 2.0);
+        }
+    };
+    let listener = window_event_listener(leptos::ev::scroll, move |_| check());
+    on_cleanup(move || listener.remove());
+    let up = move |_| {
+        if let Some(w) = web_sys::window() {
+            let options = web_sys::ScrollToOptions::new();
+            options.set_top(0.0);
+            options.set_behavior(web_sys::ScrollBehavior::Smooth);
+            w.scroll_to_with_scroll_to_options(&options);
+        }
+    };
+    view! {
+        <Show when=move || far.get()>
+            <button type="button" class="tcw-top" class:is-above-fab=above_fab
+                    title=crate::i18n::t().tour.to_top aria-label=crate::i18n::t().tour.to_top
+                    on:click=up>"↑"</button>
+        </Show>
+    }
+}
+
 pub fn focus_when_shown(node: NodeRef<leptos::html::Input>) {
     Effect::new(move |_| {
         if let Some(el) = node.get() {
