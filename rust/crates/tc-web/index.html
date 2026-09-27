@@ -132,6 +132,11 @@
         /* The change log at the foot of Help: one folded help section. The summary takes
            the look of the section's heading, with its own marker, so it reads as
            something that opens. */
+        /* The newest change, above the folded log: what is new, without opening anything. */
+        .tcw-latest { margin: 18px 0 10px; padding: 10px 14px; border-radius: var(--tcn-radius-sm, 8px);
+            background: var(--tcn-primary-soft, #eef2ff); line-height: 1.45; }
+        .tcw-latest-head { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+            color: var(--tcn-primary, #4f46e5); margin-bottom: 4px; }
         .tcw-changes > summary {
             list-style: none;
             cursor: pointer;
@@ -228,6 +233,9 @@
                right-aligned it left a hole between the two. Left-aligned, the signs line up down
                the list - "+" and "−" read as a column of their own. */
             .tcw-row-figs .tcn-stat:last-child { text-align: left; padding-left: 14px; }
+            /* its heading over the figure in the chip, not over the chip's edge: 9px of padding
+               and a 1px border in */
+            .tcw-row-figs .tcn-stat:last-child .tcn-stat-label { padding-left: 10px; }
             /* figures in a table, not three boxes a line: the frame shows on hover, as a hint
                that each opens its list */
             .tcw-row-figs .tcn-statbtn { text-align: right; padding: 3px 6px; border-color: transparent;
