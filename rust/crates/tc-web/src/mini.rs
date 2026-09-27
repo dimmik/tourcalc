@@ -400,8 +400,26 @@ fn MiniPeople(
     let common = common_weight(&tour);
     let balances = calculate(&tour, Options::default());
     let in_unit = in_unit(&tour);
+    // Who had better pay the next bill - the roomy interface's card, in one line. Not while
+    // the tour is being settled up: then the payments are what is being decided.
+    let settling = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
+    let next = crate::people::next_to_pay(&tour, &all_transfers, crate::settings::threshold(&tour))
+        .into_iter()
+        .next()
+        .filter(|_| !settling);
 
     view! {
+        {next.map(|n| {
+            let why = match n.evens_at {
+                Some(bill) => format!("{} {}", t().people.next_hint, (t().people.next_evens)(&money(bill))),
+                None => t().people.next_hint.to_owned(),
+            };
+            view! {
+                <div class="tcm-next" title=why>
+                    {(t().mini.next_to_pay)(&n.head.name, &money(n.owes))}
+                </div>
+            }
+        })}
         <div class="tcm-bar">
             <button type="button" class="tcm-btn"
                     on:click=move |_| dialog.set(Some(Dialog::Person(PersonDraft::new())))>

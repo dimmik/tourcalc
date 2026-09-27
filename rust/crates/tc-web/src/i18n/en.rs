@@ -95,6 +95,7 @@ pub const TEXTS: Texts = Texts {
         drafts_section: |sum| format!("Drafts · {sum}"),
     },
     mini: MiniTexts {
+        next_to_pay: |who, amount| format!("Next to pay: {who}, owes {amount}"),
         pays_for_button: "+ pays for…",
         settling_hint: "The tour is being settled up",
         settling: "settling",
@@ -517,6 +518,12 @@ pub const TEXTS: Texts = Texts {
         restore: "Restore",
     },
     people: PeopleTexts {
+        next_title: "Who pays next",
+        next_owes: |amount| format!("Owes the most: {amount}."),
+        next_evens: |bill| format!("A bill for everyone of up to about {bill} evens that out."),
+        next_then: |who, amount| format!("After them: {who}, {amount}."),
+        next_hint: "When whoever owes the most pays the next bill for everyone, the fewest \
+                    payments are left to make at the end.",
         pays_for_button: "+ Pays for…",
         paid: "Paid",
         charged: "Charged",

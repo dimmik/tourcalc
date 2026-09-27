@@ -468,6 +468,13 @@ pub struct ListTexts {
 /// on; so the Russian words are nouns and present or future tenses, which are the same
 /// for everyone.
 pub struct PeopleTexts {
+    /// Who had better pay the next shared bill: the heading beside their name, the biggest
+    /// debt, the bill that evens it out, the one after them, and why it is asked at all.
+    pub next_title: &'static str,
+    pub next_owes: fn(&str) -> String,
+    pub next_evens: fn(&str) -> String,
+    pub next_then: fn(&str, &str) -> String,
+    pub next_hint: &'static str,
     /// On a person who pays for themselves: open whom they pay for.
     pub pays_for_button: &'static str,
     pub paid: &'static str,
@@ -813,6 +820,7 @@ pub struct QueueTexts {
 
 /// The small interface, which says the same things in fewer letters.
 pub struct MiniTexts {
+    pub next_to_pay: fn(&str, &str) -> String,
     pub pays_for_button: &'static str,
     pub settling_hint: &'static str,
     pub settling: &'static str,

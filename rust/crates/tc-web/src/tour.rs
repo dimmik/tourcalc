@@ -2149,15 +2149,17 @@ pub fn tab_of(landing: crate::Landing) -> Tab {
         crate::Landing::Balance => Tab::Balance,
         // Until the tour is here to say. It never shows: the tab is settled the moment
         // there is a tour to settle it from, cached copy included.
-        crate::Landing::Unsaid => Tab::Expenses,
+        crate::Landing::Unsaid => Tab::People,
     }
 }
 
 /// Which tab a tour opens on when the address did not say.
 ///
 /// A tour being settled up opens on the payments, because that is the whole of what anybody
-/// is doing with it; any other one opens where expenses are added, because that is the whole
-/// of what anybody is doing with *it*.
+/// is doing with it. Any other one opens on the people: during a trip a tour is opened to
+/// see who owes what - and who had better pay next - far more often than to read through the
+/// expenses, which are a tab away. The app opens it on the expenses, and the first thing its
+/// readers did was switch away from them.
 ///
 /// Archived does not come into it. The app asks
 /// `(RawTour.IsFinalizing && !RawTour.IsArchived)` (`TourPageNew.razor:339`), so an archived
@@ -2172,7 +2174,7 @@ pub fn opens_on(tour: &Tour) -> Tab {
     if tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING) {
         Tab::Balance
     } else {
-        Tab::Expenses
+        Tab::People
     }
 }
 
@@ -2590,8 +2592,8 @@ mod tests {
     fn archiving_does_not_decide_which_tab_a_tour_opens_on() {
         assert_eq!(opens_on(&flagged(false, true)), Tab::Balance);
         assert_eq!(opens_on(&flagged(true, true)), Tab::Balance, "archived as well");
-        assert_eq!(opens_on(&flagged(true, false)), Tab::Expenses);
-        assert_eq!(opens_on(&flagged(false, false)), Tab::Expenses);
+        assert_eq!(opens_on(&flagged(true, false)), Tab::People);
+        assert_eq!(opens_on(&flagged(false, false)), Tab::People);
     }
 
     /// The app's chip row reads "бухать/вино … Гнездо/ещё … Треш и угар". A byte-order sort

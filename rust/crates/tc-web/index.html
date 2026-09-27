@@ -192,6 +192,17 @@
         .tcn-btn.tcw-pays-for, .tcm-shell .tcm-btn.tcw-pays-for {
             color: var(--tcn-primary, #4f46e5); border-color: var(--tcn-primary, #4f46e5);
             background: var(--tcn-primary-soft, #eef2ff); }
+        /* "Who pays next · Anna": above the people, in the accent's soft ground - advice, not
+           a figure of the tour, so lighter than a card and without a border of its own */
+        .tcw-next { display: grid; gap: 4px; padding: 10px 14px; border-radius: var(--tcn-radius-sm, 8px);
+            background: var(--tcn-primary-soft, #eef2ff); color: var(--tcn-text, #111827); font-size: 14px; line-height: 1.4; }
+        .tcw-next-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+        .tcw-next-title { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+            color: var(--tcn-primary, #4f46e5); }
+        .tcw-next-name { font-size: 16px; }
+        .tcw-next .tcn-hint { margin: 0; }
+        .tcm-next { margin: 0 0 6px; padding: 5px 8px; border-radius: 6px;
+            background: var(--tcn-primary-soft, #eef2ff); font-size: 13px; }
         /* "Дима pays for": a name as typed - not upper case, as a currency's code is */
         .tcw-dep-name { flex: 1 1 80px; min-width: 0; }
         /* a rate: "= [117,5] RSD"; on the reference, what it is instead */
