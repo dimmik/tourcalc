@@ -180,7 +180,7 @@ fn meaningful(amount: Cents, too_small: Cents) -> Cents {
 }
 
 /// What the reader has done to the People tab: whose card is open, whose family is showing,
-/// which sheet of numbers is up, the search box, and whether the list is drawn compact.
+/// which sheet of numbers is up, and the search box.
 ///
 /// Owned by the tour page rather than by this tab, for the reason [`crate::tour::Sifting`]
 /// is: the screen below the page is rebuilt after every edit, and a card that saving an
@@ -192,35 +192,40 @@ pub struct People {
     pub open: RwSignal<Vec<String>>,
     pub kids_open: RwSignal<Vec<String>>,
     pub sheet: RwSignal<Option<(Which, Person)>>,
-    /// One line per person, whether or not they are opened out. For a long list on a small
-    /// screen, where the roomy card is three people to a screenful. Remembered for this tour
-    /// on this device.
-    pub compact: RwSignal<bool>,
     pub search: RwSignal<String>,
 }
 
 impl People {
-    pub fn new(tour_id: &str) -> People {
-        let compact = RwSignal::new(crate::settings::compact_people(tour_id));
-        {
-            let id = tour_id.to_owned();
-            Effect::new(move |was: Option<bool>| {
-                let now = compact.get();
-                // Not on the first run: that is the value just read, not a choice.
-                if was.is_some_and(|was| was != now) {
-                    crate::settings::remember_compact_people(&id, now);
-                }
-                now
-            });
-        }
+    pub fn new() -> People {
         People {
             open: RwSignal::new(Vec::new()),
             kids_open: RwSignal::new(Vec::new()),
             sheet: RwSignal::new(None),
-            compact,
             search: RwSignal::new(String::new()),
         }
     }
+}
+
+/// Under this many people the list fits on a screen anyway, and a search box is clutter.
+/// One number for both interfaces: at exactly eight, one of them had the box and the other
+/// did not.
+pub const SEARCH_FROM: usize = 8;
+
+/// The weight almost everybody shares. Marking it on every line is a column of the same
+/// number; only those who differ from it are worth an "×".
+pub fn common_weight(tour: &Tour) -> i32 {
+    let mut counts: Vec<(i32, usize)> = Vec::new();
+    for p in &tour.persons {
+        match counts.iter_mut().find(|(w, _)| *w == p.weight) {
+            Some((_, n)) => *n += 1,
+            None => counts.push((p.weight, 1)),
+        }
+    }
+    counts
+        .into_iter()
+        .max_by_key(|(_, n)| *n)
+        .map(|(w, _)| w)
+        .unwrap_or(100)
 }
 
 #[component]
@@ -240,14 +245,11 @@ pub fn PeopleTab(
         open,
         kids_open,
         sheet,
-        compact,
         search,
     } = people;
 
     let fams = families(&tour);
     let count = tour.persons.len();
-    // Under this many, the list fits on a screen anyway and a search box is clutter.
-    const SEARCH_FROM: usize = 8;
     let searchable = count >= SEARCH_FROM;
     let tour_for_search = tour.clone();
     let everyone: Vec<String> = tour
@@ -295,14 +297,6 @@ pub fn PeopleTab(
                 </Show>
                 <Show when=move || { count > 1 }>
                     <button type="button" class="tcn-btn tcn-btn-sm"
-                            class:tcn-btn-primary=move || compact.get()
-                            title=t().people.compact_hint
-                            on:click=move |_| compact.update(|c| *c = !*c)>
-                        {t().people.compact}
-                    </button>
-                </Show>
-                <Show when=move || { count > 1 }>
-                    <button type="button" class="tcn-btn tcn-btn-sm"
                             on:click={
                                 let everyone = everyone.clone();
                                 move |_| {
@@ -345,8 +339,12 @@ pub fn PeopleTab(
 
 
 
+            // What the three figures mean - where they are on the screen: always on a wide
+            // one, on a phone once somebody is open. It explained three words nobody could
+            // see while the list was folded.
             <Show when=move || { count > 0 }>
-                <div class="tcn-hint" style="margin: -4px 2px 10px 2px">
+                <div class="tcn-hint tcw-legend" class:is-shown=move || !open.get().is_empty()
+                     style="margin: -4px 2px 10px 2px">
                     <b>{t().people.paid}</b>{t().people.legend_paid}<b>{t().people.charged}</b>
                     {t().people.legend_charged}<b>{t().people.balance}</b>
                     {t().people.legend_balance}
@@ -367,7 +365,7 @@ pub fn PeopleTab(
         } else {
             view! {
                 <div class="tcn-section">
-                    <div class="tcn-list tcn-people-list" class:is-compact=move || compact.get()>
+                    <div class="tcn-list tcn-people-list is-compact">
                         {move || {
                             let needle = search.get().trim().to_lowercase();
                             let shown = matching(&tour_for_search, &fams, &needle);
@@ -386,7 +384,7 @@ pub fn PeopleTab(
                                 .map(|fam| view! {
                                     <FamilyBlock tour=tour_for_search.clone() fam=fam
                                                  transfers=transfers.clone() open=open
-                                                 kids_open=kids_open sheet=sheet compact=compact
+                                                 kids_open=kids_open sheet=sheet
                                                  dialog=dialog delete=delete />
                                 })
                                 .collect_view()
@@ -455,7 +453,6 @@ fn FamilyBlock(
     open: RwSignal<Vec<String>>,
     kids_open: RwSignal<Vec<String>>,
     sheet: RwSignal<Option<(Which, Person)>>,
-    compact: RwSignal<bool>,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
 ) -> impl IntoView {
@@ -496,7 +493,7 @@ fn FamilyBlock(
              class:is-open=move || { covers > 0 && showing.get() }>
             <PersonBlock tour=tour.clone() person=fam.head.clone() covers=covers
                          family_weight=fam.weight transfers=transfers.clone()
-                         open=open sheet=sheet compact=compact dialog=dialog delete=delete />
+                         open=open sheet=sheet dialog=dialog delete=delete />
 
             <Show when=move || { covers > 0 }>
                 <button type="button" class="tcn-familybar" aria-expanded=move || showing.get().to_string()
@@ -514,7 +511,7 @@ fn FamilyBlock(
                         .map(|kid| view! {
                             <PersonBlock tour=tour.clone() person=kid.clone() covers=0
                                          family_weight=0 transfers=transfers.clone()
-                                         open=open sheet=sheet compact=compact
+                                         open=open sheet=sheet
                                          dialog=dialog delete=delete />
                         })
                         .collect_view()}
@@ -534,7 +531,6 @@ fn PersonBlock(
     transfers: Vec<Transfer>,
     open: RwSignal<Vec<String>>,
     sheet: RwSignal<Option<(Which, Person)>>,
-    compact: RwSignal<bool>,
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
 ) -> impl IntoView {
@@ -592,16 +588,16 @@ fn PersonBlock(
     let unit = crate::ui::unit(&tour);
     let words = balance_words(shown, &unit);
     let unit_for_stats = StoredValue::new(unit.clone());
+    let paid = balances.get(&person.id).map(|b| b.spent).unwrap_or_default();
+    let charged = balances.get(&person.id).map(|b| b.received).unwrap_or_default();
+    let common = common_weight(&tour);
     let paid_by = person
         .parent
         .as_ref()
         .and_then(|p| tour.person(p))
         .map(|p| p.name.clone());
 
-    let name = person.name.clone();
     let weight = person.weight;
-    let colour = avatar_colour(&person.name);
-    let letters = initials(&person.name);
 
     let for_edit = person.clone();
     let for_delete = person.clone();
@@ -614,165 +610,73 @@ fn PersonBlock(
     let balances_for_why = balances.clone();
     let transfers_for_why = transfers.clone();
     let for_spend = person.clone();
-    // The compact row has its own 💸, so it needs its own copies to hand to the dialog.
+    // The row has its own 💸, so it needs its own copies to hand to the dialog.
     let for_compact_spend = person.clone();
     let for_stats = person.clone();
-    let toggle_row = toggle.clone();
-    let words_row = words.clone();
-    let name_row = name.clone();
-    let colour_row = colour.clone();
-    let letters_row = letters.clone();
+    let for_row_stats = person.clone();
+    let for_row_edit = person.clone();
+    let toggle_row = toggle;
+    let words_row = words;
+    let name_row = person.name.clone();
+    let colour_row = avatar_colour(&person.name);
+    let letters_row = initials(&person.name);
     let tour_for_spend = tour.clone();
     let tour_for_compact_spend = tour.clone();
 
     view! {
-        <div class="tcn-person" class:is-child=move || is_child
-             class:is-compact=move || !is_open.get() || compact.get()>
-            // Compact draws the dense row even when the person is opened out: their numbers
-            // appear below it, which is the whole of what opening does in that mode.
-            <Show when=move || !is_open.get() || compact.get()
-                  fallback=move || {
-                      // The roomy head is the handle: clicking it folds the card back down.
-                      // It cannot be a <button> - the figures inside it are buttons
-                      // themselves, and a button inside a button is not markup a browser
-                      // accepts - so the caret beside it is what a keyboard reaches for.
-                      let words = words.clone();
-                      let name = name.clone();
-                      let colour = colour.clone();
-                      let letters = letters.clone();
-                      let paid_by = paid_by.clone();
-                      let toggle = toggle.clone();
-                      let fold = toggle.clone();
-                      view! {
-                          <div class="tcn-person-head is-handle" on:click=toggle>
-                              <span class="tcn-avatar" style=format!("background:{colour}")>
-                                  {letters}
-                              </span>
-                              <div class="tcn-person-id">
-                                  <div class="tcn-person-name">{name}</div>
-                                  <div class="tcn-person-meta" on:click=|ev| ev.stop_propagation()>
-                                      <span>
-                                          {t().people.weight} " "
-                                          <crate::explain::Explain what={
-                                              let t = tour_for_pweight.clone();
-                                              let who = person_for_pweight.clone();
-                                              Callback::new(move |()| {
-                                                  crate::explain::person_weight(&t, &who)
-                                              })
-                                          }>
-                                              <b>{weight}</b>
-                                          </crate::explain::Explain>
-                                      </span>
-                                      {paid_by.map(|n| view! { <span>{t().people.paid_by} " " <b>{n}</b></span> })}
-                                      {(covers > 0).then(|| view! {
-                                          <span>{t().people.pays_for} " " <b>{covers}</b></span>
-                                          <span title=t().people.family_weight_hint>
-                                              {t().people.family_weight} " " <b>{family_weight}</b>
-                                          </span>
-                                      })}
-                                  </div>
-                              </div>
-                              <div class="tcn-person-owe" on:click=|ev| ev.stop_propagation()>
-                                  <crate::explain::Explain what={
-                                      let t = tour_for_why.clone();
-                                      let who = person_for_why.clone();
-                                      let b = balances_for_why.clone();
-                                      let all = transfers_for_why.clone();
-                                      Callback::new(move |()| {
-                                          crate::explain::person_balance(&t, &who, &b, &all)
-                                      })
-                                  }>
-                                      <span class=format!("tcn-chip {chip_class}")>{words}</span>
-                                  </crate::explain::Explain>
-                                  {split_family.then(|| view! {
-                                      <span class="tcn-person-own"
-                                            title=t().people.own_hint>
-                                          {t().people.own} " " {balance_words(debt, &unit_for_stats.get_value())}
-                                      </span>
-                                  })}
-                              </div>
-                              <button type="button" class="tcn-person-fold" title=t().people.collapse
-                                      on:click=move |ev| { ev.stop_propagation(); fold(ev); }>
-                                  <Icon name="chevron-down" />
-                              </button>
-                          </div>
-                      }
-                  }>
-                <div class="tcn-person-row">
-                    <button type="button" class="tcn-person-open"
-                            aria-expanded=move || is_open.get().to_string()
-                            on:click=toggle_row.clone()>
-                        <span class="tcn-avatar tcn-avatar-sm"
-                              style=format!("background:{colour_row}")>{letters_row.clone()}</span>
-                        <span class="tcn-person-id">
-                            <span class="tcn-person-name">{name_row.clone()}</span>
-                            // "weight" costs about forty pixels the name wants: a weight is
-                            // a multiplier, and that is what the × says. A folded family
-                            // shows what the family weighs instead - the payer's own weight
-                            // says little while the people it covers are out of sight.
-                            {if covers == 0 {
-                                view! {
-                                    <span class="tcn-person-meta" title=(t().people.weight_hint)(weight as i64)>
-                                        "×" {weight}
-                                    </span>
-                                }.into_any()
-                            } else {
-                                view! {
-                                    <span class="tcn-chip tcn-chip-kids"
-                                          title=(t().people.family_hint)(covers, family_weight as i64)>
-                                        "👥" {covers} " ×" {family_weight}
-                                    </span>
-                                }.into_any()
-                            }}
-                        </span>
-                        <span class=format!("tcn-chip {chip_class}")>{words_row.clone()}</span>
-                        <span class="tcn-person-caret">
-                            {move || if is_open.get() { view!{<Icon name="chevron-down"/>} } else { view!{<Icon name="chevron-right"/>} }}
-                        </span>
-                    </button>
-                    <button type="button"
-                            class="tcn-btn tcn-btn-sm tcn-btn-primary tcn-person-spend"
-                            title=(t().people.spend_for)(&person.name)
-                            aria-label=(t().people.spend_for)(&person.name)
-                            on:click={
-                                let tour = tour_for_compact_spend.clone();
-                                let who = for_compact_spend.clone();
-                                move |_| {
-                                    let draft = crate::edit::SpendingDraft::paid_by(&tour, &who.id);
-                                    dialog.set(Some(Dialog::Spending(draft)));
-                                }
-                            }>
-                        "💸"
-                    </button>
-                </div>
-            </Show>
-
-            <Show when=move || is_open.get()>
-                <div class="tcn-person-stats">
-                    <Stat which=Which::Paid person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
-                          amount=balances.get(&for_stats.id).map(|b| b.spent).unwrap_or_default()
-                          own=None />
-                    <Stat which=Which::Charged person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
-                          amount=balances.get(&for_stats.id).map(|b| b.received).unwrap_or_default()
-                          own=None />
-                    <Stat which=Which::Balance person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
+        <div class="tcn-person is-compact" class:is-child=move || is_child
+             class:is-open=move || is_open.get()>
+            // One row, whatever the width and whether or not the person is open: opening adds
+            // what is below it and moves nothing in it. The roomy card this replaced swapped
+            // the row for a different one - the name moved, the weight changed places, 💸
+            // vanished from under the finger that had just found it.
+            <div class="tcn-person-row">
+                <button type="button" class="tcn-person-open"
+                        aria-expanded=move || is_open.get().to_string()
+                        on:click=toggle_row.clone()>
+                    <span class="tcn-avatar tcn-avatar-sm"
+                          style=format!("background:{colour_row}")>{letters_row.clone()}</span>
+                    <span class="tcn-person-id">
+                        <span class="tcn-person-name">{name_row.clone()}</span>
+                        // A weight only where it says something: the one almost everybody
+                        // shares is a column of the same number. A family shows what the
+                        // family weighs - the payer's own is in the open block.
+                        {if covers > 0 {
+                            view! {
+                                <span class="tcn-chip tcn-chip-kids"
+                                      title=(t().people.family_hint)(covers, family_weight as i64)>
+                                    "👥" {covers} " ×" {family_weight}
+                                </span>
+                            }.into_any()
+                        } else if weight != common {
+                            view! {
+                                <span class="tcn-person-meta" title=(t().people.weight_hint)(weight as i64)>
+                                    "×" {weight}
+                                </span>
+                            }.into_any()
+                        } else {
+                            ().into_any()
+                        }}
+                    </span>
+                    <span class=format!("tcn-chip tcw-row-chip {chip_class}")>{words_row.clone()}</span>
+                    <span class="tcn-person-caret">
+                        {move || if is_open.get() { view!{<Icon name="chevron-down"/>} } else { view!{<Icon name="chevron-right"/>} }}
+                    </span>
+                </button>
+                // On a wide screen the row is a line of a table: the three figures and the
+                // everyday buttons are in it, and nothing needs opening to be seen.
+                <div class="tcw-row-figs">
+                    <Stat which=Which::Paid person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
+                          amount=paid own=None />
+                    <Stat which=Which::Charged person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
+                          amount=charged own=None />
+                    <Stat which=Which::Balance person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
                           amount=shown own=split_family.then_some(debt) />
                 </div>
-                <div class="tcn-person-actions">
-                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
-                            on:click={
-                                let tour = tour_for_spend.clone();
-                                let who = for_spend.clone();
-                                move |_| {
-                                    let draft = crate::edit::SpendingDraft::paid_by(&tour, &who.id);
-                                    dialog.set(Some(Dialog::Spending(draft)));
-                                }
-                            }>
-                        {t().people.spend}
-                    </button>
+                <div class="tcw-row-acts">
                     <button type="button" class="tcn-btn tcn-btn-sm"
                             on:click={
-                                let who = for_edit.clone();
+                                let who = for_row_edit.clone();
                                 move |_| dialog.set(Some(Dialog::Person(PersonDraft::of(&who))))
                             }>
                         {t().people.edit}
@@ -783,6 +687,91 @@ fn PersonBlock(
                             {t().people.pays_for_button}
                         </button>
                     })}
+                </div>
+                <button type="button"
+                        class="tcn-btn tcn-btn-sm tcn-btn-primary tcn-person-spend"
+                        title=(t().people.spend_for)(&person.name)
+                        aria-label=(t().people.spend_for)(&person.name)
+                        on:click={
+                            let tour = tour_for_compact_spend.clone();
+                            let who = for_compact_spend.clone();
+                            move |_| {
+                                let draft = crate::edit::SpendingDraft::paid_by(&tour, &who.id);
+                                dialog.set(Some(Dialog::Spending(draft)));
+                            }
+                        }>
+                    "💸"
+                </button>
+            </div>
+
+            <Show when=move || is_open.get()>
+                // What the roomy card's head used to carry, and the row has no room for.
+                <div class="tcn-person-facts">
+                    <span>
+                        {t().people.weight} " "
+                        <crate::explain::Explain what={
+                            let t = tour_for_pweight.clone();
+                            let who = person_for_pweight.clone();
+                            Callback::new(move |()| crate::explain::person_weight(&t, &who))
+                        }>
+                            <b>{weight}</b>
+                        </crate::explain::Explain>
+                    </span>
+                    {paid_by.clone().map(|n| view! { <span>{t().people.paid_by} " " <b>{n}</b></span> })}
+                    {(covers > 0).then(|| view! {
+                        <span>{t().people.pays_for} " " <b>{covers}</b></span>
+                        <span title=t().people.family_weight_hint>
+                            {t().people.family_weight} " " <b>{family_weight}</b>
+                        </span>
+                    })}
+                    <span>
+                        <crate::explain::Explain what={
+                            let t = tour_for_why.clone();
+                            let who = person_for_why.clone();
+                            let b = balances_for_why.clone();
+                            let all = transfers_for_why.clone();
+                            Callback::new(move |()| crate::explain::person_balance(&t, &who, &b, &all))
+                        }>
+                            {t().people.why_balance}
+                        </crate::explain::Explain>
+                    </span>
+                </div>
+                // On a phone: the figures and buttons the wide row already shows.
+                <div class="tcn-person-stats tcw-narrow-only">
+                    <Stat which=Which::Paid person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
+                          amount=paid own=None />
+                    <Stat which=Which::Charged person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
+                          amount=charged own=None />
+                    <Stat which=Which::Balance person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
+                          amount=shown own=split_family.then_some(debt) />
+                </div>
+                <div class="tcn-person-actions">
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary tcw-narrow-only"
+                            on:click={
+                                let tour = tour_for_spend.clone();
+                                let who = for_spend.clone();
+                                move |_| {
+                                    let draft = crate::edit::SpendingDraft::paid_by(&tour, &who.id);
+                                    dialog.set(Some(Dialog::Spending(draft)));
+                                }
+                            }>
+                        {t().people.spend}
+                    </button>
+                    <button type="button" class="tcn-btn tcn-btn-sm tcw-narrow-only"
+                            on:click={
+                                let who = for_edit.clone();
+                                move |_| dialog.set(Some(Dialog::Person(PersonDraft::of(&who))))
+                            }>
+                        {t().people.edit}
+                    </button>
+                    {payer.clone().map(|who| view! {
+                        <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for tcw-narrow-only"
+                                on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
+                            {t().people.pays_for_button}
+                        </button>
+                    })}
+                    // Not in the wide row: a button that deletes somebody does not belong
+                    // one slip away from Edit on every line of the list.
                     <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
                             on:click={
                                 let who = for_delete.clone();

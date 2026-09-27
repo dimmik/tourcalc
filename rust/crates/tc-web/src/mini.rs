@@ -397,12 +397,12 @@ fn MiniPeople(
     let search = RwSignal::new(String::new());
     let open: RwSignal<Option<String>> = RwSignal::new(None);
     let count = tour.persons.len();
-    let searchable = count > 8;
+    let searchable = count >= crate::people::SEARCH_FROM;
     let total_weight = tour.total_weight();
 
     // The weight almost everybody shares is not worth a column of ink - only the people who
     // differ from it are worth marking.
-    let common = common_weight(&tour);
+    let common = crate::people::common_weight(&tour);
     let balances = calculate(&tour, Options::default());
     let in_unit = in_unit(&tour);
     // Who had better pay the next bill - the roomy interface's card, in one line. Not while
@@ -500,22 +500,6 @@ fn MiniPeople(
             }.into_any()
         }}
     }
-}
-
-/// The weight most people are on, which is the one not worth showing.
-fn common_weight(tour: &Tour) -> i32 {
-    let mut counts: Vec<(i32, usize)> = Vec::new();
-    for p in &tour.persons {
-        match counts.iter_mut().find(|(w, _)| *w == p.weight) {
-            Some((_, n)) => *n += 1,
-            None => counts.push((p.weight, 1)),
-        }
-    }
-    counts
-        .into_iter()
-        .max_by_key(|(_, n)| *n)
-        .map(|(w, _)| w)
-        .unwrap_or(100)
 }
 
 #[component]

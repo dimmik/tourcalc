@@ -192,6 +192,35 @@
         .tcn-btn.tcw-pays-for, .tcm-shell .tcm-btn.tcw-pays-for {
             color: var(--tcn-primary, #4f46e5); border-color: var(--tcn-primary, #4f46e5);
             background: var(--tcn-primary-soft, #eef2ff); }
+        /* People: one row per person at every width (the grid of roomy cards is gone). The
+           name wraps rather than being cut to "Ва…"; opening adds a block under the row. */
+        .tcn-people-list .tcn-person-open .tcn-person-id { flex-wrap: wrap; row-gap: 0; }
+        .tcn-people-list .tcn-person-open .tcn-person-name { white-space: normal; overflow: visible;
+            text-overflow: clip; overflow-wrap: anywhere; }
+        .tcn-person-facts { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 2px 0 6px 38px;
+            font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        .tcw-row-figs, .tcw-row-acts { display: none; }
+        .tcw-legend { display: none; }
+        .tcw-legend.is-shown { display: block; }
+        /* Wide, the row is a line of a table: Paid, Charged, Balance and the everyday buttons
+           in fixed columns, so they line up from one person to the next. The labels are shown
+           on the first line only, where they head the columns. */
+        @media (min-width: 760px) {
+            .tcw-row-figs { display: grid; grid-template-columns: repeat(3, 8.5em); gap: 6px;
+                flex: 0 0 auto; align-items: center; }
+            .tcw-row-figs .tcn-stat { text-align: right; }
+            .tcw-row-figs .tcn-stat-label { display: none; }
+            .tcn-people-list > .tcn-family:first-child > .tcn-person .tcw-row-figs .tcn-stat-label { display: block; }
+            /* figures in a table, not three boxes a line: the frame shows on hover, as a hint
+               that each opens its list */
+            .tcw-row-figs .tcn-statbtn { text-align: right; padding: 4px 6px; border-color: transparent;
+                background: none; }
+            .tcw-row-figs .tcn-statbtn:hover { border-color: var(--tcn-border, #e5e7eb); }
+            .tcw-row-acts { display: flex; gap: 6px; flex: 0 0 13.5em; justify-content: flex-end; }
+            .tcw-row-chip { display: none; }
+            .tcw-narrow-only { display: none !important; }
+            .tcw-legend { display: block; }
+        }
         /* "↑": back to the top of a long list. Round, quiet, and above "+ Spend" where there
            is one - in the same column, so a thumb finds both in one place */
         .tcw-top { position: fixed; right: max(16px, calc(50vw - 528px)); bottom: 20px; z-index: 44;
