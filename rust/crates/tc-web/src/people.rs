@@ -224,8 +224,9 @@ impl People {
 /// did not.
 pub const SEARCH_FROM: usize = 8;
 
-/// The weight almost everybody shares. Marking it on every line is a column of the same
-/// number; only those who differ from it are worth an "×".
+/// The weight almost everybody shares - which Mini leaves unmarked, its column too narrow for
+/// the same number on every line. The roomy People list marks everybody's: a line without
+/// "×" read there as a person without a weight.
 ///
 /// On a tie - two at 100 and two at 50 - the full share, 100, if it is one of them, and
 /// otherwise the heavier. `max_by_key` alone took whichever came last, so the same tour
@@ -267,7 +268,6 @@ pub fn PeopleTab(
     } = people;
 
     let fams = families(&tour);
-    let common = common_weight(&tour);
     // Whether anybody on screen is open: somebody opened and then searched out of the list,
     // or tucked into a folded family, is not a figure the legend can be explaining.
     let showing_figures = {
@@ -421,7 +421,7 @@ pub fn PeopleTab(
                             shown
                                 .into_iter()
                                 .map(|fam| view! {
-                                    <FamilyBlock tour=tour_for_search.clone() fam=fam common=common
+                                    <FamilyBlock tour=tour_for_search.clone() fam=fam
                                                  transfers=transfers.clone() open=open
                                                  kids_open=kids_open sheet=sheet
                                                  dialog=dialog delete=delete />
@@ -488,9 +488,6 @@ fn NextPayerCard(
 fn FamilyBlock(
     tour: Tour,
     fam: Family,
-    /// The weight nearly everybody shares - see [`common_weight`]. Worked out once for the
-    /// list, not once a line.
-    common: i32,
     transfers: Vec<Transfer>,
     open: RwSignal<Vec<String>>,
     kids_open: RwSignal<Vec<String>>,
@@ -534,7 +531,7 @@ fn FamilyBlock(
         <div class="tcn-family" class:has-kids=move || { covers > 0 }
              class:is-open=move || { covers > 0 && showing.get() }>
             <PersonBlock tour=tour.clone() person=fam.head.clone() covers=covers
-                         family_weight=fam.weight common=common transfers=transfers.clone()
+                         family_weight=fam.weight transfers=transfers.clone()
                          open=open sheet=sheet dialog=dialog delete=delete />
 
             <Show when=move || { covers > 0 }>
@@ -552,7 +549,7 @@ fn FamilyBlock(
                         .iter()
                         .map(|kid| view! {
                             <PersonBlock tour=tour.clone() person=kid.clone() covers=0
-                                         family_weight=0 common=common transfers=transfers.clone()
+                                         family_weight=0 transfers=transfers.clone()
                                          open=open sheet=sheet
                                          dialog=dialog delete=delete />
                         })
@@ -570,7 +567,6 @@ fn PersonBlock(
     /// How many people this person pays for. Zero for everybody else.
     covers: usize,
     family_weight: i32,
-    common: i32,
     transfers: Vec<Transfer>,
     open: RwSignal<Vec<String>>,
     sheet: RwSignal<Option<(Which, Person)>>,
@@ -680,9 +676,10 @@ fn PersonBlock(
                           style=format!("background:{colour_row}")>{letters_row.clone()}</span>
                     <span class="tcn-person-id">
                         <span class="tcn-person-name">{name_row.clone()}</span>
-                        // A weight only where it says something: the one almost everybody
-                        // shares is a column of the same number. A family shows what the
-                        // family weighs - the payer's own is in the open block.
+                        // Everybody's weight, the common one too: with it left out, a line
+                        // with no "×" read as a person with no weight, and the reader had to
+                        // open them to find out it was 100. A family shows what the family
+                        // weighs - the payer's own is in the open block.
                         {if covers > 0 {
                             view! {
                                 <span class="tcn-chip tcn-chip-kids"
@@ -690,14 +687,12 @@ fn PersonBlock(
                                     "👥" {covers} " ×" {family_weight}
                                 </span>
                             }.into_any()
-                        } else if weight != common {
+                        } else {
                             view! {
                                 <span class="tcn-person-meta" title=(t().people.weight_hint)(weight as i64)>
                                     "×" {weight}
                                 </span>
                             }.into_any()
-                        } else {
-                            ().into_any()
                         }}
                     </span>
                     <span class=format!("tcn-chip tcw-row-chip {chip_class}") title=words_row.clone()>
