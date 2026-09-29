@@ -56,6 +56,8 @@ pub struct PushStats {
     pub refused: std::sync::atomic::AtomicU64,
     /// No answer at all: the network, a timeout.
     pub unreachable: std::sync::atomic::AtomicU64,
+    /// Never sent: the request could not be made - a subscription whose keys cannot be used.
+    pub unprepared: std::sync::atomic::AtomicU64,
     /// "When, which push service, what it said" for the last refusal or silence.
     pub last_problem: std::sync::Mutex<String>,
 }
@@ -94,6 +96,7 @@ impl PushStats {
             "delivered": self.delivered.load(Relaxed),
             "refused": self.refused.load(Relaxed),
             "unreachable": self.unreachable.load(Relaxed),
+            "unprepared": self.unprepared.load(Relaxed),
             "lastProblem": text(&self.last_problem),
         })
     }
@@ -201,6 +204,8 @@ impl Notifier for WebPush {
                         .then_some(sub),
                     Err(e) => {
                         tracing::warn!("could not prepare a notification for {}: {e}", sub.url);
+                        self.stats.count(&self.stats.unprepared);
+                        self.stats.problem(&sub.url, "could not prepare");
                         None
                     }
                 }
