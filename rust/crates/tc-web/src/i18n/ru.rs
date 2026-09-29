@@ -201,7 +201,7 @@ pub const TEXTS: Texts = Texts {
         json: "json",
     },
     queue: QueueTexts {
-        pays_for: |names| format!("за кого платит: {names}"),
+        pays_for: |names| format!("спутники: {names}"),
         expense_removed: "удалена трата",
         person_removed: "удалён участник",
         renamed: |name| format!("новое название «{name}»"),
@@ -567,7 +567,7 @@ pub const TEXTS: Texts = Texts {
         paid_for_by: "— платит",
         weight: "вес",
         paid_by: "за счёт",
-        pays_for: "платит за",
+        pays_for: "спутников:",
         family_weight_hint: "Вес, который семья несёт на всех",
         family_weight: "вес семьи",
         own: "свой:",
