@@ -94,6 +94,9 @@ async fn info_version(
         "subscriptionsForgotten": state
             .forgotten_subscriptions
             .load(std::sync::atomic::Ordering::Relaxed),
+        // Whether notifications reached the push services since start - for "I changed the
+        // tour and nothing came". Null on a server with no push keys.
+        "notifications": state.push.stats().map(|s| s.as_json()),
     }))
 }
 

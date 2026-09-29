@@ -30,6 +30,73 @@ pub trait Notifier: Send + Sync {
         tour_id: &str,
         message: &str,
     ) -> Vec<Subscription>;
+
+    /// What has come of the notifications sent since start, for `/api/Info/version`. Only a
+    /// notifier that really sends keeps any.
+    fn stats(&self) -> Option<&PushStats> {
+        None
+    }
+}
+
+/// What came of the notifications sent since start: whether they reached the push services,
+/// and the last thing that went wrong. Counts and times only - `/api/Info/version`, where
+/// they are shown, is open to anybody, so no tour, message or subscription is kept here.
+///
+/// For the question "I changed the tour and nothing came": a save that had subscribers
+/// shows in `saves_told`, and each of its notifications in one of the outcomes. What the
+/// phone then does with a delivered one is beyond the server's sight.
+#[derive(Default)]
+pub struct PushStats {
+    /// Saves that had somebody to tell, and when the last one was.
+    pub saves_told: std::sync::atomic::AtomicU64,
+    pub last_told: std::sync::Mutex<String>,
+    /// Accepted by the push service (a 2xx).
+    pub delivered: std::sync::atomic::AtomicU64,
+    /// Answered with anything else but "gone" - a refused key, a rate limit, an error.
+    pub refused: std::sync::atomic::AtomicU64,
+    /// No answer at all: the network, a timeout.
+    pub unreachable: std::sync::atomic::AtomicU64,
+    /// "When, which push service, what it said" for the last refusal or silence.
+    pub last_problem: std::sync::Mutex<String>,
+}
+
+impl PushStats {
+    fn count(&self, counter: &std::sync::atomic::AtomicU64) {
+        counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    #[cfg_attr(not(feature = "push"), allow(dead_code))]
+    fn problem(&self, endpoint: &str, what: &str) {
+        // The push service's host, not the endpoint: the rest of it is the subscription.
+        let host = endpoint
+            .split("://")
+            .nth(1)
+            .and_then(|rest| rest.split('/').next())
+            .unwrap_or("?");
+        if let Ok(mut last) = self.last_problem.lock() {
+            *last = format!("{} {host} {what}", crate::fields::now_stamp());
+        }
+    }
+
+    pub fn told(&self, subscribers: usize) {
+        self.count(&self.saves_told);
+        if let Ok(mut last) = self.last_told.lock() {
+            *last = format!("{} to {subscribers}", crate::fields::now_stamp());
+        }
+    }
+
+    pub fn as_json(&self) -> serde_json::Value {
+        use std::sync::atomic::Ordering::Relaxed;
+        let text = |m: &std::sync::Mutex<String>| m.lock().map(|s| s.clone()).unwrap_or_default();
+        serde_json::json!({
+            "savesTold": self.saves_told.load(Relaxed),
+            "lastTold": text(&self.last_told),
+            "delivered": self.delivered.load(Relaxed),
+            "refused": self.refused.load(Relaxed),
+            "unreachable": self.unreachable.load(Relaxed),
+            "lastProblem": text(&self.last_problem),
+        })
+    }
 }
 
 /// What came of one delivery. Only two answers matter to the caller: the subscription is
@@ -70,6 +137,7 @@ pub struct WebPush {
     /// Who to contact about this server, as the push services ask.
     #[cfg_attr(not(feature = "push"), allow(dead_code))]
     contact: String,
+    stats: PushStats,
 }
 
 impl WebPush {
@@ -86,6 +154,7 @@ impl WebPush {
             } else {
                 contact.trim().to_owned()
             },
+            stats: PushStats::default(),
         })
     }
 
@@ -101,6 +170,10 @@ use futures_util::StreamExt;
 impl Notifier for WebPush {
     fn public_key(&self) -> &str {
         &self.public_key
+    }
+
+    fn stats(&self) -> Option<&PushStats> {
+        Some(&self.stats)
     }
 
     async fn notify(
@@ -202,7 +275,10 @@ impl WebPush {
             send = send.header(name, value);
         }
         match send.send().await {
-            Ok(response) if response.status().is_success() => Delivery::Sent,
+            Ok(response) if response.status().is_success() => {
+                self.stats.count(&self.stats.delivered);
+                Delivery::Sent
+            }
             // What a push service says when the subscription is finished with: 404 the
             // endpoint never existed, 410 the browser withdrew it. Anything else - the
             // service being down, a rate limit - is temporary and keeps its row.
@@ -212,10 +288,14 @@ impl WebPush {
             }
             Ok(response) => {
                 tracing::warn!("{} answered {}", sub.url, response.status());
+                self.stats.count(&self.stats.refused);
+                self.stats.problem(&sub.url, &response.status().to_string());
                 Delivery::Sent
             }
             Err(e) => {
                 tracing::warn!("could not reach {}: {e}", sub.url);
+                self.stats.count(&self.stats.unreachable);
+                self.stats.problem(&sub.url, "no answer");
                 Delivery::Sent
             }
         }
