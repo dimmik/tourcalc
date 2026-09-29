@@ -671,7 +671,7 @@ fn MiniPerson(
                         {pays_for_others.clone().map(|who| view! {
                             <button type="button" class="tcm-btn tcw-pays-for"
                                     on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
-                                {t().mini.pays_for_button}
+                                {(t().mini.companions_button)(covers)}
                             </button>
                         })}
                         <button type="button" class="tcm-btn is-danger"
