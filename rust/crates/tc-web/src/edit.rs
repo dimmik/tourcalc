@@ -465,8 +465,13 @@ pub fn family_of(p: &Person) -> String {
 /// Where somebody who pays for themselves stands in a list: "together" first, then the name,
 /// run together as the app does - so a group sits where its name falls among everybody
 /// else's, and the two clients show one order.
+///
+/// "ё" is read as "е". The app compares by the language's rules (.NET's culture comparison),
+/// which put "Ёжик" between "Егор" and "Женя"; compared by code point, "ё" comes after "я",
+/// and Ёжик went to the end of the list here and nowhere near it there. Nothing short of a
+/// collation library matches .NET everywhere; this is the case the tours actually meet.
 pub fn order_key(p: &Person) -> String {
-    format!("{}{}", family_of(p), p.name).to_lowercase()
+    format!("{}{}", family_of(p), p.name).to_lowercase().replace('ё', "е")
 }
 
 impl PersonDraft {
@@ -1588,6 +1593,21 @@ mod together_tests {
     #[test]
     fn people_together_stand_side_by_side() {
         assert_eq!(names(&sorted_people(&tour())), ["Anna", "Boris", "Zoe", "Vera", "Kid"]);
+    }
+
+    #[test]
+    fn yo_sorts_as_ye_as_it_does_in_the_app() {
+        let json = serde_json::json!({
+            "Id": "t", "Name": "t", "Spendings": [],
+            "Persons": [
+                {"GUID": "a", "Name": "Яна", "Weight": 100},
+                {"GUID": "b", "Name": "Ёжик", "Weight": 100},
+                {"GUID": "c", "Name": "Женя", "Weight": 100},
+                {"GUID": "d", "Name": "Егор", "Weight": 100}
+            ]
+        });
+        let t = Tour::from_json(&json.to_string()).expect("tour");
+        assert_eq!(names(&sorted_people(&t)), ["Егор", "Ёжик", "Женя", "Яна"]);
     }
 
     #[test]
