@@ -96,7 +96,7 @@ pub const TEXTS: Texts = Texts {
     },
     mini: MiniTexts {
         next_to_pay: |who, amount| format!("Next to pay: {who}, owes {amount}"),
-        pays_for_button: "+ pays for…",
+        companions_button: |n| if n == 0 { "+ companions".into() } else { format!("companions · {n}") },
         settling_hint: "The tour is being settled up",
         settling: "settling",
         archived_hint: "Archived, hidden from the default list",
@@ -384,11 +384,13 @@ pub const TEXTS: Texts = Texts {
         go_to_tours: "Go to my tours",
     },
     dialogs: DialogTexts {
-        dependants_of: |name| format!("{name} pays for"),
+        dependants_of: |name| format!("Companions — {name}"),
         dependant_add: "add someone…",
         dependant_weight: "weight",
-        dependants_note: "Weight 100 is a grown-up's share; 50 half of it, say for a child. ✕ takes \
-            somebody out: they stay in the tour and pay for themselves again.",
+        dependants_note: "Companions travel at this person's expense - children, a partner, a \
+            friend: their shares count as one family's, and this person settles up for all of them. \
+            Weight 100 is a grown-up's share, 50 half of it. ✕ takes somebody off the list: they \
+            stay in the tour and pay for themselves again.",
         cancel: "Cancel",
         save: "Save",
         carried: "Carried over from what you were typing.",
@@ -529,7 +531,7 @@ pub const TEXTS: Texts = Texts {
         next_then: |who, amount| format!("After them: {who}, {amount}."),
         next_hint: "When whoever owes the most pays the next bill for everyone, the fewest \
                     payments are left to make at the end.",
-        pays_for_button: "+ Pays for…",
+        companions_button: |n| if n == 0 { "+ Companions".into() } else { format!("Companions · {n}") },
         paid: "Paid",
         charged: "Charged",
         balance: "Balance",

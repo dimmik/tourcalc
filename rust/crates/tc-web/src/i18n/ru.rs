@@ -105,7 +105,7 @@ pub const TEXTS: Texts = Texts {
     },
     mini: MiniTexts {
         next_to_pay: |who, amount| format!("Платить следующим: {who}, долг {amount}"),
-        pays_for_button: "+ платит за…",
+        companions_button: |n| if n == 0 { "+ спутники".into() } else { format!("спутники · {n}") },
         settling_hint: "Идёт расчёт по туру",
         settling: "расчёт",
         archived_hint: "В архиве, скрыт из списка по умолчанию",
@@ -397,11 +397,13 @@ pub const TEXTS: Texts = Texts {
         go_to_tours: "К моим турам",
     },
     dialogs: DialogTexts {
-        dependants_of: |name| format!("{name} платит за"),
+        dependants_of: |name| format!("Спутники — {name}"),
         dependant_add: "добавить…",
         dependant_weight: "вес",
-        dependants_note: "Вес 100 — доля взрослого; 50 — половина, например за ребёнка. ✕ убирает \
-            человека отсюда: он остаётся в туре и снова платит за себя сам.",
+        dependants_note: "Спутники едут за счёт этого человека — дети, партнёр, друг: их доли \
+            считаются одной семьёй, и рассчитывается за всех этот человек. Вес 100 — доля взрослого, \
+            50 — половина. ✕ убирает из спутников: человек остаётся в туре и снова платит за себя \
+            сам.",
         cancel: "Отмена",
         save: "Сохранить",
         carried: "Восстановлено то, что вы вводили в прошлый раз.",
@@ -540,7 +542,7 @@ pub const TEXTS: Texts = Texts {
         next_then: |who, amount| format!("Дальше — {who}, {amount}."),
         next_hint: "Если следующий общий счёт оплачивает тот, чей долг больше всех, в конце \
                     остаётся меньше всего расчётов.",
-        pays_for_button: "+ Платит за…",
+        companions_button: |n| if n == 0 { "+ Спутники".into() } else { format!("Спутники · {n}") },
         paid: "Вклад",
         charged: "Доля",
         balance: "Баланс",

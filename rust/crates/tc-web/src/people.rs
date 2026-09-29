@@ -723,7 +723,7 @@ fn PersonBlock(
                     {payer.clone().map(|who| view! {
                         <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for"
                                 on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
-                            {t().people.pays_for_button}
+                            {(t().people.companions_button)(covers)}
                         </button>
                     })}
                     <button type="button" class="tcn-btn tcn-btn-sm"
@@ -827,7 +827,7 @@ fn PersonBlock(
                     {payer.clone().map(|who| view! {
                         <button type="button" class="tcn-btn tcn-btn-sm tcw-pays-for tcw-below-wide"
                                 on:click=move |_| dialog.set(Some(Dialog::Dependants(who.clone())))>
-                            {t().people.pays_for_button}
+                            {(t().people.companions_button)(covers)}
                         </button>
                     })}
                     // Not in the wide row: a button that deletes somebody does not belong

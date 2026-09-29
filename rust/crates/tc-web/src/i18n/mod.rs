@@ -479,7 +479,9 @@ pub struct PeopleTexts {
     pub next_hint: &'static str,
     pub next_spend: fn(&str) -> String,
     /// On a person who pays for themselves: open whom they pay for.
-    pub pays_for_button: &'static str,
+    /// "+ Companions", or "Companions · 2" once there are some: whom a person takes along
+    /// and pays for.
+    pub companions_button: fn(usize) -> String,
     pub paid: &'static str,
     pub charged: &'static str,
     pub balance: &'static str,
@@ -827,7 +829,9 @@ pub struct QueueTexts {
 /// The small interface, which says the same things in fewer letters.
 pub struct MiniTexts {
     pub next_to_pay: fn(&str, &str) -> String,
-    pub pays_for_button: &'static str,
+    /// "+ Companions", or "Companions · 2" once there are some: whom a person takes along
+    /// and pays for.
+    pub companions_button: fn(usize) -> String,
     pub settling_hint: &'static str,
     pub settling: &'static str,
     pub archived_hint: &'static str,
