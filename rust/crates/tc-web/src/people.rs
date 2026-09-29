@@ -59,7 +59,10 @@ fn families(tour: &Tour) -> Vec<Family> {
         cur.id.clone()
     };
 
-    let by_name = |a: &Person, b: &Person| a.name.to_lowercase().cmp(&b.name.to_lowercase());
+    // "Together" and then the name, as the app sorts - see `edit::order_key`.
+    let by_name = |a: &Person, b: &Person| {
+        crate::edit::order_key(a).cmp(&crate::edit::order_key(b))
+    };
 
     let mut heads: Vec<&Person> = tour
         .persons

@@ -467,15 +467,23 @@ fn MiniPeople(
                         let hit = |p: &Person| {
                             needle.is_empty() || p.name.to_lowercase().contains(&needle)
                         };
-                        tour.persons
-                            .iter()
-                            .filter(|p| p.parent.is_none())
+                        // In the app's order, as the roomy list is: "together", then the
+                        // name. This list used to follow the order people were added in.
+                        let by_key = |a: &&Person, b: &&Person| {
+                            crate::edit::order_key(a).cmp(&crate::edit::order_key(b))
+                        };
+                        let mut heads: Vec<&Person> =
+                            tour.persons.iter().filter(|p| p.parent.is_none()).collect();
+                        heads.sort_by(by_key);
+                        heads
+                            .into_iter()
                             .flat_map(|head| {
-                                let kids: Vec<&Person> = tour
+                                let mut kids: Vec<&Person> = tour
                                     .persons
                                     .iter()
                                     .filter(|k| k.parent.as_ref() == Some(&head.id))
                                     .collect();
+                                kids.sort_by(by_key);
                                 // A family is shown whole if anybody in it matches.
                                 let shown = hit(head) || kids.iter().any(|k| hit(k));
                                 let family_weight =

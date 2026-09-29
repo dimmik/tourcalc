@@ -701,6 +701,10 @@ pub fn PersonDialog(
             .map(|p| p.as_str().to_owned())
             .unwrap_or_default(),
     );
+    // "Together", out of the way under "More": rarely set, and only ever a sort key. Open from
+    // the start when it has a value, so that a value is never hidden.
+    let family = RwSignal::new(draft.family.clone().unwrap_or_default());
+    let more = RwSignal::new(!family.get_untracked().trim().is_empty());
     let error = RwSignal::new(String::new());
 
     // Somebody cannot pay for themselves, and a payer who is paid for by another would
@@ -724,6 +728,12 @@ pub fn PersonDialog(
         d.weight = weight.get_untracked().trim().parse::<i32>().unwrap_or(0);
         let p = parent.get_untracked();
         d.parent = (!p.is_empty()).then(|| PersonId::new(p));
+        // Written only when somebody touched it or it had a value: a new person saved without
+        // opening "More" leaves the field out, as the app does.
+        let f = family.get_untracked();
+        if d.family.is_some() || !f.trim().is_empty() {
+            d.family = Some(f);
+        }
         d
     });
 
@@ -743,6 +753,7 @@ pub fn PersonDialog(
         name.set(fresh.name.clone());
         weight.set(fresh.weight.to_string());
         parent.set(String::new());
+        family.set(String::new());
         error.set(String::new());
         crate::drafts::forget_person(&tour_id.get_value());
         carried.set(false);
@@ -868,6 +879,27 @@ pub fn PersonDialog(
                     {t().dialogs.paid_for_note}
                 </div>
             </div>
+
+            // What is rarely set, one tap off - as "More options" on an expense.
+            <button type="button" class="tcn-btn tcn-btn-ghost tcn-btn-block"
+                    on:click=move |_| more.update(|m| *m = !*m)>
+                {move || if more.get() {
+                    view! { <crate::icon::Icon name="chevron-down" /> }
+                } else {
+                    view! { <crate::icon::Icon name="chevron-right" /> }
+                }}
+                {t().dialogs.more_options}
+            </button>
+            <Show when=move || more.get()>
+                <div class="tcn-field" style="margin-top:8px">
+                    <label class="tcn-label" for="tcw-together">{t().dialogs.together}</label>
+                    <input id="tcw-together" class="tcn-input" type="text"
+                           placeholder=t().dialogs.together_placeholder
+                           prop:value=move || family.get()
+                           on:input=move |ev| family.set(event_target_value(&ev)) />
+                    <div class="tcn-hint">{t().dialogs.together_note}</div>
+                </div>
+            </Show>
 
         </Modal>
     }

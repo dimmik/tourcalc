@@ -404,13 +404,16 @@ fn set_currency(spending: &mut Spending, tour: &Tour, id: &str) {
 /// The C# sorts on the parent's name with the child's appended, which is what puts the
 /// family together and keeps it in one piece.
 pub fn sorted_people(tour: &Tour) -> Vec<tc_core::Person> {
+    // "Together" in front of every name down the chain, as the app does
+    // (`SortedByNameAndDependency`): a family stays under its payer, and people who are
+    // together stand side by side.
     fn key(p: &tc_core::Person, tour: &Tour, depth: usize) -> String {
         if depth > 50 {
             return String::new();
         }
         match p.parent.as_ref().and_then(|id| tour.person(id)) {
-            Some(parent) => format!("{}{}", key(parent, tour, depth + 1), p.name),
-            None => p.name.clone(),
+            Some(parent) => format!("{}{}", key(parent, tour, depth + 1), order_key(p)),
+            None => order_key(p),
         }
     }
     let mut people = tour.persons.clone();
@@ -443,6 +446,27 @@ pub struct PersonDraft {
     /// Whether this edits somebody already in the tour. See [`SpendingDraft::editing`].
     #[serde(default)]
     pub editing: bool,
+    /// "Together": people with the same text stand next to each other in lists - the app's
+    /// `FamilyId`, see [`family_of`]. `None` leaves whatever is stored: an edit queued before
+    /// this field existed must not wipe a value set since. `Some("")` clears it.
+    #[serde(default)]
+    pub family: Option<String>,
+}
+
+/// The field the app keeps "together" in. Only ever a sort key: people sharing it are listed
+/// side by side (the app puts it in front of the name, `PersonNameWithFamily`). Nothing is
+/// drawn for it and the arithmetic does not read it - that is `GroupId`, a different thing.
+pub const FAMILY: &str = "FamilyId";
+
+pub fn family_of(p: &Person) -> String {
+    tc_core::extras::str_of(&p.extras, FAMILY).trim().to_owned()
+}
+
+/// Where somebody who pays for themselves stands in a list: "together" first, then the name,
+/// run together as the app does - so a group sits where its name falls among everybody
+/// else's, and the two clients show one order.
+pub fn order_key(p: &Person) -> String {
+    format!("{}{}", family_of(p), p.name).to_lowercase()
 }
 
 impl PersonDraft {
@@ -454,6 +478,7 @@ impl PersonDraft {
             weight: 100,
             parent: None,
             editing: false,
+            family: None,
         }
     }
 
@@ -464,6 +489,7 @@ impl PersonDraft {
             weight: p.weight,
             parent: p.parent.clone(),
             editing: true,
+            family: Some(family_of(p)),
         }
     }
 
@@ -487,22 +513,34 @@ pub fn put_person(tour: &Tour, draft: &PersonDraft) -> Tour {
         .clone()
         .unwrap_or_else(|| PersonId::new(String::new()));
 
-    match next.persons.iter_mut().find(|p| p.id == id) {
-        Some(existing) => {
+    let person = match next.persons.iter_mut().position(|p| p.id == id) {
+        Some(i) => {
+            let existing = &mut next.persons[i];
             existing.name = draft.name.trim().to_owned();
             existing.weight = draft.weight;
             existing.parent = draft.parent.clone();
+            i
         }
         // Removed by somebody else while this waited: their removal stands.
         None if draft.editing => return tour.clone(),
-        None => next.persons.push(Person {
-            id,
-            name: draft.name.trim().to_owned(),
-            weight: draft.weight,
-            parent: draft.parent.clone(),
-            group: None,
-            extras: Default::default(),
-        }),
+        None => {
+            next.persons.push(Person {
+                id,
+                name: draft.name.trim().to_owned(),
+                weight: draft.weight,
+                parent: draft.parent.clone(),
+                group: None,
+                extras: Default::default(),
+            });
+            next.persons.len() - 1
+        }
+    };
+    if let Some(family) = &draft.family {
+        let extras = &mut next.persons[person].extras;
+        match family.trim() {
+            "" => tc_core::extras::remove(extras, FAMILY),
+            text => tc_core::extras::set(extras, FAMILY, text.into()),
+        }
     }
     next
 }
@@ -1518,5 +1556,65 @@ mod payer_tests {
         let mut t = tour();
         t.spendings.clear();
         assert_eq!(default_payer(&t, None).as_str(), "anna");
+    }
+}
+
+#[cfg(test)]
+mod together_tests {
+    use super::*;
+
+    /// Boris and Zoe are "Smiths"; Vera pays for Kid; Anna is on her own.
+    fn tour() -> Tour {
+        let json = serde_json::json!({
+            "Id": "t", "Name": "t",
+            "Persons": [
+                {"GUID": "vera", "Name": "Vera", "Weight": 100},
+                {"GUID": "zoe", "Name": "Zoe", "Weight": 100, "FamilyId": "Smiths"},
+                {"GUID": "anna", "Name": "Anna", "Weight": 100},
+                {"GUID": "kid", "Name": "Kid", "Weight": 50, "ParentId": "vera"},
+                {"GUID": "boris", "Name": "Boris", "Weight": 100, "FamilyId": "Smiths"}
+            ],
+            "Spendings": []
+        });
+        Tour::from_json(&json.to_string()).expect("tour")
+    }
+
+    fn names(people: &[Person]) -> Vec<&str> {
+        people.iter().map(|p| p.name.as_str()).collect()
+    }
+
+    /// As the app sorts: "together" in front of the name, so the Smiths stand side by side
+    /// where "Smiths" falls among the names, and a child stays under whoever pays for them.
+    #[test]
+    fn people_together_stand_side_by_side() {
+        assert_eq!(names(&sorted_people(&tour())), ["Anna", "Boris", "Zoe", "Vera", "Kid"]);
+    }
+
+    #[test]
+    fn together_is_written_and_cleared() {
+        let t = tour();
+        let mut d = PersonDraft::of(t.person(&PersonId::new("anna")).unwrap());
+        d.family = Some(" Smiths ".into());
+        let t = put_person(&t, &d);
+        assert_eq!(family_of(t.person(&PersonId::new("anna")).unwrap()), "Smiths");
+        d.family = Some(String::new());
+        let t = put_person(&t, &d);
+        let anna = t.person(&PersonId::new("anna")).unwrap();
+        assert!(tc_core::extras::str_of(&anna.extras, FAMILY).is_empty());
+        assert!(!t.to_json().unwrap().contains("\"FamilyId\":\"\""), "cleared, not written empty");
+    }
+
+    /// An edit queued before "together" existed says nothing about it - and must not wipe
+    /// a value somebody set since.
+    #[test]
+    fn an_older_queued_edit_leaves_together_alone() {
+        let old = serde_json::json!({
+            "id": "zoe", "name": "Zoe", "weight": 80, "parent": null, "editing": true
+        });
+        let d: PersonDraft = serde_json::from_value(old).expect("an older draft");
+        assert_eq!(d.family, None);
+        let t = put_person(&tour(), &d);
+        let zoe = t.person(&PersonId::new("zoe")).unwrap();
+        assert_eq!((zoe.weight, family_of(zoe).as_str()), (80, "Smiths"));
     }
 }
