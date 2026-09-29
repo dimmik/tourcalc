@@ -565,6 +565,10 @@ pub struct DialogTexts {
     pub date: &'static str,
     pub date_note: &'static str,
     pub more_options: &'static str,
+    /// A person's "together": a sort key only, see `edit::FAMILY`.
+    pub together: &'static str,
+    pub together_placeholder: &'static str,
+    pub together_note: &'static str,
     pub split_chosen: &'static str,
     pub split_how: &'static str,
     pub by_weight: &'static str,

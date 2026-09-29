@@ -418,6 +418,9 @@ pub const TEXTS: Texts = Texts {
         date_note: "Only the day changes; an expense keeps its place among the ones entered \
             the same day.",
         more_options: " More options",
+        together: "Together",
+        together_placeholder: "e.g. the Smiths",
+        together_note: "People with the same text stand next to each other in the lists. Nothing else changes: what anybody pays or gets stays the same.",
         split_chosen: "Split the chosen people",
         split_how: "How the chosen people share it",
         by_weight: "by weight",
