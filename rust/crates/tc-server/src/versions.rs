@@ -15,19 +15,17 @@ use tc_core::{Kind, Person, Spending, Tour};
 
 /// The line for a save, or `None` when nothing worth recording changed.
 pub fn describe_change(old: &Tour, new: &Tour) -> Option<String> {
-    // Somebody was removed: name whoever is in the old list and not the new one.
+    // Somebody removed, or added: everybody who is in one list and not the other. The C#
+    // named only the last of the new list, so two companions added in one save read as one
+    // - "P 'Эмма' added" for Эмма and Артём. No C# server writes these any more, and one of
+    // them the same is still "P 'Эмма' added".
     if old.persons.len() > new.persons.len() {
-        let gone = old
-            .persons
-            .iter()
-            .rfind(|p| !new.persons.iter().any(|q| q.id == p.id));
-        return Some(format!("P '{}' deleted", gone.map_or("--", |p| &p.name)));
+        let gone = quoted(old.persons.iter().filter(|p| !new.persons.iter().any(|q| q.id == p.id)));
+        return Some(format!("P {gone} deleted"));
     }
-    // Somebody was added: the C# names the last of the new list, which is where an addition
-    // lands.
     if old.persons.len() < new.persons.len() {
-        let added = new.persons.last();
-        return Some(format!("P '{}' added", added.map_or("--", |p| &p.name)));
+        let added = quoted(new.persons.iter().filter(|p| !old.persons.iter().any(|q| q.id == p.id)));
+        return Some(format!("P {added} added"));
     }
 
     let old_real: Vec<&Spending> = real(old);
@@ -93,6 +91,17 @@ fn real(tour: &Tour) -> Vec<&Spending> {
         .iter()
         .filter(|s| s.kind != Kind::Planned)
         .collect()
+}
+
+/// "'Артём', 'Эмма'" - each name in the quotes the history's lines use; "'--'" for nobody,
+/// which is what the C# wrote when it could not find one.
+fn quoted<'a>(people: impl Iterator<Item = &'a tc_core::Person>) -> String {
+    let names: Vec<String> = people.map(|p| format!("'{}'", p.name)).collect();
+    if names.is_empty() {
+        "'--'".to_owned()
+    } else {
+        names.join(", ")
+    }
 }
 
 fn name_in(tour: &Tour, id: &tc_core::PersonId) -> String {
@@ -267,6 +276,24 @@ mod tests {
     }
 
     /// The copy inside the expense is refreshed with the worth; the currency is the same one.
+    /// Two companions added in one save are both named; the C# named only the last.
+    #[test]
+    fn everybody_added_or_removed_at_once_is_named() {
+        let mut two_more = tour(4400, 117_500);
+        for (id, name) in [("emma", "Эмма"), ("artem", "Артём")] {
+            let mut p = two_more.persons[0].clone();
+            p.id = tc_core::PersonId::new(id);
+            p.name = name.into();
+            two_more.persons.push(p);
+        }
+        let before = tour(4400, 117_500);
+        assert_eq!(describe_change(&before, &two_more).as_deref(), Some("P 'Эмма', 'Артём' added"));
+        assert_eq!(describe_change(&two_more, &before).as_deref(), Some("P 'Эмма', 'Артём' deleted"));
+        let mut one_more = before.clone();
+        one_more.persons.push(two_more.persons[1].clone());
+        assert_eq!(describe_change(&before, &one_more).as_deref(), Some("P 'Эмма' added"), "one reads as before");
+    }
+
     #[test]
     fn a_new_worth_is_not_a_change_of_currency() {
         let said = describe_change(&tour(4400, 117_000), &tour(4445, 117_500)).unwrap_or_default();
