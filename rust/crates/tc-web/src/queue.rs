@@ -25,6 +25,14 @@ use tc_core::{PersonId, SpendingId, Tour};
 /// Deliberately the intent ("this person's weight is now 50") and not the result ("here is
 /// the whole tour"). A result cannot be replayed onto a tour that has moved on; an intent
 /// can.
+///
+/// **Stored, and read back by later versions of the app**: a queue written offline is sent
+/// by whatever version is loaded when the network returns. So a variant here, and in
+/// [`crate::edit::MenuEdit`], is never renamed or removed, and the fields of what it carries
+/// only gain `#[serde(default)]` ones - an old one stays, carried out in the new way.
+/// `rust/fixtures/queue-operations.json` holds every form ever stored and the test
+/// `every_stored_form_is_still_read` reads them; a new variant adds its form there. What still
+/// cannot be read is put aside rather than lost - see [`pending`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Operation {
     PutSpending(SpendingDraft),
@@ -293,11 +301,73 @@ fn changed() {
 }
 
 /// What is still waiting to be sent for this tour.
+///
+/// Read one operation at a time. The queue outlives the version of the app that wrote it -
+/// edits made offline are sent by whatever version is loaded when the network comes back -
+/// and an operation this version does not know (a variant renamed or removed since) used to
+/// make the whole list unreadable: every edit waiting for the network, expenses included,
+/// silently gone. Now such an operation is taken out of the queue and kept aside as it was
+/// ([`unreadable`]), the tour says so, and the rest are sent.
 pub fn pending(tour: &str) -> Vec<Operation> {
+    let Some(text) = storage().and_then(|s| s.get_item(&queue_key(tour)).ok().flatten()) else {
+        return Vec::new();
+    };
+    let (ops, odd) = read_queue(&text);
+    if !odd.is_empty() {
+        put_aside(tour, odd);
+        set_pending(tour, &ops);
+    }
+    ops
+}
+
+/// The operations in a stored queue this version can read, and the rest as they were.
+fn read_queue(text: &str) -> (Vec<Operation>, Vec<serde_json::Value>) {
+    let items = match serde_json::from_str::<Vec<serde_json::Value>>(text) {
+        Ok(items) => items,
+        // Not even a list: nothing in it can be told apart, so all of it is kept as it was.
+        Err(_) => return (Vec::new(), vec![serde_json::Value::String(text.to_owned())]),
+    };
+    let mut ops = Vec::new();
+    let mut odd = Vec::new();
+    for item in items {
+        match serde_json::from_value::<Operation>(item.clone()) {
+            Ok(op) => ops.push(op),
+            Err(_) => odd.push(item),
+        }
+    }
+    (ops, odd)
+}
+
+fn unreadable_key(tour: &str) -> String {
+    format!("__tcw_unreadable_{tour}")
+}
+
+/// Queued edits this version of the app could not read, exactly as they were stored.
+///
+/// Kept rather than dropped, so that nothing typed on this device vanishes without a word:
+/// the tour shows how many there are until the reader dismisses the line. Nothing sends them;
+/// the way to never need this is in the comment on [`Operation`].
+pub fn unreadable(tour: &str) -> Vec<serde_json::Value> {
     storage()
-        .and_then(|s| s.get_item(&queue_key(tour)).ok().flatten())
+        .and_then(|s| s.get_item(&unreadable_key(tour)).ok().flatten())
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_default()
+}
+
+fn put_aside(tour: &str, odd: Vec<serde_json::Value>) {
+    let Some(s) = storage() else { return };
+    let mut all = unreadable(tour);
+    all.extend(odd);
+    if let Ok(text) = serde_json::to_string(&all) {
+        let _ = s.set_item(&unreadable_key(tour), &text);
+    }
+}
+
+/// Forgets what [`unreadable`] kept, once the reader has seen the line about it.
+pub fn forget_unreadable(tour: &str) {
+    let Some(s) = storage() else { return };
+    let _ = s.remove_item(&unreadable_key(tour));
+    changed();
 }
 
 pub fn set_pending(tour: &str, ops: &[Operation]) {
@@ -418,6 +488,7 @@ pub fn forget_everything() {
         "__tcw_queue_",
         "__tcw_refused_",
         "__tcw_lost_",
+        "__tcw_unreadable_",
         // Nothing writes it any more (People is one list now); what older builds left goes too.
         "__tcw_compact_",
         // Whom this phone records expenses for - whose phone it was.
@@ -589,5 +660,98 @@ mod tests {
         let op = add("brand-new", 500);
         assert!(op.lost_on(&base).is_none());
         assert!(op.apply(&base).spendings.iter().any(|s| s.id.as_str() == "brand-new"));
+    }
+
+    /// What variant an operation is - by an exhaustive match, so that a new variant does not
+    /// compile until it is named here, and then fails the test below until its stored form
+    /// is in the fixture.
+    fn kind(op: &Operation) -> String {
+        use crate::edit::MenuEdit as M;
+        match op {
+            Operation::PutSpending(_) => "PutSpending",
+            Operation::RemoveSpending(_) => "RemoveSpending",
+            Operation::PutPerson(_) => "PutPerson",
+            Operation::RemovePerson(_) => "RemovePerson",
+            Operation::Rename(_) => "Rename",
+            Operation::SetCurrency(_) => "SetCurrency",
+            Operation::EditTour(_) => "EditTour",
+            Operation::SetCurrencies { .. } => "SetCurrencies",
+            Operation::RecordPayment(_) => "RecordPayment",
+            Operation::SetDependants { .. } => "SetDependants",
+            Operation::Menu(m) => {
+                return format!(
+                    "Menu.{}",
+                    match m {
+                        M::Meals(_) => "Meals",
+                        M::Days(_) => "Days",
+                        M::Buyer { .. } => "Buyer",
+                        M::Bought { .. } => "Bought",
+                        M::PutDish(_) => "PutDish",
+                        M::RemoveDish(_) => "RemoveDish",
+                        M::PutProduct(_) => "PutProduct",
+                        M::RemoveProduct(_) => "RemoveProduct",
+                        M::Daily(_) => "Daily",
+                        M::Arrive(_) => "Arrive",
+                        M::Leave(_) => "Leave",
+                        M::Start(_) => "Start",
+                        M::PutPlace(_) => "PutPlace",
+                        M::RemovePlace(_) => "RemovePlace",
+                        M::All(_) => "All",
+                    }
+                )
+            }
+        }
+        .to_owned()
+    }
+
+    const EVERY_KIND: &[&str] = &[
+        "PutSpending", "RemoveSpending", "PutPerson", "RemovePerson", "Rename", "SetCurrency",
+        "EditTour", "SetCurrencies", "RecordPayment", "SetDependants", "Menu.Meals", "Menu.Days",
+        "Menu.Buyer", "Menu.Bought", "Menu.PutDish", "Menu.RemoveDish", "Menu.PutProduct",
+        "Menu.RemoveProduct", "Menu.Daily", "Menu.Arrive", "Menu.Leave", "Menu.Start",
+        "Menu.PutPlace", "Menu.RemovePlace", "Menu.All",
+    ];
+
+    /// A queue is sent by whatever version of the app is loaded when the network comes back,
+    /// so every form an operation was ever stored in has to stay readable - and each kind of
+    /// operation has at least one form on record.
+    #[test]
+    fn every_stored_form_is_still_read() {
+        let doc: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/queue-operations.json")).expect("fixture");
+        let mut seen = std::collections::BTreeSet::new();
+        for form in doc["forms"].as_array().expect("forms") {
+            let op: Operation = serde_json::from_value(form["op"].clone())
+                .unwrap_or_else(|e| panic!("{} ({}) no longer reads: {e}", form["op"], form["as_of"]));
+            seen.insert(kind(&op));
+        }
+        for k in EVERY_KIND {
+            assert!(seen.contains(*k), "{k}: no stored form in fixtures/queue-operations.json");
+        }
+        // And the list above is complete: the match in `kind` names nothing it leaves out.
+        assert_eq!(seen.len(), EVERY_KIND.len(), "EVERY_KIND is missing some of {seen:?}");
+    }
+
+    /// One operation this version does not know no longer takes the others with it.
+    #[test]
+    fn an_unreadable_operation_is_put_aside_and_the_rest_are_read() {
+        let good = serde_json::to_value(add("kept", 700)).expect("json");
+        let text = serde_json::json!([
+            good,
+            { "Menu": { "Shopper": { "product": "rice", "who": null } } },
+            { "Rename": "Still here" },
+        ])
+        .to_string();
+
+        let (ops, odd) = read_queue(&text);
+        assert_eq!(ops.len(), 2, "both readable operations survive");
+        assert!(matches!(&ops[1], Operation::Rename(n) if n == "Still here"));
+        assert_eq!(odd.len(), 1);
+        assert!(odd[0]["Menu"]["Shopper"].is_object(), "kept exactly as stored");
+
+        // Not a list at all: nothing to send, and the text is kept.
+        let (ops, odd) = read_queue("{broken");
+        assert!(ops.is_empty());
+        assert_eq!(odd, vec![serde_json::Value::String("{broken".into())]);
     }
 }

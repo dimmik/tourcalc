@@ -835,6 +835,8 @@ pub struct SyncTexts {
     pub waiting: fn(&str) -> String,
     pub lost_one: fn(&str) -> String,
     pub lost_many: fn(&str) -> String,
+    /// How many queued edits this version could not read - see `queue::unreadable`.
+    pub unreadable_edits: fn(usize) -> String,
     pub dismiss: &'static str,
     pub offline: &'static str,
     pub never_opened: &'static str,

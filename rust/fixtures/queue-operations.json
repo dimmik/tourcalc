@@ -1,0 +1,348 @@
+{
+  "about": "Every form an offline queue operation has ever been stored in. A queue written by one version of the app is sent by a later one, so each of these must still be read - see Operation in tc-web/src/queue.rs. Add, never edit or remove.",
+  "forms": [
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "PutSpending": {
+          "id": "xgqliwi",
+          "description": "билеты туда",
+          "category": "Проезд",
+          "amount": 24540,
+          "from": "kwl66wa",
+          "everyone": true,
+          "to": [],
+          "by_weight": false,
+          "date": "2021-06-10",
+          "colour": "",
+          "currency_id": "coin",
+          "editing": true,
+          "in_cents": null,
+          "on_behalf": false,
+          "purchases": [
+            "rice"
+          ]
+        }
+      }
+    },
+    {
+      "as_of": "prod before the menu (2026-09)",
+      "op": {
+        "PutSpending": {
+          "id": "xgqliwi",
+          "description": "билеты туда",
+          "category": "Проезд",
+          "amount": 24540,
+          "from": "kwl66wa",
+          "everyone": true,
+          "to": [],
+          "by_weight": false,
+          "date": "2021-06-10",
+          "colour": "",
+          "currency_id": "coin",
+          "editing": true,
+          "in_cents": null,
+          "on_behalf": false
+        }
+      }
+    },
+    {
+      "as_of": "the first queue: nothing but the required fields",
+      "op": {
+        "PutSpending": {
+          "id": "xgqliwi",
+          "description": "билеты туда",
+          "category": "Проезд",
+          "amount": 24540,
+          "from": "kwl66wa",
+          "everyone": true,
+          "to": []
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "RemoveSpending": "xgqliwi"
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "PutPerson": {
+          "id": "se6i4vy",
+          "name": "Длинное и весьма длинное такое вот имя",
+          "weight": 100,
+          "parent": null,
+          "editing": true,
+          "family": ""
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "RemovePerson": "se6i4vy"
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Rename": "New name"
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "SetCurrency": "coin"
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "EditTour": {
+          "name": "(Fin) Поход Урал Август 2021",
+          "days": 5,
+          "archived": false,
+          "finalizing": true,
+          "menu": false
+        }
+      }
+    },
+    {
+      "as_of": "prod before the menu (2026-09)",
+      "op": {
+        "EditTour": {
+          "name": "(Fin) Поход Урал Август 2021",
+          "days": 5,
+          "archived": false,
+          "finalizing": true
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "SetCurrencies": {
+          "kept": [
+            {
+              "id": "coin",
+              "name": "coin",
+              "rate": 100,
+              "cents": false,
+              "cents_auto": false,
+              "absorb": false
+            }
+          ],
+          "main": "coin"
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "RecordPayment": {
+          "id": "pay-1",
+          "description": "Settling up",
+          "amount": 1500,
+          "currency_id": "coin",
+          "from": "se6i4vy",
+          "to": "zax4awa",
+          "in_cents": true
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "SetDependants": {
+          "payer": "se6i4vy",
+          "rows": [
+            {
+              "id": "zax4awa",
+              "name": "Kid",
+              "weight": 50
+            },
+            {
+              "id": null,
+              "name": "",
+              "weight": 100
+            }
+          ]
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "Meals": [
+            {
+              "Day": 1,
+              "Meal": "Dinner",
+              "Dish": "pasta"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "Days": 3
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "Buyer": {
+            "products": [
+              "rice"
+            ],
+            "who": "se6i4vy"
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "Bought": {
+            "product": "rice",
+            "bought": true
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "PutDish": {
+            "Id": "pasta",
+            "Name": "Pasta",
+            "Meals": [
+              "Dinner"
+            ],
+            "Ingredients": [
+              {
+                "Product": "rice",
+                "Amount": 100.0
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "RemoveDish": "pasta"
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "PutProduct": {
+            "Id": "wine",
+            "Name": "Wine",
+            "Unit": "Piece",
+            "Place": "market",
+            "Eaters": "FullWeight",
+            "OwnUnit": "btl",
+            "Category": "Drinks"
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "RemoveProduct": "wine"
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "Daily": [
+            {
+              "Product": "water",
+              "Amount": 2000.0,
+              "When": {
+                "With": "Dinner"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "Arrive": "Dinner"
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "Leave": "Breakfast"
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "Start": "2026-11-13"
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "PutPlace": {
+            "Id": "market",
+            "Name": "Market"
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "RemovePlace": "market"
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "All": [
+            {
+              "Days": 2
+            },
+            {
+              "Start": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -377,6 +377,13 @@ pub const TEXTS: Texts = Texts {
         lost_one: |what| format!("{what} was deleted by somebody else, so your edit to it was dropped."),
         lost_many: |what| format!("{what} were deleted by somebody else, so your edits to them were \
             dropped."),
+        unreadable_edits: |n| if n == 1 {
+            "An edit saved on this device by another version of the app cannot be read by this \
+            one, so it was not sent.".to_owned()
+        } else {
+            format!("{n} edits saved on this device by another version of the app cannot be read \
+                by this one, so they were not sent.")
+        },
         dismiss: "Dismiss",
         offline: "Offline — showing what this device had last",
         never_opened: "This tour has not been opened on this device before, and there is no \

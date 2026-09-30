@@ -480,6 +480,26 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                 </div>
             }.into_any()
         }}
+        // Edits waiting on this device that this version of the app cannot read - see
+        // `queue::pending`. Said once, until dismissed, so that they do not vanish unmentioned.
+        {move || {
+            queue::changes();
+            let odd = queue::unreadable(&tour_for_buttons.get_value()).len();
+            if odd == 0 {
+                return ().into_any();
+            }
+            view! {
+                <div class="tcn-section" style="padding-bottom:0">
+                    <div class="tcn-chip tcn-chip-amber tcw-wraps">
+                        {(t().sync.unreadable_edits)(odd)}
+                        <button type="button" class="tcw-others-close" aria-label=t().sync.dismiss
+                                on:click=move |_| queue::forget_unreadable(&tour_for_buttons.get_value())>
+                            "×"
+                        </button>
+                    </div>
+                </div>
+            }.into_any()
+        }}
         {move || match status.get() {
             // Nothing of this device's is waiting and the server was not reached: the copy
             // on screen is what this device had.
