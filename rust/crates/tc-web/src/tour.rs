@@ -280,10 +280,11 @@ fn ShareLink(tour: Tour, tab: RwSignal<Tab>) -> impl IntoView {
         .unwrap_or("")
         .to_owned();
     let said = crate::ui::Brief::new();
-    // Asked which: the whole tour, as the link always was, or the tab that is open - the same
-    // invitation with the tab on the end, landing the newcomer on the menu rather than on
-    // wherever the tour opens.
-    let choosing = RwSignal::new(false);
+    // A click copies the tour's link at once, as it always has; then, for a while, one more
+    // offers the open tab's - the same invitation with the tab on the end, landing the
+    // newcomer on the menu rather than on wherever the tour opens.
+    let offered = RwSignal::new(false);
+    let offers = StoredValue::new(0u32);
 
     let href = StoredValue::new(format!("/goto/{}/{}", code, tour.id));
     let copy = move |with_tab: bool| {
@@ -294,27 +295,37 @@ fn ShareLink(tour: Tour, tab: RwSignal<Tab>) -> impl IntoView {
             .map(|o| format!("{o}{path}"))
             .unwrap_or(path);
         copy_to_clipboard(&full);
-        choosing.set(false);
+    };
+    let share = move |_| {
+        copy(false);
         said.say(t().sync.link_copied);
+        // Longer than "copied" stays: long enough to decide that it was the menu you meant.
+        let n = offers.get_value().wrapping_add(1);
+        offers.set_value(n);
+        offered.set(true);
+        set_timeout(
+            move || {
+                if offers.try_get_value() == Some(n) {
+                    offered.try_set(false);
+                }
+            },
+            std::time::Duration::from_secs(15),
+        );
     };
 
     view! {
-        <button type="button" class="tcn-hero-link"
-                title=t().sync.share_hint
-                aria-expanded=move || choosing.get().to_string()
-                on:click=move |_| choosing.update(|c| *c = !*c)>
-            {move || if said.is_on() { t().sync.link_copied } else { t().sync.share_link }}
+        <button type="button" class="tcn-hero-link" title=t().sync.share_hint on:click=share>
+            {move || if said.is_on() { said.get() } else { t().sync.share_link.to_owned() }}
         </button>
-        <Show when=move || choosing.get()>
-            <span class="tcw-share-which">
-                {t().sync.share_which}
-                <button type="button" class="tcn-chip tcw-share-pick" on:click=move |_| copy(false)>
-                    {t().sync.share_tour}
-                </button>
-                <button type="button" class="tcn-chip tcw-share-pick" on:click=move |_| copy(true)>
-                    {move || (t().sync.share_tab)(tab_label(tab.get()))}
-                </button>
-            </span>
+        <Show when=move || offered.get()>
+            <button type="button" class="tcn-chip tcw-share-pick"
+                    on:click=move |_| {
+                        copy(true);
+                        offered.set(false);
+                        said.say(t().sync.tab_link_copied);
+                    }>
+                {move || (t().sync.share_tab)(tab_label(tab.get()))}
+            </button>
         </Show>
     }
 }

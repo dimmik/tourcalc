@@ -846,10 +846,9 @@ pub struct SyncTexts {
     pub share_hint: &'static str,
     pub link_copied: &'static str,
     pub share_link: &'static str,
-    /// Offered on "share link": which link.
-    pub share_which: &'static str,
-    pub share_tour: &'static str,
+    /// Offered after "share link" has copied the tour's: the open tab's instead.
     pub share_tab: fn(&str) -> String,
+    pub tab_link_copied: &'static str,
     pub and_more: fn(&str, usize) -> String,
     pub not_taken: fn(usize, &str, &str) -> String,
     pub try_again: &'static str,

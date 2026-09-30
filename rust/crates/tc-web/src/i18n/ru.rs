@@ -372,12 +372,11 @@ pub const TEXTS: Texts = Texts {
         local_copy: "локальная копия",
         stale_hint: |when| format!("Сервер недоступен. Это копия, сохранённая на устройстве \
             {when}."),
-        share_hint: "Скопировать ссылку, которая открывает этот тур или эту его вкладку",
+        share_hint: "Скопировать ссылку, которая открывает этот тур, а потом, если нужно, — эту вкладку",
         link_copied: "ссылка скопирована",
         share_link: "поделиться",
-        share_which: "ссылкой на",
-        share_tour: "тур",
-        share_tab: |tab| format!("вкладку «{tab}»"),
+        share_tab: |tab| format!("или на вкладку «{tab}»"),
+        tab_link_copied: "ссылка на вкладку скопирована",
         and_more: |first, n| format!("{first} и ещё {n}"),
         not_taken: |count, what, why| format!(
             "Сервер не принял {}: {what}. Ответ: {why}",
