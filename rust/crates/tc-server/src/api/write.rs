@@ -112,9 +112,19 @@ pub async fn update(
     } else {
         Some(asked_comment.clone())
     };
+    // The menu is written on the version too, so that a changed dinner can be found and
+    // undone - but it is not told: a tick on the shopping list is nobody's notification.
+    let menu = asked_comment
+        .is_empty()
+        .then(|| crate::versions::describe_menu(&stored, &incoming))
+        .flatten();
+    let line = match (&change, menu) {
+        (Some(money), Some(menu)) => Some(format!("{money}; {menu}")),
+        (money, menu) => money.clone().or(menu),
+    };
 
     let keep_versions = state.versioning;
-    let comment_for_version = change.clone();
+    let comment_for_version = line;
     let make_version = |previous: &Tour| -> Option<Tour> {
         if !keep_versions {
             return None;
