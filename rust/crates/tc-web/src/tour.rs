@@ -586,7 +586,11 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         if tab.get_untracked() == Tab::Menu
             && (compact || tc_core::menu::Menu::shown(&queue::with_pending(tour)).is_none())
         {
-            tab.set(opens_on(tour));
+            // A template opens on its menu; with none to show, on its people.
+            tab.set(match opens_on(tour) {
+                Tab::Menu => Tab::People,
+                other => other,
+            });
         }
     };
 
@@ -2323,7 +2327,10 @@ pub fn tab_of(landing: crate::Landing) -> Tab {
 /// tour it decides nothing; the badge in the header says it is archived and that is all.
 /// The second deliberate departure from the app, after the settlement threshold.
 pub fn opens_on(tour: &Tour) -> Tab {
-    if tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING) {
+    // A menu template has nobody on it: the catalogue is the whole of it.
+    if crate::menu::is_template(tour) {
+        Tab::Menu
+    } else if tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING) {
         Tab::Balance
     } else {
         Tab::People
@@ -2745,6 +2752,9 @@ mod tests {
         assert_eq!(opens_on(&flagged(false, true)), Tab::Balance);
         assert_eq!(opens_on(&flagged(true, true)), Tab::Balance, "archived as well");
         assert_eq!(opens_on(&flagged(true, false)), Tab::People);
+        let mut template = tour();
+        tc_core::extras::set(&mut template.extras, tc_core::extras::MENU_TEMPLATE, true.into());
+        assert_eq!(opens_on(&template), Tab::Menu, "a menu template is its catalogue");
         assert_eq!(opens_on(&flagged(false, false)), Tab::People);
     }
 

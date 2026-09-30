@@ -611,6 +611,9 @@ pub const TEXTS: Texts = Texts {
         cannot_write_tour: "could not write that tour out",
         copied: "Copied — the JSON is in the clipboard.",
         delete_question: |name| format!("Delete '{name}' and everything in it?"),
+        delete_template_question: "This is the menu template of the access code: new tours start \
+            their menu from it, and “Take from template” gives it to any tour. Without it they get \
+            the built-in catalogue. Tours made already keep their menus. Delete the template?",
         search: "Search",
         clear: "Clear",
         new_tour: "+ New tour",

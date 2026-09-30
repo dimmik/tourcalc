@@ -936,7 +936,8 @@ pub fn TourDialog(
             archived: archived.get(),
             finalizing: finalizing.get(),
             menu: Some(menu.get()),
-            template: template.get_value(),
+            // Only when it is used: a rename carrying a whole catalogue along is just weight.
+            template: if menu.get() { template.get_value() } else { None },
         };
         if let Some(why) = d.problem() {
             error.set(why.to_owned());

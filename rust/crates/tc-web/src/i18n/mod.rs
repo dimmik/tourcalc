@@ -581,6 +581,7 @@ pub struct ListTexts {
     pub cannot_write_tour: &'static str,
     pub copied: &'static str,
     pub delete_question: fn(&str) -> String,
+    pub delete_template_question: &'static str,
     pub search: &'static str,
     pub clear: &'static str,
     pub new_tour: &'static str,

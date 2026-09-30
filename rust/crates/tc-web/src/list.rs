@@ -292,7 +292,13 @@ pub fn TourListPage() -> impl IntoView {
                 return;
             };
             if let Some(obj) = body.as_object_mut() {
-                obj.insert("Name".into(), (t().list.clone_of)(&tour.name).into());
+                // A copy of the menu template is a tour, not a second template: with two, which
+                // one "Save as template" and "Take from template" mean would be the server's
+                // order to decide. Nor is it named "do not delete".
+                let template = crate::menu::is_template(&tour);
+                let name = if template { t().menu.template_title } else { tour.name.as_str() };
+                obj.insert("Name".into(), (t().list.clone_of)(name).into());
+                obj.retain(|k, _| !k.eq_ignore_ascii_case(tc_core::extras::MENU_TEMPLATE));
                 for key in ["Id", "GUID", "StateGUID"] {
                     obj.remove(key);
                 }
@@ -339,11 +345,17 @@ pub fn TourListPage() -> impl IntoView {
     });
 
     let remove = Callback::new(move |tour: Tour| {
-        let question = (t().list.delete_question)(&tour.name);
-        let confirmed = web_sys::window()
-            .and_then(|w| w.confirm_with_message(&question).ok())
-            .unwrap_or(false);
-        if !confirmed {
+        let ask = |question: &str| {
+            web_sys::window()
+                .and_then(|w| w.confirm_with_message(question).ok())
+                .unwrap_or(false)
+        };
+        if !ask(&(t().list.delete_question)(&tour.name)) {
+            return;
+        }
+        // The template is not one trip but where every next one's menu starts: asked twice,
+        // the second time saying so.
+        if crate::menu::is_template(&tour) && !ask(t().list.delete_template_question) {
             return;
         }
         trouble.set(String::new());
