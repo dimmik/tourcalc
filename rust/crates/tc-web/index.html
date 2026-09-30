@@ -221,33 +221,35 @@
            are shown on the first line only, where they head the columns. The buttons join the
            row where there is room for them (below). */
         @media (min-width: 640px) {
+            /* Cells to the top of the line, not its middle: the balance's chip is lower than a
+               figure, and centred its cell sat lower too - on the first line, its heading a
+               couple of pixels under Paid and Charged. */
             .tcw-row-figs { display: grid; grid-template-columns: 6.5em 6.5em 8em; gap: 4px;
-                flex: 0 0 auto; align-items: center; }
+                flex: 0 0 auto; align-items: start; }
             .tcw-row-figs .tcn-stat { text-align: right; }
             .tcw-row-figs .tcn-stat-label { display: none; }
             .tcn-people-list > .tcn-family:first-child > .tcn-person .tcw-row-figs .tcn-stat-label { display: block; }
             /* over the figure's own right edge, not the cell's: the button holds its text 6px
                in, plus its 1px border. (The balance's heading is set below, over its chip.) */
             .tcw-row-figs .tcn-stat:not(:last-child) .tcn-stat-label { padding-right: 7px; }
-            /* The balance keeps close to Charged: its chip is shorter than its column, and
-               right-aligned it left a hole between the two. Left-aligned, the signs line up down
-               the list - "+" and "−" read as a column of their own. */
-            .tcw-row-figs .tcn-stat:last-child { text-align: left; padding-left: 14px; }
-            /* its heading over the figure in the chip, not over the chip's edge: 9px of padding
-               and a 1px border in */
-            .tcw-row-figs .tcn-stat:last-child .tcn-stat-label { padding-left: 10px; }
+            /* The balance, heading and chip, in the middle of its column: a chip is an object,
+               not a figure in a column, and centred its heading is over it whatever its width -
+               "0" or "−12 345 RUB". It was left-aligned, the signs in a column of their own,
+               with the heading 10px in to meet the figure; centred read tidier. */
+            .tcw-row-figs .tcn-stat:last-child { text-align: center; }
             /* figures in a table, not three boxes a line: the frame shows on hover, as a hint
                that each opens its list */
             .tcw-row-figs .tcn-statbtn { text-align: right; padding: 3px 6px; border-color: transparent;
                 background: none; }
             .tcw-row-figs .tcn-statbtn:hover { border-color: var(--tcn-border, #e5e7eb); }
             /* ...except the balance: a chip, as on a phone held upright - it is the figure a row
-               is looked at for, and a chip is what finds it at a glance. Grey for somebody paid
+               is looked at for, and a chip is what finds it at a glance. 4px lower than a figure,
+               so 2px down to share its middle, the cells being topped. Grey for somebody paid
                for (their Stat is muted), red and green otherwise, the chip's own colours. */
             .tcw-row-figs .tcn-stat:last-child .tcn-statbtn { display: inline-block; width: auto;
                 max-width: 100%; padding: 2px 9px; border-radius: 999px; font-size: 12.5px;
                 background: var(--tcn-surface-2, #f3f4f6); border-color: var(--tcn-border, #e5e7eb);
-                color: var(--tcn-muted, #6b7280); }
+                color: var(--tcn-muted, #6b7280); margin-top: 2px; }
             .tcw-row-figs .tcn-stat:last-child .tcn-statbtn.is-owing { background: var(--tcn-red-soft, #fdecef);
                 border-color: #f5cdd6; color: var(--tcn-red, #b91c1c); }
             .tcw-row-figs .tcn-stat:last-child .tcn-statbtn.is-owed { background: var(--tcn-green-soft, #e7f7f1);
