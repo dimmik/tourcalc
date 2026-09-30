@@ -102,11 +102,11 @@ pub struct SpendingDraft {
     /// reads it; absent from an older one, which is "no".
     #[serde(default)]
     pub on_behalf: bool,
-    /// Recorded from the menu's shopping at this place: saving it marks that shopping as
-    /// recorded, with this expense (see `tc_core::menu::Errand::spending`). Absent from
-    /// anything queued before the menu, which is "no".
+    /// Recorded from the menu's shopping: the products it pays for. Saving it marks them
+    /// bought and recorded, with this expense (see `tc_core::menu::Purchase::spending`).
+    /// Empty for anything else, and for anything queued before the menu.
     #[serde(default)]
-    pub errand: Option<String>,
+    pub purchases: Vec<String>,
 }
 
 /// Whom a new expense starts from: whoever this device last recorded one for, as long as
@@ -180,7 +180,7 @@ impl SpendingDraft {
             editing: false,
             in_cents: None,
             on_behalf: false,
-            errand: None,
+            purchases: Vec::new(),
         }
     }
 
@@ -220,7 +220,7 @@ impl SpendingDraft {
             editing: true,
             in_cents: None,
             on_behalf: false,
-            errand: None,
+            purchases: Vec::new(),
         }
     }
 
@@ -289,11 +289,16 @@ pub fn categories(tour: &Tour) -> Vec<String> {
 /// The tour with this spending added or replaced.
 pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
     let mut next = put_spending_only(tour, draft);
-    // The shopping it was recorded from now points at it - replayed onto a tour whose menu
-    // is gone, there is nothing to point from, and the expense is recorded all the same.
-    if let (Some(place), Some(id)) = (&draft.errand, &draft.id) {
+    // The products it was recorded from now point at it, and are bought - replayed onto a
+    // tour whose menu is gone, there is nothing to point from, and the expense is recorded
+    // all the same.
+    if let (false, Some(id)) = (draft.purchases.is_empty(), &draft.id) {
         if let Some(mut menu) = tc_core::menu::Menu::of(&next) {
-            menu.errand_mut(place).spending = Some(id.as_str().to_owned());
+            for product in &draft.purchases {
+                let p = menu.purchase_mut(product);
+                p.spending = Some(id.as_str().to_owned());
+                p.bought = true;
+            }
             menu.put(&mut next);
         }
     }
@@ -785,9 +790,10 @@ pub enum MenuEdit {
     /// Dishes on meals: one, or the same meal on every day.
     Meals(Vec<tc_core::menu::Slot>),
     Days(u32),
-    /// Who does the shopping at a place; `None` - nobody yet.
-    Shopper { place: String, who: Option<String> },
-    Bought { place: String, product: String, bought: bool },
+    /// Who buys and pays for these products - one, or a whole place's at once; `None` -
+    /// nobody yet.
+    Buyer { products: Vec<String>, who: Option<String> },
+    Bought { product: String, bought: bool },
 }
 
 /// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
@@ -802,8 +808,12 @@ pub fn put_menu(tour: &Tour, change: &MenuEdit) -> Tour {
             }
         }
         MenuEdit::Days(days) => menu.set_days(*days),
-        MenuEdit::Shopper { place, who } => menu.errand_mut(place).who = who.clone(),
-        MenuEdit::Bought { place, product, bought } => menu.set_bought(place, product, *bought),
+        MenuEdit::Buyer { products, who } => {
+            for product in products {
+                menu.purchase_mut(product).who = who.clone();
+            }
+        }
+        MenuEdit::Bought { product, bought } => menu.purchase_mut(product).bought = *bought,
     }
     let mut next = tour.clone();
     menu.put(&mut next);
@@ -1237,7 +1247,7 @@ mod split_tests {
             editing: false,
             in_cents: None,
             on_behalf: false,
-            errand: None,
+            purchases: Vec::new(),
         }
     }
 

@@ -215,16 +215,22 @@ pub struct MenuTexts {
     pub who_am_i: &'static str,
     pub nobody: &'static str,
     pub mine_only: &'static str,
-    pub shopper: &'static str,
+    /// Over a place's products: one person for all of them.
+    pub everybody: &'static str,
+    /// Who buys a product and pays for it.
+    pub buyer: &'static str,
+    pub bought: &'static str,
     pub nobody_yet: &'static str,
     pub bought_of: fn(usize, usize) -> String,
     pub record: &'static str,
-    pub recorded: fn(&str, &str) -> String,
-    pub not_recorded: &'static str,
+    /// One expense for so many bought products.
+    pub record_together: fn(usize) -> String,
+    /// Recorded in an expense shared with other products, of this amount.
+    pub in_shared: fn(&str) -> String,
+    /// Why a product is on the list: bought every day.
+    pub every_day_short: &'static str,
     pub nothing_to_buy: &'static str,
     pub nothing_mine: &'static str,
-    /// The expense's description: "Market: groceries".
-    pub errand_description: fn(&str) -> String,
     /// The expense's category.
     pub category: &'static str,
     pub grams: &'static str,

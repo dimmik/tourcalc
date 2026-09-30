@@ -474,7 +474,7 @@ mod tests {
             editing: false,
             in_cents: None,
             on_behalf: false,
-            errand: None,
+            purchases: Vec::new(),
         })
     }
 

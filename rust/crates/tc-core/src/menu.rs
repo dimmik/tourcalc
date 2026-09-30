@@ -117,22 +117,25 @@ pub struct Menu {
     /// Bought every day whatever is cooked: vegetables, bread, water, wine.
     pub daily: Vec<Ingredient>,
     pub plan: Vec<Slot>,
-    pub errands: Vec<Errand>,
+    pub purchases: Vec<Purchase>,
 }
 
-/// One place's shopping: who goes, what is in the basket already, and the expense it was
-/// recorded as. Made the first time any of that is said, so a place nobody has touched has
-/// none.
+/// One product's shopping: who buys and pays for it, whether it is bought, and the expense
+/// it was recorded as. Made the first time any of that is said, so a product nobody has
+/// touched has none.
+///
+/// Per product, not per place: the market is often two people's - one takes the meat, the
+/// other the vegetables. A place's "everybody: Dima" is only all its products at once.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase", default)]
-pub struct Errand {
-    pub place: String,
-    /// The person who does this shopping, if anybody has taken it.
+pub struct Purchase {
+    pub product: String,
+    /// Who buys it and pays for it, if anybody has taken it.
     pub who: Option<String>,
-    /// Products ticked off as bought.
-    pub bought: Vec<String>,
-    /// The expense this shopping was recorded as. Only a pointer: whether it is still
-    /// there is the tour's say - deleted, it is "not recorded" again.
+    pub bought: bool,
+    /// The expense it was recorded as - one receipt can be several products', so several
+    /// can point at one expense. Only a pointer: whether the expense is still there is the
+    /// tour's say, and deleted, the product is "not recorded" again.
     pub spending: Option<String>,
 }
 
@@ -278,28 +281,43 @@ impl Menu {
         self.plan.sort_by_key(|s| (s.day, Meal::ALL.iter().position(|m| *m == s.meal)));
     }
 
-    pub fn errand(&self, place: &str) -> Option<&Errand> {
-        self.errands.iter().find(|e| e.place == place)
+    pub fn purchase(&self, product: &str) -> Option<&Purchase> {
+        self.purchases.iter().find(|p| p.product == product)
     }
 
-    /// The place's errand, made if it is not there yet.
-    pub fn errand_mut(&mut self, place: &str) -> &mut Errand {
-        match self.errands.iter().position(|e| e.place == place) {
-            Some(i) => &mut self.errands[i],
+    /// The product's purchase, made if it is not there yet.
+    pub fn purchase_mut(&mut self, product: &str) -> &mut Purchase {
+        match self.purchases.iter().position(|p| p.product == product) {
+            Some(i) => &mut self.purchases[i],
             None => {
-                self.errands.push(Errand { place: place.to_owned(), ..Errand::default() });
-                self.errands.last_mut().expect("just pushed")
+                self.purchases.push(Purchase { product: product.to_owned(), ..Purchase::default() });
+                self.purchases.last_mut().expect("just pushed")
             }
         }
     }
 
-    /// Ticks a product off at a place, or back on.
-    pub fn set_bought(&mut self, place: &str, product: &str, bought: bool) {
-        let errand = self.errand_mut(place);
-        errand.bought.retain(|p| p != product);
-        if bought {
-            errand.bought.push(product.to_owned());
+    /// The products bought at a place, in the catalogue's order.
+    pub fn products_at<'a>(&'a self, place: &'a str) -> impl Iterator<Item = &'a Product> + 'a {
+        self.products.iter().filter(move |p| p.place == place)
+    }
+
+    /// Why a product is on the list: the planned dishes it goes into, with how many times
+    /// each is cooked, and whether it is bought every day besides.
+    pub fn sources(&self, product: &str) -> (Vec<(&Dish, u32)>, bool) {
+        let mut dishes: Vec<(&Dish, u32)> = Vec::new();
+        for day in 1..=self.days {
+            for meal in Meal::ALL {
+                let Some(dish) = self.dish_on(day, meal) else { continue };
+                if !dish.ingredients.iter().any(|i| i.product == product) {
+                    continue;
+                }
+                match dishes.iter_mut().find(|(d, _)| d.id == dish.id) {
+                    Some((_, n)) => *n += 1,
+                    None => dishes.push((dish, 1)),
+                }
+            }
         }
+        (dishes, self.daily.iter().any(|i| i.product == product))
     }
 
     /// Everything to buy for the planned days, in the catalogue's order. A product nobody
@@ -391,7 +409,7 @@ mod tests {
                 Ingredient { product: "juice".into(), amount: 500.0 },
             ],
             plan: vec![],
-            errands: vec![],
+            purchases: vec![],
         };
         m.fill();
         m
@@ -457,15 +475,28 @@ mod tests {
         assert!(Menu::shown(&back).is_some());
     }
 
+    /// Rice is on the list because of the plov on day 1 - and only while plov is planned.
     #[test]
-    fn ticking_off_twice_is_one_tick_and_unticking_takes_it_off() {
+    fn a_product_says_which_dishes_it_is_for() {
         let mut m = menu();
-        assert!(m.errand("market").is_none());
-        m.set_bought("market", "lamb", true);
-        m.set_bought("market", "lamb", true);
-        assert_eq!(m.errand("market").map(|e| e.bought.clone()), Some(vec!["lamb".to_owned()]));
-        m.set_bought("market", "lamb", false);
-        assert_eq!(m.errand("market").map(|e| e.bought.len()), Some(0));
-        assert_eq!(m.errands.len(), 1);
+        let (dishes, daily) = m.sources("rice");
+        assert_eq!(dishes.iter().map(|(d, n)| (d.id.as_str(), *n)).collect::<Vec<_>>(), [("plov", 1)]);
+        assert!(!daily);
+        assert!(m.sources("wine").1);
+        m.set(Slot { day: 1, meal: Meal::Dinner, dish: Some("steak".into()) });
+        assert!(m.sources("rice").0.is_empty());
+        let eating = Eating::of(&tour(&[100]));
+        assert!(m.shopping(&eating).iter().all(|n| n.product.id != "rice"));
+    }
+
+    #[test]
+    fn a_purchase_is_made_once_and_only_when_something_is_said() {
+        let mut m = menu();
+        assert!(m.purchase("lamb").is_none());
+        m.purchase_mut("lamb").bought = true;
+        m.purchase_mut("lamb").who = Some("p0".into());
+        assert_eq!(m.purchases.len(), 1);
+        assert_eq!(m.purchase("lamb").map(|p| (p.bought, p.who.clone())), Some((true, Some("p0".into()))));
+        assert_eq!(m.products_at("market").count(), 4);
     }
 }

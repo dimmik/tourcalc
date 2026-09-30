@@ -158,7 +158,7 @@ pub fn starter(days: u32) -> Menu {
             .map(|(product, amount)| Ingredient { product: (*product).into(), amount: *amount })
             .collect(),
         plan: Vec::new(),
-        errands: Vec::new(),
+        purchases: Vec::new(),
     };
     menu.fill();
     menu
@@ -342,7 +342,8 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
     }
 }
 
-/// The shopping, place by place: who goes, a tick per product, and the expense.
+/// The shopping, place by place and product by product: who buys and pays for each, a
+/// tick when it is bought, and the expense it was recorded as.
 #[component]
 fn Shopping(
     tour: Tour,
@@ -352,14 +353,8 @@ fn Shopping(
     apply: Callback<Operation>,
     dialog: RwSignal<Option<Dialog>>,
 ) -> impl IntoView {
-    // Owned, so that nothing below borrows the menu it came from.
-    let needs: Vec<(Product, f64)> = menu
-        .shopping(&eating)
-        .into_iter()
-        .map(|n| (n.product.clone(), n.amount))
-        .collect();
     let tour_id = tour.id.as_str().to_owned();
-    // Whoever can do the shopping: people who pay for themselves, not the ones paid for.
+    // Whoever can buy: people who pay for themselves, not the ones paid for.
     let shoppers: Vec<(String, String)> = crate::edit::sorted_people(&tour)
         .into_iter()
         .filter(|p| p.parent.is_none())
@@ -404,64 +399,49 @@ fn Shopping(
         </div>
     };
 
-    if needs.is_empty() {
+    // Everything to buy, owned, with what has been said about each.
+    let lines: Vec<Line> = menu
+        .shopping(&eating)
+        .into_iter()
+        .map(|n| {
+            let (dishes, daily) = menu.sources(&n.product.id);
+            let mut why: Vec<String> = dishes.iter().map(|(d, times)| format!("{} ×{times}", d.name)).collect();
+            if daily {
+                why.push(t().menu.every_day_short.to_owned());
+            }
+            Line {
+                product: n.product.clone(),
+                amount: n.amount,
+                purchase: menu.purchase(&n.product.id).cloned().unwrap_or_default(),
+                why: why.join(" · "),
+            }
+        })
+        .collect();
+    if lines.is_empty() {
         return view! { {who_am_i} <div class="tcn-empty">{t().menu.nothing_to_buy}</div> }.into_any();
     }
+
+    // Somebody picked and everything taken by others: say so, rather than an empty screen.
+    let anything_shown = {
+        let whos: Vec<Option<String>> = lines.iter().map(|l| l.purchase.who.clone()).collect();
+        move || whos.iter().any(|who| shown(state, who.as_deref()))
+    };
 
     let places = menu
         .places
         .iter()
-        .filter(|place| needs.iter().any(|(p, _)| p.place == place.id))
-        .map(|place| {
-            let errand = menu.errand(&place.id).cloned().unwrap_or_default();
-            let lines: Vec<(Product, f64, bool)> = needs
-                .iter()
-                .filter(|(p, _)| p.place == place.id)
-                .map(|(p, amount)| (p.clone(), *amount, errand.bought.contains(&p.id)))
-                .collect();
-            let tour = tour.clone();
-            let shoppers = shoppers.clone();
-            let place = place.clone();
-            let spending = errand.spending.clone();
-            let who = errand.who.clone();
-            let mine = {
-                let who = who.clone();
-                move || match (state.me.get(), who.as_deref()) {
-                    (Some(me), Some(who)) if !state.everybody.get() => who == me,
-                    _ => true,
-                }
-            };
-            view! {
-                <Show when=mine.clone()>
-                    <Errand tour=tour.clone() place=place.clone() lines=lines.clone()
-                            who=who.clone() spending=spending.clone()
-                            shoppers=shoppers.clone() apply=apply dialog=dialog />
-                </Show>
-            }
+        .filter_map(|place| {
+            let here: Vec<Line> = lines.iter().filter(|l| l.product.place == place.id).cloned().collect();
+            (!here.is_empty()).then(|| view! {
+                <PlaceCard tour=tour.clone() place=place.clone() lines=here shoppers=shoppers.clone()
+                           state=state apply=apply dialog=dialog />
+            })
         })
         .collect_view();
 
-    // Somebody picked and every place taken by others: say so, rather than an empty screen.
-    let theirs = {
-        let menu = menu.clone();
-        let needs_places: Vec<String> = menu
-            .places
-            .iter()
-            .filter(|p| needs.iter().any(|(n, _)| n.place == p.id))
-            .map(|p| p.id.clone())
-            .collect();
-        move || match state.me.get() {
-            Some(me) if !state.everybody.get() => needs_places.iter().any(|p| {
-                let who = menu.errand(p).and_then(|e| e.who.as_deref());
-                who.is_none() || who == Some(me.as_str())
-            }),
-            _ => true,
-        }
-    };
-
     view! {
         {who_am_i}
-        <Show when=move || !theirs()>
+        <Show when=move || !anything_shown()>
             <div class="tcn-empty">{t().menu.nothing_mine}</div>
         </Show>
         {places}
@@ -469,118 +449,213 @@ fn Shopping(
     .into_any()
 }
 
+/// One product on the list.
+#[derive(Clone)]
+struct Line {
+    product: Product,
+    amount: f64,
+    purchase: tc_core::menu::Purchase,
+    /// What it is for: "Plov ×1 · Fish ×2", "every day".
+    why: String,
+}
+
+/// Whether a product bought by `who` is on screen: everybody's are, unless somebody is
+/// picked as "me" and others' are hidden - then theirs and nobody's, nobody's so that there
+/// is something to take.
+fn shown(state: MenuState, who: Option<&str>) -> bool {
+    match (state.me.get(), who) {
+        (Some(me), Some(who)) if !state.everybody.get() => who == me,
+        _ => true,
+    }
+}
+
+/// A new expense for these products, paid by whoever buys them - or, when nobody or
+/// several people do, by whom this phone records expenses for.
+fn expense_for(tour: &Tour, who: Option<&str>, description: String, products: Vec<String>) -> SpendingDraft {
+    let mut d = match who {
+        Some(p) => SpendingDraft::paid_by(tour, &PersonId::new(p)),
+        None => SpendingDraft::new(tour),
+    };
+    d.description = description;
+    d.category = t().menu.category.to_owned();
+    d.purchases = products;
+    d
+}
+
 /// One place's shopping.
 #[component]
-fn Errand(
+fn PlaceCard(
     tour: Tour,
     place: Place,
-    lines: Vec<(Product, f64, bool)>,
-    who: Option<String>,
-    spending: Option<String>,
+    lines: Vec<Line>,
     shoppers: Vec<(String, String)>,
+    state: MenuState,
     apply: Callback<Operation>,
     dialog: RwSignal<Option<Dialog>>,
 ) -> impl IntoView {
     let change = move |edit: MenuEdit| apply.run(Operation::Menu(edit));
-    let bought = lines.iter().filter(|(_, _, b)| *b).count();
+    let bought = lines.iter().filter(|l| l.purchase.bought).count();
     let total = lines.len();
-    let all_bought = bought == total;
+    let unit = crate::ui::unit(&tour);
+    let recorded = |l: &Line| {
+        l.purchase
+            .spending
+            .as_deref()
+            .and_then(|id| tour.spendings.iter().find(|s| s.id.as_str() == id))
+            .cloned()
+    };
 
-    let place_id = place.id.clone();
-    let chosen = who.clone().unwrap_or_default();
-    let options = shoppers
+    // "Everybody: Dima" - every product here at once.
+    let all_ids: Vec<String> = lines.iter().map(|l| l.product.id.clone()).collect();
+    let everybody_options = shoppers
         .iter()
-        .map(|(id, name)| {
-            let on = *id == chosen;
-            view! { <option value=id.clone() selected=on>{name.clone()}</option> }
-        })
+        .map(|(id, name)| view! { <option value=id.clone()>{name.clone()}</option> })
         .collect_view();
-    let pick_shopper = {
-        let place = place_id.clone();
-        move |ev: leptos::ev::Event| {
-            let v = event_target_value(&ev);
-            change(MenuEdit::Shopper { place: place.clone(), who: (!v.is_empty()).then_some(v) });
+    let everybody = move |ev: leptos::ev::Event| {
+        let v = event_target_value(&ev);
+        if v == "?" {
+            return;
         }
+        change(MenuEdit::Buyer { products: all_ids.clone(), who: (!v.is_empty()).then_some(v) });
+    };
+
+    // Bought, not recorded, and on screen: one receipt for all of them.
+    let unrecorded: Vec<Line> = lines
+        .iter()
+        .filter(|l| l.purchase.bought && recorded(l).is_none())
+        .cloned()
+        .collect();
+    let together = {
+        let tour = tour.clone();
+        let place_name = place.name.clone();
+        move || {
+            let these: Vec<&Line> = unrecorded.iter().filter(|l| shown(state, l.purchase.who.as_deref())).collect();
+            if these.len() < 2 {
+                return None;
+            }
+            let first = these[0].purchase.who.clone();
+            let who = if these.iter().all(|l| l.purchase.who == first) { first } else { state.me.get() };
+            let names: Vec<String> = these.iter().map(|l| l.product.name.to_lowercase()).collect();
+            let description = if names.len() > 3 {
+                format!("{}: {} +{}", place_name, names[..3].join(", "), names.len() - 3)
+            } else {
+                format!("{}: {}", place_name, names.join(", "))
+            };
+            let draft = expense_for(&tour, who.as_deref(), description, these.iter().map(|l| l.product.id.clone()).collect());
+            let n = these.len();
+            Some(view! {
+                <div class="tcw-errand-foot">
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
+                            on:click=move |_| dialog.set(Some(Dialog::Spending(draft.clone())))>
+                        {(t().menu.record_together)(n)}
+                    </button>
+                </div>
+            })
+        }
+    };
+
+    let visible_here = {
+        let whos: Vec<Option<String>> = lines.iter().map(|l| l.purchase.who.clone()).collect();
+        move || whos.iter().any(|who| shown(state, who.as_deref()))
     };
 
     let rows = lines
-        .into_iter()
-        .map(|(product, amount, ticked)| {
-            let place = place_id.clone();
-            let id = product.id.clone();
+        .iter()
+        .map(|line| {
+            let id = line.product.id.clone();
+            let who = line.purchase.who.clone();
+            let ticked = line.purchase.bought;
+            let options = shoppers
+                .iter()
+                .map(|(pid, name)| {
+                    let on = who.as_deref() == Some(pid.as_str());
+                    view! { <option value=pid.clone() selected=on>{name.clone()}</option> }
+                })
+                .collect_view();
+            let pick = {
+                let id = id.clone();
+                move |ev: leptos::ev::Event| {
+                    let v = event_target_value(&ev);
+                    change(MenuEdit::Buyer { products: vec![id.clone()], who: (!v.is_empty()).then_some(v) });
+                }
+            };
+            let tick = {
+                let id = id.clone();
+                move |ev: leptos::ev::Event| change(MenuEdit::Bought { product: id.clone(), bought: event_target_checked(&ev) })
+            };
+            // The expense: there, with what it came to - its own, or a receipt shared with
+            // other products - or a button to record it.
+            let expense = match recorded(line) {
+                Some(s) => {
+                    let amount = money_in(tour.convert(s.amount, &s.currency), &unit);
+                    let shared = lines
+                        .iter()
+                        .filter(|l| l.purchase.spending.as_deref() == Some(s.id.as_str()))
+                        .count()
+                        > 1;
+                    let text = if shared { (t().menu.in_shared)(&amount) } else { format!("✓ {amount}") };
+                    view! { <span class="tcw-buy-done" title=s.description.clone()>{text}</span> }.into_any()
+                }
+                None => {
+                    let draft = expense_for(
+                        &tour,
+                        who.as_deref(),
+                        format!("{}: {}", place.name, line.product.name.to_lowercase()),
+                        vec![id.clone()],
+                    );
+                    view! {
+                        <button type="button" class="tcn-btn tcn-btn-sm tcw-buy-record"
+                                class:tcn-btn-primary=ticked
+                                on:click=move |_| dialog.set(Some(Dialog::Spending(draft.clone())))>
+                            {t().menu.record}
+                        </button>
+                    }
+                    .into_any()
+                }
+            };
+            let visible = {
+                let who = who.clone();
+                move || shown(state, who.as_deref())
+            };
+            // Hidden rather than left out, so that picking "me" does not rebuild the list.
             view! {
-                <label class="tcw-buy" class:is-bought=ticked>
-                    <input type="checkbox" prop:checked=ticked
-                           on:change=move |ev| change(MenuEdit::Bought {
-                               place: place.clone(),
-                               product: id.clone(),
-                               bought: event_target_checked(&ev),
-                           }) />
-                    <span class="tcw-buy-name">{product.name.clone()}</span>
-                    <span class="tcw-buy-amount">{quantity(amount, product.unit)}</span>
-                </label>
+                    <div class="tcw-buy" class:is-bought=ticked
+                         style:display=move || if visible() { "" } else { "none" }>
+                        <input type="checkbox" class="tcw-buy-tick" prop:checked=ticked
+                               title=t().menu.bought on:change=tick />
+                        <span class="tcw-buy-name">
+                            <span class="tcw-buy-title">{line.product.name.clone()}</span>
+                            <small class="tcw-buy-why">{line.why.clone()}</small>
+                        </span>
+                        <span class="tcw-buy-amount">{quantity(line.amount, line.product.unit)}</span>
+                        <select class="tcn-input tcw-buy-who" title=t().menu.buyer on:change=pick>
+                            <option value="" selected=who.is_none()>{t().menu.nobody_yet}</option>
+                            {options}
+                        </select>
+                        <span class="tcw-buy-expense">{expense}</span>
+                    </div>
             }
         })
         .collect_view();
 
-    // The expense: there, with what it came to, or a button to record it. Only a pointer is
-    // kept, so an expense deleted since is "not recorded" again.
-    let recorded = spending
-        .as_deref()
-        .and_then(|id| tour.spendings.iter().find(|s| s.id.as_str() == id));
-    let unit = crate::ui::unit(&tour);
-    let foot = match recorded {
-        Some(s) => {
-            let amount = money_in(tour.convert(s.amount, &s.currency), &unit);
-            view! {
-                <div class="tcw-errand-foot is-done">
-                    "✓ " {(t().menu.recorded)(&s.description, &amount)}
-                </div>
-            }
-            .into_any()
-        }
-        None => {
-            let draft = {
-                let payer = who.clone().map(PersonId::new);
-                let mut d = match &payer {
-                    Some(p) => SpendingDraft::paid_by(&tour, p),
-                    None => SpendingDraft::new(&tour),
-                };
-                d.description = (t().menu.errand_description)(&place.name);
-                d.category = t().menu.category.to_owned();
-                d.errand = Some(place_id.clone());
-                d
-            };
-            view! {
-                <div class="tcw-errand-foot">
-                    <span class="tcn-hint">{t().menu.not_recorded}</span>
-                    <button type="button" class="tcn-btn tcn-btn-sm"
-                            class:tcn-btn-primary=all_bought
-                            on:click=move |_| dialog.set(Some(Dialog::Spending(draft.clone())))>
-                        {t().menu.record}
-                    </button>
-                </div>
-            }
-            .into_any()
-        }
-    };
-
     view! {
-        <div class="tcn-card tcw-errand">
-            <div class="tcw-errand-head">
-                <b class="tcw-errand-place">{place.name.clone()}</b>
-                <span class="tcw-errand-count">{(t().menu.bought_of)(bought, total)}</span>
-                <label class="tcw-errand-who">
-                    <span>{t().menu.shopper}</span>
-                    <select class="tcn-input" on:change=pick_shopper>
-                        <option value="" selected=chosen.is_empty()>{t().menu.nobody_yet}</option>
-                        {options}
-                    </select>
-                </label>
+            <div class="tcn-card tcw-errand"
+                 style:display=move || if visible_here() { "" } else { "none" }>
+                <div class="tcw-errand-head">
+                    <b class="tcw-errand-place">{place.name.clone()}</b>
+                    <span class="tcw-errand-count">{(t().menu.bought_of)(bought, total)}</span>
+                    <label class="tcw-errand-who">
+                        <span>{t().menu.everybody}</span>
+                        <select class="tcn-input" on:change=everybody>
+                            <option value="?" selected=true>{t().menu.pick}</option>
+                            <option value="">{t().menu.nobody_yet}</option>
+                            {everybody_options}
+                        </select>
+                    </label>
+                </div>
+                <div class="tcw-buy-list">{rows}</div>
+                {together}
             </div>
-            <div class="tcw-buy-list">{rows}</div>
-            {foot}
-        </div>
     }
 }
 
@@ -639,8 +714,7 @@ mod tests {
         assert!(Menu::shown(&crate::edit::put_tour(&on, &old)).is_some());
     }
 
-    /// Recorded from the market's shopping, the expense is the market's; deleted, the
-    /// market is "not recorded" again because the pointer leads nowhere.
+    /// One receipt for the meat and the lamb: both point at it, and both are bought.
     #[test]
     fn an_expense_recorded_from_the_shopping_is_its_expense() {
         let t = switched(&tour(), true);
@@ -660,17 +734,20 @@ mod tests {
             editing: false,
             in_cents: None,
             on_behalf: true,
-            errand: Some(MARKET.into()),
+            purchases: vec!["meat".into(), "lamb".into()],
         };
         let after = crate::edit::put_spending(&t, &d);
         let menu = Menu::of(&after).expect("menu");
-        assert_eq!(menu.errand(MARKET).and_then(|e| e.spending.clone()).as_deref(), Some("s1"));
+        for product in ["meat", "lamb"] {
+            let p = menu.purchase(product).expect("a purchase");
+            assert_eq!((p.spending.as_deref(), p.bought), (Some("s1"), true), "{product}");
+        }
         assert!(after.spendings.iter().any(|s| s.id.as_str() == "s1"));
         // The same expense edited later, from the Expenses tab, leaves the pointer alone.
         let mut plain = SpendingDraft::of(after.spendings.iter().find(|s| s.id.as_str() == "s1").unwrap());
         plain.amount = tc_core::Cents(5000);
         let edited = crate::edit::put_spending(&after, &plain);
-        assert_eq!(Menu::of(&edited).and_then(|m| m.errand(MARKET).and_then(|e| e.spending.clone())).as_deref(), Some("s1"));
+        assert_eq!(Menu::of(&edited).and_then(|m| m.purchase("lamb").and_then(|p| p.spending.clone())).as_deref(), Some("s1"));
     }
 
     #[test]
