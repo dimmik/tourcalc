@@ -161,26 +161,33 @@ impl Which {
 /// its side had room for the numbers but not for the words. The words have not gone - they
 /// are the title and the label a screen reader says ([`balance_words`]). The sign once meant
 /// the debt here ("−5 055" beside "gets 5 055"); one rule for every place ends that.
-fn signed(debt: Cents) -> String {
+///
+/// Nothing either way is "settled" only while the tour is being settled up; before that it is
+/// "0". Mid-trip a zero is where somebody happens to stand today - tomorrow's dinner moves
+/// it - and "settled" there read as "done with this person", which nobody was.
+fn signed(debt: Cents, settling: bool) -> String {
     match debt.0 {
-        0 => t().people.settled.to_owned(),
+        0 if settling => t().people.settled.to_owned(),
+        0 => money(debt),
         n if n > 0 => format!("\u{2212}{}", money(debt)),
         _ => format!("+{}", money(Cents(-debt.0))),
     }
 }
 
-fn signed_in(debt: Cents, unit: &str) -> String {
-    if debt.is_zero() || unit.is_empty() {
-        signed(debt)
+/// With the currency - which a word does not take: "settled", not "settled RUB".
+fn signed_in(debt: Cents, unit: &str, settling: bool) -> String {
+    if (debt.is_zero() && settling) || unit.is_empty() {
+        signed(debt, settling)
     } else {
-        format!("{}\u{a0}{unit}", signed(debt))
+        format!("{}\u{a0}{unit}", signed(debt, settling))
     }
 }
 
 /// The same in words, with the amount and its currency: said, not shown - see [`signed`].
-fn balance_words(amount: Cents, unit: &str) -> String {
+fn balance_words(amount: Cents, unit: &str, settling: bool) -> String {
     match amount.0 {
-        0 => t().people.settled.to_owned(),
+        0 if settling => t().people.settled.to_owned(),
+        0 => money_in(amount, unit),
         n if n > 0 => format!("{} {}", t().people.owes, money_in(amount, unit)),
         _ => format!("{} {}", t().people.gets, money_in(Cents(-amount.0), unit)),
     }
@@ -628,7 +635,8 @@ fn PersonBlock(
         "tcn-chip-green"
     };
     let unit = crate::ui::unit(&tour);
-    let words = balance_words(shown, &unit);
+    let settling = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
+    let words = balance_words(shown, &unit, settling);
     let unit_for_stats = StoredValue::new(unit.clone());
     let paid = balances.get(&person.id).map(|b| b.spent).unwrap_or_default();
     let charged = balances.get(&person.id).map(|b| b.received).unwrap_or_default();
@@ -699,7 +707,7 @@ fn PersonBlock(
                         }}
                     </span>
                     <span class=format!("tcn-chip tcw-row-chip {chip_class}") title=words_row.clone()>
-                        {signed_in(shown, &unit_for_stats.get_value())}
+                        {signed_in(shown, &unit_for_stats.get_value(), settling)}
                     </span>
                     <span class="tcn-person-caret">
                         {move || if is_open.get() { view!{<Icon name="chevron-down"/>} } else { view!{<Icon name="chevron-right"/>} }}
@@ -715,7 +723,7 @@ fn PersonBlock(
                     // One line, like the chip it stands in for: the payer's own debt would make
                     // it two, so that one is in the open block's facts.
                     <Stat which=Which::Balance person=for_row_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
-                          amount=shown own=None muted=is_child />
+                          amount=shown own=None muted=is_child settling=settling />
                 </div>
                 // Edit last, so that it stands in one column down the list: somebody paid for
                 // has no "+ Pays for…", and with Edit first theirs slid right into its place.
@@ -790,8 +798,8 @@ fn PersonBlock(
                     {split_family.then(|| view! {
                         <span class="tcw-table-only">
                             {t().people.own} " "
-                            <b title=balance_words(debt, &unit_for_stats.get_value())>
-                                {signed_in(debt, &unit_for_stats.get_value())}
+                            <b title=balance_words(debt, &unit_for_stats.get_value(), settling)>
+                                {signed_in(debt, &unit_for_stats.get_value(), settling)}
                             </b>
                         </span>
                     })}
@@ -803,7 +811,7 @@ fn PersonBlock(
                     <Stat which=Which::Charged person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
                           amount=charged own=None />
                     <Stat which=Which::Balance person=for_stats.clone() sheet=sheet unit=unit_for_stats.get_value()
-                          amount=shown own=split_family.then_some(debt) muted=is_child />
+                          amount=shown own=split_family.then_some(debt) muted=is_child settling=settling />
                 </div>
                 <div class="tcn-person-actions">
                     <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary tcw-narrow-only"
@@ -860,6 +868,9 @@ fn Stat(
     /// drawn in grey - as their chip is, and as the help says - not red or green.
     #[prop(optional)]
     muted: bool,
+    /// The tour is being settled up: a zero balance says "settled", otherwise "0".
+    #[prop(optional)]
+    settling: bool,
 ) -> impl IntoView {
     let tint = match which {
         Which::Paid => "is-paid",
@@ -871,7 +882,9 @@ fn Stat(
     };
 
     // What the sign means, for a reader who hovers and for one who listens.
-    let said = (which == Which::Balance).then(|| balance_words(amount, &unit));
+    let said = (which == Which::Balance).then(|| balance_words(amount, &unit, settling));
+    // "settled" takes no currency; "0" does, as every other figure here.
+    let word = which == Which::Balance && amount.is_zero() && settling;
 
     view! {
         <div class="tcn-stat">
@@ -879,12 +892,12 @@ fn Stat(
             <button type="button" class=format!("tcn-statbtn {tint}")
                     title=said.clone() aria-label=said
                     on:click=move |_| sheet.set(Some((which, person.clone())))>
-                {if which == Which::Balance { signed(amount) } else { money(amount) }}
-                {(!(which == Which::Balance && amount.is_zero()) && !unit.is_empty())
+                {if which == Which::Balance { signed(amount, settling) } else { money(amount) }}
+                {(!word && !unit.is_empty())
                     .then(|| view! { <small>"\u{a0}" {unit.clone()}</small> })}
                 {own.map(|d| view! {
                     <span class="tcn-statbtn-note">
-                        {t().people.own} " " {signed_in(d, &unit)}
+                        {t().people.own} " " {signed_in(d, &unit, settling)}
                     </span>
                 })}
             </button>
@@ -1241,10 +1254,12 @@ mod tests {
     /// counts in; and nothing either way says so in words.
     #[test]
     fn a_balance_is_a_sign_and_nothing_is_settled() {
-        assert!(signed(Cents(320_500)).starts_with('\u{2212}'), "owes 3 205: minus");
-        assert!(signed(Cents(-687_000)).starts_with('+'), "gets 6 870: plus");
-        assert_eq!(signed(Cents(0)), t().people.settled);
-        assert!(!signed_in(Cents(0), "RUB").contains("RUB"), "no unit on settled");
+        assert!(signed(Cents(320_500), false).starts_with('\u{2212}'), "owes 3 205: minus");
+        assert!(signed(Cents(-687_000), false).starts_with('+'), "gets 6 870: plus");
+        assert_eq!(signed(Cents(0), true), t().people.settled, "settling up: settled");
+        assert!(!signed_in(Cents(0), "RUB", true).contains("RUB"), "no unit on settled");
+        assert_eq!(signed(Cents(0), false), "0", "mid-trip: a zero, not \"settled\"");
+        assert!(signed_in(Cents(0), "RUB", false).ends_with("RUB"), "a zero has its unit");
     }
 
     /// Two at 100 and two at 50: the full share is the common one, whichever order the
