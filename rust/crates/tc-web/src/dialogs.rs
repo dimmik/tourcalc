@@ -965,7 +965,9 @@ pub fn TourDialog(
                 <div class="tcn-hint">{t().dialogs.days_note}</div>
             </div>
 
-            <div class="tcn-field">
+            // One under another: side by side the third wrapped on its own, and the notes
+            // after each ran into the next switch.
+            <div class="tcn-field tcw-switches">
                 <label class="tcn-switchline">
                     <input type="checkbox" prop:checked=move || finalizing.get()
                            on:change=move |ev| finalizing.set(event_target_checked(&ev)) />

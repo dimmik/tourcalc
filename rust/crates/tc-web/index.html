@@ -193,6 +193,11 @@
            cents - the EURc to fold into it. */
         .tcw-cur-cents { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: -2px 0 10px 2px; font-size: 13px; }
         .tcw-cur-cents .tcn-switchline { margin: 0; }
+        .tcw-switches { display: grid; gap: 8px; justify-items: start; }
+        /* The note under its switch's words when it does not fit beside them, not under the box. */
+        .tcw-switches .tcn-switchline { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 6px;
+            align-items: baseline; }
+        .tcw-switches .tcn-switchline > .tcn-hint { grid-column: 2; margin-top: 0; }
         /* "+ Pays for…": its own look beside Edit - the accent, lightly, not Spend's solid one */
         .tcn-btn.tcw-pays-for, .tcm-shell .tcm-btn.tcw-pays-for {
             color: var(--tcn-primary, #4f46e5); border-color: var(--tcn-primary, #4f46e5);
