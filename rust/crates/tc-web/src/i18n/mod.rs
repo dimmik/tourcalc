@@ -210,6 +210,7 @@ pub struct MenuTexts {
     pub pick: &'static str,
     pub nothing: &'static str,
     pub daily: &'static str,
+    pub for_everyone: &'static str,
     pub for_full: &'static str,
     pub for_others: &'static str,
     pub who_am_i: &'static str,
@@ -228,6 +229,12 @@ pub struct MenuTexts {
     /// Recorded in an expense shared with other products, of this amount.
     pub in_shared: fn(&str) -> String,
     pub nothing_to_buy: &'static str,
+    pub find_product: &'static str,
+    pub find_in_catalogue: &'static str,
+    pub nothing_found: &'static str,
+    /// Take a product on oneself - "me" as picked above.
+    pub to_me: &'static str,
+    pub to_me_title: &'static str,
     pub sort: &'static str,
     pub sort_catalogue: &'static str,
     pub sort_name: &'static str,

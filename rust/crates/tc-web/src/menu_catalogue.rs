@@ -10,23 +10,69 @@
 
 use crate::edit::MenuEdit;
 use crate::i18n::t;
-use crate::menu::{meal_name, when_name, MenuState};
+use crate::menu::{folded, found, meal_name, search_box, when_name, MenuState};
 use crate::queue::Operation;
 use leptos::prelude::*;
 use tc_core::menu::{Dish, Eaters, Ingredient, Meal, Menu, Product, Unit, When};
 
 #[component]
 pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> impl IntoView {
+    // What a search looks at: a dish's name, meals and what goes in; a product's name, unit,
+    // place and who it is for; the daily list's products.
+    let product_name = |id: &str| menu.product(id).map(|p| p.name.clone()).unwrap_or_default();
+    let dish_hays: Vec<String> = menu
+        .dishes
+        .iter()
+        .map(|d| {
+            let meals = d.meals.iter().map(|m| meal_name(*m)).collect::<Vec<_>>().join(" ");
+            let what = d.ingredients.iter().map(|i| product_name(&i.product)).collect::<Vec<_>>().join(" ");
+            folded(&format!("{} {meals} {what}", d.name))
+        })
+        .collect();
+    let product_hays: Vec<String> = menu
+        .products
+        .iter()
+        .map(|p| {
+            let place = menu.places.iter().find(|x| x.id == p.place).map(|x| x.name.clone()).unwrap_or_default();
+            folded(&format!("{} {} {place} {}", p.name, unit_label(p), eaters_name(p.eaters)))
+        })
+        .collect();
+    let daily_hay = folded(&menu.daily.iter().map(|i| product_name(&i.product)).collect::<Vec<_>>().join(" "));
+
+    let row_shown = move |hay: String| move || if found(&state.cat_find.get(), &hay) { "" } else { "none" };
     let dishes = menu
         .dishes
         .iter()
-        .map(|dish| view! { <DishRow menu=menu.clone() dish=dish.clone() state=state apply=apply /> })
+        .zip(dish_hays.clone())
+        .map(|(dish, hay)| view! {
+            <div style:display=row_shown(hay)>
+                <DishRow menu=menu.clone() dish=dish.clone() state=state apply=apply />
+            </div>
+        })
         .collect_view();
     let products = menu
         .products
         .iter()
-        .map(|p| view! { <ProductRow menu=menu.clone() product=p.clone() state=state apply=apply /> })
+        .zip(product_hays.clone())
+        .map(|(p, hay)| view! {
+            <div style:display=row_shown(hay)>
+                <ProductRow menu=menu.clone() product=p.clone() state=state apply=apply />
+            </div>
+        })
         .collect_view();
+
+    // A section is open as the reader left it - or, while searching, when something in it
+    // matches: folded or not, that is where the answer is.
+    let searching = move || !state.cat_find.get().trim().is_empty();
+    let dishes_shown = Memo::new(move |_| {
+        if searching() { dish_hays.iter().any(|h| found(&state.cat_find.get(), h)) } else { state.dishes_open.get() }
+    });
+    let products_shown = Memo::new(move |_| {
+        if searching() { product_hays.iter().any(|h| found(&state.cat_find.get(), h)) } else { state.products_open.get() }
+    });
+    let daily_shown = Memo::new(move |_| {
+        if searching() { found(&state.cat_find.get(), &daily_hay) } else { state.daily_open.get() }
+    });
     let blank_dish = Dish { meals: vec![Meal::Dinner], ..Dish::default() };
     let blank_product = Product {
         place: menu.places.first().map(|p| p.id.clone()).unwrap_or_default(),
@@ -38,21 +84,23 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
     let dish_count = menu.dishes.len();
     let product_count = menu.products.len();
     // A section's heading folds it; "+ Dish" opens it, since the new one is drawn inside.
-    let fold = |open: RwSignal<bool>, title: &'static str, count: Option<usize>| view! {
-        <button type="button" class="tcw-cat-fold" aria-expanded=move || open.get().to_string()
+    let fold = |open: RwSignal<bool>, shown: Memo<bool>, title: &'static str, count: Option<usize>| view! {
+        <button type="button" class="tcw-cat-fold" aria-expanded=move || shown.get().to_string()
                 on:click=move |_| open.update(|o| *o = !*o)>
-            <span class="tcw-cat-caret">{move || if open.get() { "▾" } else { "▸" }}</span>
+            <span class="tcw-cat-caret">{move || if shown.get() { "▾" } else { "▸" }}</span>
             <h3>{title}</h3>
             {count.map(|n| view! { <span class="tcn-tab-badge">{n}</span> })}
         </button>
     };
 
     view! {
+        {search_box(state.cat_find, t().menu.find_in_catalogue)}
         <section class="tcw-cat is-dishes">
             <div class="tcw-cat-head">
-                {fold(state.dishes_open, t().menu.dishes, Some(dish_count))}
+                {fold(state.dishes_open, dishes_shown, t().menu.dishes, Some(dish_count))}
                 <button type="button" class="tcn-btn tcn-btn-sm"
                         on:click=move |_| {
+                            state.cat_find.set(String::new());
                             state.dishes_open.set(true);
                             state.editing.set(Some(String::new()));
                         }>
@@ -60,7 +108,7 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
                 </button>
             </div>
             // Hidden rather than left out: folding and unfolding redraws nothing.
-            <div style:display=move || if state.dishes_open.get() { "" } else { "none" }>
+            <div style:display=move || if dishes_shown.get() { "" } else { "none" }>
                 <Show when=move || state.editing.get().as_deref() == Some("")>
                     <DishEditor menu=menu_for_new_dish.clone() dish=blank_dish.clone() state=state apply=apply />
                 </Show>
@@ -70,9 +118,9 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
 
         <section class="tcw-cat is-daily">
             <div class="tcw-cat-head">
-                {fold(state.daily_open, t().menu.daily_title, None)}
+                {fold(state.daily_open, daily_shown, t().menu.daily_title, None)}
             </div>
-            <Show when=move || state.daily_open.get()>
+            <Show when=move || daily_shown.get()>
                 <p class="tcw-food-note">{t().menu.daily_note}</p>
                 <DailyRow menu=menu.clone() state=state apply=apply />
             </Show>
@@ -80,16 +128,17 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
 
         <section class="tcw-cat is-products">
             <div class="tcw-cat-head">
-                {fold(state.products_open, t().menu.products, Some(product_count))}
+                {fold(state.products_open, products_shown, t().menu.products, Some(product_count))}
                 <button type="button" class="tcn-btn tcn-btn-sm"
                         on:click=move |_| {
+                            state.cat_find.set(String::new());
                             state.products_open.set(true);
                             state.editing.set(Some(NEW_PRODUCT.to_owned()));
                         }>
                     {t().menu.new_product}
                 </button>
             </div>
-            <div style:display=move || if state.products_open.get() { "" } else { "none" }>
+            <div style:display=move || if products_shown.get() { "" } else { "none" }>
                 <Show when=move || state.editing.get().as_deref() == Some(NEW_PRODUCT)>
                     <ProductEditor menu=menu_for_new_product.clone() product=blank_product.clone() state=state apply=apply />
                 </Show>

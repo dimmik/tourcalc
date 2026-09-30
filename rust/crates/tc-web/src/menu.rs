@@ -22,6 +22,33 @@ pub enum View {
     Catalogue,
 }
 
+/// Text as a search compares it: case and "ё" aside.
+pub(crate) fn folded(text: &str) -> String {
+    text.to_lowercase().replace('ё', "е")
+}
+
+/// Whether every word typed is somewhere in `hay` (already [`folded`]); nothing typed is
+/// everything.
+pub(crate) fn found(query: &str, hay: &str) -> bool {
+    folded(query).split_whitespace().all(|word| hay.contains(word))
+}
+
+/// A search box, as the People tab has it.
+pub(crate) fn search_box(text: RwSignal<String>, placeholder: &'static str) -> impl IntoView {
+    view! {
+        <div class="tcn-search tcw-food-search">
+            <span class="tcn-search-icon">"🔎"</span>
+            <input type="text" placeholder=placeholder
+                   prop:value=move || text.get()
+                   on:input=move |ev| text.set(event_target_value(&ev)) />
+            <Show when=move || !text.get().is_empty()>
+                <button type="button" class="tcn-search-clear" title=t().people.clear
+                        on:click=move |_| text.set(String::new())>"✕"</button>
+            </Show>
+        </div>
+    }
+}
+
 /// The order of the shopping list.
 #[derive(Clone, Copy, PartialEq)]
 pub enum Sort {
@@ -60,6 +87,9 @@ pub struct MenuState {
     /// up now and then - start folded.
     pub dishes_open: RwSignal<bool>,
     pub sort: RwSignal<Sort>,
+    /// What is typed into the search boxes of the shopping and of the catalogue.
+    pub shop_find: RwSignal<String>,
+    pub cat_find: RwSignal<String>,
     /// The shopping split into a card per place; one list when not.
     pub by_place: RwSignal<bool>,
     pub daily_open: RwSignal<bool>,
@@ -78,6 +108,8 @@ impl MenuState {
             editing: RwSignal::new(None),
             dishes_open: RwSignal::new(true),
             sort: RwSignal::new(Sort::Catalogue),
+            shop_find: RwSignal::new(String::new()),
+            cat_find: RwSignal::new(String::new()),
             by_place: RwSignal::new(false),
             daily_open: RwSignal::new(true),
             products_open: RwSignal::new(false),
@@ -596,12 +628,22 @@ fn Shopping(
                 why.push(format!("{} ×{}", when_name(when), menu.days_for(when)));
             }
             let place = menu.places.iter().position(|p| p.id == n.product.place);
+            let purchase = menu.purchase(&n.product.id).cloned().unwrap_or_default();
+            let buyer = purchase
+                .who
+                .as_deref()
+                .and_then(|w| shoppers.iter().find(|(id, _)| id == w))
+                .map(|(_, name)| name.clone())
+                .unwrap_or_default();
+            let place_name = place.map(|i| menu.places[i].name.clone()).unwrap_or_default();
+            let hay = folded(&format!("{} {} {} {} {}", n.product.name, place_name, buyer, whom(n.product.eaters), why.join(" ")));
             Line {
                 product: n.product.clone(),
                 amount: n.amount,
-                purchase: menu.purchase(&n.product.id).cloned().unwrap_or_default(),
+                purchase,
                 why: why.join(" · "),
-                place: place.map(|i| menu.places[i].name.clone()).unwrap_or_default(),
+                hay,
+                place: place_name,
                 place_order: place.unwrap_or(usize::MAX),
                 order: menu.products.iter().position(|p| p.id == n.product.id).unwrap_or(usize::MAX),
             }
@@ -611,10 +653,11 @@ fn Shopping(
         return view! { {who_am_i} <div class="tcn-empty">{t().menu.nothing_to_buy}</div> }.into_any();
     }
 
-    // Somebody picked and everything taken by others: say so, rather than an empty screen.
+    // Somebody picked and everything taken by others, or nothing found: say so, rather than
+    // an empty screen.
     let anything_shown = {
-        let whos: Vec<Option<String>> = lines.iter().map(|l| l.purchase.who.clone()).collect();
-        move || whos.iter().any(|who| shown(state, who.as_deref()))
+        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.purchase.who.clone(), l.hay.clone())).collect();
+        move || rows.iter().any(|(who, hay)| visible_line(state, who.as_deref(), hay))
     };
 
     let sort_options = Sort::ALL
@@ -669,8 +712,11 @@ fn Shopping(
     view! {
         {who_am_i}
         {arrange}
+        {search_box(state.shop_find, t().menu.find_product)}
         <Show when=move || !anything_shown()>
-            <div class="tcn-empty">{t().menu.nothing_mine}</div>
+            <div class="tcn-empty">
+                {move || if state.shop_find.get().trim().is_empty() { t().menu.nothing_mine } else { t().menu.nothing_found }}
+            </div>
         </Show>
         {cards}
     }
@@ -685,6 +731,8 @@ struct Line {
     purchase: tc_core::menu::Purchase,
     /// What it is for: "Plov ×1 · Fish ×2", "every day".
     why: String,
+    /// Everything a search looks at - name, place, buyer, dishes - [`folded`].
+    hay: String,
     /// Where it is bought, and that place's and the product's own place in the catalogue.
     place: String,
     place_order: usize,
@@ -709,6 +757,20 @@ fn sort_lines(lines: &mut [Line], sort: Sort, shoppers: &[(String, String)]) {
         Sort::Buyer => lines.sort_by_key(|l| (buyer(l).is_none(), buyer(l), l.order)),
         Sort::NotBought => lines.sort_by_key(|l| (l.purchase.bought, l.order)),
     }
+}
+
+/// Who a product is for, as a product's line says it: everybody, the adults, the children.
+fn whom(eaters: Eaters) -> &'static str {
+    match eaters {
+        Eaters::Everyone => t().menu.for_everyone,
+        Eaters::FullWeight => t().menu.for_full,
+        Eaters::Others => t().menu.for_others,
+    }
+}
+
+/// Whether a line is on screen: its buyer's (see [`shown`]) and matching the search.
+fn visible_line(state: MenuState, who: Option<&str>, hay: &str) -> bool {
+    shown(state, who) && found(&state.shop_find.get(), hay)
 }
 
 /// Whether a product bought by `who` is on screen: everybody's are, unless somebody is
@@ -810,8 +872,8 @@ fn ListCard(
     };
 
     let visible_here = {
-        let whos: Vec<Option<String>> = lines.iter().map(|l| l.purchase.who.clone()).collect();
-        move || whos.iter().any(|who| shown(state, who.as_deref()))
+        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.purchase.who.clone(), l.hay.clone())).collect();
+        move || rows.iter().any(|(who, hay)| visible_line(state, who.as_deref(), hay))
     };
 
     let rows = lines
@@ -870,7 +932,24 @@ fn ListCard(
             };
             let visible = {
                 let who = who.clone();
-                move || shown(state, who.as_deref())
+                let hay = line.hay.clone();
+                move || visible_line(state, who.as_deref(), &hay)
+            };
+            // "Mine": one tap instead of finding oneself in the list - there when somebody is
+            // picked as "me" and the product is not theirs yet.
+            let to_me = {
+                let id = id.clone();
+                let who = who.clone();
+                move || {
+                    let me = state.me.get().filter(|me| who.as_deref() != Some(me.as_str()))?;
+                    let id = id.clone();
+                    Some(view! {
+                        <button type="button" class="tcn-btn tcn-btn-sm tcw-buy-me" title=t().menu.to_me_title
+                                on:click=move |_| change(MenuEdit::Buyer { products: vec![id.clone()], who: Some(me.clone()) })>
+                            {t().menu.to_me}
+                        </button>
+                    })
+                }
             };
             // Hidden rather than left out, so that picking "me" does not rebuild the list.
             view! {
@@ -882,14 +961,18 @@ fn ListCard(
                             <span class="tcw-buy-title">{line.product.name.clone()}</span>
                             <small class="tcw-buy-why">
                                 {show_place.then(|| view! { <span class="tcw-buy-place">{line.place.clone()}</span> " · " })}
+                                {whom(line.product.eaters)} " · "
                                 {line.why.clone()}
                             </small>
                         </span>
                         <span class="tcw-buy-amount">{quantity_of(line.amount, &line.product)}</span>
-                        <select class="tcn-input tcw-buy-who" title=t().menu.buyer on:change=pick>
-                            <option value="" selected=who.is_none()>{t().menu.nobody_yet}</option>
-                            {options}
-                        </select>
+                        <span class="tcw-buy-who">
+                            <select class="tcn-input" title=t().menu.buyer on:change=pick>
+                                <option value="" selected=who.is_none()>{t().menu.nobody_yet}</option>
+                                {options}
+                            </select>
+                            {to_me}
+                        </span>
                         <span class="tcw-buy-expense">{expense}</span>
                     </div>
             }
@@ -1025,6 +1108,17 @@ mod tests {
         assert_eq!(quantity_of(5.6, &wine), "6\u{a0}бут.");
         let blank = Product { own_unit: Some("  ".into()), unit: Unit::Millilitre, ..Product::default() };
         assert_eq!(quantity_of(500.0, &blank), quantity(500.0, Unit::Millilitre), "an empty unit is none");
+    }
+
+    /// Every word somewhere, case and "ё" aside; nothing typed finds everything.
+    #[test]
+    fn a_search_finds_every_word_anywhere() {
+        let hay = folded("Шашлык Рынок Дима Т. Быстромясо на гриле ×1");
+        assert!(found("", &hay));
+        assert!(found("рынок дима", &hay));
+        assert!(found("ГРИЛЕ", &hay));
+        assert!(!found("рынок женя", &hay));
+        assert!(found("ёлка", &folded("Елка")));
     }
 
     #[test]

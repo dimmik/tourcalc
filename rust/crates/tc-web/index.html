@@ -855,16 +855,18 @@
         .tcw-buy-place { font-weight: 600; color: var(--tcn-text, #111827); }
         .tcw-buy-amount { grid-area: amount; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap;
             text-align: right; }
-        .tcw-buy-who { grid-area: who; width: auto; max-width: 100%; justify-self: start; padding: 4px 8px;
-            font-size: 13px; }
+        .tcw-buy-who { grid-area: who; display: flex; gap: 6px; align-items: center; min-width: 0; }
+        .tcw-buy-who select { width: auto; min-width: 0; max-width: 100%; padding: 4px 8px; font-size: 13px; }
+        .tcw-buy-me { flex: 0 0 auto; white-space: nowrap; }
+        .tcw-food-search { margin-bottom: 12px; }
         .tcw-buy-expense { grid-area: expense; justify-self: end; }
         .tcw-buy-done { font-size: 12.5px; font-weight: 600; color: var(--tcn-green, #047857); white-space: nowrap; }
         .tcw-buy.is-bought .tcw-buy-title, .tcw-buy.is-bought .tcw-buy-amount {
             color: var(--tcn-muted, #6b7280); text-decoration: line-through; font-weight: 400; }
         @media (min-width: 740px) {
-            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 6.5em 12em 12.5em;
+            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 6.5em 17em 12.5em;
                 grid-template-areas: "tick name amount who expense"; }
-            .tcw-buy-who { justify-self: stretch; }
+            .tcw-buy-who select { flex: 1 1 auto; }
         }
         .tcw-errand-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
             justify-content: flex-end; margin-top: 10px; font-size: 13.5px; }
