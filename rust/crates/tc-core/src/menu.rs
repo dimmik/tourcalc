@@ -72,6 +72,11 @@ pub struct Product {
     /// The [`Place`] it is usually bought at.
     pub place: String,
     pub eaters: Eaters,
+    /// A unit of the group's own, as text - "btl" for wine, "can" for beer - counted like
+    /// pieces: amounts per portion may be fractions, the shopping is whole ones. `unit` is
+    /// then `Piece`, so that a reader that does not know this field still counts it right.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub own_unit: Option<String>,
 }
 
 /// So much of a product for one portion - or, for a product counted by heads, one person.
@@ -511,7 +516,7 @@ mod tests {
     }
 
     fn product(id: &str, eaters: Eaters) -> Product {
-        Product { id: id.into(), name: id.into(), unit: Unit::Gram, place: "market".into(), eaters }
+        Product { id: id.into(), name: id.into(), unit: Unit::Gram, place: "market".into(), eaters, own_unit: None }
     }
 
     fn menu() -> Menu {

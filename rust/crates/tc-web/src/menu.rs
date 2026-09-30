@@ -29,6 +29,11 @@ pub struct MenuState {
     /// The dish, product or daily list open for editing in the catalogue: its id, "" for a
     /// new one, `None` for nothing.
     pub editing: RwSignal<Option<String>>,
+    /// Which of the catalogue's sections are open. The products - thirty-odd lines looked
+    /// up now and then - start folded.
+    pub dishes_open: RwSignal<bool>,
+    pub daily_open: RwSignal<bool>,
+    pub products_open: RwSignal<bool>,
     /// Who this phone is: the shopping shows theirs.
     pub me: RwSignal<Option<String>>,
     /// Other people's shopping too, although somebody is picked. Without it the shopping
@@ -41,6 +46,9 @@ impl MenuState {
         MenuState {
             view: RwSignal::new(View::Plan),
             editing: RwSignal::new(None),
+            dishes_open: RwSignal::new(true),
+            daily_open: RwSignal::new(true),
+            products_open: RwSignal::new(false),
             me: RwSignal::new(crate::settings::me(tour)),
             everybody: RwSignal::new(false),
         }
@@ -93,7 +101,7 @@ const PRODUCTS: &[(&str, &str, &str, Unit, &str, Eaters)] = &[
     ("nuts", "Nuts", "Орехи", G, SUPERMARKET, ALL),
     ("snacks", "Olives, pickles", "Оливки, соленья", G, SUPERMARKET, ALL),
     ("coffee", "Coffee and tea", "Кофе и чай", G, SUPERMARKET, ALL),
-    ("wine", "Wine", "Вино", ML, SUPERMARKET, FULL),
+    ("wine", "Wine", "Вино", PCS, SUPERMARKET, FULL),
     ("juice", "Juice", "Сок", ML, SUPERMARKET, KIDS),
     ("mineral", "Mineral water", "Минералка", ML, DELIVERY, KIDS),
     ("water", "Drinking water", "Питьевая вода", ML, DELIVERY, ALL),
@@ -127,7 +135,8 @@ const DAILY: &[(&str, f64, When)] = &[
     ("coffee", 15.0, When::EveryDay),
     ("water", 1500.0, When::EveryDay),
     ("cooking_water", 1000.0, When::EveryDay),
-    ("wine", 350.0, When::With(Meal::Dinner)),
+    // Half a bottle each.
+    ("wine", 0.5, When::With(Meal::Dinner)),
     ("juice", 500.0, When::EveryDay),
     ("mineral", 500.0, When::EveryDay),
 ];
@@ -153,6 +162,8 @@ pub fn starter(days: u32) -> Menu {
                 unit: *unit,
                 place: (*place).into(),
                 eaters: *eaters,
+                // Wine by the bottle: nobody buys 5 600 ml of it.
+                own_unit: (*id == "wine").then(|| pick("btl", "бут.")),
             })
             .collect(),
         dishes: DISHES
@@ -183,6 +194,13 @@ pub fn starter(days: u32) -> Menu {
 
 /// So much of a product, as a shop sells it: grams up to 10, kilograms and litres to a
 /// tenth, pieces whole - always rounded up, since the point is to have enough.
+pub fn quantity_of(amount: f64, product: &Product) -> String {
+    match product.own_unit.as_deref().filter(|u| !u.trim().is_empty()) {
+        Some(own) => format!("{}\u{a0}{}", amount.ceil(), own.trim()),
+        None => quantity(amount, product.unit),
+    }
+}
+
 pub fn quantity(amount: f64, unit: Unit) -> String {
     let m = &t().menu;
     let tenths = |x: f64| {
@@ -387,7 +405,7 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                 .collect_view();
             view! {
                 <label class="tcw-food-meal">
-                    <span>{meal_name(meal)}</span>
+                    <span class=format!("tcw-meal {}", crate::menu_catalogue::meal_class(meal))>{meal_name(meal)}</span>
                     <select class="tcn-input"
                             on:change=move |ev| {
                                 let v = event_target_value(&ev);
@@ -419,7 +437,7 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                         .collect_view();
                     view! {
                         <label class="tcw-food-meal">
-                            <span>{meal_name(meal)}</span>
+                            <span class=format!("tcw-meal {}", crate::menu_catalogue::meal_class(meal))>{meal_name(meal)}</span>
                             <select class="tcn-input"
                                     on:change=move |ev| {
                                         let v = event_target_value(&ev);
@@ -764,7 +782,7 @@ fn PlaceCard(
                             <span class="tcw-buy-title">{line.product.name.clone()}</span>
                             <small class="tcw-buy-why">{line.why.clone()}</small>
                         </span>
-                        <span class="tcw-buy-amount">{quantity(line.amount, line.product.unit)}</span>
+                        <span class="tcw-buy-amount">{quantity_of(line.amount, &line.product)}</span>
                         <select class="tcn-input tcw-buy-who" title=t().menu.buyer on:change=pick>
                             <option value="" selected=who.is_none()>{t().menu.nobody_yet}</option>
                             {options}
@@ -896,6 +914,14 @@ mod tests {
         assert_eq!(date_after("", 0), None);
         // 13 November 2026 is a Friday.
         assert_eq!(day_date((2026, 11, 13)), (t().menu.dated)(t().menu.weekdays[4], 13, t().menu.months[10]));
+    }
+
+    #[test]
+    fn an_own_unit_is_counted_in_whole_ones() {
+        let wine = Product { own_unit: Some("бут.".into()), unit: Unit::Piece, ..Product::default() };
+        assert_eq!(quantity_of(5.6, &wine), "6\u{a0}бут.");
+        let blank = Product { own_unit: Some("  ".into()), unit: Unit::Millilitre, ..Product::default() };
+        assert_eq!(quantity_of(500.0, &blank), quantity(500.0, Unit::Millilitre), "an empty unit is none");
     }
 
     #[test]

@@ -275,6 +275,11 @@ pub struct MenuTexts {
     pub name_needed: &'static str,
     pub meal_needed: &'static str,
     pub unit: &'static str,
+    /// The unit select's last option: a unit typed in.
+    pub own_unit: &'static str,
+    pub own_unit_name: &'static str,
+    pub own_unit_placeholder: &'static str,
+    pub unit_needed: &'static str,
     pub place: &'static str,
     pub for_whom: &'static str,
     pub eaters_everyone: &'static str,

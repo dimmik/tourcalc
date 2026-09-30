@@ -35,41 +35,66 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
     let menu_for_new_dish = menu.clone();
     let menu_for_new_product = menu.clone();
 
+    let dish_count = menu.dishes.len();
+    let product_count = menu.products.len();
+    // A section's heading folds it; "+ Dish" opens it, since the new one is drawn inside.
+    let fold = |open: RwSignal<bool>, title: &'static str, count: Option<usize>| view! {
+        <button type="button" class="tcw-cat-fold" aria-expanded=move || open.get().to_string()
+                on:click=move |_| open.update(|o| *o = !*o)>
+            <span class="tcw-cat-caret">{move || if open.get() { "▾" } else { "▸" }}</span>
+            <h3>{title}</h3>
+            {count.map(|n| view! { <span class="tcn-tab-badge">{n}</span> })}
+        </button>
+    };
+
     view! {
-        <section class="tcw-cat">
+        <section class="tcw-cat is-dishes">
             <div class="tcw-cat-head">
-                <h3>{t().menu.dishes}</h3>
+                {fold(state.dishes_open, t().menu.dishes, Some(dish_count))}
                 <button type="button" class="tcn-btn tcn-btn-sm"
-                        on:click=move |_| state.editing.set(Some(String::new()))>
+                        on:click=move |_| {
+                            state.dishes_open.set(true);
+                            state.editing.set(Some(String::new()));
+                        }>
                     {t().menu.new_dish}
                 </button>
             </div>
-            <Show when=move || state.editing.get().as_deref() == Some("")>
-                <DishEditor menu=menu_for_new_dish.clone() dish=blank_dish.clone() state=state apply=apply />
-            </Show>
-            {dishes}
-        </section>
-
-        <section class="tcw-cat">
-            <div class="tcw-cat-head">
-                <h3>{t().menu.daily_title}</h3>
+            // Hidden rather than left out: folding and unfolding redraws nothing.
+            <div style:display=move || if state.dishes_open.get() { "" } else { "none" }>
+                <Show when=move || state.editing.get().as_deref() == Some("")>
+                    <DishEditor menu=menu_for_new_dish.clone() dish=blank_dish.clone() state=state apply=apply />
+                </Show>
+                {dishes}
             </div>
-            <p class="tcw-food-note">{t().menu.daily_note}</p>
-            <DailyRow menu=menu.clone() state=state apply=apply />
         </section>
 
-        <section class="tcw-cat">
+        <section class="tcw-cat is-daily">
             <div class="tcw-cat-head">
-                <h3>{t().menu.products}</h3>
+                {fold(state.daily_open, t().menu.daily_title, None)}
+            </div>
+            <Show when=move || state.daily_open.get()>
+                <p class="tcw-food-note">{t().menu.daily_note}</p>
+                <DailyRow menu=menu.clone() state=state apply=apply />
+            </Show>
+        </section>
+
+        <section class="tcw-cat is-products">
+            <div class="tcw-cat-head">
+                {fold(state.products_open, t().menu.products, Some(product_count))}
                 <button type="button" class="tcn-btn tcn-btn-sm"
-                        on:click=move |_| state.editing.set(Some(NEW_PRODUCT.to_owned()))>
+                        on:click=move |_| {
+                            state.products_open.set(true);
+                            state.editing.set(Some(NEW_PRODUCT.to_owned()));
+                        }>
                     {t().menu.new_product}
                 </button>
             </div>
-            <Show when=move || state.editing.get().as_deref() == Some(NEW_PRODUCT)>
-                <ProductEditor menu=menu_for_new_product.clone() product=blank_product.clone() state=state apply=apply />
-            </Show>
-            {products}
+            <div style:display=move || if state.products_open.get() { "" } else { "none" }>
+                <Show when=move || state.editing.get().as_deref() == Some(NEW_PRODUCT)>
+                    <ProductEditor menu=menu_for_new_product.clone() product=blank_product.clone() state=state apply=apply />
+                </Show>
+                {products}
+            </div>
         </section>
     }
 }
@@ -78,12 +103,31 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
 const NEW_PRODUCT: &str = "+product";
 /// What `editing` says for the daily list.
 const DAILY: &str = "+daily";
+/// The unit select's value for "a unit of its own".
+const OWN: &str = "+own";
 
 fn unit_name(unit: Unit) -> &'static str {
     match unit {
         Unit::Gram => t().menu.grams,
         Unit::Millilitre => t().menu.millilitres,
         Unit::Piece => t().menu.pieces,
+    }
+}
+
+/// What a product is counted in, as the lists say it: its own unit if it has one.
+fn unit_label(p: &Product) -> String {
+    match p.own_unit.as_deref().map(str::trim).filter(|u| !u.is_empty()) {
+        Some(own) => own.to_owned(),
+        None => unit_name(p.unit).to_owned(),
+    }
+}
+
+/// The class that colours a meal: the same three colours in the plan and here.
+pub(crate) fn meal_class(meal: Meal) -> &'static str {
+    match meal {
+        Meal::Breakfast => "is-breakfast",
+        Meal::Lunch => "is-lunch",
+        Meal::Dinner => "is-dinner",
     }
 }
 
@@ -108,7 +152,7 @@ fn summary(menu: &Menu, items: &[Ingredient]) -> String {
                 When::EveryDay => String::new(),
                 w => format!(" {}", when_name(w)),
             };
-            Some(format!("{} {}\u{a0}{}{when}", p.name.to_lowercase(), number(i.amount), unit_name(p.unit)))
+            Some(format!("{} {}\u{a0}{}{when}", p.name.to_lowercase(), number(i.amount), unit_label(p)))
         })
         .collect::<Vec<_>>()
         .join(" · ")
@@ -131,7 +175,7 @@ fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>)
         let id = id.clone();
         move || state.editing.get().as_deref() == Some(id.as_str())
     };
-    let meals = dish.meals.iter().map(|m| meal_name(*m)).collect::<Vec<_>>().join(" · ");
+    let meals: Vec<Meal> = dish.meals.clone();
     let what = summary(&menu, &dish.ingredients);
     let editor_dish = dish.clone();
     view! {
@@ -147,7 +191,11 @@ fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>)
                           <div class="tcw-cat-row">
                               <div class="tcw-cat-main">
                                   <b>{name.clone()}</b>
-                                  <span class="tcw-cat-meals">{meals.clone()}</span>
+                                  <span class="tcw-cat-meals">
+                                      {meals.iter().map(|m| view! {
+                                          <span class=format!("tcw-meal {}", meal_class(*m))>{meal_name(*m)}</span>
+                                      }).collect_view()}
+                                  </span>
                                   <small class="tcw-cat-what">{what.clone()}</small>
                               </div>
                               <button type="button" class="tcn-btn tcn-btn-sm"
@@ -205,10 +253,10 @@ fn ingredients_of(rows: &[Row]) -> Vec<Ingredient> {
 /// A list of product-and-amount rows, with "+" and "✕".
 #[component]
 fn Ingredients(menu: Menu, rows: RwSignal<Vec<Row>>, next: StoredValue<u32>, per_day: bool) -> impl IntoView {
-    let products: Vec<(String, String, Unit, Eaters)> = menu
+    let products: Vec<(String, String, String, Eaters)> = menu
         .products
         .iter()
-        .map(|p| (p.id.clone(), p.name.clone(), p.unit, p.eaters))
+        .map(|p| (p.id.clone(), p.name.clone(), unit_label(p), p.eaters))
         .collect();
     let products = StoredValue::new(products);
     let add = move |_| {
@@ -245,7 +293,7 @@ fn Ingredients(menu: Menu, rows: RwSignal<Vec<Row>>, next: StoredValue<u32>, per
                                     Eaters::FullWeight => t().menu.per_adult,
                                     Eaters::Others => t().menu.per_child,
                                 };
-                                format!("{} {whom}", unit_name(*unit))
+                                format!("{unit} {whom}")
                             })
                         })
                         .unwrap_or_default()
@@ -350,7 +398,7 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
         .into_iter()
         .map(|meal| {
             view! {
-                <label class="tcn-switchline tcw-cat-meal">
+                <label class=format!("tcn-switchline tcw-cat-meal tcw-meal {}", meal_class(meal))>
                     <input type="checkbox" prop:checked=move || meals.get().contains(&meal)
                            on:change=move |ev| {
                                let on = event_target_checked(&ev);
@@ -452,7 +500,7 @@ fn ProductRow(menu: Menu, product: Product, state: MenuState, apply: Callback<Op
         .find(|p| p.id == product.place)
         .map(|p| p.name.clone())
         .unwrap_or_default();
-    let facts = format!("{} · {} · {}", unit_name(product.unit), place, eaters_name(product.eaters));
+    let facts = format!("{} · {} · {}", unit_label(&product), place, eaters_name(product.eaters));
     let editor_product = product.clone();
     view! {
         <Show when=open.clone()
@@ -487,6 +535,8 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
     let used = !is_new && menu.uses(&product.id);
     let name = RwSignal::new(product.name.clone());
     let unit = RwSignal::new(product.unit);
+    // Text when the product has a unit of its own; `None` - one of the three.
+    let own = RwSignal::new(product.own_unit.clone().filter(|u| !u.trim().is_empty()));
     let place = RwSignal::new(product.place.clone());
     let eaters = RwSignal::new(product.eaters);
     let error = RwSignal::new(None::<&'static str>);
@@ -500,12 +550,19 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                 error.set(Some(t().menu.name_needed));
                 return;
             }
+            let own_unit = own.get_untracked().map(|u| u.trim().to_owned());
+            if own_unit.as_deref() == Some("") {
+                error.set(Some(t().menu.unit_needed));
+                return;
+            }
             let product = Product {
                 id: if id.is_empty() { crate::edit::new_id() } else { id.clone() },
                 name,
-                unit: unit.get_untracked(),
+                // A unit of its own counts like pieces - see `Product::own_unit`.
+                unit: if own_unit.is_some() { Unit::Piece } else { unit.get_untracked() },
                 place: place.get_untracked(),
                 eaters: eaters.get_untracked(),
+                own_unit,
             };
             state.editing.set(None);
             apply.run(Operation::Menu(MenuEdit::PutProduct(product)));
@@ -521,7 +578,9 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
 
     let units = [Unit::Gram, Unit::Millilitre, Unit::Piece]
         .into_iter()
-        .map(|u| view! { <option value=unit_name(u) selected=move || unit.get() == u>{unit_name(u)}</option> })
+        .map(|u| view! {
+            <option value=unit_name(u) selected=move || own.get().is_none() && unit.get() == u>{unit_name(u)}</option>
+        })
         .collect_view();
     let places = menu
         .places
@@ -550,11 +609,25 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                     <span>{t().menu.unit}</span>
                     <select class="tcn-input" on:change=move |ev| {
                         let v = event_target_value(&ev);
-                        if let Some(u) = [Unit::Gram, Unit::Millilitre, Unit::Piece].into_iter().find(|u| unit_name(*u) == v) {
+                        if v == OWN {
+                            own.set(Some(String::new()));
+                        } else if let Some(u) = [Unit::Gram, Unit::Millilitre, Unit::Piece].into_iter().find(|u| unit_name(*u) == v) {
                             unit.set(u);
+                            own.set(None);
                         }
-                    }>{units}</select>
+                    }>
+                        {units}
+                        <option value=OWN selected=move || own.get().is_some()>{t().menu.own_unit}</option>
+                    </select>
                 </label>
+                <Show when=move || own.get().is_some()>
+                    <label>
+                        <span>{t().menu.own_unit_name}</span>
+                        <input class="tcn-input" type="text" placeholder=t().menu.own_unit_placeholder
+                               prop:value=move || own.get().unwrap_or_default()
+                               on:input=move |ev| own.set(Some(event_target_value(&ev))) />
+                    </label>
+                </Show>
                 <label>
                     <span>{t().menu.place}</span>
                     <select class="tcn-input" on:change=move |ev| place.set(event_target_value(&ev))>{places}</select>
