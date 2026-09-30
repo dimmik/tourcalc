@@ -837,11 +837,12 @@ pub const TEXTS: Texts = Texts {
         fewer_days: "На день меньше",
         more_days: "На день больше",
         portions_note: |portions, full, others, weight| {
-            let mut s = format!("Количества — на {portions} {}: вес 100 — одна порция. \
-                Вино — на {full} {} с весом {weight} и больше",
-                match portions.parse::<i64>() { Ok(n) => ru_plural(n, "порцию", "порции", "порций"), Err(_) => "порции" }, ru_plural(full as i64, "человека", "человек", "человек"));
+            let mut s = format!("В этом туре {portions} {} по весу: вес 100 — одна порция. \
+                «Взрослым» — на {full} {} с весом {weight} и больше",
+                match portions.parse::<i64>() { Ok(n) => ru_plural(n, "порция", "порции", "порций"), Err(_) => "порции" },
+                ru_plural(full as i64, "человека", "человек", "человек"));
             if others > 0 {
-                s += &format!(", соки — на остальных {others}");
+                s += &format!(", «детям» — на остальных {others}");
             }
             s + "."
         },
@@ -903,6 +904,8 @@ pub const TEXTS: Texts = Texts {
         category: "Продукты",
         catalogue: "Каталог",
         dishes: "Блюда",
+        per_portion_title: "на одну порцию",
+        per_portion_day_title: "на одну порцию в день",
         new_dish: "+ Блюдо",
         dish_name: "Название блюда",
         daily_title: "Каждый день",

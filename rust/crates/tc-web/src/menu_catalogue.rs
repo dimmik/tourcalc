@@ -16,7 +16,13 @@ use leptos::prelude::*;
 use tc_core::menu::{Dish, Eaters, Ingredient, Meal, Menu, Product, Unit, When};
 
 #[component]
-pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> impl IntoView {
+pub fn Catalogue(
+    menu: Menu,
+    state: MenuState,
+    apply: Callback<Operation>,
+    /// What a portion comes to in this tour, said under the dishes.
+    note: String,
+) -> impl IntoView {
     // What a search looks at: a dish's name, meals and what goes in; a product's name, unit,
     // place and who it is for; the daily list's products.
     let product_name = |id: &str| menu.product(id).map(|p| p.name.clone()).unwrap_or_default();
@@ -103,12 +109,13 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
     let dish_count = menu.dishes.len();
     let product_count = menu.products.len();
     // A section's heading folds it; "+ Dish" opens it, since the new one is drawn inside.
-    let fold = |open: RwSignal<bool>, shown: Memo<bool>, title: &'static str, count: Option<usize>| view! {
+    let fold = |open: RwSignal<bool>, shown: Memo<bool>, title: &'static str, count: Option<usize>, per: Option<&'static str>| view! {
         <button type="button" class="tcw-cat-fold" aria-expanded=move || shown.get().to_string()
                 on:click=move |_| open.update(|o| *o = !*o)>
             <span class="tcw-cat-caret">{move || if shown.get() { "▾" } else { "▸" }}</span>
             <h3>{title}</h3>
             {count.map(|n| view! { <span class="tcn-tab-badge">{n}</span> })}
+            {per.map(|p| view! { <span class="tcw-cat-per">{p}</span> })}
         </button>
     };
 
@@ -116,7 +123,7 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
         {search_box(state.cat_find, t().menu.find_in_catalogue)}
         <section class="tcw-cat is-dishes">
             <div class="tcw-cat-head">
-                {fold(state.dishes_open, dishes_shown, t().menu.dishes, Some(dish_count))}
+                {fold(state.dishes_open, dishes_shown, t().menu.dishes, Some(dish_count), Some(t().menu.per_portion_title))}
                 <button type="button" class="tcn-btn tcn-btn-sm"
                         on:click=move |_| {
                             state.cat_find.set(String::new());
@@ -128,6 +135,7 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
             </div>
             // Hidden rather than left out: folding and unfolding redraws nothing.
             <div style:display=move || if dishes_shown.get() { "" } else { "none" }>
+                <p class="tcw-food-note">{note}</p>
                 <Show when=move || state.editing.get().as_deref() == Some("")>
                     <DishEditor menu=menu_for_new_dish.clone() dish=blank_dish.clone() state=state apply=apply />
                 </Show>
@@ -137,7 +145,7 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
 
         <section class="tcw-cat is-daily">
             <div class="tcw-cat-head">
-                {fold(state.daily_open, daily_shown, t().menu.daily_title, None)}
+                {fold(state.daily_open, daily_shown, t().menu.daily_title, None, Some(t().menu.per_portion_day_title))}
             </div>
             <Show when=move || daily_shown.get()>
                 <p class="tcw-food-note">{t().menu.daily_note}</p>
@@ -147,7 +155,7 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
 
         <section class="tcw-cat is-products">
             <div class="tcw-cat-head">
-                {fold(state.products_open, products_shown, t().menu.products, Some(product_count))}
+                {fold(state.products_open, products_shown, t().menu.products, Some(product_count), None)}
                 <button type="button" class="tcn-btn tcn-btn-sm"
                         on:click=move |_| {
                             state.cat_find.set(String::new());
@@ -167,7 +175,7 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
 
         <section class="tcw-cat is-places">
             <div class="tcw-cat-head">
-                {fold(state.places_open, places_shown, t().menu.places_title, Some(place_count))}
+                {fold(state.places_open, places_shown, t().menu.places_title, Some(place_count), None)}
                 <button type="button" class="tcn-btn tcn-btn-sm"
                         on:click=move |_| {
                             state.cat_find.set(String::new());

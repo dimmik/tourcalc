@@ -402,6 +402,7 @@ pub fn MenuTab(
         .trim_end_matches(".0")
         .replace('.', &crate::ui::decimal().to_string());
     let note = (t().menu.portions_note)(&portions, eating.full as usize, eating.others as usize, eating.full_weight);
+    let note_for_catalogue = note.clone();
 
     let tour_for_shopping = tour.clone();
     let menu_for_shopping = menu.clone();
@@ -428,7 +429,11 @@ pub fn MenuTab(
                             on:click=move |_| change(MenuEdit::Days(days + 1))>"+"</button>
                 </div>
             </div>
-            <p class="tcw-food-note">{note}</p>
+            // What the amounts mean for this tour - in the catalogue it is said under the
+            // dishes, where the amounts per portion are.
+            <Show when=move || state.view.get() != View::Catalogue>
+                <p class="tcw-food-note">{note.clone()}</p>
+            </Show>
 
             <Show when=move || state.view.get() == View::Plan>
                 <Plan menu=menu.clone() apply=apply />
@@ -438,7 +443,8 @@ pub fn MenuTab(
                           state=state apply=apply dialog=dialog />
             </Show>
             <Show when=move || state.view.get() == View::Catalogue>
-                <crate::menu_catalogue::Catalogue menu=menu_for_catalogue.clone() state=state apply=apply />
+                <crate::menu_catalogue::Catalogue menu=menu_for_catalogue.clone() state=state apply=apply
+                                                  note=note_for_catalogue.clone() />
             </Show>
         </div>
     }

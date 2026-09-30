@@ -824,10 +824,10 @@ pub const TEXTS: Texts = Texts {
         fewer_days: "One day fewer",
         more_days: "One day more",
         portions_note: |portions, full, others, weight| {
-            let mut s = format!("Amounts are for {portions} portions: a weight of 100 eats one. \
-                Wine is for the {full} at weight {weight} and over");
+            let mut s = format!("This tour is {portions} portions by weight: a weight of 100 is one. \
+                “Adults” means the {full} at weight {weight} and over");
             if others > 0 {
-                s += &format!(", juice for the other {others}");
+                s += &format!(", “children” the other {others}");
             }
             s + "."
         },
@@ -889,6 +889,8 @@ pub const TEXTS: Texts = Texts {
         category: "Groceries",
         catalogue: "Catalogue",
         dishes: "Dishes",
+        per_portion_title: "for one portion",
+        per_portion_day_title: "for one portion a day",
         new_dish: "+ Dish",
         dish_name: "Dish name",
         daily_title: "Every day",

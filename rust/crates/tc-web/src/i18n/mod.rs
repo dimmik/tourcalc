@@ -267,6 +267,9 @@ pub struct MenuTexts {
     // The catalogue.
     pub catalogue: &'static str,
     pub dishes: &'static str,
+    /// Beside the headings: what the catalogue's amounts are for.
+    pub per_portion_title: &'static str,
+    pub per_portion_day_title: &'static str,
     pub new_dish: &'static str,
     pub dish_name: &'static str,
     pub daily_title: &'static str,
