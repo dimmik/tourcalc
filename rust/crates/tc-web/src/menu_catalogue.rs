@@ -760,24 +760,26 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
         }
     };
 
+    // Chips that are pressed, as the payer and the categories are - no box inside. Pressed,
+    // a chip is the meal's own badge, the one the dish shows in the list.
     let meal_boxes = Meal::ALL
         .into_iter()
         .map(|meal| {
+            let on = move || meals.get().contains(&meal);
             view! {
-                <label class=format!("tcn-switchline tcw-cat-meal tcw-meal {}", meal_class(meal))>
-                    <input type="checkbox" prop:checked=move || meals.get().contains(&meal)
-                           on:change=move |ev| {
-                               let on = event_target_checked(&ev);
-                               meals.update(|m| {
-                                   m.retain(|x| *x != meal);
-                                   if on {
-                                       m.push(meal);
-                                       m.sort_by_key(|x| Meal::ALL.iter().position(|y| y == x));
-                                   }
-                               });
-                           } />
+                <button type="button" class=format!("tcw-meal tcw-meal-pick {}", meal_class(meal))
+                        class:is-on=on
+                        aria-pressed=move || on().to_string()
+                        on:click=move |_| meals.update(|m| {
+                            if m.contains(&meal) {
+                                m.retain(|x| *x != meal);
+                            } else {
+                                m.push(meal);
+                                m.sort_by_key(|x| Meal::ALL.iter().position(|y| y == x));
+                            }
+                        })>
                     {meal_name(meal)}
-                </label>
+                </button>
             }
         })
         .collect_view();

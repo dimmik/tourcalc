@@ -911,8 +911,16 @@
         .tcw-cat-what { flex-basis: 100%; font-size: 12px; color: var(--tcn-muted, #6b7280); }
         .tcw-cat-edit { padding: 12px; margin: 8px 0 12px; display: grid; gap: 10px; }
         .tcw-cat-name { font-weight: 600; }
-        .tcw-cat-meals-edit { display: flex; flex-wrap: wrap; gap: 4px 16px; }
-        .tcw-cat-meal { margin: 0; padding: 3px 10px; gap: 6px; }
+        .tcw-cat-meals-edit { display: flex; flex-wrap: wrap; gap: 6px; }
+        /* A meal to press, like a category: outlined when not chosen, the meal's badge when it is. */
+        .tcw-meal-pick { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 12px; cursor: pointer;
+            border: 1px solid transparent; transition: background .12s ease, border-color .12s ease; }
+        .tcw-meal-pick:not(.is-on) { background: var(--tcn-surface, #fff); color: var(--tcn-muted, #6b7280);
+            border-color: var(--tcn-border-strong, #d1d5db); }
+        .tcw-meal-pick:not(.is-on):hover { border-color: currentColor; }
+        .tcw-meal-pick.is-on.is-breakfast { border-color: #f59e0b; }
+        .tcw-meal-pick.is-on.is-lunch { border-color: #10b981; }
+        .tcw-meal-pick.is-on.is-dinner { border-color: #6366f1; }
         .tcw-cat-fields { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
         .tcw-cat-fields label { display: grid; gap: 3px; font-size: 12.5px; color: var(--tcn-muted, #6b7280); }
         .tcw-cat-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
