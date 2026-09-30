@@ -193,6 +193,10 @@ pub fn SpendingDialog(
     // Whether this is for somebody else. A signal, because "start blank" on a carried draft
     // makes it a plain new expense again.
     let on_behalf = RwSignal::new(draft.on_behalf);
+    // The menu's products this expense pays for - a signal for the same reason: "start blank"
+    // on a carried shopping expense makes it a plain one, and a taxi saved from it marked the
+    // potatoes bought and recorded them as the taxi.
+    let purchases = RwSignal::new(draft.purchases.clone());
     let base = draft.clone();
     // The form as it stands, whether it is being saved or left behind. Cloned rather than
     // shared: it holds nothing but signals, which are `Copy`.
@@ -214,6 +218,7 @@ pub fn SpendingDialog(
         d.colour = colour.get_untracked();
         d.currency_id = currency.get_untracked();
         d.on_behalf = on_behalf.get_untracked();
+        d.purchases = purchases.get_untracked();
         d
     });
 
@@ -241,6 +246,7 @@ pub fn SpendingDialog(
         // that picked the draft up - whoever the draft was for.
         from.set(fresh.from.as_str().to_owned());
         on_behalf.set(false);
+        purchases.set(Vec::new());
         everyone.set(fresh.everyone);
         by_weight.set(fresh.by_weight);
         to.set(fresh.to.clone());

@@ -784,6 +784,20 @@ pub fn put_tour(tour: &Tour, draft: &TourDraft) -> Tour {
     next
 }
 
+/// A tour as the start of the next trip - see the list's "copy without expenses": the menu's
+/// plan and catalogue stay, what was bought and by whom goes. Left in, the new trip opened
+/// with last year's potatoes bought, and pointing at expenses the copy does not have.
+pub fn for_next_trip(tour: &Tour) -> Tour {
+    let mut next = tour.clone();
+    if let Some(mut menu) = tc_core::menu::Menu::of(&next) {
+        if !menu.purchases.is_empty() {
+            menu.purchases.clear();
+            menu.put(&mut next);
+        }
+    }
+    next
+}
+
 /// Something done to the menu, as the queue records it.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum MenuEdit {

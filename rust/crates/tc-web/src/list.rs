@@ -274,6 +274,7 @@ pub fn TourListPage() -> impl IntoView {
             // The list carries no spendings - the server strips them - so the tour is
             // fetched whole before being copied.
             let whole = match api::tour(tour.id.as_str()).await {
+                Ok(t) if strip => crate::edit::for_next_trip(&t),
                 Ok(t) => t,
                 Err(e) => {
                     trouble.set(e.to_string());

@@ -1200,6 +1200,21 @@ mod tests {
         assert!(found("ёлка", &folded("Елка")));
     }
 
+    /// The next trip keeps the plan and the catalogue, not last year's shopping.
+    #[test]
+    fn a_copy_for_the_next_trip_has_nothing_bought() {
+        let mut t = tour();
+        let mut m = starter(3);
+        m.purchase_mut("rice").bought = true;
+        m.purchase_mut("rice").who = Some("a".into());
+        m.purchase_mut("rice").spending = Some("s1".into());
+        m.put(&mut t);
+        let next = crate::edit::for_next_trip(&t);
+        let copied = Menu::of(&next).expect("menu");
+        assert!(copied.purchases.is_empty());
+        assert_eq!((copied.days, copied.dishes.len(), copied.plan.len()), (m.days, m.dishes.len(), m.plan.len()));
+    }
+
     #[test]
     fn quantities_are_rounded_up_to_what_a_shop_sells() {
         assert_eq!(quantity(1234.0, Unit::Gram), format!("1{}3\u{a0}{}", crate::ui::decimal(), t().menu.kilograms));
