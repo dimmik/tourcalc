@@ -228,6 +228,14 @@ pub struct MenuTexts {
     /// Recorded in an expense shared with other products, of this amount.
     pub in_shared: fn(&str) -> String,
     pub nothing_to_buy: &'static str,
+    pub sort: &'static str,
+    pub sort_catalogue: &'static str,
+    pub sort_name: &'static str,
+    pub sort_place: &'static str,
+    pub sort_buyer: &'static str,
+    pub sort_not_bought: &'static str,
+    /// The switch that splits the shopping into a card per place.
+    pub by_place: &'static str,
     pub nothing_mine: &'static str,
     // The catalogue.
     pub catalogue: &'static str,

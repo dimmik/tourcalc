@@ -853,6 +853,13 @@ pub const TEXTS: Texts = Texts {
         record_together: |n| format!("Record the {n} bought as one expense"),
         in_shared: |amount| format!("✓ in one receipt, {amount}"),
         nothing_to_buy: "Nothing to buy: no dishes are planned.",
+        sort: "Sort",
+        sort_catalogue: "as in the catalogue",
+        sort_name: "by name",
+        sort_place: "by place",
+        sort_buyer: "by who buys",
+        sort_not_bought: "not bought first",
+        by_place: "Split by place",
         nothing_mine: "Everybody else has taken all the shopping. Untick «Hide other people's \
             shopping» to see it.",
         category: "Groceries",

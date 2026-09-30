@@ -537,6 +537,8 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
     let unit = RwSignal::new(product.unit);
     // Text when the product has a unit of its own; `None` - one of the three.
     let own = RwSignal::new(product.own_unit.clone().filter(|u| !u.trim().is_empty()));
+    // A new unit being typed, as against one picked from the list - only then the text box.
+    let typing = RwSignal::new(false);
     let place = RwSignal::new(product.place.clone());
     let eaters = RwSignal::new(product.eaters);
     let error = RwSignal::new(None::<&'static str>);
@@ -576,6 +578,24 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
         }
     };
 
+    // The units of its own the tour's products already have - "btl", "5 l jug" - offered
+    // like the three, the way an expense's categories offer the ones already used.
+    let mut known: Vec<String> = Vec::new();
+    for p in &menu.products {
+        if let Some(u) = p.own_unit.as_deref().map(str::trim).filter(|u| !u.is_empty()) {
+            if !known.iter().any(|k| k == u) {
+                known.push(u.to_owned());
+            }
+        }
+    }
+    let known_options = known
+        .into_iter()
+        .map(|u| {
+            let value = format!("{OWN}{u}");
+            let is = u.clone();
+            view! { <option value=value selected=move || !typing.get() && own.get().as_deref() == Some(is.as_str())>{u}</option> }
+        })
+        .collect_view();
     let units = [Unit::Gram, Unit::Millilitre, Unit::Piece]
         .into_iter()
         .map(|u| view! {
@@ -611,16 +631,22 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                         let v = event_target_value(&ev);
                         if v == OWN {
                             own.set(Some(String::new()));
+                            typing.set(true);
+                        } else if let Some(known) = v.strip_prefix(OWN) {
+                            own.set(Some(known.to_owned()));
+                            typing.set(false);
                         } else if let Some(u) = [Unit::Gram, Unit::Millilitre, Unit::Piece].into_iter().find(|u| unit_name(*u) == v) {
                             unit.set(u);
                             own.set(None);
+                            typing.set(false);
                         }
                     }>
                         {units}
-                        <option value=OWN selected=move || own.get().is_some()>{t().menu.own_unit}</option>
+                        {known_options}
+                        <option value=OWN selected=move || typing.get()>{t().menu.own_unit}</option>
                     </select>
                 </label>
-                <Show when=move || own.get().is_some()>
+                <Show when=move || typing.get()>
                     <label>
                         <span>{t().menu.own_unit_name}</span>
                         <input class="tcn-input" type="text" placeholder=t().menu.own_unit_placeholder

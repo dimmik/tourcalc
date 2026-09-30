@@ -867,6 +867,13 @@ pub const TEXTS: Texts = Texts {
         record_together: |n| format!("Записать купленное ({n}) одной тратой"),
         in_shared: |amount| format!("✓ в общем чеке, {amount}"),
         nothing_to_buy: "Покупать нечего: ни одного блюда не выбрано.",
+        sort: "Сортировать",
+        sort_catalogue: "как в каталоге",
+        sort_name: "по названию",
+        sort_place: "по месту",
+        sort_buyer: "по тому, кто покупает",
+        sort_not_bought: "сначала не купленное",
+        by_place: "По местам",
         nothing_mine: "Все закупки разобрали другие. Снимите «Скрыть чужие закупки», чтобы их \
             увидеть.",
         category: "Продукты",
