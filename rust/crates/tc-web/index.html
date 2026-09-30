@@ -892,7 +892,7 @@
         /* On a phone the unit goes under the amount, so the product keeps its width. */
         @media (max-width: 480px) {
             .tcw-ingr-row { grid-template-columns: minmax(0, 1fr) 4.5em auto;
-                grid-template-areas: "product amount x" ". per per"; row-gap: 0; }
+                grid-template-areas: "product amount x" "per per per"; row-gap: 2px; }
             .tcw-ingr-row > select { grid-area: product; }
             .tcw-ingr-amount { grid-area: amount; }
             .tcw-ingr-per { grid-area: per; text-align: right; }
@@ -903,6 +903,11 @@
         .tcw-sync-float { position: fixed; left: 50%; transform: translateX(-50%); bottom: 76px; z-index: 40;
             width: max-content; max-width: calc(100% - 32px); pointer-events: none; }
         .tcw-sync-float .tcn-chip { box-shadow: 0 2px 10px rgba(0, 0, 0, .18); }
+        .tcw-food-trip { margin-bottom: 10px; }
+        .tcw-food-trip .tcw-food-meal { grid-template-columns: 8.5em minmax(0, 1fr); max-width: 420px; }
+        .tcw-food-dayname small { font-weight: 400; font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        .tcw-ingr-when { font: inherit; font-size: 12px; padding: 1px 2px; border: 1px solid var(--tcn-border, #e5e7eb);
+            border-radius: 6px; background: var(--tcn-surface, #fff); color: var(--tcn-text, #111827); }
     </style>
 </head>
 <body>

@@ -11,7 +11,7 @@ use crate::queue::Operation;
 use crate::tour::Dialog;
 use crate::ui::money_in;
 use leptos::prelude::*;
-use tc_core::menu::{Dish, Eaters, Eating, Ingredient, Meal, Menu, Place, Product, Slot, Unit};
+use tc_core::menu::{Dish, Eaters, Eating, Ingredient, Meal, Menu, Place, Product, Slot, Unit, When};
 use tc_core::{PersonId, Tour};
 
 /// Which of the tab's three views is open.
@@ -116,19 +116,20 @@ const DISHES: &[DishRow] = &[
 ];
 
 /// Every day, whatever is cooked: per portion, or per head for wine and the children's
-/// drinks.
-const DAILY: &[(&str, f64)] = &[
-    ("salad", 300.0),
-    ("herbs", 20.0),
-    ("fruit", 200.0),
-    ("bread", 150.0),
-    ("snacks", 40.0),
-    ("coffee", 15.0),
-    ("water", 1500.0),
-    ("cooking_water", 1000.0),
-    ("wine", 350.0),
-    ("juice", 500.0),
-    ("mineral", 500.0),
+/// drinks. Wine with dinner - arriving for Friday dinner and leaving after Sunday
+/// breakfast is two evenings of it.
+const DAILY: &[(&str, f64, When)] = &[
+    ("salad", 300.0, When::EveryDay),
+    ("herbs", 20.0, When::EveryDay),
+    ("fruit", 200.0, When::EveryDay),
+    ("bread", 150.0, When::EveryDay),
+    ("snacks", 40.0, When::EveryDay),
+    ("coffee", 15.0, When::EveryDay),
+    ("water", 1500.0, When::EveryDay),
+    ("cooking_water", 1000.0, When::EveryDay),
+    ("wine", 350.0, When::With(Meal::Dinner)),
+    ("juice", 500.0, When::EveryDay),
+    ("mineral", 500.0, When::EveryDay),
 ];
 
 /// The menu a tour starts with: three places, the usual products and dishes, and a plan
@@ -139,6 +140,7 @@ pub fn starter(days: u32) -> Menu {
     let mut menu = Menu {
         on: true,
         days: days.max(1),
+        start: None,
         places: PLACES
             .iter()
             .map(|(id, en, r)| Place { id: (*id).into(), name: pick(en, r) })
@@ -162,13 +164,13 @@ pub fn starter(days: u32) -> Menu {
                 meal: None,
                 ingredients: items
                     .iter()
-                    .map(|(product, amount)| Ingredient { product: (*product).into(), amount: *amount })
+                    .map(|(product, amount)| Ingredient { product: (*product).into(), amount: *amount, ..Ingredient::default() })
                     .collect(),
             })
             .collect(),
         daily: DAILY
             .iter()
-            .map(|(product, amount)| Ingredient { product: (*product).into(), amount: *amount })
+            .map(|(product, amount, when)| Ingredient { product: (*product).into(), amount: *amount, when: *when })
             .collect(),
         plan: Vec::new(),
         purchases: Vec::new(),
@@ -195,6 +197,59 @@ pub fn quantity(amount: f64, unit: Unit) -> String {
         Unit::Gram => format!("{}\u{a0}{}", (amount / 10.0).ceil() * 10.0, m.grams),
         Unit::Millilitre => format!("{}\u{a0}{}", (amount / 10.0).ceil() * 10.0, m.millilitres),
     }
+}
+
+/// "every day", "with dinner" - which days a daily item is bought for.
+pub(crate) fn when_name(when: When) -> &'static str {
+    match when {
+        When::EveryDay => t().menu.when_every_day,
+        When::With(Meal::Breakfast) => t().menu.when_breakfast,
+        When::With(Meal::Lunch) => t().menu.when_lunch,
+        When::With(Meal::Dinner) => t().menu.when_dinner,
+    }
+}
+
+/// The date so many days after "2026-11-13", as (year, month 1-12, day). Plain arithmetic
+/// on the civil calendar - the browser's clock and zone have nothing to say about it.
+pub fn date_after(start: &str, days: u32) -> Option<(i64, u32, u32)> {
+    let mut parts = start.trim().split('-');
+    let y: i64 = parts.next()?.parse().ok()?;
+    let m: u32 = parts.next()?.parse().ok()?;
+    let d: u32 = parts.next()?.parse().ok()?;
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    Some(civil(days_from_civil(y, m, d) + i64::from(days)))
+}
+
+/// Days since 1970-01-01 (Howard Hinnant's algorithm).
+fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let mp = i64::from((m + 9) % 12);
+    let doy = (153 * mp + 2) / 5 + i64::from(d) - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+fn civil(z: i64) -> (i64, u32, u32) {
+    let z = z + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    (yoe + era * 400 + i64::from(m <= 2), m, d)
+}
+
+/// "Friday, 13 November".
+fn day_date((y, m, d): (i64, u32, u32)) -> String {
+    // 1970-01-01 was a Thursday; Monday is 0.
+    let weekday = (days_from_civil(y, m, d) + 3).rem_euclid(7) as usize;
+    (t().menu.dated)(t().menu.weekdays[weekday], d, t().menu.months[(m - 1) as usize])
 }
 
 pub(crate) fn meal_name(meal: Meal) -> &'static str {
@@ -273,8 +328,56 @@ pub fn MenuTab(
 fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
     let change = move |edit: MenuEdit| apply.run(Operation::Menu(edit));
     let days = menu.days;
+    let arrival = menu.arrival();
+    let departure = menu.departure();
+    let index = |m: Meal| Meal::ALL.iter().position(|x| *x == m).unwrap_or(0);
+    // Inside the trip: not before arriving on the first day, not after leaving on the last.
+    let inside = move |day: u32, meal: Meal| {
+        !(day == 1 && index(meal) < index(arrival)) && !(day == days && index(meal) > index(departure))
+    };
 
-    // A dish for one meal on every day at once - "yoghurt every morning".
+    // When the trip starts and ends, and the first day's date.
+    let bound = |current: Meal, first: bool| {
+        Meal::ALL
+            .into_iter()
+            .map(|meal| {
+                let label = if first { t().menu.from_meal[index(meal)] } else { t().menu.to_meal[index(meal)] };
+                view! { <option value=meal_name(meal) selected=meal == current>{label}</option> }
+            })
+            .collect_view()
+    };
+    let chosen_meal = |ev: leptos::ev::Event| {
+        let v = event_target_value(&ev);
+        Meal::ALL.into_iter().find(|m| meal_name(*m) == v)
+    };
+    let start = menu.start.clone().unwrap_or_default();
+    let trip = view! {
+        <div class="tcn-card tcw-food-day tcw-food-trip">
+            <label class="tcw-food-meal">
+                <span>{t().menu.start_date}</span>
+                <input class="tcn-input" type="date" prop:value=start
+                       on:change=move |ev| {
+                           let v = event_target_value(&ev);
+                           change(MenuEdit::Start((!v.is_empty()).then_some(v)));
+                       } />
+            </label>
+            <label class="tcw-food-meal">
+                <span>{t().menu.first_day}</span>
+                <select class="tcn-input" on:change=move |ev| if let Some(m) = chosen_meal(ev) { change(MenuEdit::Arrive(m)) }>
+                    {bound(arrival, true)}
+                </select>
+            </label>
+            <label class="tcw-food-meal">
+                <span>{t().menu.last_day}</span>
+                <select class="tcn-input" on:change=move |ev| if let Some(m) = chosen_meal(ev) { change(MenuEdit::Leave(m)) }>
+                    {bound(departure, false)}
+                </select>
+            </label>
+        </div>
+    };
+
+    // A dish for one meal on every day at once - "yoghurt every morning" - on the days the
+    // trip has that meal.
     let every_day = Meal::ALL
         .into_iter()
         .map(|meal| {
@@ -290,7 +393,7 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                                 let v = event_target_value(&ev);
                                 if v == "?" { return; }
                                 let dish = (!v.is_empty()).then_some(v);
-                                change(MenuEdit::Meals((1..=days).map(|day| Slot { day, meal, dish: dish.clone() }).collect()));
+                                change(MenuEdit::Meals((1..=days).filter(|d| inside(*d, meal)).map(|day| Slot { day, meal, dish: dish.clone() }).collect()));
                             }>
                         <option value="?" selected=true>{t().menu.pick}</option>
                         <option value="">{t().menu.nothing}</option>
@@ -330,9 +433,16 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                     }
                 })
                 .collect_view();
+            let (title, small) = match menu.start.as_deref().and_then(|s| date_after(s, day - 1)) {
+                Some(date) => (day_date(date), Some((t().menu.day_n)(day))),
+                None => ((t().menu.day)(day), None),
+            };
             view! {
                 <div class="tcn-card tcw-food-day">
-                    <div class="tcw-food-dayname">{(t().menu.day)(day)}</div>
+                    <div class="tcw-food-dayname">
+                        {title}
+                        {small.map(|s| view! { " " <small>{s}</small> })}
+                    </div>
                     {meals}
                 </div>
             }
@@ -342,16 +452,24 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
     let daily = menu
         .daily
         .iter()
-        .filter_map(|i| menu.product(&i.product))
-        .map(|p| match p.eaters {
-            Eaters::Everyone => p.name.clone(),
-            Eaters::FullWeight => format!("{} ({})", p.name, t().menu.for_full),
-            Eaters::Others => format!("{} ({})", p.name, t().menu.for_others),
+        .filter_map(|i| menu.product(&i.product).map(|p| (p, i.when)))
+        .map(|(p, when)| {
+            let mut notes: Vec<&str> = Vec::new();
+            match p.eaters {
+                Eaters::Everyone => {}
+                Eaters::FullWeight => notes.push(t().menu.for_full),
+                Eaters::Others => notes.push(t().menu.for_others),
+            }
+            if let When::With(meal) = when {
+                notes.push(when_name(When::With(meal)));
+            }
+            if notes.is_empty() { p.name.clone() } else { format!("{} ({})", p.name, notes.join(", ")) }
         })
         .collect::<Vec<_>>()
         .join(" · ");
 
     view! {
+        {trip}
         <div class="tcn-card tcw-food-day tcw-food-all">
             <div class="tcw-food-dayname">{t().menu.every_day}</div>
             {every_day}
@@ -425,8 +543,8 @@ fn Shopping(
         .map(|n| {
             let (dishes, daily) = menu.sources(&n.product.id);
             let mut why: Vec<String> = dishes.iter().map(|(d, times)| format!("{} ×{times}", d.name)).collect();
-            if daily {
-                why.push(t().menu.every_day_short.to_owned());
+            if let Some(when) = daily {
+                why.push(format!("{} ×{}", when_name(when), menu.days_for(when)));
             }
             Line {
                 product: n.product.clone(),
@@ -767,6 +885,17 @@ mod tests {
         plain.amount = tc_core::Cents(5000);
         let edited = crate::edit::put_spending(&after, &plain);
         assert_eq!(Menu::of(&edited).and_then(|m| m.purchase("lamb").and_then(|p| p.spending.clone())).as_deref(), Some("s1"));
+    }
+
+    #[test]
+    fn a_day_is_called_by_its_date() {
+        assert_eq!(date_after("2026-11-13", 0), Some((2026, 11, 13)));
+        assert_eq!(date_after("2026-11-13", 2), Some((2026, 11, 15)));
+        assert_eq!(date_after("2026-12-31", 1), Some((2027, 1, 1)));
+        assert_eq!(date_after("2028-02-28", 1), Some((2028, 2, 29)), "a leap year");
+        assert_eq!(date_after("", 0), None);
+        // 13 November 2026 is a Friday.
+        assert_eq!(day_date((2026, 11, 13)), (t().menu.dated)(t().menu.weekdays[4], 13, t().menu.months[10]));
     }
 
     #[test]

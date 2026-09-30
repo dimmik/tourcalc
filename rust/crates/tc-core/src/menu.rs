@@ -80,6 +80,28 @@ pub struct Product {
 pub struct Ingredient {
     pub product: String,
     pub amount: f64,
+    /// On the daily list: which days it is bought for. Nothing in a dish - written only when
+    /// it is not the default, so a dish's ingredients stay two fields.
+    #[serde(skip_serializing_if = "When::is_every_day")]
+    pub when: When,
+}
+
+/// Which days a daily item is bought for - counted from the plan, so that arriving on
+/// Friday for dinner and leaving on Sunday after breakfast is two evenings of wine and three
+/// days of water, with nothing to keep in step by hand.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum When {
+    /// Every day something is cooked on.
+    #[default]
+    EveryDay,
+    /// Every day with this meal planned.
+    With(Meal),
+}
+
+impl When {
+    pub fn is_every_day(&self) -> bool {
+        *self == When::EveryDay
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -117,6 +139,9 @@ pub struct Menu {
     /// back on finds it as it was.
     pub on: bool,
     pub days: u32,
+    /// The first day's date, "2026-11-13", if anybody gave it: the days are then called by
+    /// their dates. Only a label - nothing is counted from it.
+    pub start: Option<String>,
     pub places: Vec<Place>,
     pub products: Vec<Product>,
     pub dishes: Vec<Dish>,
@@ -271,9 +296,22 @@ impl Menu {
 
     /// How many days are planned. Days taken off keep their plan, so that 5 → 3 → 5 is
     /// where it started; new days are filled in ([`Menu::fill`]).
+    ///
+    /// The departure moves with the last day: leaving after breakfast on day 3 of 3, a
+    /// fourth day makes day 3 a whole day and day 4 the one left after breakfast - rather
+    /// than a day in the middle of the trip with no lunch or dinner.
     pub fn set_days(&mut self, days: u32) {
+        let leaving = self.departure();
+        let was_last = self.days;
         self.days = days.max(1);
-        self.fill();
+        if self.days != was_last && leaving != Meal::Dinner {
+            let index = |m: Meal| Meal::ALL.iter().position(|x| *x == m).unwrap_or(0);
+            self.plan.retain(|s| !(s.day == was_last && s.dish.is_none() && index(s.meal) > index(leaving)));
+            self.fill();
+            self.leave(leaving);
+        } else {
+            self.fill();
+        }
     }
 
     /// Gives every planned day that has no slot for a meal the next dish for that meal in
@@ -357,8 +395,8 @@ impl Menu {
     }
 
     /// Why a product is on the list: the planned dishes it goes into, with how many times
-    /// each is cooked, and whether it is bought every day besides.
-    pub fn sources(&self, product: &str) -> (Vec<(&Dish, u32)>, bool) {
+    /// each is cooked, and when it is bought besides, if it is on the daily list.
+    pub fn sources(&self, product: &str) -> (Vec<(&Dish, u32)>, Option<When>) {
         let mut dishes: Vec<(&Dish, u32)> = Vec::new();
         for day in 1..=self.days {
             for meal in Meal::ALL {
@@ -372,7 +410,52 @@ impl Menu {
                 }
             }
         }
-        (dishes, self.daily.iter().any(|i| i.product == product))
+        (dishes, self.daily.iter().find(|i| i.product == product).map(|i| i.when))
+    }
+
+    /// How many of the planned days a daily item is bought for: the days anything is cooked
+    /// on, or the days a given meal is.
+    pub fn days_for(&self, when: When) -> u32 {
+        (1..=self.days)
+            .filter(|&day| match when {
+                When::EveryDay => Meal::ALL.iter().any(|m| self.dish_on(day, *m).is_some()),
+                When::With(meal) => self.dish_on(day, meal).is_some(),
+            })
+            .count() as u32
+    }
+
+    /// The first meal cooked on the first day, and the last one on the last day - where the
+    /// trip starts and ends, as the plan has it. Breakfast and dinner when nothing is cooked.
+    pub fn arrival(&self) -> Meal {
+        Meal::ALL.into_iter().find(|m| self.dish_on(1, *m).is_some()).unwrap_or(Meal::Breakfast)
+    }
+
+    pub fn departure(&self) -> Meal {
+        Meal::ALL.into_iter().rev().find(|m| self.dish_on(self.days, *m).is_some()).unwrap_or(Meal::Dinner)
+    }
+
+    /// Arriving for this meal: the first day's meals before it are nothing, and the ones
+    /// from it on get a dish if they had none.
+    pub fn arrive(&mut self, meal: Meal) {
+        self.bound(1, meal, |m, at| m < at);
+    }
+
+    /// Leaving after this meal: the last day's meals after it are nothing.
+    pub fn leave(&mut self, meal: Meal) {
+        self.bound(self.days, meal, |m, at| m > at);
+    }
+
+    fn bound(&mut self, day: u32, at: Meal, outside: fn(usize, usize) -> bool) {
+        let index = |m: Meal| Meal::ALL.iter().position(|x| *x == m).unwrap_or(0);
+        for meal in Meal::ALL {
+            if outside(index(meal), index(at)) {
+                self.set(Slot { day, meal, dish: None });
+            } else if self.slot(day, meal).is_some_and(|s| s.dish.is_none()) {
+                // Emptied by an earlier arrival or departure: let `fill` choose again.
+                self.plan.retain(|s| !(s.day == day && s.meal == meal));
+            }
+        }
+        self.fill();
     }
 
     /// Everything to buy for the planned days, in the catalogue's order. A product nobody
@@ -394,7 +477,7 @@ impl Menu {
             }
         }
         for ingredient in &self.daily {
-            add(ingredient, f64::from(self.days));
+            add(ingredient, f64::from(self.days_for(ingredient.when)));
         }
         self.products
             .iter()
@@ -435,6 +518,7 @@ mod tests {
         let mut m = Menu {
             on: true,
             days: 2,
+            start: None,
             places: vec![Place { id: "market".into(), name: "Market".into() }],
             products: vec![
                 product("lamb", Eaters::Everyone),
@@ -449,8 +533,8 @@ mod tests {
                     meals: vec![Meal::Dinner],
                     meal: None,
                     ingredients: vec![
-                        Ingredient { product: "lamb".into(), amount: 200.0 },
-                        Ingredient { product: "rice".into(), amount: 100.0 },
+                        Ingredient { product: "lamb".into(), amount: 200.0, ..Ingredient::default() },
+                        Ingredient { product: "rice".into(), amount: 100.0, ..Ingredient::default() },
                     ],
                 },
                 Dish {
@@ -458,12 +542,12 @@ mod tests {
                     name: "Steak".into(),
                     meals: vec![Meal::Dinner],
                     meal: None,
-                    ingredients: vec![Ingredient { product: "lamb".into(), amount: 300.0 }],
+                    ingredients: vec![Ingredient { product: "lamb".into(), amount: 300.0, ..Ingredient::default() }],
                 },
             ],
             daily: vec![
-                Ingredient { product: "wine".into(), amount: 350.0 },
-                Ingredient { product: "juice".into(), amount: 500.0 },
+                Ingredient { product: "wine".into(), amount: 350.0, ..Ingredient::default() },
+                Ingredient { product: "juice".into(), amount: 500.0, ..Ingredient::default() },
             ],
             plan: vec![],
             purchases: vec![],
@@ -538,8 +622,8 @@ mod tests {
         let mut m = menu();
         let (dishes, daily) = m.sources("rice");
         assert_eq!(dishes.iter().map(|(d, n)| (d.id.as_str(), *n)).collect::<Vec<_>>(), [("plov", 1)]);
-        assert!(!daily);
-        assert!(m.sources("wine").1);
+        assert!(daily.is_none());
+        assert_eq!(m.sources("wine").1, Some(When::EveryDay));
         m.set(Slot { day: 1, meal: Meal::Dinner, dish: Some("steak".into()) });
         assert!(m.sources("rice").0.is_empty());
         let eating = Eating::of(&tour(&[100]));
@@ -579,6 +663,51 @@ mod tests {
         assert!(m.product("lamb").is_some(), "the steak has lamb");
         m.remove_product("rice");
         assert!(m.product("rice").is_none(), "nothing has rice once the plov is gone");
+    }
+
+    /// Friday for dinner to Sunday after breakfast: three days, two dinners - two evenings of
+    /// wine - and juice for all three days something is cooked.
+    #[test]
+    fn a_weekend_is_two_evenings_of_wine_and_three_days_of_juice() {
+        let mut m = menu();
+        m.dishes.push(Dish {
+            id: "porridge".into(),
+            name: "Porridge".into(),
+            meals: vec![Meal::Breakfast],
+            meal: None,
+            ingredients: vec![Ingredient { product: "rice".into(), amount: 50.0, ..Ingredient::default() }],
+        });
+        m.daily[0].when = When::With(Meal::Dinner);
+        m.set_days(3);
+        m.arrive(Meal::Dinner);
+        m.leave(Meal::Breakfast);
+        assert_eq!((m.arrival(), m.departure()), (Meal::Dinner, Meal::Breakfast));
+        assert!(m.dish_on(1, Meal::Breakfast).is_none() && m.dish_on(1, Meal::Dinner).is_some());
+        assert!(m.dish_on(3, Meal::Breakfast).is_some() && m.dish_on(3, Meal::Dinner).is_none());
+        assert_eq!(m.days_for(When::With(Meal::Dinner)), 2);
+        assert_eq!(m.days_for(When::EveryDay), 3);
+        let eating = Eating::of(&tour(&[100, 100, 50]));
+        let needs = m.shopping(&eating);
+        assert_eq!(amount(&needs, "wine"), 350.0 * 2.0 * 2.0, "two adults, two evenings");
+        assert_eq!(amount(&needs, "juice"), 500.0 * 3.0, "one child, three days");
+        // A fourth day: Sunday is a whole day now, and the departure is Monday's.
+        m.set_days(4);
+        assert!(m.dish_on(3, Meal::Dinner).is_some() && m.dish_on(4, Meal::Dinner).is_none());
+        assert_eq!(m.departure(), Meal::Breakfast);
+        // Arriving for breakfast after all fills the first day's breakfast again.
+        m.arrive(Meal::Breakfast);
+        assert!(m.dish_on(1, Meal::Breakfast).is_some());
+    }
+
+    /// "When" is written only for a daily item that has one: a dish's ingredients and an
+    /// every-day item stay as they were.
+    #[test]
+    fn when_is_written_only_when_it_says_something() {
+        let plain = serde_json::to_value(Ingredient { product: "rice".into(), amount: 1.0, ..Ingredient::default() }).unwrap();
+        assert!(plain.get("When").is_none());
+        let wine = Ingredient { product: "wine".into(), amount: 1.0, when: When::With(Meal::Dinner) };
+        let back: Ingredient = serde_json::from_value(serde_json::to_value(&wine).unwrap()).unwrap();
+        assert_eq!(back, wine);
     }
 
     #[test]

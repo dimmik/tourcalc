@@ -10,10 +10,10 @@
 
 use crate::edit::MenuEdit;
 use crate::i18n::t;
-use crate::menu::{meal_name, MenuState};
+use crate::menu::{meal_name, when_name, MenuState};
 use crate::queue::Operation;
 use leptos::prelude::*;
-use tc_core::menu::{Dish, Eaters, Ingredient, Meal, Menu, Product, Unit};
+use tc_core::menu::{Dish, Eaters, Ingredient, Meal, Menu, Product, Unit, When};
 
 #[component]
 pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> impl IntoView {
@@ -104,7 +104,11 @@ fn summary(menu: &Menu, items: &[Ingredient]) -> String {
         .iter()
         .filter_map(|i| {
             let p = menu.product(&i.product)?;
-            Some(format!("{} {}\u{a0}{}", p.name.to_lowercase(), number(i.amount), unit_name(p.unit)))
+            let when = match i.when {
+                When::EveryDay => String::new(),
+                w => format!(" {}", when_name(w)),
+            };
+            Some(format!("{} {}\u{a0}{}{when}", p.name.to_lowercase(), number(i.amount), unit_name(p.unit)))
         })
         .collect::<Vec<_>>()
         .join(" · ")
@@ -165,7 +169,11 @@ struct Row {
     key: u32,
     product: RwSignal<String>,
     amount: RwSignal<String>,
+    /// On the daily list only.
+    when: RwSignal<When>,
 }
+
+const WHENS: [When; 4] = [When::EveryDay, When::With(Meal::Breakfast), When::With(Meal::Lunch), When::With(Meal::Dinner)];
 
 /// Rows for these ingredients, keyed from 0.
 fn rows_of(items: &[Ingredient]) -> (RwSignal<Vec<Row>>, StoredValue<u32>) {
@@ -176,6 +184,7 @@ fn rows_of(items: &[Ingredient]) -> (RwSignal<Vec<Row>>, StoredValue<u32>) {
             key: i as u32,
             product: RwSignal::new(item.product.clone()),
             amount: RwSignal::new(number(item.amount)),
+            when: RwSignal::new(item.when),
         })
         .collect();
     let next = StoredValue::new(rows.len() as u32);
@@ -188,7 +197,7 @@ fn ingredients_of(rows: &[Row]) -> Vec<Ingredient> {
         .filter_map(|r| {
             let product = r.product.get_untracked();
             let amount = parse_number(&r.amount.get_untracked())?;
-            (!product.is_empty()).then_some(Ingredient { product, amount })
+            (!product.is_empty()).then_some(Ingredient { product, amount, when: r.when.get_untracked() })
         })
         .collect()
 }
@@ -206,7 +215,12 @@ fn Ingredients(menu: Menu, rows: RwSignal<Vec<Row>>, next: StoredValue<u32>, per
         let key = next.get_value();
         next.set_value(key + 1);
         rows.update(|r| {
-            r.push(Row { key, product: RwSignal::new(String::new()), amount: RwSignal::new(String::new()) })
+            r.push(Row {
+                key,
+                product: RwSignal::new(String::new()),
+                amount: RwSignal::new(String::new()),
+                when: RwSignal::new(When::EveryDay),
+            })
         });
     };
     view! {
@@ -231,8 +245,7 @@ fn Ingredients(menu: Menu, rows: RwSignal<Vec<Row>>, next: StoredValue<u32>, per
                                     Eaters::FullWeight => t().menu.per_adult,
                                     Eaters::Others => t().menu.per_child,
                                 };
-                                let day = if per_day { t().menu.a_day } else { "" };
-                                format!("{} {whom}{day}", unit_name(*unit))
+                                format!("{} {whom}", unit_name(*unit))
                             })
                         })
                         .unwrap_or_default()
@@ -249,7 +262,29 @@ fn Ingredients(menu: Menu, rows: RwSignal<Vec<Row>>, next: StoredValue<u32>, per
                             <input class="tcn-input tcw-ingr-amount" type="text" inputmode="decimal"
                                    prop:value=move || row.amount.get()
                                    on:input=move |ev| row.amount.set(event_target_value(&ev)) />
-                            <span class="tcw-ingr-per">{per}</span>
+                            <span class="tcw-ingr-per">
+                                {per}
+                                {per_day.then(|| {
+                                    let options = WHENS
+                                        .into_iter()
+                                        .map(|w| view! {
+                                            <option value=when_name(w) selected=row.when.get_untracked() == w>{when_name(w)}</option>
+                                        })
+                                        .collect_view();
+                                    view! {
+                                        " "
+                                        <select class="tcw-ingr-when" title=t().menu.when_title
+                                                on:change=move |ev| {
+                                                    let v = event_target_value(&ev);
+                                                    if let Some(w) = WHENS.into_iter().find(|w| when_name(*w) == v) {
+                                                        row.when.set(w);
+                                                    }
+                                                }>
+                                            {options}
+                                        </select>
+                                    }
+                                })}
+                            </span>
                             <button type="button" class="tcn-btn tcn-btn-sm tcw-ingr-x" title=t().menu.remove
                                     on:click=move |_| rows.update(|r| r.retain(|x| x.key != row.key))>
                                 "✕"

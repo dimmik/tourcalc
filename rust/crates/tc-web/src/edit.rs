@@ -802,6 +802,11 @@ pub enum MenuEdit {
     RemoveProduct(String),
     /// What is bought every day, whatever is cooked.
     Daily(Vec<tc_core::menu::Ingredient>),
+    /// The meal the trip starts with on its first day, and ends with on its last.
+    Arrive(tc_core::menu::Meal),
+    Leave(tc_core::menu::Meal),
+    /// The first day's date, "2026-11-13"; `None` - days by number.
+    Start(Option<String>),
 }
 
 /// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
@@ -827,6 +832,9 @@ pub fn put_menu(tour: &Tour, change: &MenuEdit) -> Tour {
         MenuEdit::PutProduct(product) => menu.put_product(product.clone()),
         MenuEdit::RemoveProduct(id) => menu.remove_product(id),
         MenuEdit::Daily(items) => menu.daily = items.clone(),
+        MenuEdit::Arrive(meal) => menu.arrive(*meal),
+        MenuEdit::Leave(meal) => menu.leave(*meal),
+        MenuEdit::Start(date) => menu.start = date.clone(),
     }
     let mut next = tour.clone();
     menu.put(&mut next);

@@ -227,8 +227,6 @@ pub struct MenuTexts {
     pub record_together: fn(usize) -> String,
     /// Recorded in an expense shared with other products, of this amount.
     pub in_shared: fn(&str) -> String,
-    /// Why a product is on the list: bought every day.
-    pub every_day_short: &'static str,
     pub nothing_to_buy: &'static str,
     pub nothing_mine: &'static str,
     // The catalogue.
@@ -252,8 +250,28 @@ pub struct MenuTexts {
     pub per_portion: &'static str,
     pub per_adult: &'static str,
     pub per_child: &'static str,
-    /// After that, on the daily list: " a day".
-    pub a_day: &'static str,
+    /// Which days a daily item is bought for.
+    pub when_every_day: &'static str,
+    pub when_breakfast: &'static str,
+    pub when_lunch: &'static str,
+    pub when_dinner: &'static str,
+    pub when_title: &'static str,
+    // The trip's bounds and dates, over the plan.
+    pub start_date: &'static str,
+    pub first_day: &'static str,
+    pub last_day: &'static str,
+    /// "from dinner": the first day starts with this meal - breakfast, lunch, dinner.
+    pub from_meal: [&'static str; 3],
+    /// "until breakfast": the last day ends with it.
+    pub to_meal: [&'static str; 3],
+    /// Weekday, day of the month, month: "Friday, 13 November".
+    pub dated: fn(&str, u32, &str) -> String,
+    /// Monday first.
+    pub weekdays: [&'static str; 7],
+    /// As a date says them: "November", "ноября".
+    pub months: [&'static str; 12],
+    /// Beside a date: "day 1".
+    pub day_n: fn(u32) -> String,
     pub name_needed: &'static str,
     pub meal_needed: &'static str,
     pub unit: &'static str,
