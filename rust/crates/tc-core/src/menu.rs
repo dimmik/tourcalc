@@ -77,6 +77,10 @@ pub struct Product {
     /// then `Piece`, so that a reader that does not know this field still counts it right.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub own_unit: Option<String>,
+    /// What kind of thing it is - "Drinks", "Spices" - as the group names it: to group and
+    /// sort the shopping by. Free text, offered from what the tour already has.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
 }
 
 /// So much of a product for one portion - or, for a product counted by heads, one person.
@@ -324,7 +328,13 @@ impl Menu {
     /// from. A slot somebody emptied stays empty.
     pub fn fill(&mut self) {
         for meal in Meal::ALL {
-            let choice: Vec<String> = self.dishes_for(meal).map(|d| d.id.clone()).collect();
+            // A dish with nothing in it - "Restaurant" - is chosen, never taken in turn: it
+            // would make every third dinner one eaten out.
+            let choice: Vec<String> = self
+                .dishes_for(meal)
+                .filter(|d| !d.ingredients.is_empty())
+                .map(|d| d.id.clone())
+                .collect();
             if choice.is_empty() {
                 continue;
             }
@@ -369,6 +379,37 @@ impl Menu {
     pub fn uses(&self, product: &str) -> bool {
         self.daily.iter().any(|i| i.product == product)
             || self.dishes.iter().any(|d| d.ingredients.iter().any(|i| i.product == product))
+    }
+
+    /// Adds a place, or renames the one with its id.
+    pub fn put_place(&mut self, place: Place) {
+        match self.places.iter_mut().find(|p| p.id == place.id) {
+            Some(p) => *p = place,
+            None => self.places.push(place),
+        }
+    }
+
+    /// Whether any product is bought there - such a place is not to be removed.
+    pub fn place_used(&self, id: &str) -> bool {
+        self.products.iter().any(|p| p.place == id)
+    }
+
+    /// Takes a place nothing is bought at out of the list; a used one stays.
+    pub fn remove_place(&mut self, id: &str) {
+        if !self.place_used(id) {
+            self.places.retain(|p| p.id != id);
+        }
+    }
+
+    /// The categories the products have, in the catalogue's order, each once.
+    pub fn categories(&self) -> Vec<String> {
+        let mut seen: Vec<String> = Vec::new();
+        for c in self.products.iter().filter_map(|p| p.category.as_deref()).map(str::trim) {
+            if !c.is_empty() && !seen.iter().any(|s| s == c) {
+                seen.push(c.to_owned());
+            }
+        }
+        seen
     }
 
     /// Takes an unused product out of the catalogue; a used one stays.
@@ -516,7 +557,7 @@ mod tests {
     }
 
     fn product(id: &str, eaters: Eaters) -> Product {
-        Product { id: id.into(), name: id.into(), unit: Unit::Gram, place: "market".into(), eaters, own_unit: None }
+        Product { id: id.into(), name: id.into(), unit: Unit::Gram, place: "market".into(), eaters, own_unit: None, category: None }
     }
 
     fn menu() -> Menu {
@@ -713,6 +754,31 @@ mod tests {
         let wine = Ingredient { product: "wine".into(), amount: 1.0, when: When::With(Meal::Dinner) };
         let back: Ingredient = serde_json::from_value(serde_json::to_value(&wine).unwrap()).unwrap();
         assert_eq!(back, wine);
+    }
+
+    #[test]
+    fn a_place_something_is_bought_at_stays_and_categories_come_once() {
+        let mut m = menu();
+        m.put_place(Place { id: "shop".into(), name: "Shop".into() });
+        m.put_place(Place { id: "shop".into(), name: "Corner shop".into() });
+        assert_eq!(m.places.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["Market", "Corner shop"]);
+        m.remove_place("market");
+        assert!(m.places.iter().any(|p| p.id == "market"), "lamb is bought there");
+        m.remove_place("shop");
+        assert!(m.places.iter().all(|p| p.id != "shop"));
+        m.products[0].category = Some("Meat".into());
+        m.products[1].category = Some(" Meat ".into());
+        m.products[2].category = Some("Drinks".into());
+        assert_eq!(m.categories(), ["Meat", "Drinks"]);
+    }
+
+    #[test]
+    fn an_empty_dish_is_never_planned_by_itself() {
+        let mut m = menu();
+        m.dishes.push(Dish { id: "out".into(), name: "Restaurant".into(), meals: vec![Meal::Dinner], ..Dish::default() });
+        m.plan.clear();
+        m.set_days(6);
+        assert!((1..=6).all(|d| m.dish_on(d, Meal::Dinner).is_some_and(|x| x.id != "out")));
     }
 
     #[test]

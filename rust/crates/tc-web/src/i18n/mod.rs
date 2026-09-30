@@ -241,8 +241,28 @@ pub struct MenuTexts {
     pub sort_place: &'static str,
     pub sort_buyer: &'static str,
     pub sort_not_bought: &'static str,
-    /// The switch that splits the shopping into a card per place.
-    pub by_place: &'static str,
+    /// How the shopping is split into cards: one list, by place, by category.
+    pub group: &'static str,
+    pub group_none: &'static str,
+    pub group_place: &'static str,
+    pub group_category: &'static str,
+    pub sort_category: &'static str,
+    /// A product's category, and the card of those without one.
+    pub product_category: &'static str,
+    pub no_category: &'static str,
+    pub new_category: &'static str,
+    pub category_name: &'static str,
+    pub category_placeholder: &'static str,
+    pub category_needed: &'static str,
+    pub new_place: &'static str,
+    pub place_name: &'static str,
+    pub place_placeholder: &'static str,
+    pub place_needed: &'static str,
+    pub places_title: &'static str,
+    /// Why a place cannot be deleted: what is bought there.
+    pub place_in_use: fn(&str) -> String,
+    pub add_place: &'static str,
+    pub products_here: fn(usize) -> String,
     pub nothing_mine: &'static str,
     // The catalogue.
     pub catalogue: &'static str,
@@ -295,13 +315,15 @@ pub struct MenuTexts {
     pub own_unit_name: &'static str,
     pub own_unit_placeholder: &'static str,
     pub unit_needed: &'static str,
+    /// Under a changed unit: the amounts are not converted.
+    pub unit_changed: &'static str,
     pub place: &'static str,
     pub for_whom: &'static str,
     pub eaters_everyone: &'static str,
     pub eaters_full: &'static str,
     pub eaters_others: &'static str,
-    /// Why a product cannot be deleted.
-    pub in_use: &'static str,
+    /// Why a product cannot be deleted: the dishes and the daily list it is in.
+    pub in_use: fn(&str) -> String,
     /// The expense's category.
     pub category: &'static str,
     pub grams: &'static str,

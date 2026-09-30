@@ -807,6 +807,13 @@ pub enum MenuEdit {
     Leave(tc_core::menu::Meal),
     /// The first day's date, "2026-11-13"; `None` - days by number.
     Start(Option<String>),
+    /// A place added or renamed.
+    PutPlace(tc_core::menu::Place),
+    /// Only if nothing is bought there - see `Menu::remove_place`.
+    RemovePlace(String),
+    /// Several at once, in order: a product saved with a new place is the place and then the
+    /// product, and must not be half of that.
+    All(Vec<MenuEdit>),
 }
 
 /// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
@@ -814,6 +821,13 @@ pub fn put_menu(tour: &Tour, change: &MenuEdit) -> Tour {
     let Some(mut menu) = tc_core::menu::Menu::of(tour) else {
         return tour.clone();
     };
+    edit_menu(&mut menu, change);
+    let mut next = tour.clone();
+    menu.put(&mut next);
+    next
+}
+
+fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
     match change {
         MenuEdit::Meals(slots) => {
             for slot in slots {
@@ -835,10 +849,14 @@ pub fn put_menu(tour: &Tour, change: &MenuEdit) -> Tour {
         MenuEdit::Arrive(meal) => menu.arrive(*meal),
         MenuEdit::Leave(meal) => menu.leave(*meal),
         MenuEdit::Start(date) => menu.start = date.clone(),
+        MenuEdit::PutPlace(place) => menu.put_place(place.clone()),
+        MenuEdit::RemovePlace(id) => menu.remove_place(id),
+        MenuEdit::All(changes) => {
+            for change in changes {
+                edit_menu(menu, change);
+            }
+        }
     }
-    let mut next = tour.clone();
-    menu.put(&mut next);
-    next
 }
 
 /// What the currencies dialog collects.

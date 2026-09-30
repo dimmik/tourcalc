@@ -34,9 +34,10 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
         .iter()
         .map(|p| {
             let place = menu.places.iter().find(|x| x.id == p.place).map(|x| x.name.clone()).unwrap_or_default();
-            folded(&format!("{} {} {place} {}", p.name, unit_label(p), eaters_name(p.eaters)))
+            folded(&format!("{} {} {place} {} {}", p.name, unit_label(p), eaters_name(p.eaters), p.category.as_deref().unwrap_or("")))
         })
         .collect();
+    let place_hays: Vec<String> = menu.places.iter().map(|p| folded(&p.name)).collect();
     let daily_hay = folded(&menu.daily.iter().map(|i| product_name(&i.product)).collect::<Vec<_>>().join(" "));
 
     let row_shown = move |hay: String| move || if found(&state.cat_find.get(), &hay) { "" } else { "none" };
@@ -70,6 +71,24 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
     let products_shown = Memo::new(move |_| {
         if searching() { product_hays.iter().any(|h| found(&state.cat_find.get(), h)) } else { state.products_open.get() }
     });
+    let places_shown = {
+        let hays = place_hays.clone();
+        Memo::new(move |_| {
+            if searching() { hays.iter().any(|h| found(&state.cat_find.get(), h)) } else { state.places_open.get() }
+        })
+    };
+    let places = menu
+        .places
+        .iter()
+        .zip(place_hays)
+        .map(|(p, hay)| view! {
+            <div style:display=row_shown(hay)>
+                <PlaceRow menu=menu.clone() place=p.clone() state=state apply=apply />
+            </div>
+        })
+        .collect_view();
+    let place_count = menu.places.len();
+    let menu_for_new_place = menu.clone();
     let daily_shown = Memo::new(move |_| {
         if searching() { found(&state.cat_find.get(), &daily_hay) } else { state.daily_open.get() }
     });
@@ -145,11 +164,34 @@ pub fn Catalogue(menu: Menu, state: MenuState, apply: Callback<Operation>) -> im
                 {products}
             </div>
         </section>
+
+        <section class="tcw-cat is-places">
+            <div class="tcw-cat-head">
+                {fold(state.places_open, places_shown, t().menu.places_title, Some(place_count))}
+                <button type="button" class="tcn-btn tcn-btn-sm"
+                        on:click=move |_| {
+                            state.cat_find.set(String::new());
+                            state.places_open.set(true);
+                            state.editing.set(Some(NEW_PLACE.to_owned()));
+                        }>
+                    {t().menu.add_place}
+                </button>
+            </div>
+            <div style:display=move || if places_shown.get() { "" } else { "none" }>
+                <Show when=move || state.editing.get().as_deref() == Some(NEW_PLACE)>
+                    <PlaceEditor menu=menu_for_new_place.clone() place=tc_core::menu::Place::default() state=state apply=apply />
+                </Show>
+                {places}
+            </div>
+        </section>
     }
 }
 
 /// What `editing` says for a product being added - a dish being added is "".
 const NEW_PRODUCT: &str = "+product";
+/// ... and for a place being added; a place being edited is "@" and its id, since a place's
+/// id could be a product's.
+const NEW_PLACE: &str = "+place";
 /// What `editing` says for the daily list.
 const DAILY: &str = "+daily";
 /// The unit select's value for "a unit of its own".
@@ -186,6 +228,21 @@ fn eaters_name(eaters: Eaters) -> &'static str {
         Eaters::FullWeight => t().menu.eaters_full,
         Eaters::Others => t().menu.eaters_others,
     }
+}
+
+/// Where a product is used, by name: "Plov, Fish, Every day" - so that "cannot delete it"
+/// says what to change first.
+fn used_in(menu: &Menu, product: &str) -> String {
+    let mut places: Vec<String> = menu
+        .dishes
+        .iter()
+        .filter(|d| d.ingredients.iter().any(|i| i.product == product))
+        .map(|d| d.name.clone())
+        .collect();
+    if menu.daily.iter().any(|i| i.product == product) {
+        places.push(t().menu.daily_title.to_owned());
+    }
+    places.join(", ")
 }
 
 /// "rice 100 g · lamb 150 g" - what goes in, as the list shows it.
@@ -549,7 +606,10 @@ fn ProductRow(menu: Menu, product: Product, state: MenuState, apply: Callback<Op
         .find(|p| p.id == product.place)
         .map(|p| p.name.clone())
         .unwrap_or_default();
-    let facts = format!("{} · {} · {}", unit_label(&product), place, eaters_name(product.eaters));
+    let mut facts = format!("{} · {} · {}", unit_label(&product), place, eaters_name(product.eaters));
+    if let Some(c) = product.category.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
+        facts = format!("{c} · {facts}");
+    }
     let editor_product = product.clone();
     view! {
         <Show when=open.clone()
@@ -588,7 +648,16 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
     let own = RwSignal::new(product.own_unit.clone().filter(|u| !u.trim().is_empty()));
     // A new unit being typed, as against one picked from the list - only then the text box.
     let typing = RwSignal::new(false);
+    // The unit it had: changed, the amounts in dishes and on the daily list stay the numbers
+    // they were - 500 ml of juice becomes 500 packs - and the editor says so.
+    let was = (product.unit, product.own_unit.clone().filter(|u| !u.trim().is_empty()));
+    let unit_changed = move || !is_new && (unit.get(), own.get().map(|u| u.trim().to_owned())) != was;
     let place = RwSignal::new(product.place.clone());
+    // A new place being typed: its name. `None` - one of the tour's places.
+    let new_place = RwSignal::new(None::<String>);
+    let category = RwSignal::new(product.category.clone().map(|c| c.trim().to_owned()).filter(|c| !c.is_empty()));
+    // A new category being typed, as with units.
+    let new_category = RwSignal::new(false);
     let eaters = RwSignal::new(product.eaters);
     let error = RwSignal::new(None::<&'static str>);
     let id = product.id.clone();
@@ -606,17 +675,36 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                 error.set(Some(t().menu.unit_needed));
                 return;
             }
+            let category = category.get_untracked().map(|c| c.trim().to_owned());
+            if new_category.get_untracked() && category.as_deref().unwrap_or("").is_empty() {
+                error.set(Some(t().menu.category_needed));
+                return;
+            }
+            // A place typed in is made here, with the product, in one edit.
+            let fresh = match new_place.get_untracked().map(|n| n.trim().to_owned()) {
+                Some(n) if n.is_empty() => {
+                    error.set(Some(t().menu.place_needed));
+                    return;
+                }
+                Some(n) => Some(tc_core::menu::Place { id: crate::edit::new_id(), name: n }),
+                None => None,
+            };
             let product = Product {
                 id: if id.is_empty() { crate::edit::new_id() } else { id.clone() },
                 name,
                 // A unit of its own counts like pieces - see `Product::own_unit`.
                 unit: if own_unit.is_some() { Unit::Piece } else { unit.get_untracked() },
-                place: place.get_untracked(),
+                place: fresh.as_ref().map(|p| p.id.clone()).unwrap_or_else(|| place.get_untracked()),
                 eaters: eaters.get_untracked(),
                 own_unit,
+                category: category.filter(|c| !c.is_empty()),
             };
             state.editing.set(None);
-            apply.run(Operation::Menu(MenuEdit::PutProduct(product)));
+            let edit = match fresh {
+                Some(p) => MenuEdit::All(vec![MenuEdit::PutPlace(p), MenuEdit::PutProduct(product)]),
+                None => MenuEdit::PutProduct(product),
+            };
+            apply.run(Operation::Menu(edit));
         }
     };
     let remove = {
@@ -660,6 +748,15 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
             view! { <option value=pid selected=on>{p.name.clone()}</option> }
         })
         .collect_view();
+    let categories = menu
+        .categories()
+        .into_iter()
+        .map(|c| {
+            let is = c.clone();
+            let value = format!("{OWN}{c}");
+            view! { <option value=value selected=move || !new_category.get() && category.get().as_deref() == Some(is.as_str())>{c}</option> }
+        })
+        .collect_view();
     let whom = [Eaters::Everyone, Eaters::FullWeight, Eaters::Others]
         .into_iter()
         .map(|e| view! { <option value=eaters_name(e) selected=move || eaters.get() == e>{eaters_name(e)}</option> })
@@ -695,6 +792,9 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                         <option value=OWN selected=move || typing.get()>{t().menu.own_unit}</option>
                     </select>
                 </label>
+                <Show when=unit_changed.clone()>
+                    <div class="tcn-hint tcw-cat-warn">{t().menu.unit_changed}</div>
+                </Show>
                 <Show when=move || typing.get()>
                     <label>
                         <span>{t().menu.own_unit_name}</span>
@@ -705,8 +805,55 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                 </Show>
                 <label>
                     <span>{t().menu.place}</span>
-                    <select class="tcn-input" on:change=move |ev| place.set(event_target_value(&ev))>{places}</select>
+                    <select class="tcn-input" on:change=move |ev| {
+                        let v = event_target_value(&ev);
+                        if v == OWN {
+                            new_place.set(Some(String::new()));
+                        } else {
+                            new_place.set(None);
+                            place.set(v);
+                        }
+                    }>
+                        {places}
+                        <option value=OWN>{t().menu.new_place}</option>
+                    </select>
                 </label>
+                <Show when=move || new_place.get().is_some()>
+                    <label>
+                        <span>{t().menu.place_name}</span>
+                        <input class="tcn-input" type="text" placeholder=t().menu.place_placeholder
+                               prop:value=move || new_place.get().unwrap_or_default()
+                               on:input=move |ev| new_place.set(Some(event_target_value(&ev))) />
+                    </label>
+                </Show>
+                <label>
+                    <span>{t().menu.product_category}</span>
+                    <select class="tcn-input" on:change=move |ev| {
+                        let v = event_target_value(&ev);
+                        if v == OWN {
+                            category.set(Some(String::new()));
+                            new_category.set(true);
+                        } else if let Some(c) = v.strip_prefix(OWN) {
+                            category.set(Some(c.to_owned()));
+                            new_category.set(false);
+                        } else {
+                            category.set(None);
+                            new_category.set(false);
+                        }
+                    }>
+                        <option value="" selected=move || !new_category.get() && category.get().is_none()>{t().menu.no_category}</option>
+                        {categories}
+                        <option value=OWN selected=move || new_category.get()>{t().menu.new_category}</option>
+                    </select>
+                </label>
+                <Show when=move || new_category.get()>
+                    <label>
+                        <span>{t().menu.category_name}</span>
+                        <input class="tcn-input" type="text" placeholder=t().menu.category_placeholder
+                               prop:value=move || category.get().unwrap_or_default()
+                               on:input=move |ev| category.set(Some(event_target_value(&ev))) />
+                    </label>
+                </Show>
                 <label>
                     <span>{t().menu.for_whom}</span>
                     <select class="tcn-input" on:change=move |ev| {
@@ -719,13 +866,111 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
             </div>
             <div class="tcw-cat-actions">
                 {(!is_new).then(|| if used {
-                    view! { <span class="tcn-hint">{t().menu.in_use}</span> }.into_any()
+                    view! { <span class="tcn-hint">{(t().menu.in_use)(&used_in(&menu, &product.id))}</span> }.into_any()
                 } else {
                     view! {
                         <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" on:click=remove.clone()>
                             {t().menu.delete}
                         </button>
                     }.into_any()
+                })}
+                <span class="tcw-cat-gap"></span>
+                <button type="button" class="tcn-btn tcn-btn-sm" on:click=move |_| state.editing.set(None)>
+                    {t().dialogs.cancel}
+                </button>
+                <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary" on:click=save>
+                    {t().dialogs.save}
+                </button>
+            </div>
+        </div>
+    }
+}
+
+/// What `editing` says for this place.
+fn place_key(id: &str) -> String {
+    format!("@{id}")
+}
+
+#[component]
+fn PlaceRow(menu: Menu, place: tc_core::menu::Place, state: MenuState, apply: Callback<Operation>) -> impl IntoView {
+    let key = place_key(&place.id);
+    let open = {
+        let key = key.clone();
+        move || state.editing.get().as_deref() == Some(key.as_str())
+    };
+    let count = menu.products.iter().filter(|p| p.place == place.id).count();
+    let editor_place = place.clone();
+    view! {
+        <Show when=open.clone()
+              fallback={
+                  let key = key.clone();
+                  let name = place.name.clone();
+                  move || {
+                      let key = key.clone();
+                      view! {
+                          <div class="tcw-cat-row">
+                              <div class="tcw-cat-main">
+                                  <b>{name.clone()}</b>
+                                  <small class="tcw-cat-what">{(t().menu.products_here)(count)}</small>
+                              </div>
+                              <button type="button" class="tcn-btn tcn-btn-sm"
+                                      on:click=move |_| state.editing.set(Some(key.clone()))>
+                                  {t().menu.edit}
+                              </button>
+                          </div>
+                      }
+                  }
+              }>
+            <PlaceEditor menu=menu.clone() place=editor_place.clone() state=state apply=apply />
+        </Show>
+    }
+}
+
+#[component]
+fn PlaceEditor(menu: Menu, place: tc_core::menu::Place, state: MenuState, apply: Callback<Operation>) -> impl IntoView {
+    let is_new = place.id.is_empty();
+    let name = RwSignal::new(place.name.clone());
+    let error = RwSignal::new(None::<&'static str>);
+    // What is bought there, by name - why it cannot go.
+    let here: Vec<String> = menu.products.iter().filter(|p| p.place == place.id).map(|p| p.name.clone()).collect();
+    let id = place.id.clone();
+    let save = {
+        let id = id.clone();
+        move |_| {
+            let name = name.get_untracked().trim().to_owned();
+            if name.is_empty() {
+                error.set(Some(t().menu.name_needed));
+                return;
+            }
+            let id = if id.is_empty() { crate::edit::new_id() } else { id.clone() };
+            state.editing.set(None);
+            apply.run(Operation::Menu(MenuEdit::PutPlace(tc_core::menu::Place { id, name })));
+        }
+    };
+    let remove = {
+        let id = id.clone();
+        move |_| {
+            state.editing.set(None);
+            apply.run(Operation::Menu(MenuEdit::RemovePlace(id.clone())));
+        }
+    };
+    view! {
+        <div class="tcn-card tcw-cat-edit">
+            <Show when=move || error.get().is_some()>
+                <div class="tcn-errors">{move || error.get().unwrap_or_default()}</div>
+            </Show>
+            <input class="tcn-input tcw-cat-name" type="text" placeholder=t().menu.place_placeholder
+                   prop:value=move || name.get()
+                   on:input=move |ev| name.set(event_target_value(&ev)) />
+            <div class="tcw-cat-actions">
+                {(!is_new).then(|| if here.is_empty() {
+                    view! {
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" on:click=remove.clone()>
+                            {t().menu.delete}
+                        </button>
+                    }.into_any()
+                } else {
+                    view! { <span class="tcn-hint">{(t().menu.place_in_use)(&here.join(", "))}</span> }.into_any()
                 })}
                 <span class="tcw-cat-gap"></span>
                 <button type="button" class="tcn-btn tcn-btn-sm" on:click=move |_| state.editing.set(None)>

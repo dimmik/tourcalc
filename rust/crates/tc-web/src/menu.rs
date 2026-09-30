@@ -49,6 +49,26 @@ pub(crate) fn search_box(text: RwSignal<String>, placeholder: &'static str) -> i
     }
 }
 
+/// How the shopping list is split into cards.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Group {
+    None,
+    Place,
+    Category,
+}
+
+impl Group {
+    const ALL: [Group; 3] = [Group::None, Group::Place, Group::Category];
+
+    fn name(self) -> &'static str {
+        match self {
+            Group::None => t().menu.group_none,
+            Group::Place => t().menu.group_place,
+            Group::Category => t().menu.group_category,
+        }
+    }
+}
+
 /// The order of the shopping list.
 #[derive(Clone, Copy, PartialEq)]
 pub enum Sort {
@@ -57,12 +77,13 @@ pub enum Sort {
     Name,
     Place,
     Buyer,
+    Category,
     /// What is still to buy on top.
     NotBought,
 }
 
 impl Sort {
-    const ALL: [Sort; 5] = [Sort::Catalogue, Sort::Name, Sort::Place, Sort::Buyer, Sort::NotBought];
+    const ALL: [Sort; 6] = [Sort::Catalogue, Sort::Name, Sort::Place, Sort::Category, Sort::Buyer, Sort::NotBought];
 
     fn name(self) -> &'static str {
         let m = &t().menu;
@@ -71,6 +92,7 @@ impl Sort {
             Sort::Name => m.sort_name,
             Sort::Place => m.sort_place,
             Sort::Buyer => m.sort_buyer,
+            Sort::Category => m.sort_category,
             Sort::NotBought => m.sort_not_bought,
         }
     }
@@ -90,10 +112,11 @@ pub struct MenuState {
     /// What is typed into the search boxes of the shopping and of the catalogue.
     pub shop_find: RwSignal<String>,
     pub cat_find: RwSignal<String>,
-    /// The shopping split into a card per place; one list when not.
-    pub by_place: RwSignal<bool>,
+    /// The shopping in one list, or a card per place or per category.
+    pub group: RwSignal<Group>,
     pub daily_open: RwSignal<bool>,
     pub products_open: RwSignal<bool>,
+    pub places_open: RwSignal<bool>,
     /// Who this phone is: the shopping shows theirs.
     pub me: RwSignal<Option<String>>,
     /// Other people's shopping too, although somebody is picked. Without it the shopping
@@ -110,9 +133,10 @@ impl MenuState {
             sort: RwSignal::new(Sort::Catalogue),
             shop_find: RwSignal::new(String::new()),
             cat_find: RwSignal::new(String::new()),
-            by_place: RwSignal::new(false),
+            group: RwSignal::new(Group::None),
             daily_open: RwSignal::new(true),
             products_open: RwSignal::new(false),
+            places_open: RwSignal::new(false),
             me: RwSignal::new(crate::settings::me(tour)),
             everybody: RwSignal::new(false),
         }
@@ -166,7 +190,7 @@ const PRODUCTS: &[ProductRow] = &[
     ("bread", "Bread", "Хлеб", G, SUPERMARKET, ALL, None),
     ("ham", "Ham, sausage, pečenica", "Ветчина, колбаса, печеница", G, SUPERMARKET, ALL, None),
     ("nuts", "Nuts", "Орехи", G, SUPERMARKET, ALL, None),
-    ("snacks", "Olives, pickles", "Оливки, соленья", G, SUPERMARKET, ALL, None),
+    ("snacks", "Snacks - olives, pickles", "Закуски - Оливки, соленья", G, SUPERMARKET, ALL, None),
     ("coffee", "Coffee and tea", "Кофе и чай", G, SUPERMARKET, ALL, None),
     ("wine", "Wine", "Вино", PCS, SUPERMARKET, FULL, Some(("btl", "бут."))),
     ("juice", "Juice", "Сок", PCS, SUPERMARKET, KIDS, Some(("pack", "пакет"))),
@@ -174,6 +198,20 @@ const PRODUCTS: &[ProductRow] = &[
     ("water", "Drinking water", "Питьевая вода", PCS, DELIVERY, ALL, Some(("5 l jug", "5л фляга"))),
     ("beer", "Beer", "Пиво", PCS, DELIVERY, FULL, Some(("can", "банка"))),
 ];
+
+/// The starter's categories, by product - the aisles a list is usually read in.
+fn starter_category(id: &str) -> Option<(&'static str, &'static str)> {
+    Some(match id {
+        "meat" | "lamb" | "fish" | "mince" | "ham" => ("Meat and fish", "Мясо и рыба"),
+        "potatoes" | "carrots" | "onions" | "salad" | "herbs" | "fruit" | "lemons" => ("Vegetables and fruit", "Овощи и фрукты"),
+        "cheese" | "eggs" | "milk" | "yoghurt" | "butter" => ("Dairy and eggs", "Молочное и яйца"),
+        "rice" | "pasta" | "oats" | "muesli" | "oil" | "nuts" | "snacks" | "coffee" => ("Groceries", "Бакалея"),
+        "bread" => ("Bread", "Хлеб"),
+        "juice" | "mineral" | "water" => ("Drinks", "Напитки"),
+        "wine" | "beer" => ("Alcohol", "Алкоголь"),
+        _ => return None,
+    })
+}
 
 /// id, English, Russian, meals, and per portion: product and amount.
 type DishRow = (&'static str, &'static str, &'static str, &'static [Meal], &'static [(&'static str, f64)]);
@@ -186,23 +224,25 @@ const DISHES: &[DishRow] = &[
     ("lamb_steaks", "Lamb steaks", "Стейки баранины", &[Meal::Dinner], &[("lamb", 300.0), ("potatoes", 200.0)]),
     ("fish", "Fish", "Рыба", &[Meal::Dinner], &[("fish", 300.0), ("rice", 70.0), ("lemons", 0.25)]),
     ("plov", "Plov", "Плов", &[Meal::Dinner], &[("rice", 100.0), ("lamb", 150.0), ("carrots", 120.0), ("onions", 60.0), ("oil", 20.0)]),
+    // Eating out: nothing to buy, and never put on the plan by itself - see `Menu::fill`.
+    ("restaurant", "Restaurant", "Ресторан", &[Meal::Breakfast, Meal::Lunch, Meal::Dinner], &[]),
 ];
 
 /// Every day, whatever is cooked: per portion, or per head for the adults' and the
 /// children's drinks. Wine with dinner - arriving for Friday dinner and leaving after
 /// Sunday breakfast is two evenings of it.
 const DAILY: &[(&str, f64, When)] = &[
-    ("salad", 150.0, When::EveryDay),
-    ("herbs", 20.0, When::EveryDay),
-    ("fruit", 150.0, When::EveryDay),
+    ("salad", 150.0, When::With(Meal::Dinner)),
+    ("herbs", 20.0, When::With(Meal::Breakfast)),
+    ("fruit", 150.0, When::With(Meal::Breakfast)),
     ("bread", 60.0, When::EveryDay),
-    ("snacks", 40.0, When::EveryDay),
-    ("coffee", 15.0, When::EveryDay),
-    ("water", 1.0, When::EveryDay),
+    ("snacks", 40.0, When::With(Meal::Dinner)),
+    ("coffee", 15.0, When::With(Meal::Breakfast)),
+    ("water", 0.2, When::EveryDay),
     ("wine", 1.0, When::With(Meal::Dinner)),
-    ("juice", 1.0, When::EveryDay),
-    ("mineral", 1.0, When::EveryDay),
-    ("beer", 4.0, When::EveryDay),
+    ("juice", 1.0, When::With(Meal::Dinner)),
+    ("mineral", 1.0, When::With(Meal::Dinner)),
+    ("beer", 2.0, When::With(Meal::Dinner)),
 ];
 
 /// The menu a tour starts with: three places, the usual products and dishes, and a plan
@@ -227,6 +267,7 @@ pub fn starter(days: u32) -> Menu {
                 place: (*place).into(),
                 eaters: *eaters,
                 own_unit: own.map(|(en, r)| pick(en, r)),
+                category: starter_category(id).map(|(en, r)| pick(en, r)),
             })
             .collect(),
         dishes: DISHES
@@ -617,6 +658,7 @@ fn Shopping(
         </div>
     };
 
+    let categories = menu.categories();
     // Everything to buy, owned, with what has been said about each.
     let lines: Vec<Line> = menu
         .shopping(&eating)
@@ -636,7 +678,8 @@ fn Shopping(
                 .map(|(_, name)| name.clone())
                 .unwrap_or_default();
             let place_name = place.map(|i| menu.places[i].name.clone()).unwrap_or_default();
-            let hay = folded(&format!("{} {} {} {} {}", n.product.name, place_name, buyer, whom(n.product.eaters), why.join(" ")));
+            let category = n.product.category.as_deref().map(str::trim).unwrap_or("").to_owned();
+            let hay = folded(&format!("{} {} {} {} {} {}", n.product.name, place_name, category, buyer, whom(n.product.eaters), why.join(" ")));
             Line {
                 product: n.product.clone(),
                 amount: n.amount,
@@ -644,6 +687,8 @@ fn Shopping(
                 why: why.join(" · "),
                 hay,
                 place: place_name,
+                category_order: categories.iter().position(|c| *c == category).unwrap_or(usize::MAX),
+                category,
                 place_order: place.unwrap_or(usize::MAX),
                 order: menu.products.iter().position(|p| p.id == n.product.id).unwrap_or(usize::MAX),
             }
@@ -675,10 +720,18 @@ fn Shopping(
                     }
                 }>{sort_options}</select>
             </label>
-            <label class="tcn-switchline">
-                <input type="checkbox" prop:checked=move || state.by_place.get()
-                       on:change=move |ev| state.by_place.set(event_target_checked(&ev)) />
-                {t().menu.by_place}
+            <label>
+                <span>{t().menu.group}</span>
+                <select class="tcn-input" on:change=move |ev| {
+                    let v = event_target_value(&ev);
+                    if let Some(g) = Group::ALL.into_iter().find(|g| g.name() == v) {
+                        state.group.set(g);
+                    }
+                }>
+                    {Group::ALL.into_iter().map(|g| view! {
+                        <option value=g.name() selected=move || state.group.get() == g>{g.name()}</option>
+                    }).collect_view()}
+                </select>
             </label>
         </div>
     };
@@ -688,7 +741,23 @@ fn Shopping(
         let names: Vec<(String, String)> = shoppers.clone();
         let mut lines = lines.clone();
         sort_lines(&mut lines, state.sort.get(), &names);
-        if state.by_place.get() {
+        let group = state.group.get();
+        if group == Group::Category {
+            let mut titles: Vec<String> = categories.clone();
+            titles.push(String::new());
+            titles
+                .into_iter()
+                .filter_map(|category| {
+                    let here: Vec<Line> = lines.iter().filter(|l| l.category == category).cloned().collect();
+                    let title = if category.is_empty() { t().menu.no_category.to_owned() } else { category };
+                    (!here.is_empty()).then(|| view! {
+                        <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
+                                  show_place=true state=state apply=apply dialog=dialog />
+                    })
+                })
+                .collect_view()
+                .into_any()
+        } else if group == Group::Place {
             menu.places
                 .iter()
                 .filter_map(|place| {
@@ -736,6 +805,9 @@ struct Line {
     /// Where it is bought, and that place's and the product's own place in the catalogue.
     place: String,
     place_order: usize,
+    /// Its category, "" for none, and that category's place among the tour's.
+    category: String,
+    category_order: usize,
     order: usize,
 }
 
@@ -753,6 +825,7 @@ fn sort_lines(lines: &mut [Line], sort: Sort, shoppers: &[(String, String)]) {
         Sort::Catalogue => lines.sort_by_key(|l| l.order),
         Sort::Name => lines.sort_by_key(|l| (l.product.name.to_lowercase().replace('ё', "е"), l.order)),
         Sort::Place => lines.sort_by_key(|l| (l.place_order, l.order)),
+        Sort::Category => lines.sort_by_key(|l| (l.category_order, l.order)),
         // Nobody's last: those are the ones still to share out.
         Sort::Buyer => lines.sort_by_key(|l| (buyer(l).is_none(), buyer(l), l.order)),
         Sort::NotBought => lines.sort_by_key(|l| (l.purchase.bought, l.order)),
