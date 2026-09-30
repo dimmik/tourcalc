@@ -102,6 +102,11 @@ pub struct SpendingDraft {
     /// reads it; absent from an older one, which is "no".
     #[serde(default)]
     pub on_behalf: bool,
+    /// Recorded from the menu's shopping: the products it pays for. Saving it marks them
+    /// bought and recorded, with this expense (see `tc_core::menu::Purchase::spending`).
+    /// Empty for anything else, and for anything queued before the menu.
+    #[serde(default)]
+    pub purchases: Vec<String>,
 }
 
 /// Whom a new expense starts from: whoever this device last recorded one for, as long as
@@ -175,6 +180,7 @@ impl SpendingDraft {
             editing: false,
             in_cents: None,
             on_behalf: false,
+            purchases: Vec::new(),
         }
     }
 
@@ -214,6 +220,7 @@ impl SpendingDraft {
             editing: true,
             in_cents: None,
             on_behalf: false,
+            purchases: Vec::new(),
         }
     }
 
@@ -281,6 +288,24 @@ pub fn categories(tour: &Tour) -> Vec<String> {
 
 /// The tour with this spending added or replaced.
 pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
+    let mut next = put_spending_only(tour, draft);
+    // The products it was recorded from now point at it, and are bought - replayed onto a
+    // tour whose menu is gone, there is nothing to point from, and the expense is recorded
+    // all the same.
+    if let (false, Some(id)) = (draft.purchases.is_empty(), &draft.id) {
+        if let Some(mut menu) = tc_core::menu::Menu::of(&next) {
+            for product in &draft.purchases {
+                let p = menu.purchase_mut(product);
+                p.spending = Some(id.as_str().to_owned());
+                p.bought = true;
+            }
+            menu.put(&mut next);
+        }
+    }
+    next
+}
+
+fn put_spending_only(tour: &Tour, draft: &SpendingDraft) -> Tour {
     let mut next = tour.clone();
 
     // Planned payments are the settlement's own; they are recomputed from the real
@@ -684,6 +709,10 @@ pub struct TourDraft {
     /// Everybody sees the payments to make. It changes nothing in the arithmetic; it says
     /// out loud that the tour is being wound up.
     pub finalizing: bool,
+    /// The Menu tab: food by the day and what to buy. `None` leaves it as it is - and is
+    /// what an edit queued before the menu existed says.
+    #[serde(default)]
+    pub menu: Option<bool>,
 }
 
 impl TourDraft {
@@ -693,6 +722,7 @@ impl TourDraft {
             days: tc_core::extras::int_of(&tour.extras, tc_core::extras::DURATION).unwrap_or(5),
             archived: tc_core::extras::bool_of(&tour.extras, tc_core::extras::ARCHIVED),
             finalizing: tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING),
+            menu: Some(tc_core::menu::Menu::shown(tour).is_some()),
         }
     }
 
@@ -739,7 +769,108 @@ pub fn put_tour(tour: &Tour, draft: &TourDraft) -> Tour {
         tc_core::extras::FINALIZING,
         draft.finalizing.into(),
     );
+    match (draft.menu, tc_core::menu::Menu::of(&next)) {
+        (Some(on), Some(mut menu)) if menu.on != on => {
+            menu.on = on;
+            menu.put(&mut next);
+        }
+        // The first time: the starter menu, for as many days as the tour lasts.
+        (Some(true), None) => {
+            let days = u32::try_from(draft.days).unwrap_or(1);
+            crate::menu::starter(days).put(&mut next);
+        }
+        _ => {}
+    }
     next
+}
+
+/// A tour as the start of the next trip - see the list's "copy without expenses": the menu's
+/// plan and catalogue stay, what was bought and by whom goes. Left in, the new trip opened
+/// with last year's potatoes bought, and pointing at expenses the copy does not have.
+pub fn for_next_trip(tour: &Tour) -> Tour {
+    let mut next = tour.clone();
+    if let Some(mut menu) = tc_core::menu::Menu::of(&next) {
+        if !menu.purchases.is_empty() {
+            menu.purchases.clear();
+            menu.put(&mut next);
+        }
+    }
+    next
+}
+
+/// Something done to the menu, as the queue records it.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum MenuEdit {
+    /// Dishes on meals: one, or the same meal on every day.
+    Meals(Vec<tc_core::menu::Slot>),
+    Days(u32),
+    /// Who buys and pays for these products - one, or a whole place's at once; `None` -
+    /// nobody yet.
+    Buyer { products: Vec<String>, who: Option<String> },
+    Bought { product: String, bought: bool },
+    /// A dish added or changed - its name, its meals, what goes into it.
+    PutDish(tc_core::menu::Dish),
+    RemoveDish(String),
+    PutProduct(tc_core::menu::Product),
+    /// Only if nothing uses it - see `Menu::remove_product`.
+    RemoveProduct(String),
+    /// What is bought every day, whatever is cooked.
+    Daily(Vec<tc_core::menu::Ingredient>),
+    /// The meal the trip starts with on its first day, and ends with on its last.
+    Arrive(tc_core::menu::Meal),
+    Leave(tc_core::menu::Meal),
+    /// The first day's date, "2026-11-13"; `None` - days by number.
+    Start(Option<String>),
+    /// A place added or renamed.
+    PutPlace(tc_core::menu::Place),
+    /// Only if nothing is bought there - see `Menu::remove_place`.
+    RemovePlace(String),
+    /// Several at once, in order: a product saved with a new place is the place and then the
+    /// product, and must not be half of that.
+    All(Vec<MenuEdit>),
+}
+
+/// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
+pub fn put_menu(tour: &Tour, change: &MenuEdit) -> Tour {
+    let Some(mut menu) = tc_core::menu::Menu::of(tour) else {
+        return tour.clone();
+    };
+    edit_menu(&mut menu, change);
+    let mut next = tour.clone();
+    menu.put(&mut next);
+    next
+}
+
+fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
+    match change {
+        MenuEdit::Meals(slots) => {
+            for slot in slots {
+                menu.set(slot.clone());
+            }
+        }
+        MenuEdit::Days(days) => menu.set_days(*days),
+        MenuEdit::Buyer { products, who } => {
+            for product in products {
+                menu.purchase_mut(product).who = who.clone();
+            }
+        }
+        MenuEdit::Bought { product, bought } => menu.purchase_mut(product).bought = *bought,
+        MenuEdit::PutDish(dish) => menu.put_dish(dish.clone()),
+        MenuEdit::RemoveDish(id) => menu.remove_dish(id),
+        MenuEdit::PutProduct(product) => menu.put_product(product.clone()),
+        MenuEdit::RemoveProduct(id) => menu.remove_product(id),
+        MenuEdit::Daily(items) => menu.daily = items.clone(),
+        MenuEdit::Arrive(meal) => menu.arrive(*meal),
+        MenuEdit::Leave(meal) => menu.leave(*meal),
+        MenuEdit::Start(date) => menu.start = date.clone(),
+        MenuEdit::PutPlace(place) => menu.put_place(place.clone()),
+        MenuEdit::RemovePlace(id) => menu.remove_place(id),
+        MenuEdit::All(changes) => {
+            for change in changes {
+                edit_menu(menu, change);
+            }
+        }
+    }
 }
 
 /// What the currencies dialog collects.
@@ -1169,6 +1300,7 @@ mod split_tests {
             editing: false,
             in_cents: None,
             on_behalf: false,
+            purchases: Vec::new(),
         }
     }
 

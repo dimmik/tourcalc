@@ -11,6 +11,7 @@
 pub mod calc;
 pub mod domain;
 pub mod ids;
+pub mod menu;
 pub mod money;
 pub mod news;
 pub mod removal;

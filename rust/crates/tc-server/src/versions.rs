@@ -84,6 +84,123 @@ pub fn describe_change(old: &Tour, new: &Tour) -> Option<String> {
     Some(format!("Changed: {changed}"))
 }
 
+/// The line for what a save did to the menu, or `None` when it did nothing to it.
+///
+/// Apart from [`describe_change`] because it is apart everywhere else: it goes into the
+/// version's line, so that a change of dinner can be found and undone, but it tells nobody -
+/// a tick on the shopping list is not news for everybody's phone.
+pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
+    use tc_core::menu::{Meal, Menu};
+    let was = Menu::of(old);
+    let is = Menu::of(new);
+    if was == is {
+        return None;
+    }
+    let (was, is) = match (was, is) {
+        (None, Some(is)) => return Some(if is.on { "Menu on".to_owned() } else { "Menu added".to_owned() }),
+        (Some(_), None) => return Some("Menu removed".to_owned()),
+        (Some(was), Some(is)) => (was, is),
+        (None, None) => return None,
+    };
+    let mut said: Vec<String> = Vec::new();
+    if was.on != is.on {
+        said.push(if is.on { "on" } else { "off" }.to_owned());
+    }
+    if was.days != is.days {
+        said.push(format!("days {} -> {}", was.days, is.days));
+    }
+    if was.start != is.start {
+        said.push(format!("starts {}", is.start.as_deref().unwrap_or("-")));
+    }
+    // The plan, over the days both have: a changed number of days is said above, and the
+    // days it adds are filled in by themselves.
+    let meal = |m: Meal| match m {
+        Meal::Breakfast => "breakfast",
+        Meal::Lunch => "lunch",
+        Meal::Dinner => "dinner",
+    };
+    let dish = |menu: &Menu, day: u32, m: Meal| menu.dish_on(day, m).map_or("nothing".to_owned(), |d| d.name.clone());
+    let mut plan: Vec<String> = Vec::new();
+    for day in 1..=was.days.min(is.days) {
+        for m in Meal::ALL {
+            let (a, b) = (dish(&was, day, m), dish(&is, day, m));
+            if a != b {
+                plan.push(format!("{} day {day} {a} -> {b}", meal(m)));
+            }
+        }
+    }
+    said.extend(few(plan));
+    // The shopping: ticks and who buys.
+    let product = |id: &str| is.product(id).or_else(|| was.product(id)).map_or(id.to_owned(), |p| p.name.clone());
+    let person = |id: &Option<String>| {
+        id.as_deref()
+            .and_then(|id| new.persons.iter().find(|p| p.id.as_str() == id))
+            .map_or("nobody".to_owned(), |p| p.name.clone())
+    };
+    let mut bought = Vec::new();
+    let mut unbought = Vec::new();
+    let mut buyers = Vec::new();
+    for p in &is.purchases {
+        let before = was.purchase(&p.product).cloned().unwrap_or_default();
+        if p.bought && !before.bought {
+            bought.push(product(&p.product));
+        }
+        if !p.bought && before.bought {
+            unbought.push(product(&p.product));
+        }
+        if p.who != before.who {
+            buyers.push(format!("{} -> {}", product(&p.product), person(&p.who)));
+        }
+    }
+    if !bought.is_empty() {
+        said.push(format!("bought {}", few(bought).join(", ")));
+    }
+    if !unbought.is_empty() {
+        said.push(format!("not bought {}", few(unbought).join(", ")));
+    }
+    said.extend(few(buyers));
+    // The catalogue: what was added, taken out or changed, by name.
+    catalogue(&mut said, "dish", &was.dishes, &is.dishes, |d| (d.id.as_str(), d.name.as_str()));
+    catalogue(&mut said, "product", &was.products, &is.products, |p| (p.id.as_str(), p.name.as_str()));
+    catalogue(&mut said, "place", &was.places, &is.places, |p| (p.id.as_str(), p.name.as_str()));
+    if was.daily != is.daily {
+        said.push("daily list changed".to_owned());
+    }
+    if said.is_empty() {
+        // Something only the tour's own bookkeeping sees - still worth a version.
+        said.push("changed".to_owned());
+    }
+    Some(format!("Menu: {}", said.join("; ")))
+}
+
+/// Three of a list and how many more: a whole day re-planned is not a paragraph.
+fn few(mut items: Vec<String>) -> Vec<String> {
+    if items.len() > 3 {
+        let more = items.len() - 3;
+        items.truncate(3);
+        items.push(format!("and {more} more"));
+    }
+    items
+}
+
+/// Added, removed and changed items of one kind, paired by id.
+fn catalogue<T: PartialEq>(said: &mut Vec<String>, kind: &str, was: &[T], is: &[T], key: impl Fn(&T) -> (&str, &str)) {
+    for item in is {
+        let (id, name) = key(item);
+        match was.iter().find(|w| key(w).0 == id) {
+            None => said.push(format!("{kind} added: {name}")),
+            Some(w) if w != item => said.push(format!("{kind} changed: {name}")),
+            Some(_) => {}
+        }
+    }
+    for item in was {
+        let (id, name) = key(item);
+        if !is.iter().any(|i| key(i).0 == id) {
+            said.push(format!("{kind} removed: {name}"));
+        }
+    }
+}
+
 /// The spendings a person actually entered. Planned payments are the settlement's own and
 /// are rewritten on every edit, so counting them would make every save look like a change.
 fn real(tour: &Tour) -> Vec<&Spending> {
@@ -292,6 +409,55 @@ mod tests {
         let mut one_more = before.clone();
         one_more.persons.push(two_more.persons[1].clone());
         assert_eq!(describe_change(&before, &one_more).as_deref(), Some("P 'Эмма' added"), "one reads as before");
+    }
+
+    fn with_menu(t: &Tour, edit: impl FnOnce(&mut tc_core::menu::Menu)) -> Tour {
+        use tc_core::menu::{Dish, Ingredient, Meal, Menu, Place, Product};
+        let mut menu = Menu::of(t).unwrap_or_else(|| {
+            let mut m = Menu {
+                on: true,
+                days: 2,
+                places: vec![Place { id: "m".into(), name: "Market".into() }],
+                products: vec![Product { id: "lamb".into(), name: "Lamb".into(), place: "m".into(), ..Product::default() }],
+                ..Menu::default()
+            };
+            for (id, name) in [("plov", "Plov"), ("fish", "Fish")] {
+                m.dishes.push(Dish {
+                    id: id.into(),
+                    name: name.into(),
+                    meals: vec![Meal::Dinner],
+                    meal: None,
+                    ingredients: vec![Ingredient { product: "lamb".into(), amount: 1.0, ..Ingredient::default() }],
+                });
+            }
+            m.fill();
+            m
+        });
+        edit(&mut menu);
+        let mut next = t.clone();
+        menu.put(&mut next);
+        next
+    }
+
+    /// A dinner changed and a product ticked are said, by name; the money's line has
+    /// nothing to say about either.
+    #[test]
+    fn a_menu_change_is_said_apart_from_the_money() {
+        use tc_core::menu::{Meal, Slot};
+        let before = with_menu(&tour(4400, 117_500), |_| {});
+        let after = with_menu(&before, |m| {
+            m.set(Slot { day: 2, meal: Meal::Dinner, dish: Some("plov".into()) });
+            m.purchase_mut("lamb").bought = true;
+        });
+        assert_eq!(
+            describe_menu(&before, &after).as_deref(),
+            Some("Menu: dinner day 2 Fish -> Plov; bought Lamb")
+        );
+        assert_eq!(describe_change(&before, &after), None, "no line, so no notification");
+        assert_eq!(describe_menu(&before, &before), None);
+        assert_eq!(describe_menu(&tour(4400, 117_500), &before).as_deref(), Some("Menu on"));
+        let renamed = with_menu(&before, |m| m.dishes[0].name = "Pilaf".into());
+        assert_eq!(describe_menu(&before, &renamed).as_deref(), Some("Menu: dinner day 1 Plov -> Pilaf; dish changed: Pilaf"));
     }
 
     #[test]

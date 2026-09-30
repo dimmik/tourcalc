@@ -50,6 +50,8 @@ pub enum Operation {
         payer: PersonId,
         rows: Vec<crate::edit::DependantDraft>,
     },
+    /// The menu: a dish on a meal, the number of days, who shops where, what is bought.
+    Menu(crate::edit::MenuEdit),
 }
 
 impl Operation {
@@ -99,6 +101,7 @@ impl Operation {
             Operation::SetCurrencies { kept, main } => edit::put_currencies(tour, kept, main),
             Operation::RecordPayment(draft) => edit::record_payment(tour, draft),
             Operation::SetDependants { payer, rows } => edit::put_dependants(tour, payer, rows),
+            Operation::Menu(change) => edit::put_menu(tour, change),
         }
     }
 
@@ -128,6 +131,7 @@ impl Operation {
                     .collect::<Vec<_>>()
                     .join(", "),
             ),
+            Operation::Menu(_) => t().queue.the_menu.into(),
         }
     }
 }
@@ -418,6 +422,8 @@ pub fn forget_everything() {
         "__tcw_compact_",
         // Whom this phone records expenses for - whose phone it was.
         "__tcw_payer_",
+        // Who this phone is, for the menu's shopping.
+        "__tcw_me_",
     ];
     let mut doomed = Vec::new();
     for i in 0..s.length().unwrap_or(0) {
@@ -468,6 +474,7 @@ mod tests {
             editing: false,
             in_cents: None,
             on_behalf: false,
+            purchases: Vec::new(),
         })
     }
 

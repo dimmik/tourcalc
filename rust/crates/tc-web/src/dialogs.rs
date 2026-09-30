@@ -193,6 +193,10 @@ pub fn SpendingDialog(
     // Whether this is for somebody else. A signal, because "start blank" on a carried draft
     // makes it a plain new expense again.
     let on_behalf = RwSignal::new(draft.on_behalf);
+    // The menu's products this expense pays for - a signal for the same reason: "start blank"
+    // on a carried shopping expense makes it a plain one, and a taxi saved from it marked the
+    // potatoes bought and recorded them as the taxi.
+    let purchases = RwSignal::new(draft.purchases.clone());
     let base = draft.clone();
     // The form as it stands, whether it is being saved or left behind. Cloned rather than
     // shared: it holds nothing but signals, which are `Copy`.
@@ -214,6 +218,7 @@ pub fn SpendingDialog(
         d.colour = colour.get_untracked();
         d.currency_id = currency.get_untracked();
         d.on_behalf = on_behalf.get_untracked();
+        d.purchases = purchases.get_untracked();
         d
     });
 
@@ -241,6 +246,7 @@ pub fn SpendingDialog(
         // that picked the draft up - whoever the draft was for.
         from.set(fresh.from.as_str().to_owned());
         on_behalf.set(false);
+        purchases.set(Vec::new());
         everyone.set(fresh.everyone);
         by_weight.set(fresh.by_weight);
         to.set(fresh.to.clone());
@@ -919,6 +925,7 @@ pub fn TourDialog(
     let days = RwSignal::new(draft.days.to_string());
     let archived = RwSignal::new(draft.archived);
     let finalizing = RwSignal::new(draft.finalizing);
+    let menu = RwSignal::new(draft.menu.unwrap_or(false));
     let error = RwSignal::new(String::new());
 
     let submit = move |_| {
@@ -927,6 +934,7 @@ pub fn TourDialog(
             days: days.get().trim().parse().unwrap_or(0),
             archived: archived.get(),
             finalizing: finalizing.get(),
+            menu: Some(menu.get()),
         };
         if let Some(why) = d.problem() {
             error.set(why.to_owned());
@@ -963,7 +971,9 @@ pub fn TourDialog(
                 <div class="tcn-hint">{t().dialogs.days_note}</div>
             </div>
 
-            <div class="tcn-field">
+            // One under another: side by side the third wrapped on its own, and the notes
+            // after each ran into the next switch.
+            <div class="tcn-field tcw-switches">
                 <label class="tcn-switchline">
                     <input type="checkbox" prop:checked=move || finalizing.get()
                            on:change=move |ev| finalizing.set(event_target_checked(&ev)) />
@@ -975,6 +985,12 @@ pub fn TourDialog(
                            on:change=move |ev| archived.set(event_target_checked(&ev)) />
                     {t().dialogs.archived}
                     <span class="tcn-hint">{t().dialogs.archived_note}</span>
+                </label>
+                <label class="tcn-switchline">
+                    <input type="checkbox" prop:checked=move || menu.get()
+                           on:change=move |ev| menu.set(event_target_checked(&ev)) />
+                    {t().dialogs.menu_on}
+                    <span class="tcn-hint">{t().dialogs.menu_on_note}</span>
                 </label>
             </div>
         </Modal>

@@ -189,6 +189,151 @@ pub struct Texts {
     pub device: DeviceTexts,
     pub shell: ShellTexts,
     pub settings: SettingsTexts,
+    pub menu: MenuTexts,
+}
+
+/// The Menu tab: food by the day, and the shopping for it.
+pub struct MenuTexts {
+    pub tab: &'static str,
+    pub plan: &'static str,
+    pub shopping: &'static str,
+    pub days: &'static str,
+    pub fewer_days: &'static str,
+    pub more_days: &'static str,
+    /// Portions, heads at the full weight, heads below it, the full weight.
+    pub portions_note: fn(&str, usize, usize, i32) -> String,
+    pub day: fn(u32) -> String,
+    pub breakfast: &'static str,
+    pub lunch: &'static str,
+    pub dinner: &'static str,
+    pub every_day: &'static str,
+    pub pick: &'static str,
+    pub nothing: &'static str,
+    pub daily: &'static str,
+    pub for_everyone: &'static str,
+    pub for_full: &'static str,
+    pub for_others: &'static str,
+    pub who_am_i: &'static str,
+    pub nobody: &'static str,
+    pub mine_only: &'static str,
+    /// Over a place's products: one person for all of them.
+    pub everybody: &'static str,
+    /// Who buys a product and pays for it.
+    pub buyer: &'static str,
+    pub bought: &'static str,
+    pub nobody_yet: &'static str,
+    pub bought_of: fn(usize, usize) -> String,
+    pub record: &'static str,
+    /// One expense for so many bought products.
+    pub record_together: fn(usize) -> String,
+    /// Recorded in an expense shared with other products, of this amount.
+    pub in_shared: fn(&str) -> String,
+    pub nothing_to_buy: &'static str,
+    pub find_product: &'static str,
+    pub find_in_catalogue: &'static str,
+    pub nothing_found: &'static str,
+    /// Take a product on oneself - "me" as picked above.
+    pub to_me: &'static str,
+    pub to_me_title: &'static str,
+    pub sort: &'static str,
+    pub sort_catalogue: &'static str,
+    pub sort_name: &'static str,
+    pub sort_place: &'static str,
+    pub sort_buyer: &'static str,
+    pub sort_not_bought: &'static str,
+    /// How the shopping is split into cards: one list, by place, by category.
+    pub group: &'static str,
+    pub group_none: &'static str,
+    pub group_place: &'static str,
+    pub group_category: &'static str,
+    pub sort_category: &'static str,
+    /// A product's category, and the card of those without one.
+    pub product_category: &'static str,
+    pub no_category: &'static str,
+    pub new_category: &'static str,
+    pub category_name: &'static str,
+    pub category_placeholder: &'static str,
+    pub category_needed: &'static str,
+    pub new_place: &'static str,
+    pub place_name: &'static str,
+    pub place_placeholder: &'static str,
+    pub place_needed: &'static str,
+    pub places_title: &'static str,
+    /// Why a place cannot be deleted: what is bought there.
+    pub place_in_use: fn(&str) -> String,
+    pub add_place: &'static str,
+    pub products_here: fn(usize) -> String,
+    pub nothing_mine: &'static str,
+    // The catalogue.
+    pub catalogue: &'static str,
+    pub dishes: &'static str,
+    /// Beside the headings: what the catalogue's amounts are for.
+    pub per_portion_title: &'static str,
+    pub per_portion_day_title: &'static str,
+    pub new_dish: &'static str,
+    pub dish_name: &'static str,
+    pub daily_title: &'static str,
+    pub daily_note: &'static str,
+    pub products: &'static str,
+    pub new_product: &'static str,
+    pub product_name: &'static str,
+    pub no_ingredients: &'static str,
+    pub edit: &'static str,
+    pub delete: &'static str,
+    /// The second press of "delete", which does it.
+    pub delete_sure: &'static str,
+    pub remove: &'static str,
+    pub add_ingredient: &'static str,
+    /// After the unit: "g per portion".
+    pub per_portion: &'static str,
+    pub per_adult: &'static str,
+    pub per_child: &'static str,
+    /// Which days a daily item is bought for.
+    pub when_every_day: &'static str,
+    pub when_breakfast: &'static str,
+    pub when_lunch: &'static str,
+    pub when_dinner: &'static str,
+    pub when_title: &'static str,
+    // The trip's bounds and dates, over the plan.
+    pub start_date: &'static str,
+    pub first_day: &'static str,
+    pub last_day: &'static str,
+    /// "from dinner": the first day starts with this meal - breakfast, lunch, dinner.
+    pub from_meal: [&'static str; 3],
+    /// "until breakfast": the last day ends with it.
+    pub to_meal: [&'static str; 3],
+    /// Weekday, day of the month, month: "Friday, 13 November".
+    pub dated: fn(&str, u32, &str) -> String,
+    /// Monday first.
+    pub weekdays: [&'static str; 7],
+    /// As a date says them: "November", "ноября".
+    pub months: [&'static str; 12],
+    /// Beside a date: "day 1".
+    pub day_n: fn(u32) -> String,
+    pub name_needed: &'static str,
+    pub meal_needed: &'static str,
+    pub unit: &'static str,
+    /// The unit select's last option: a unit typed in.
+    pub own_unit: &'static str,
+    pub own_unit_name: &'static str,
+    pub own_unit_placeholder: &'static str,
+    pub unit_needed: &'static str,
+    /// Under a changed unit: the amounts are not converted.
+    pub unit_changed: &'static str,
+    pub place: &'static str,
+    pub for_whom: &'static str,
+    pub eaters_everyone: &'static str,
+    pub eaters_full: &'static str,
+    pub eaters_others: &'static str,
+    /// Why a product cannot be deleted: the dishes and the daily list it is in.
+    pub in_use: fn(&str) -> String,
+    /// The expense's category.
+    pub category: &'static str,
+    pub grams: &'static str,
+    pub kilograms: &'static str,
+    pub millilitres: &'static str,
+    pub litres: &'static str,
+    pub pieces: &'static str,
 }
 
 /// The frame around every screen: the bar, signing in, the interface switch.
@@ -600,6 +745,8 @@ pub struct DialogTexts {
     pub settling_note: &'static str,
     pub archived: &'static str,
     pub archived_note: &'static str,
+    pub menu_on: &'static str,
+    pub menu_on_note: &'static str,
     pub currencies_of: fn(&str) -> String,
     pub main_currency: &'static str,
     pub main_currency_note: &'static str,
@@ -820,6 +967,7 @@ pub struct QueueTexts {
     pub amounts_in: fn(&str) -> String,
     pub the_tour: fn(&str) -> String,
     pub the_currencies: &'static str,
+    pub the_menu: &'static str,
     pub paid: fn(&str) -> String,
     pub no_description: &'static str,
     pub nothing_here: &'static str,

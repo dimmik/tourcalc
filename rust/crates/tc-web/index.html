@@ -193,6 +193,11 @@
            cents - the EURc to fold into it. */
         .tcw-cur-cents { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: -2px 0 10px 2px; font-size: 13px; }
         .tcw-cur-cents .tcn-switchline { margin: 0; }
+        .tcw-switches { display: grid; gap: 8px; justify-items: start; }
+        /* The note under its switch's words when it does not fit beside them, not under the box. */
+        .tcw-switches .tcn-switchline { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 6px;
+            align-items: baseline; }
+        .tcw-switches .tcn-switchline > .tcn-hint { grid-column: 2; margin-top: 0; }
         /* "+ Pays for…": its own look beside Edit - the accent, lightly, not Spend's solid one */
         .tcn-btn.tcw-pays-for, .tcm-shell .tcm-btn.tcw-pays-for {
             color: var(--tcn-primary, #4f46e5); border-color: var(--tcn-primary, #4f46e5);
@@ -809,6 +814,129 @@
             }
         }
 
+        /* The Menu tab (food, not the app's own menu above): the plan by days, the shopping
+           by places. Days side by side where there is room - a week is a glance, not a
+           scroll. */
+        .tcw-food-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+            justify-content: space-between; margin-bottom: 6px; }
+        .tcw-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px;
+            background: var(--tcn-surface-2, #f3f4f6); border: 1px solid var(--tcn-border, #e5e7eb); }
+        .tcw-seg > button { border: 0; background: none; border-radius: 999px; padding: 6px 14px;
+            font: inherit; font-size: 13.5px; font-weight: 600; color: var(--tcn-muted, #6b7280); cursor: pointer; }
+        .tcw-seg > button.is-on { background: var(--tcn-surface, #fff); color: var(--tcn-text, #111827);
+            box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+        .tcw-food-days { display: inline-flex; gap: 8px; align-items: center; font-size: 13.5px; }
+        .tcw-food-days b { min-width: 1.5em; text-align: center; font-variant-numeric: tabular-nums; }
+        .tcw-food-note { margin: 4px 0 12px; font-size: 12.5px; color: var(--tcn-muted, #6b7280); }
+        .tcw-food-days-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+        .tcw-food-day { padding: 10px 12px; display: grid; gap: 6px; }
+        .tcw-food-all { margin-bottom: 10px; background: var(--tcn-primary-soft, #eef2ff); }
+        .tcw-food-dayname { font-weight: 700; font-size: 13.5px; }
+        .tcw-food-meal { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 8px;
+            align-items: center; font-size: 13px; color: var(--tcn-muted, #6b7280); }
+        .tcw-food-meal select { padding: 6px 8px; font-size: 13.5px; color: var(--tcn-text, #111827); }
+        .tcw-food-all .tcw-food-meal { max-width: 420px; }
+        .tcw-food-me { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
+        .tcw-food-me > label:first-child { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
+        .tcw-food-me select { width: auto; min-width: 12em; padding: 6px 8px; }
+        .tcw-errand { padding: 10px 12px; margin-bottom: 12px; }
+        .tcw-errand-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-bottom: 6px; }
+        .tcw-errand-place { font-size: 15px; }
+        .tcw-errand-count { font-size: 12.5px; color: var(--tcn-muted, #6b7280); }
+        .tcw-errand-who { margin-left: auto; display: flex; gap: 6px; align-items: center; font-size: 13px;
+            color: var(--tcn-muted, #6b7280); }
+        .tcw-errand-who select { width: auto; min-width: 10em; padding: 5px 8px; font-size: 13.5px;
+            color: var(--tcn-text, #111827); }
+        /* A product: tick, name (and what it is for), amount; under them who buys it and the
+           expense. One line where there is room. */
+        .tcw-buy-list { display: grid; }
+        .tcw-buy { display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+            grid-template-areas: "tick name amount" ". who expense"; gap: 4px 10px; align-items: center;
+            padding: 7px 2px; border-bottom: 1px solid var(--tcn-border, #e5e7eb); font-size: 14px; }
+        .tcw-buy-tick { grid-area: tick; width: 18px; height: 18px; margin: 0; cursor: pointer; }
+        .tcw-buy-name { grid-area: name; min-width: 0; }
+        .tcw-buy-why { display: block; font-size: 11.5px; color: var(--tcn-muted, #6b7280); }
+        /* In one list the place is the first thing said about a product. */
+        .tcw-buy-place { font-weight: 600; color: var(--tcn-text, #111827); }
+        .tcw-buy-amount { grid-area: amount; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap;
+            text-align: right; }
+        .tcw-buy-who { grid-area: who; display: flex; gap: 6px; align-items: center; min-width: 0; }
+        .tcw-buy-who select { width: auto; min-width: 0; max-width: 100%; padding: 4px 8px; font-size: 13px; }
+        .tcw-buy-me { flex: 0 0 auto; white-space: nowrap; }
+        .tcw-food-search { margin-bottom: 12px; }
+        .tcw-buy-expense { grid-area: expense; justify-self: end; }
+        .tcw-buy-done { font-size: 12.5px; font-weight: 600; color: var(--tcn-green, #047857); white-space: nowrap; }
+        .tcw-buy.is-bought .tcw-buy-title, .tcw-buy.is-bought .tcw-buy-amount {
+            color: var(--tcn-muted, #6b7280); text-decoration: line-through; font-weight: 400; }
+        @media (min-width: 740px) {
+            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 6.5em 17em 12.5em;
+                grid-template-areas: "tick name amount who expense"; }
+            .tcw-buy-who select { flex: 1 1 auto; }
+        }
+        .tcw-errand-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+            justify-content: flex-end; margin-top: 10px; font-size: 13.5px; }
+        /* The catalogue: dishes, the daily list, products - a line each, opened in place. */
+        /* Each section its own ground, so that a dish is not taken for a product: dishes
+           bluish, the daily list greenish, products grey. */
+        .tcw-cat { margin-bottom: 14px; padding: 6px 12px 8px; border-radius: 12px;
+            border: 1px solid var(--tcn-border, #e5e7eb); }
+        .tcw-cat.is-dishes { background: #f3f6ff; border-color: #dfe5fb; }
+        .tcw-cat.is-daily { background: #f1faf4; border-color: #d5eedd; }
+        .tcw-cat.is-products { background: #f6f6f4; border-color: #e4e4e0; }
+        .tcw-cat.is-places { background: #fbf7f0; border-color: #eee3cf; }
+        .tcw-cat-fold { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none;
+            padding: 4px 0; font: inherit; color: inherit; cursor: pointer; }
+        .tcw-cat-caret { width: 1em; color: var(--tcn-muted, #6b7280); }
+        .tcw-cat-fold .tcn-tab-badge { font-size: 12px; font-weight: 600; color: var(--tcn-muted, #6b7280); }
+        .tcw-cat-per { font-size: 13px; color: var(--tcn-muted, #6b7280); }
+        .tcw-cat-per::before { content: "— "; }
+        /* Breakfast, lunch, dinner: the same three colours wherever a meal is named. */
+        .tcw-meal { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+            line-height: 1.6; justify-self: start; }
+        .tcw-meal.is-breakfast { background: #fef3c7; color: #92400e; }
+        .tcw-meal.is-lunch { background: #d1fae5; color: #065f46; }
+        .tcw-meal.is-dinner { background: #e0e7ff; color: #3730a3; }
+        .tcw-cat-meals { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+        .tcw-cat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 8px; }
+        .tcw-cat-head h3 { margin: 0; font-size: 15px; }
+        .tcw-cat-row { display: flex; align-items: center; gap: 10px; padding: 8px 2px;
+            border-bottom: 1px solid var(--tcn-border, #e5e7eb); }
+        .tcw-cat-main { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+        .tcw-cat-what { flex-basis: 100%; font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        .tcw-cat-edit { padding: 12px; margin: 8px 0 12px; display: grid; gap: 10px; }
+        .tcw-cat-name { font-weight: 600; }
+        .tcw-cat-meals-edit { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+        .tcw-cat-meal { margin: 0; padding: 3px 10px; gap: 6px; }
+        .tcw-cat-fields { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+        .tcw-cat-fields label { display: grid; gap: 3px; font-size: 12.5px; color: var(--tcn-muted, #6b7280); }
+        .tcw-cat-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .tcw-cat-gap { flex: 1 1 auto; }
+        .tcw-cat-warn { grid-column: 1 / -1; color: #92400e; }
+        .tcw-ingr { display: grid; gap: 6px; }
+        .tcw-ingr-row { display: grid; grid-template-columns: minmax(0, 1fr) 5.5em auto auto; gap: 6px; align-items: center; }
+        .tcw-ingr-row select, .tcw-ingr-amount { padding: 6px 8px; font-size: 13.5px; }
+        .tcw-ingr-amount { text-align: right; font-variant-numeric: tabular-nums; }
+        .tcw-ingr-per { font-size: 12px; color: var(--tcn-muted, #6b7280); white-space: nowrap; }
+        .tcw-ingr-add { justify-self: start; }
+        /* On a phone the unit goes under the amount, so the product keeps its width. */
+        @media (max-width: 480px) {
+            .tcw-ingr-row { grid-template-columns: minmax(0, 1fr) 4.5em auto;
+                grid-template-areas: "product amount x" "per per per"; row-gap: 2px; }
+            .tcw-ingr-row > select { grid-area: product; }
+            .tcw-ingr-amount { grid-area: amount; }
+            .tcw-ingr-per { grid-area: per; text-align: right; }
+            .tcw-ingr-x { grid-area: x; }
+        }
+        /* "Saved here for now": over the page, above the "+ Spend" button, rather than in it -
+           see SyncLine. Clicks go through it to whatever is under it. */
+        .tcw-sync-float { position: fixed; left: 50%; transform: translateX(-50%); bottom: 76px; z-index: 40;
+            width: max-content; max-width: calc(100% - 32px); pointer-events: none; }
+        .tcw-sync-float .tcn-chip { box-shadow: 0 2px 10px rgba(0, 0, 0, .18); }
+        .tcw-food-trip { margin-bottom: 10px; }
+        .tcw-food-trip .tcw-food-meal { grid-template-columns: 8.5em minmax(0, 1fr); max-width: 420px; }
+        .tcw-food-dayname small { font-weight: 400; font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        .tcw-ingr-when { font: inherit; font-size: 12px; padding: 1px 2px; border: 1px solid var(--tcn-border, #e5e7eb);
+            border-radius: 6px; background: var(--tcn-surface, #fff); color: var(--tcn-text, #111827); }
     </style>
 </head>
 <body>

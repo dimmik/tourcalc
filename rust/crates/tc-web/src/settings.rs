@@ -135,6 +135,27 @@ pub fn remember_payer(tour: &str, person: &str) {
     }
 }
 
+fn me_key(tour: &str) -> String {
+    format!("__tcw_me_{tour}")
+}
+
+/// Who is holding this phone, as the menu's shopping asks it: whoever was picked there, or
+/// failing that whom this device records expenses for. "Nobody" picked on purpose is kept
+/// as `-`, so that it is not taken for "never asked".
+pub fn me(tour: &str) -> Option<String> {
+    match storage().and_then(|s| s.get_item(&me_key(tour)).ok().flatten()) {
+        Some(id) if id == "-" => None,
+        Some(id) if !id.is_empty() => Some(id),
+        _ => remembered_payer(tour),
+    }
+}
+
+pub fn set_me(tour: &str, person: Option<&str>) {
+    if let Some(s) = storage() {
+        let _ = s.set_item(&me_key(tour), person.unwrap_or("-"));
+    }
+}
+
 /// The settings every screen reads, and the one place they are written.
 pub type Shared = RwSignal<Settings>;
 

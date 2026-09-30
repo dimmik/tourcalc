@@ -41,6 +41,8 @@ pub enum Tab {
     People,
     Expenses,
     Stats,
+    /// Only on a tour whose menu is switched on - see `crate::menu`.
+    Menu,
 }
 
 /// Which dialog is open, if any.
@@ -442,8 +444,12 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                     </div>
                 }.into_any();
             }
+            // Floating, not in the page: on a good network this is there for half a second
+            // after every save, and in the page it pushed everything below it down and back
+            // up again - a tick on the shopping list made the whole list jump. Without a
+            // network it stays, and floating it is in sight wherever the reader has scrolled.
             view! {
-                <div class="tcn-section" style="padding-bottom:0">
+                <div class="tcw-sync-float" role="status">
                     <div class="tcn-chip tcn-chip-amber tcw-wraps">
                         {(t().sync.waiting)(&what)}
                     </div>
@@ -542,6 +548,8 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     let sifting = Sifting::new();
     // And the same for the People tab: whose card is open, what is in its search box.
     let people_state = crate::people::People::new();
+    // And for the Menu tab: plan or shopping, and whose shopping.
+    let menu_state = crate::menu::MenuState::new(&id);
 
     let refresh = Refresh {
         busy: RwSignal::new(false),
@@ -719,6 +727,13 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
 
     view! {
         <crate::others::OthersLine others=others />
+        // Out of the browser's scroll anchoring. Every save draws the tour again, and while
+        // the new drawing and the old were both in the page the browser kept the row under
+        // the pointer in place by scrolling down by the new one's height - and when the old
+        // one went, there was nothing left below: a tick on the shopping list landed the
+        // reader at the end of the page. Nothing here needs anchoring; the page keeps its own
+        // place (`keep_scroll`).
+        <div style="overflow-anchor:none">
         {move || match state.get() {
             Load::Loading => view! { <div class="tcn-loading">{t().sync.loading}</div> }.into_any(),
             Load::Failed(why) => view! {
@@ -730,13 +745,47 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
             Load::Ready(tour) => {
                 // In the currency this reader chose to read it in, if any - see `show_in`.
                 let tour = crate::show_in::view_of(&tour, shown_in.get().as_deref());
+                request_animation_frame(back_where_it_was);
                 view! {
                     <TourView tour=tour reload=load status=status landing=landing tab=tab
                               refresh=refresh sifting=sifting people=people_state
-                              shown_in=shown_in />
+                              menu=menu_state shown_in=shown_in />
                 }.into_any()
             }
         }}
+        </div>
+    }
+}
+
+thread_local! {
+    /// Where the page was scrolled to when an edit was made, and until when to hold it there.
+    static KEEP_SCROLL: std::cell::Cell<Option<(f64, f64)>> = const { std::cell::Cell::new(None) };
+}
+
+/// How long after an edit its redraws keep the reader's place: the one from this device's
+/// copy and the one from the server's answer.
+const KEEP_FOR_MS: f64 = 2500.0;
+
+/// Remembers where the page is, for the redraws an edit is about to cause.
+fn keep_scroll() {
+    if let Some(w) = web_sys::window() {
+        let y = w.scroll_y().unwrap_or(0.0);
+        KEEP_SCROLL.with(|k| k.set(Some((y, js_sys::Date::now() + KEEP_FOR_MS))));
+    }
+}
+
+/// After a redraw: back to where the page was when the edit was made, if that was a moment
+/// ago and the page has moved.
+fn back_where_it_was() {
+    let Some((y, until)) = KEEP_SCROLL.with(|k| k.get()) else { return };
+    if js_sys::Date::now() > until {
+        KEEP_SCROLL.with(|k| k.set(None));
+        return;
+    }
+    if let Some(w) = web_sys::window() {
+        if (w.scroll_y().unwrap_or(y) - y).abs() > 1.0 {
+            w.scroll_to_with_x_and_y(0.0, y);
+        }
     }
 }
 
@@ -755,6 +804,8 @@ fn TourView(
     sifting: Sifting,
     /// What is open and typed on the People tab, likewise owned above.
     people: crate::people::People,
+    /// Plan or shopping on the Menu tab, and whose shopping - likewise owned above.
+    menu: crate::menu::MenuState,
     /// Which currency this device reads the tour in, if not its main one.
     shown_in: RwSignal<Option<String>>,
 ) -> impl IntoView {
@@ -803,6 +854,7 @@ fn TourView(
             if let Some(o) = others {
                 o.saving.update(|n| *n += 1);
             }
+            keep_scroll();
             dialog.set(None);
             spawn_local(async move {
                 let (_, st) = sync::record(&tour_id, op).await;
@@ -917,6 +969,8 @@ fn TourView(
     let unit_stats = unit.clone();
     let real_for_stats = real.clone();
     let tour_for_stats = tour.clone();
+    let tour_for_menu = tour.clone();
+    let has_menu = tc_core::menu::Menu::shown(&tour).is_some();
     let tour_for_balance = tour.clone();
     let tour_for_people = tour.clone();
     let unit_people = unit.clone();
@@ -1068,6 +1122,9 @@ fn TourView(
             <TabButton tab=tab mine=Tab::People label=t().tour.tab_people count=Some(how_many_people) />
             <TabButton tab=tab mine=Tab::Expenses label=t().tour.tab_expenses count=Some(expenses) />
             <TabButton tab=tab mine=Tab::Stats label=t().tour.tab_stats count=None />
+            {has_menu.then(|| view! {
+                <TabButton tab=tab mine=Tab::Menu label=t().menu.tab count=None />
+            })}
         </nav>
 
         <Show when=move || tab.get() == Tab::Balance>
@@ -1091,6 +1148,10 @@ fn TourView(
         <Show when=move || tab.get() == Tab::Stats>
             <StatsTab tour=tour_for_stats.clone() spendings=real_for_stats.clone()
                       unit=unit_stats.clone() sifting=sifting tab=tab />
+        </Show>
+
+        <Show when=move || has_menu && tab.get() == Tab::Menu>
+            <crate::menu::MenuTab tour=tour_for_menu.clone() state=menu apply=apply dialog=dialog />
         </Show>
 
         <crate::ui::ToTop />
