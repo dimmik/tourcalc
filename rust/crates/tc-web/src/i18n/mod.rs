@@ -189,6 +189,49 @@ pub struct Texts {
     pub device: DeviceTexts,
     pub shell: ShellTexts,
     pub settings: SettingsTexts,
+    pub menu: MenuTexts,
+}
+
+/// The Menu tab: food by the day, and the shopping for it.
+pub struct MenuTexts {
+    pub tab: &'static str,
+    pub plan: &'static str,
+    pub shopping: &'static str,
+    pub days: &'static str,
+    pub fewer_days: &'static str,
+    pub more_days: &'static str,
+    /// Portions, heads at the full weight, heads below it, the full weight.
+    pub portions_note: fn(&str, usize, usize, i32) -> String,
+    pub day: fn(u32) -> String,
+    pub breakfast: &'static str,
+    pub lunch: &'static str,
+    pub dinner: &'static str,
+    pub every_day: &'static str,
+    pub pick: &'static str,
+    pub nothing: &'static str,
+    pub daily: &'static str,
+    pub for_full: &'static str,
+    pub for_others: &'static str,
+    pub who_am_i: &'static str,
+    pub nobody: &'static str,
+    pub mine_only: &'static str,
+    pub shopper: &'static str,
+    pub nobody_yet: &'static str,
+    pub bought_of: fn(usize, usize) -> String,
+    pub record: &'static str,
+    pub recorded: fn(&str, &str) -> String,
+    pub not_recorded: &'static str,
+    pub nothing_to_buy: &'static str,
+    pub nothing_mine: &'static str,
+    /// The expense's description: "Market: groceries".
+    pub errand_description: fn(&str) -> String,
+    /// The expense's category.
+    pub category: &'static str,
+    pub grams: &'static str,
+    pub kilograms: &'static str,
+    pub millilitres: &'static str,
+    pub litres: &'static str,
+    pub pieces: &'static str,
 }
 
 /// The frame around every screen: the bar, signing in, the interface switch.
@@ -600,6 +643,8 @@ pub struct DialogTexts {
     pub settling_note: &'static str,
     pub archived: &'static str,
     pub archived_note: &'static str,
+    pub menu_on: &'static str,
+    pub menu_on_note: &'static str,
     pub currencies_of: fn(&str) -> String,
     pub main_currency: &'static str,
     pub main_currency_note: &'static str,
@@ -820,6 +865,7 @@ pub struct QueueTexts {
     pub amounts_in: fn(&str) -> String,
     pub the_tour: fn(&str) -> String,
     pub the_currencies: &'static str,
+    pub the_menu: &'static str,
     pub paid: fn(&str) -> String,
     pub no_description: &'static str,
     pub nothing_here: &'static str,

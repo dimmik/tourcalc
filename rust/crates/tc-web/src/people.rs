@@ -236,26 +236,9 @@ pub const SEARCH_FROM: usize = 8;
 
 /// The weight almost everybody shares - which Mini leaves unmarked, its column too narrow for
 /// the same number on every line. The roomy People list marks everybody's: a line without
-/// "×" read there as a person without a weight.
-///
-/// On a tie - two at 100 and two at 50 - the full share, 100, if it is one of them, and
-/// otherwise the heavier. `max_by_key` alone took whichever came last, so the same tour
-/// marked "Anna ×100, Boris ×100" or "Vera ×50, Gosha ×50" depending on the order the
-/// people were added in, and the first made the full shares look like the odd ones.
-pub fn common_weight(tour: &Tour) -> i32 {
-    let mut counts: Vec<(i32, usize)> = Vec::new();
-    for p in &tour.persons {
-        match counts.iter_mut().find(|(w, _)| *w == p.weight) {
-            Some((_, n)) => *n += 1,
-            None => counts.push((p.weight, 1)),
-        }
-    }
-    counts
-        .into_iter()
-        .max_by_key(|&(w, n)| (n, w == 100, w))
-        .map(|(w, _)| w)
-        .unwrap_or(100)
-}
+/// "×" read there as a person without a weight. It lives in `tc_core::menu` because the menu
+/// counts wine by it.
+pub use tc_core::menu::common_weight;
 
 #[component]
 pub fn PeopleTab(

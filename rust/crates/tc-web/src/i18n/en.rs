@@ -197,6 +197,7 @@ pub const TEXTS: Texts = Texts {
         amounts_in: |id| format!("amounts in {id}"),
         the_tour: |name| format!("the tour: {name}"),
         the_currencies: "the currencies",
+        the_menu: "the menu",
         paid: |what| format!("paid: {what}"),
         no_description: "no description",
         nothing_here: "Nothing here: ",
@@ -457,6 +458,8 @@ pub const TEXTS: Texts = Texts {
         settling_note: "— everyone sees the payments to make",
         archived: "Archived ",
         archived_note: "— hidden from the default list",
+        menu_on: "Plan the food",
+        menu_on_note: "— a Menu tab: what is cooked on which day, and what the group has to buy for it",
         currencies_of: |name| format!("Currencies of {name}"),
         main_currency: "Main currency",
         main_currency_note: "Totals and balances are calculated in this one. It is a property \
@@ -812,6 +815,51 @@ pub const TEXTS: Texts = Texts {
             shares the tour to send it again.",
         expired: "The login has expired. Enter the access code again — edits not sent yet are \
             kept and go out once you are signed in.",
+    },
+    menu: MenuTexts {
+        tab: "Menu",
+        plan: "Plan",
+        shopping: "Shopping",
+        days: "Days",
+        fewer_days: "One day fewer",
+        more_days: "One day more",
+        portions_note: |portions, full, others, weight| {
+            let mut s = format!("Amounts are for {portions} portions: a weight of 100 eats one. \
+                Wine is for the {full} at weight {weight} and over");
+            if others > 0 {
+                s += &format!(", juice for the other {others}");
+            }
+            s + "."
+        },
+        day: |d| format!("Day {d}"),
+        breakfast: "Breakfast",
+        lunch: "Lunch",
+        dinner: "Dinner",
+        every_day: "On every day",
+        pick: "choose…",
+        nothing: "— nothing —",
+        daily: "Every day:",
+        for_full: "adults",
+        for_others: "children",
+        who_am_i: "Who am I",
+        nobody: "— not chosen —",
+        mine_only: "Hide other people's shopping",
+        shopper: "Buys",
+        nobody_yet: "nobody yet",
+        bought_of: |n, total| format!("{n} of {total} bought"),
+        record: "Record the expense",
+        recorded: |what, amount| format!("Recorded: {what}, {amount}"),
+        not_recorded: "Not recorded as an expense yet",
+        nothing_to_buy: "Nothing to buy: no dishes are planned.",
+        nothing_mine: "Everybody else has taken all the shopping. Untick «Hide other people's \
+            shopping» to see it.",
+        errand_description: |place| format!("{place}: groceries"),
+        category: "Groceries",
+        grams: "g",
+        kilograms: "kg",
+        millilitres: "ml",
+        litres: "l",
+        pieces: "pcs",
     },
     settings: SettingsTexts {
         title: "Settings",

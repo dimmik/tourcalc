@@ -919,6 +919,7 @@ pub fn TourDialog(
     let days = RwSignal::new(draft.days.to_string());
     let archived = RwSignal::new(draft.archived);
     let finalizing = RwSignal::new(draft.finalizing);
+    let menu = RwSignal::new(draft.menu.unwrap_or(false));
     let error = RwSignal::new(String::new());
 
     let submit = move |_| {
@@ -927,6 +928,7 @@ pub fn TourDialog(
             days: days.get().trim().parse().unwrap_or(0),
             archived: archived.get(),
             finalizing: finalizing.get(),
+            menu: Some(menu.get()),
         };
         if let Some(why) = d.problem() {
             error.set(why.to_owned());
@@ -975,6 +977,12 @@ pub fn TourDialog(
                            on:change=move |ev| archived.set(event_target_checked(&ev)) />
                     {t().dialogs.archived}
                     <span class="tcn-hint">{t().dialogs.archived_note}</span>
+                </label>
+                <label class="tcn-switchline">
+                    <input type="checkbox" prop:checked=move || menu.get()
+                           on:change=move |ev| menu.set(event_target_checked(&ev)) />
+                    {t().dialogs.menu_on}
+                    <span class="tcn-hint">{t().dialogs.menu_on_note}</span>
                 </label>
             </div>
         </Modal>

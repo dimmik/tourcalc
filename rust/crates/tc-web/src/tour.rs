@@ -41,6 +41,8 @@ pub enum Tab {
     People,
     Expenses,
     Stats,
+    /// Only on a tour whose menu is switched on - see `crate::menu`.
+    Menu,
 }
 
 /// Which dialog is open, if any.
@@ -542,6 +544,8 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     let sifting = Sifting::new();
     // And the same for the People tab: whose card is open, what is in its search box.
     let people_state = crate::people::People::new();
+    // And for the Menu tab: plan or shopping, and whose shopping.
+    let menu_state = crate::menu::MenuState::new(&id);
 
     let refresh = Refresh {
         busy: RwSignal::new(false),
@@ -733,7 +737,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                 view! {
                     <TourView tour=tour reload=load status=status landing=landing tab=tab
                               refresh=refresh sifting=sifting people=people_state
-                              shown_in=shown_in />
+                              menu=menu_state shown_in=shown_in />
                 }.into_any()
             }
         }}
@@ -755,6 +759,8 @@ fn TourView(
     sifting: Sifting,
     /// What is open and typed on the People tab, likewise owned above.
     people: crate::people::People,
+    /// Plan or shopping on the Menu tab, and whose shopping - likewise owned above.
+    menu: crate::menu::MenuState,
     /// Which currency this device reads the tour in, if not its main one.
     shown_in: RwSignal<Option<String>>,
 ) -> impl IntoView {
@@ -917,6 +923,8 @@ fn TourView(
     let unit_stats = unit.clone();
     let real_for_stats = real.clone();
     let tour_for_stats = tour.clone();
+    let tour_for_menu = tour.clone();
+    let has_menu = tc_core::menu::Menu::shown(&tour).is_some();
     let tour_for_balance = tour.clone();
     let tour_for_people = tour.clone();
     let unit_people = unit.clone();
@@ -1068,6 +1076,9 @@ fn TourView(
             <TabButton tab=tab mine=Tab::People label=t().tour.tab_people count=Some(how_many_people) />
             <TabButton tab=tab mine=Tab::Expenses label=t().tour.tab_expenses count=Some(expenses) />
             <TabButton tab=tab mine=Tab::Stats label=t().tour.tab_stats count=None />
+            {has_menu.then(|| view! {
+                <TabButton tab=tab mine=Tab::Menu label=t().menu.tab count=None />
+            })}
         </nav>
 
         <Show when=move || tab.get() == Tab::Balance>
@@ -1091,6 +1102,10 @@ fn TourView(
         <Show when=move || tab.get() == Tab::Stats>
             <StatsTab tour=tour_for_stats.clone() spendings=real_for_stats.clone()
                       unit=unit_stats.clone() sifting=sifting tab=tab />
+        </Show>
+
+        <Show when=move || has_menu && tab.get() == Tab::Menu>
+            <crate::menu::MenuTab tour=tour_for_menu.clone() state=menu apply=apply dialog=dialog />
         </Show>
 
         <crate::ui::ToTop />

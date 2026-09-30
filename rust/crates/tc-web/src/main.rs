@@ -16,6 +16,7 @@ mod icon;
 mod install;
 mod list;
 mod login;
+mod menu;
 mod mini;
 mod mode;
 mod others;

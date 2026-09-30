@@ -208,6 +208,7 @@ pub const TEXTS: Texts = Texts {
         amounts_in: |id| format!("суммы в {id}"),
         the_tour: |name| format!("тур: {name}"),
         the_currencies: "валюты",
+        the_menu: "меню",
         paid: |what| format!("оплачено: {what}"),
         no_description: "без описания",
         nothing_here: "Здесь ничего нет: ",
@@ -472,6 +473,8 @@ pub const TEXTS: Texts = Texts {
         settling_note: "— всем видно, кому сколько платить",
         archived: "В архиве ",
         archived_note: "— скрыт из списка по умолчанию",
+        menu_on: "Планировать еду",
+        menu_on_note: "— вкладка «Меню»: что готовим по дням и что купить на всю группу",
         currencies_of: |name| format!("Валюты тура «{name}»"),
         main_currency: "Основная валюта",
         main_currency_note: "Итоги и балансы считаются в ней. Это свойство тура — смена \
@@ -825,6 +828,52 @@ pub const TEXTS: Texts = Texts {
             туром, прислать её ещё раз.",
         expired: "Вход истёк. Введите код доступа ещё раз — неотправленные правки сохранены и \
             уйдут, как только вы войдёте.",
+    },
+    menu: MenuTexts {
+        tab: "Меню",
+        plan: "План",
+        shopping: "Закупки",
+        days: "Дней",
+        fewer_days: "На день меньше",
+        more_days: "На день больше",
+        portions_note: |portions, full, others, weight| {
+            let mut s = format!("Количества — на {portions} {}: вес 100 — одна порция. \
+                Вино — на {full} {} с весом {weight} и больше",
+                match portions.parse::<i64>() { Ok(n) => ru_plural(n, "порцию", "порции", "порций"), Err(_) => "порции" }, ru_plural(full as i64, "человека", "человек", "человек"));
+            if others > 0 {
+                s += &format!(", соки — на остальных {others}");
+            }
+            s + "."
+        },
+        day: |d| format!("День {d}"),
+        breakfast: "Завтрак",
+        lunch: "Обед",
+        dinner: "Ужин",
+        every_day: "На все дни",
+        pick: "выбрать…",
+        nothing: "— ничего —",
+        daily: "Каждый день:",
+        for_full: "взрослым",
+        for_others: "детям",
+        who_am_i: "Кто я",
+        nobody: "— не выбрано —",
+        mine_only: "Скрыть чужие закупки",
+        shopper: "Покупает",
+        nobody_yet: "пока никто",
+        bought_of: |n, total| format!("куплено {n} из {total}"),
+        record: "Записать трату",
+        recorded: |what, amount| format!("Записано: {what}, {amount}"),
+        not_recorded: "Трата ещё не записана",
+        nothing_to_buy: "Покупать нечего: ни одного блюда не выбрано.",
+        nothing_mine: "Все закупки разобрали другие. Снимите «Скрыть чужие закупки», чтобы их \
+            увидеть.",
+        errand_description: |place| format!("{place}: продукты"),
+        category: "Продукты",
+        grams: "г",
+        kilograms: "кг",
+        millilitres: "мл",
+        litres: "л",
+        pieces: "шт",
     },
     settings: SettingsTexts {
         title: "Настройки",
