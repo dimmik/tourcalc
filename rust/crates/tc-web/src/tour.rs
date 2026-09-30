@@ -270,7 +270,7 @@ fn Freshness(refresh: Refresh) -> impl IntoView {
 /// gets a token for that code and sees the tour without being told anything else. That also
 /// means it is the whole of the security here - a link is an invitation.
 #[component]
-fn ShareLink(tour: Tour) -> impl IntoView {
+fn ShareLink(tour: Tour, tab: RwSignal<Tab>) -> impl IntoView {
     let code = tour
         .extras
         .0
@@ -280,22 +280,53 @@ fn ShareLink(tour: Tour) -> impl IntoView {
         .unwrap_or("")
         .to_owned();
     let said = crate::ui::Brief::new();
+    // Asked which: the whole tour, as the link always was, or the tab that is open - the same
+    // invitation with the tab on the end, landing the newcomer on the menu rather than on
+    // wherever the tour opens.
+    let choosing = RwSignal::new(false);
 
-    let href = format!("/goto/{}/{}", code, tour.id);
+    let href = StoredValue::new(format!("/goto/{}/{}", code, tour.id));
+    let copy = move |with_tab: bool| {
+        let href = href.get_value();
+        let path = if with_tab { format!("{href}/{}", tab_part(tab.get_untracked())) } else { href };
+        let full = web_sys::window()
+            .and_then(|w| w.location().origin().ok())
+            .map(|o| format!("{o}{path}"))
+            .unwrap_or(path);
+        copy_to_clipboard(&full);
+        choosing.set(false);
+        said.say(t().sync.link_copied);
+    };
 
     view! {
         <button type="button" class="tcn-hero-link"
                 title=t().sync.share_hint
-                on:click=move |_| {
-                    let full = web_sys::window()
-                        .and_then(|w| w.location().origin().ok())
-                        .map(|o| format!("{o}{href}"))
-                        .unwrap_or_else(|| href.clone());
-                    copy_to_clipboard(&full);
-                    said.say(t().sync.link_copied);
-                }>
+                aria-expanded=move || choosing.get().to_string()
+                on:click=move |_| choosing.update(|c| *c = !*c)>
             {move || if said.is_on() { t().sync.link_copied } else { t().sync.share_link }}
         </button>
+        <Show when=move || choosing.get()>
+            <span class="tcw-share-which">
+                {t().sync.share_which}
+                <button type="button" class="tcn-chip tcw-share-pick" on:click=move |_| copy(false)>
+                    {t().sync.share_tour}
+                </button>
+                <button type="button" class="tcn-chip tcw-share-pick" on:click=move |_| copy(true)>
+                    {move || (t().sync.share_tab)(tab_label(tab.get()))}
+                </button>
+            </span>
+        </Show>
+    }
+}
+
+/// A tab's name, as its button says it.
+fn tab_label(tab: Tab) -> &'static str {
+    match tab {
+        Tab::Balance => t().tour.tab_balance,
+        Tab::People => t().tour.tab_people,
+        Tab::Expenses => t().tour.tab_expenses,
+        Tab::Stats => t().tour.tab_stats,
+        Tab::Menu => t().menu.tab,
     }
 }
 
@@ -1118,7 +1149,7 @@ fn TourView(
                     {t().tour.currencies}
                 </button>
                 <span>"·"</span>
-                <ShareLink tour=tour_for_share.clone() />
+                <ShareLink tour=tour_for_share.clone() tab=tab />
                 <span>"·"</span>
                 <span class="tcn-legacy-btn">
                     <button type="button" class="tcn-hero-link"
@@ -2285,14 +2316,18 @@ fn leaving_tab(tour: &str, tab: Tab) {
 /// The address of a tour's tab - what the address bar shows while it is open. The app's
 /// own names where it had them (`persons`, `spendings`), so its old links still land.
 pub fn address_of(tour: &str, tab: Tab) -> String {
-    let part = match tab {
+    format!("/tour/{tour}/{}", tab_part(tab))
+}
+
+/// How a tab is named at the end of an address - the tour's own, and a share link's.
+pub fn tab_part(tab: Tab) -> &'static str {
+    match tab {
         Tab::Balance => "balance",
         Tab::People => "persons",
         Tab::Expenses => "spendings",
         Tab::Stats => "stats",
         Tab::Menu => "menu",
-    };
-    format!("/tour/{tour}/{part}")
+    }
 }
 
 /// Which tab an address asks for.

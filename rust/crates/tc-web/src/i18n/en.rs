@@ -362,9 +362,12 @@ pub const TEXTS: Texts = Texts {
         local_copy: "local copy",
         stale_hint: |when| format!("The server could not be reached. This is the copy stored on \
             this device at {when}."),
-        share_hint: "Copy a link that opens this tour",
+        share_hint: "Copy a link that opens this tour, or this tab of it",
         link_copied: "link copied",
         share_link: "share link",
+        share_which: "to",
+        share_tour: "the tour",
+        share_tab: |tab| format!("the {tab} tab"),
         and_more: |first, n| format!("{first}, and {n} more"),
         not_taken: |count, what, why| format!(
             "The server did not take {}: {what}. It said: {why}",
