@@ -1047,7 +1047,7 @@ fn TourView(
                         aria-label=t().tour.edit_tour
                         on:click={
                             let t = tour_for_rename.clone();
-                            move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::of(&t))))
+                            move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::for_dialog(&t))))
                         }>
                     <crate::icon::Icon name="edit" />
                 </button>

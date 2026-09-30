@@ -272,6 +272,36 @@ impl Menu {
         }
     }
 
+    /// What a template keeps of this menu: the catalogue - places, products, dishes, the daily
+    /// list. Not the plan, the days or what was bought: those are one trip's, and the next
+    /// trip is another length with other people buying.
+    pub fn as_template(&self) -> Menu {
+        Menu {
+            on: true,
+            places: self.places.clone(),
+            products: self.products.clone(),
+            dishes: self.dishes.clone(),
+            daily: self.daily.clone(),
+            ..Menu::default()
+        }
+    }
+
+    /// Takes a template's catalogue in place of this one's.
+    ///
+    /// The plan stays where its dishes are still there - a template saved from this group's
+    /// last trip mostly has the same ones - and a meal whose dish the template does not have
+    /// goes back to unplanned. What is bought stays for the products the template has.
+    pub fn take_catalogue(&mut self, template: &Menu) {
+        self.places = template.places.clone();
+        self.products = template.products.clone();
+        self.dishes = template.dishes.clone();
+        self.daily = template.daily.clone();
+        let dishes = &self.dishes;
+        self.plan.retain(|s| s.dish.as_ref().is_none_or(|id| dishes.iter().any(|d| &d.id == id)));
+        let products = &self.products;
+        self.purchases.retain(|p| products.iter().any(|x| x.id == p.product));
+    }
+
     pub fn product(&self, id: &str) -> Option<&Product> {
         self.products.iter().find(|p| p.id == id)
     }
@@ -790,5 +820,31 @@ mod tests {
         assert_eq!(m.purchases.len(), 1);
         assert_eq!(m.purchase("lamb").map(|p| (p.bought, p.who.clone())), Some((true, Some("p0".into()))));
         assert_eq!(m.products_at("market").count(), 4);
+    }
+
+    /// A template is the catalogue only; taking it keeps the plan where its dishes survive.
+    #[test]
+    fn a_template_is_the_catalogue_and_taking_it_keeps_what_still_fits() {
+        let mut trip = menu();
+        trip.purchase_mut("lamb").bought = true;
+        trip.purchase_mut("rice").bought = true;
+        let template = trip.as_template();
+        assert!(template.on && template.plan.is_empty() && template.purchases.is_empty());
+        assert_eq!((template.days, template.start.clone()), (0, None));
+        assert_eq!(template.dishes, trip.dishes);
+
+        // The group dropped steak and rice from the template since.
+        let mut newer = template.clone();
+        newer.dishes.retain(|d| d.id != "steak");
+        newer.products.retain(|p| p.id != "rice");
+        newer.dishes[0].ingredients.retain(|i| i.product != "rice");
+
+        trip.take_catalogue(&newer);
+        assert_eq!(trip.dishes, newer.dishes);
+        assert_eq!(trip.dish_on(1, Meal::Dinner).map(|d| d.id.as_str()), Some("plov"), "plov stays planned");
+        assert!(trip.slot(2, Meal::Dinner).is_none(), "the steak's dinner is unplanned again");
+        assert!(trip.purchase("lamb").is_some_and(|p| p.bought), "still bought");
+        assert!(trip.purchase("rice").is_none(), "a product the template dropped takes its purchase along");
+        assert_eq!(trip.days, 2, "the trip keeps its length");
     }
 }

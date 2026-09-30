@@ -713,6 +713,11 @@ pub struct TourDraft {
     /// what an edit queued before the menu existed says.
     #[serde(default)]
     pub menu: Option<bool>,
+    /// The access code's menu template, when the tour has no menu yet: switching the menu on
+    /// then starts from it instead of the starter. Carried in the edit rather than looked up
+    /// when it is carried out, so that a replay does what the reader saw.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub template: Option<tc_core::menu::Menu>,
 }
 
 impl TourDraft {
@@ -723,7 +728,18 @@ impl TourDraft {
             archived: tc_core::extras::bool_of(&tour.extras, tc_core::extras::ARCHIVED),
             finalizing: tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING),
             menu: Some(tc_core::menu::Menu::shown(tour).is_some()),
+            template: None,
         }
+    }
+
+    /// What the tour dialog opens with: [`TourDraft::of`], and - for a tour with no menu yet -
+    /// the code's template, as this device last saw the tour list.
+    pub fn for_dialog(tour: &Tour) -> TourDraft {
+        let mut d = TourDraft::of(tour);
+        if tc_core::menu::Menu::of(tour).is_none() {
+            d.template = crate::menu::template_for(tour);
+        }
+        d
     }
 
     pub fn problem(&self) -> Option<&'static str> {
@@ -774,10 +790,18 @@ pub fn put_tour(tour: &Tour, draft: &TourDraft) -> Tour {
             menu.on = on;
             menu.put(&mut next);
         }
-        // The first time: the starter menu, for as many days as the tour lasts.
+        // The first time: the code's template if it has one, else the starter menu - for as
+        // many days as the tour lasts.
         (Some(true), None) => {
             let days = u32::try_from(draft.days).unwrap_or(1);
-            crate::menu::starter(days).put(&mut next);
+            match &draft.template {
+                Some(template) => {
+                    let mut menu = template.as_template();
+                    menu.set_days(days);
+                    menu.put(&mut next);
+                }
+                None => crate::menu::starter(days).put(&mut next),
+            }
         }
         _ => {}
     }
@@ -828,6 +852,9 @@ pub enum MenuEdit {
     /// Several at once, in order: a product saved with a new place is the place and then the
     /// product, and must not be half of that.
     All(Vec<MenuEdit>),
+    /// The template's catalogue in place of this menu's - see `Menu::take_catalogue`. The
+    /// template itself travels in the edit, as it was when the reader took it.
+    TakeTemplate(tc_core::menu::Menu),
 }
 
 /// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
@@ -869,6 +896,11 @@ fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
             for change in changes {
                 edit_menu(menu, change);
             }
+        }
+        MenuEdit::TakeTemplate(template) => {
+            menu.take_catalogue(template);
+            // Meals whose dish the template has not got are planned again from its dishes.
+            menu.fill();
         }
     }
 }

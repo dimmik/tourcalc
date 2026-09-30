@@ -850,6 +850,9 @@ pub mod extras {
     pub const CREATED_AT: &str = "DateCreated";
     pub const ARCHIVED: &str = "IsArchived";
     pub const FINALIZING: &str = "IsFinalizing";
+    /// A tour that is not a trip but the access code's menu template: the dishes, products,
+    /// places and daily list a new tour's menu starts from. See `menu::Menu::as_template`.
+    pub const MENU_TEMPLATE: &str = "IsMenuTemplate";
     /// How many days the tour is reckoned to last, for the per-day figures.
     pub const DURATION: &str = "Duration";
     /// On a currency: its amounts are hundredths, shown with a decimal part. See `units`.

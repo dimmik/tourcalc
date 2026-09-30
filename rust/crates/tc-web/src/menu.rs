@@ -382,6 +382,152 @@ pub(crate) fn meal_name(meal: Meal) -> &'static str {
     }
 }
 
+// ---- the template ------------------------------------------------------------------------
+
+/// Whether this tour is an access code's menu template rather than a trip.
+pub fn is_template(tour: &Tour) -> bool {
+    tc_core::extras::bool_of(&tour.extras, tc_core::extras::MENU_TEMPLATE)
+}
+
+fn code_of(tour: &Tour) -> String {
+    tc_core::extras::str_of(&tour.extras, tc_core::extras::ACCESS_CODE)
+}
+
+/// The template filed under the same access code as `tour`, among `tours`.
+fn template_among(tours: &[Tour], tour: &Tour) -> Option<Tour> {
+    let code = code_of(tour);
+    tours
+        .iter()
+        .find(|t| is_template(t) && t.id != tour.id && code_of(t) == code)
+        .cloned()
+}
+
+/// The code's template menu as this device last saw the tour list - for the tour dialog,
+/// which has to say what switching the menu on will start from without asking anybody.
+pub fn template_for(tour: &Tour) -> Option<Menu> {
+    let tours = crate::queue::cached_list()?;
+    Menu::of(&template_among(&tours, tour)?)
+}
+
+/// The code's template tour, from the server - or, without a network, from the list this
+/// device saw last. The list is kept, so the tour dialog knows about a template made here.
+async fn find_template(tour: &Tour) -> Result<Option<Tour>, crate::api::Failed> {
+    match crate::api::tours().await {
+        Ok(tours) => {
+            crate::queue::cache_list(&tours);
+            Ok(template_among(&tours, tour))
+        }
+        Err(e) if crate::api::looks_offline(&e) => {
+            Ok(crate::queue::cached_list().and_then(|tours| template_among(&tours, tour)))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn ask(question: &str) -> bool {
+    web_sys::window()
+        .and_then(|w| w.confirm_with_message(question).ok())
+        .unwrap_or(false)
+}
+
+/// Under the catalogue: keep it as the access code's template, or take the template's.
+///
+/// The template is a tour of its own under the same code, marked `IsMenuTemplate`, with
+/// nobody on it: the one thing every client already stores, lists and keeps versions of. On
+/// the template itself this says what it is instead.
+#[component]
+fn TemplateBar(tour: Tour, menu: Menu, apply: Callback<Operation>) -> impl IntoView {
+    // The template says what it is where a trip says what its portions come to.
+    if is_template(&tour) {
+        return ().into_any();
+    }
+    let said = RwSignal::new(String::new());
+    let busy = RwSignal::new(false);
+    let tour = StoredValue::new(tour);
+    let menu = StoredValue::new(menu);
+
+    let save = move |_| {
+        busy.set(true);
+        said.set(String::new());
+        leptos::task::spawn_local(async move {
+            let tour = tour.get_value();
+            let template = menu.get_value().as_template();
+            said.set(match find_template(&tour).await {
+                Err(e) => e.to_string(),
+                Ok(Some(existing)) => {
+                    if ask(t().menu.template_replace_q) {
+                        let op = Operation::Menu(MenuEdit::TakeTemplate(template));
+                        match crate::sync::record(existing.id.as_str(), op).await.1 {
+                            crate::sync::Status::Failed(e) => e.to_string(),
+                            crate::sync::Status::Waiting(_) => t().menu.template_saved_here.into(),
+                            _ => t().menu.template_saved.into(),
+                        }
+                    } else {
+                        String::new()
+                    }
+                }
+                Ok(None) => {
+                    let mut body = crate::edit::new_tour_body(t().menu.template_name);
+                    if let (Some(obj), Ok(value)) = (body.as_object_mut(), serde_json::to_value(&template)) {
+                        obj.insert(tc_core::extras::MENU_TEMPLATE.into(), true.into());
+                        obj.insert(tc_core::menu::MENU.into(), value);
+                    }
+                    let code = code_of(&tour);
+                    match crate::api::add_tour(body, crate::api::Pile::Hashed(&code)).await {
+                        Ok(_) => {
+                            if let Ok(tours) = crate::api::tours().await {
+                                crate::queue::cache_list(&tours);
+                            }
+                            t().menu.template_saved.into()
+                        }
+                        Err(e) => e.to_string(),
+                    }
+                }
+            });
+            busy.set(false);
+        });
+    };
+
+    let take = move |_| {
+        busy.set(true);
+        said.set(String::new());
+        leptos::task::spawn_local(async move {
+            let tour = tour.get_value();
+            said.set(match find_template(&tour).await {
+                Err(e) => e.to_string(),
+                Ok(None) => t().menu.template_none.into(),
+                Ok(Some(found)) => match Menu::of(&found) {
+                    None => t().menu.template_none.into(),
+                    Some(template) => {
+                        if ask(t().menu.template_take_q) {
+                            apply.run(Operation::Menu(MenuEdit::TakeTemplate(template.as_template())));
+                        }
+                        String::new()
+                    }
+                },
+            });
+            busy.set(false);
+        });
+    };
+
+    view! {
+        <div class="tcw-food-template">
+            <div class="tcw-food-template-title">{t().menu.template_title}</div>
+            <p class="tcw-food-note">{t().menu.template_about}</p>
+            <div class="tcw-food-template-buttons">
+                <button type="button" class="tcn-btn tcn-btn-sm" prop:disabled=move || busy.get()
+                        on:click=save>{t().menu.template_save}</button>
+                <button type="button" class="tcn-btn tcn-btn-sm" prop:disabled=move || busy.get()
+                        on:click=take>{t().menu.template_take}</button>
+            </div>
+            <Show when=move || !said.get().is_empty()>
+                <p class="tcw-food-note" role="status">{move || said.get()}</p>
+            </Show>
+        </div>
+    }
+    .into_any()
+}
+
 // ---- the tab -----------------------------------------------------------------------------
 
 #[component]
@@ -402,15 +548,23 @@ pub fn MenuTab(
         .trim_end_matches(".0")
         .replace('.', &crate::ui::decimal().to_string());
     let note = (t().menu.portions_note)(&portions, eating.full as usize, eating.others as usize, eating.full_weight);
-    let note_for_catalogue = note.clone();
+    // A template has nobody on it, so no portions to speak of: it says what it is instead.
+    let note_for_catalogue = if is_template(&tour) { t().menu.template_is_this.to_owned() } else { note.clone() };
 
     let tour_for_shopping = tour.clone();
     let menu_for_shopping = menu.clone();
     let menu_for_catalogue = menu.clone();
+    let tour_for_template = tour.clone();
+    let menu_for_template = menu.clone();
+    // A template has no trip to plan or shop for: only its catalogue is shown.
+    let template = is_template(&tour);
+    if template {
+        state.view.set(View::Catalogue);
+    }
 
     view! {
         <div class="tcw-food">
-            <div class="tcw-food-bar">
+            <div class="tcw-food-bar" style:display=move || if template { "none" } else { "" }>
                 <div class="tcw-seg" role="group">
                     <button type="button" class:is-on=move || state.view.get() == View::Plan
                             on:click=move |_| state.view.set(View::Plan)>{t().menu.plan}</button>
@@ -445,6 +599,7 @@ pub fn MenuTab(
             <Show when=move || state.view.get() == View::Catalogue>
                 <crate::menu_catalogue::Catalogue menu=menu_for_catalogue.clone() state=state apply=apply
                                                   note=note_for_catalogue.clone() />
+                <TemplateBar tour=tour_for_template.clone() menu=menu_for_template.clone() apply=apply />
             </Show>
         </div>
     }
@@ -1132,6 +1287,33 @@ mod tests {
         let mut old = crate::edit::TourDraft::of(&on);
         old.menu = None;
         assert!(Menu::shown(&crate::edit::put_tour(&on, &old)).is_some());
+    }
+
+    /// Switched on for the first time with a template, the menu starts from the template's
+    /// catalogue, planned for the tour's days; taking a template later keeps what still fits.
+    #[test]
+    fn a_template_starts_the_menu_and_can_be_taken_later() {
+        let mut template = starter(3).as_template();
+        template.dishes.retain(|d| d.id != "grill");
+        let mut d = crate::edit::TourDraft::of(&tour());
+        d.menu = Some(true);
+        d.template = Some(template.clone());
+        let on = crate::edit::put_tour(&tour(), &d);
+        let menu = Menu::shown(&on).expect("a menu");
+        assert_eq!(menu.dishes, template.dishes);
+        assert_eq!(menu.days, 5);
+        assert!(menu.plan.len() >= 5, "planned, not empty");
+        assert!(menu.plan.iter().all(|s| s.dish.as_deref() != Some("grill")));
+
+        // A tour started from the starter takes the template: the grill is gone from its plan,
+        // and its dinners are planned again from what the template has.
+        let started = switched(&tour(), true);
+        assert!(Menu::shown(&started).expect("a menu").plan.iter().any(|s| s.dish.as_deref() == Some("grill")));
+        let taken = crate::edit::put_menu(&started, &MenuEdit::TakeTemplate(template.clone()));
+        let menu = Menu::shown(&taken).expect("a menu");
+        assert_eq!(menu.dishes, template.dishes);
+        assert!(menu.plan.iter().all(|s| s.dish.as_deref() != Some("grill")));
+        assert_eq!(menu.plan.len(), Menu::shown(&started).expect("a menu").plan.len(), "no meal left unplanned");
     }
 
     /// One receipt for the meat and the lamb: both point at it, and both are bought.

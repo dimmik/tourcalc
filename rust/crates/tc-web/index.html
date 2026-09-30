@@ -828,6 +828,12 @@
         .tcw-food-days { display: inline-flex; gap: 8px; align-items: center; font-size: 13.5px; }
         .tcw-food-days b { min-width: 1.5em; text-align: center; font-variant-numeric: tabular-nums; }
         .tcw-food-note { margin: 4px 0 12px; font-size: 12.5px; color: var(--tcn-muted, #6b7280); }
+        /* Under the catalogue: the access code's template. Set off by a rule, not a card - it
+           is about the catalogue above, not another thing beside it. */
+        .tcw-food-template { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--tcn-border, #e5e7eb); }
+        .tcw-food-template .tcw-food-note { margin: 4px 0 8px; max-width: 60ch; }
+        .tcw-food-template-title { font-weight: 700; font-size: 14px; }
+        .tcw-food-template-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
         .tcw-food-days-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
         .tcw-food-day { padding: 10px 12px; display: grid; gap: 6px; }
         .tcw-food-all { margin-bottom: 10px; background: var(--tcn-primary-soft, #eef2ff); }

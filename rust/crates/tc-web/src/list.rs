@@ -468,6 +468,25 @@ pub fn TourListPage() -> impl IntoView {
             Load::Ready(mut tours) => {
                 order_tours(&mut tours, order_by.get(), downwards.get());
                 let needle = search.get().trim().to_lowercase();
+                // The menu templates are not trips: a section of their own, under the tours.
+                let (templates, tours): (Vec<Tour>, Vec<Tour>) =
+                    tours.into_iter().partition(crate::menu::is_template);
+                let templates = (!templates.is_empty()).then(|| view! {
+                    <div class="tcn-section">
+                        <div class="tcn-section-title">
+                            {t().list.menu_templates} " " <span class="tcn-count">{templates.len()}</span>
+                        </div>
+                        <div class="tcn-tourgrid">
+                            {templates
+                                .iter()
+                                .map(|t| view! {
+                                    <Row tour=t.clone() remove=remove clone_it=clone
+                                         copy_json=copy_json bells=bells />
+                                })
+                                .collect_view()}
+                        </div>
+                    </div>
+                });
                 let shown: Vec<Tour> = tours
                     .into_iter()
                     // Archived tours are out of the way until asked for - that is what
@@ -491,7 +510,7 @@ pub fn TourListPage() -> impl IntoView {
                     })
                     .collect();
 
-                if shown.is_empty() {
+                let main = if shown.is_empty() {
                     view! {
                         <div class="tcn-section">
                             <div class="tcn-empty">
@@ -519,7 +538,8 @@ pub fn TourListPage() -> impl IntoView {
                             </div>
                         </div>
                     }.into_any()
-                }
+                };
+                view! { {main} {templates} }.into_any()
             }
         }}
 

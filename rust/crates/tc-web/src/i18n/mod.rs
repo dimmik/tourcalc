@@ -266,6 +266,18 @@ pub struct MenuTexts {
     pub nothing_mine: &'static str,
     // The catalogue.
     pub catalogue: &'static str,
+    pub template_title: &'static str,
+    pub template_about: &'static str,
+    pub template_save: &'static str,
+    pub template_take: &'static str,
+    pub template_replace_q: &'static str,
+    pub template_take_q: &'static str,
+    pub template_saved: &'static str,
+    pub template_saved_here: &'static str,
+    pub template_none: &'static str,
+    /// The template tour's name - what a client that does not know templates lists it as.
+    pub template_name: &'static str,
+    pub template_is_this: &'static str,
     pub dishes: &'static str,
     /// Beside the headings: what the catalogue's amounts are for.
     pub per_portion_title: &'static str,
@@ -586,6 +598,7 @@ pub struct ListTexts {
     pub no_tours: &'static str,
     pub nothing_matches: &'static str,
     pub your_tours: &'static str,
+    pub menu_templates: &'static str,
     pub orphans: fn(usize) -> String,
     pub orphans_tail: &'static str,
     pub people: fn(usize) -> String,

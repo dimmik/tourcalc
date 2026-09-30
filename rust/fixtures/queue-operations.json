@@ -110,6 +110,56 @@
       }
     },
     {
+      "as_of": "2026-09-30, with the menu template",
+      "op": {
+        "EditTour": {
+          "name": "(Fin) Поход Урал Август 2021",
+          "days": 5,
+          "archived": false,
+          "finalizing": true,
+          "menu": false,
+          "template": {
+            "On": true,
+            "Days": 0,
+            "Start": null,
+            "Places": [
+              {
+                "Id": "market",
+                "Name": "Market"
+              }
+            ],
+            "Products": [
+              {
+                "Id": "rice",
+                "Name": "Rice",
+                "Unit": "Gram",
+                "Place": "market",
+                "Eaters": "Everyone"
+              }
+            ],
+            "Dishes": [
+              {
+                "Id": "plov",
+                "Name": "Plov",
+                "Meals": [
+                  "Dinner"
+                ],
+                "Ingredients": [
+                  {
+                    "Product": "rice",
+                    "Amount": 100.0
+                  }
+                ]
+              }
+            ],
+            "Daily": [],
+            "Plan": [],
+            "Purchases": []
+          }
+        }
+      }
+    },
+    {
       "as_of": "prod before the menu (2026-09)",
       "op": {
         "EditTour": {
@@ -341,6 +391,51 @@
               "Start": null
             }
           ]
+        }
+      }
+    },
+    {
+      "as_of": "2026-09-30",
+      "op": {
+        "Menu": {
+          "TakeTemplate": {
+            "On": true,
+            "Days": 0,
+            "Start": null,
+            "Places": [
+              {
+                "Id": "market",
+                "Name": "Market"
+              }
+            ],
+            "Products": [
+              {
+                "Id": "rice",
+                "Name": "Rice",
+                "Unit": "Gram",
+                "Place": "market",
+                "Eaters": "Everyone"
+              }
+            ],
+            "Dishes": [
+              {
+                "Id": "plov",
+                "Name": "Plov",
+                "Meals": [
+                  "Dinner"
+                ],
+                "Ingredients": [
+                  {
+                    "Product": "rice",
+                    "Amount": 100.0
+                  }
+                ]
+              }
+            ],
+            "Daily": [],
+            "Plan": [],
+            "Purchases": []
+          }
         }
       }
     }

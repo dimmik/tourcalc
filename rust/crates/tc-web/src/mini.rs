@@ -160,7 +160,7 @@ pub fn MiniTour(
                 <button type="button" class="tcm-btn"
                         on:click={
                             let t = for_head.clone();
-                            move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::of(&t))))
+                            move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::for_dialog(&t))))
                         }>{t().mini.edit}</button>
                 <button type="button" class="tcm-btn"
                         on:click=move |_| dialog.set(Some(Dialog::Currencies))>{t().mini.currencies}</button>
@@ -1339,7 +1339,22 @@ pub fn MiniList(
 
         {move || {
             let needle = search.get().trim().to_lowercase();
-            let shown: Vec<Tour> = tours
+            // The menu templates under the tours, apart - see the roomy list.
+            let (templates, trips): (Vec<Tour>, Vec<Tour>) =
+                tours.iter().cloned().partition(crate::menu::is_template);
+            let templates = (!templates.is_empty()).then(|| view! {
+                <div class="tcm-caption is-band">{t().list.menu_templates}</div>
+                <div class="tcm-list">
+                    {templates
+                        .into_iter()
+                        .map(|tour| view! {
+                            <MiniTourRow tour=tour more=more remove=remove
+                                         clone_it=clone_it copy_json=copy_json bells=bells />
+                        })
+                        .collect_view()}
+                </div>
+            });
+            let shown: Vec<Tour> = trips
                 .iter()
                 .filter(|t| {
                     // Searching finds the archived ones too; see the roomy list.
@@ -1364,6 +1379,7 @@ pub fn MiniList(
                             t().mini.nothing_matches
                         }}
                     </div>
+                    {templates}
                 }.into_any();
             }
 
@@ -1377,6 +1393,7 @@ pub fn MiniList(
                         })
                         .collect_view()}
                 </div>
+                {templates}
             }.into_any()
         }}
     }

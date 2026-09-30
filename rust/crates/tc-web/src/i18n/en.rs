@@ -630,6 +630,7 @@ pub const TEXTS: Texts = Texts {
         no_tours: "No tours yet",
         nothing_matches: "Nothing matches",
         your_tours: "Your tours",
+        menu_templates: "Menu templates",
         orphans: |n| if n == 1 {
             "Edits waiting for 1 tour that is not in your list:".to_owned()
         } else {
@@ -895,6 +896,21 @@ pub const TEXTS: Texts = Texts {
             shopping» to see it.",
         category: "Groceries",
         catalogue: "Catalogue",
+        template_title: "Menu template",
+        template_about: "Dishes, products, places and the daily list, kept for this access code: a new \
+            tour’s menu starts from them, and any tour can take them.",
+        template_save: "Save as template",
+        template_take: "Take from template",
+        template_replace_q: "Replace the template with this tour’s dishes, products, places and daily \
+            list? The template’s versions keep the old one.",
+        template_take_q: "Replace this tour’s dishes, products, places and daily list with the \
+            template’s? Meals with a dish the template does not have are planned anew.",
+        template_saved: "Saved as the template.",
+        template_saved_here: "Saved on this device; the template gets it when the network is back.",
+        template_none: "No template under this access code yet — “Save as template” makes one.",
+        template_name: "📋 Menu template — do not delete",
+        template_is_this: "This is the menu template of this access code: a new tour’s menu starts \
+            from these dishes, products and places, and any tour can take them. Change them here.",
         dishes: "Dishes",
         per_portion_title: "for one portion",
         per_portion_day_title: "for one portion a day",
