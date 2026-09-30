@@ -149,6 +149,31 @@ const MARKET: &str = "market";
 const SUPERMARKET: &str = "supermarket";
 const DELIVERY: &str = "delivery";
 
+/// Where a product typed straight into a dish is bought, until somebody moves it in
+/// Products. The supermarket: chosen on 30.09 as a start, to be settled with the group - to
+/// change it, change this.
+pub const NEW_PRODUCT_PLACE: &str = SUPERMARKET;
+
+/// The place a new product typed into a dish gets in this menu: [`NEW_PRODUCT_PLACE`] - by
+/// its id, or, in a menu that made its own, by its name in either language - else the menu's
+/// first place, else none.
+pub fn place_for_new(menu: &Menu) -> String {
+    if menu.places.iter().any(|p| p.id == NEW_PRODUCT_PLACE) {
+        return NEW_PRODUCT_PLACE.to_owned();
+    }
+    let names: Vec<String> = PLACES
+        .iter()
+        .filter(|(id, ..)| *id == NEW_PRODUCT_PLACE)
+        .flat_map(|(_, en, ru)| [en.to_lowercase(), ru.to_lowercase()])
+        .collect();
+    menu.places
+        .iter()
+        .find(|p| names.contains(&p.name.trim().to_lowercase()))
+        .or(menu.places.first())
+        .map(|p| p.id.clone())
+        .unwrap_or_default()
+}
+
 /// Both languages side by side: it is data, written into the tour in the language of
 /// whoever switches the menu on, and a pair per row keeps the two from drifting apart.
 const PLACES: &[(&str, &str, &str)] = &[

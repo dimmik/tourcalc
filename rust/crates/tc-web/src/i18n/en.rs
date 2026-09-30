@@ -900,6 +900,13 @@ pub const TEXTS: Texts = Texts {
         category: "Groceries",
         catalogue: "Catalogue",
         template_title: "Menu template",
+        typed_product: "new product",
+        new_product_note: |place| if place.is_empty() {
+            "A new product joins the catalogue for everybody, with no place; Products changes that.".to_owned()
+        } else {
+            format!("A new product joins the catalogue: bought at {place}, for everybody. Products changes that.")
+        },
+        amount_needed: "Say how much of the new product goes in.",
         template_about: "Dishes, products, places and the daily list, kept for this access code: a new \
             tour’s menu starts from them, and any tour can take them.",
         template_save: "Save as template",

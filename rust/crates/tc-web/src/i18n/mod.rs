@@ -267,6 +267,11 @@ pub struct MenuTexts {
     // The catalogue.
     pub catalogue: &'static str,
     pub template_title: &'static str,
+    /// The blank row for a product typed into a dish rather than picked.
+    pub typed_product: &'static str,
+    /// Where such a product goes, by the name of its place.
+    pub new_product_note: fn(&str) -> String,
+    pub amount_needed: &'static str,
     pub template_about: &'static str,
     pub template_save: &'static str,
     pub template_take: &'static str,
