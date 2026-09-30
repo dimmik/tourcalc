@@ -14,10 +14,21 @@ use leptos::prelude::*;
 use tc_core::menu::{Dish, Eaters, Eating, Ingredient, Meal, Menu, Place, Product, Slot, Unit};
 use tc_core::{PersonId, Tour};
 
+/// Which of the tab's three views is open.
+#[derive(Clone, Copy, PartialEq)]
+pub enum View {
+    Plan,
+    Shopping,
+    Catalogue,
+}
+
 /// What is open on the tab, owned by the page so that a save does not reset it.
 #[derive(Clone, Copy)]
 pub struct MenuState {
-    pub shopping: RwSignal<bool>,
+    pub view: RwSignal<View>,
+    /// The dish, product or daily list open for editing in the catalogue: its id, "" for a
+    /// new one, `None` for nothing.
+    pub editing: RwSignal<Option<String>>,
     /// Who this phone is: the shopping shows theirs.
     pub me: RwSignal<Option<String>>,
     /// Other people's shopping too, although somebody is picked. Without it the shopping
@@ -28,7 +39,8 @@ pub struct MenuState {
 impl MenuState {
     pub fn new(tour: &str) -> MenuState {
         MenuState {
-            shopping: RwSignal::new(false),
+            view: RwSignal::new(View::Plan),
+            editing: RwSignal::new(None),
             me: RwSignal::new(crate::settings::me(tour)),
             everybody: RwSignal::new(false),
         }
@@ -89,18 +101,18 @@ const PRODUCTS: &[(&str, &str, &str, Unit, &str, Eaters)] = &[
 ];
 
 /// id, English, Russian, meal, and per portion: product and amount.
-type DishRow = (&'static str, &'static str, &'static str, Meal, &'static [(&'static str, f64)]);
+type DishRow = (&'static str, &'static str, &'static str, &'static [Meal], &'static [(&'static str, f64)]);
 const DISHES: &[DishRow] = &[
-    ("omelette", "Omelette", "Омлет", Meal::Breakfast, &[("eggs", 3.0), ("milk", 50.0), ("butter", 10.0)]),
-    ("porridge", "Porridge", "Каша", Meal::Breakfast, &[("oats", 60.0), ("milk", 200.0), ("butter", 10.0)]),
-    ("yoghurt", "Yoghurt and muesli", "Йогурт с мюсли", Meal::Breakfast, &[("yoghurt", 200.0), ("muesli", 50.0), ("fruit", 100.0)]),
-    ("sandwiches", "Sandwiches", "Бутерброды", Meal::Lunch, &[("bread", 100.0), ("cheese", 50.0), ("ham", 60.0), ("butter", 10.0)]),
-    ("fruit_nuts", "Fruit and nuts", "Фрукты и орехи", Meal::Lunch, &[("fruit", 250.0), ("nuts", 40.0)]),
-    ("grill", "Grilled meat", "Быстромясо на гриле", Meal::Dinner, &[("meat", 300.0), ("potatoes", 200.0)]),
-    ("lamb_steaks", "Lamb steaks", "Стейки баранины", Meal::Dinner, &[("lamb", 300.0), ("potatoes", 200.0)]),
-    ("fish", "Fish", "Рыба", Meal::Dinner, &[("fish", 300.0), ("rice", 70.0), ("lemons", 0.25)]),
-    ("plov", "Plov", "Плов", Meal::Dinner, &[("rice", 100.0), ("lamb", 150.0), ("carrots", 120.0), ("onions", 60.0), ("oil", 20.0)]),
-    ("pasta", "Pasta bolognese", "Паста болоньезе", Meal::Dinner, &[("pasta", 100.0), ("mince", 120.0), ("tomatoes", 100.0), ("onions", 30.0)]),
+    ("omelette", "Omelette", "Омлет", &[Meal::Breakfast], &[("eggs", 3.0), ("milk", 50.0), ("butter", 10.0)]),
+    ("porridge", "Porridge", "Каша", &[Meal::Breakfast], &[("oats", 60.0), ("milk", 200.0), ("butter", 10.0)]),
+    ("yoghurt", "Yoghurt and muesli", "Йогурт с мюсли", &[Meal::Breakfast], &[("yoghurt", 200.0), ("muesli", 50.0), ("fruit", 100.0)]),
+    ("sandwiches", "Sandwiches", "Бутерброды", &[Meal::Breakfast, Meal::Lunch], &[("bread", 100.0), ("cheese", 50.0), ("ham", 60.0), ("butter", 10.0)]),
+    ("fruit_nuts", "Fruit and nuts", "Фрукты и орехи", &[Meal::Lunch], &[("fruit", 250.0), ("nuts", 40.0)]),
+    ("grill", "Grilled meat", "Быстромясо на гриле", &[Meal::Dinner], &[("meat", 300.0), ("potatoes", 200.0)]),
+    ("lamb_steaks", "Lamb steaks", "Стейки баранины", &[Meal::Dinner], &[("lamb", 300.0), ("potatoes", 200.0)]),
+    ("fish", "Fish", "Рыба", &[Meal::Dinner], &[("fish", 300.0), ("rice", 70.0), ("lemons", 0.25)]),
+    ("plov", "Plov", "Плов", &[Meal::Dinner], &[("rice", 100.0), ("lamb", 150.0), ("carrots", 120.0), ("onions", 60.0), ("oil", 20.0)]),
+    ("pasta", "Pasta bolognese", "Паста болоньезе", &[Meal::Dinner], &[("pasta", 100.0), ("mince", 120.0), ("tomatoes", 100.0), ("onions", 30.0)]),
 ];
 
 /// Every day, whatever is cooked: per portion, or per head for wine and the children's
@@ -143,10 +155,11 @@ pub fn starter(days: u32) -> Menu {
             .collect(),
         dishes: DISHES
             .iter()
-            .map(|(id, en, r, meal, items)| Dish {
+            .map(|(id, en, r, meals, items)| Dish {
                 id: (*id).into(),
                 name: pick(en, r),
-                meal: Some(*meal),
+                meals: meals.to_vec(),
+                meal: None,
                 ingredients: items
                     .iter()
                     .map(|(product, amount)| Ingredient { product: (*product).into(), amount: *amount })
@@ -184,7 +197,7 @@ pub fn quantity(amount: f64, unit: Unit) -> String {
     }
 }
 
-fn meal_name(meal: Meal) -> &'static str {
+pub(crate) fn meal_name(meal: Meal) -> &'static str {
     match meal {
         Meal::Breakfast => t().menu.breakfast,
         Meal::Lunch => t().menu.lunch,
@@ -215,15 +228,18 @@ pub fn MenuTab(
 
     let tour_for_shopping = tour.clone();
     let menu_for_shopping = menu.clone();
+    let menu_for_catalogue = menu.clone();
 
     view! {
         <div class="tcw-food">
             <div class="tcw-food-bar">
                 <div class="tcw-seg" role="group">
-                    <button type="button" class:is-on=move || !state.shopping.get()
-                            on:click=move |_| state.shopping.set(false)>{t().menu.plan}</button>
-                    <button type="button" class:is-on=move || state.shopping.get()
-                            on:click=move |_| state.shopping.set(true)>{t().menu.shopping}</button>
+                    <button type="button" class:is-on=move || state.view.get() == View::Plan
+                            on:click=move |_| state.view.set(View::Plan)>{t().menu.plan}</button>
+                    <button type="button" class:is-on=move || state.view.get() == View::Shopping
+                            on:click=move |_| state.view.set(View::Shopping)>{t().menu.shopping}</button>
+                    <button type="button" class:is-on=move || state.view.get() == View::Catalogue
+                            on:click=move |_| state.view.set(View::Catalogue)>{t().menu.catalogue}</button>
                 </div>
                 <div class="tcw-food-days">
                     <span>{t().menu.days}</span>
@@ -237,12 +253,15 @@ pub fn MenuTab(
             </div>
             <p class="tcw-food-note">{note}</p>
 
-            <Show when=move || !state.shopping.get()>
+            <Show when=move || state.view.get() == View::Plan>
                 <Plan menu=menu.clone() apply=apply />
             </Show>
-            <Show when=move || state.shopping.get()>
+            <Show when=move || state.view.get() == View::Shopping>
                 <Shopping tour=tour_for_shopping.clone() menu=menu_for_shopping.clone() eating=eating
                           state=state apply=apply dialog=dialog />
+            </Show>
+            <Show when=move || state.view.get() == View::Catalogue>
+                <crate::menu_catalogue::Catalogue menu=menu_for_catalogue.clone() state=state apply=apply />
             </Show>
         </div>
     }

@@ -444,8 +444,12 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                     </div>
                 }.into_any();
             }
+            // Floating, not in the page: on a good network this is there for half a second
+            // after every save, and in the page it pushed everything below it down and back
+            // up again - a tick on the shopping list made the whole list jump. Without a
+            // network it stays, and floating it is in sight wherever the reader has scrolled.
             view! {
-                <div class="tcn-section" style="padding-bottom:0">
+                <div class="tcw-sync-float" role="status">
                     <div class="tcn-chip tcn-chip-amber tcw-wraps">
                         {(t().sync.waiting)(&what)}
                     </div>

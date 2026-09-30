@@ -17,6 +17,7 @@ mod install;
 mod list;
 mod login;
 mod menu;
+mod menu_catalogue;
 mod mini;
 mod mode;
 mod others;

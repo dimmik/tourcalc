@@ -87,6 +87,12 @@ pub struct Ingredient {
 pub struct Dish {
     pub id: String,
     pub name: String,
+    /// The meals it can be - breakfast, lunch, dinner, one or several: an omelette is
+    /// breakfast, sandwiches can be breakfast or lunch.
+    pub meals: Vec<Meal>,
+    /// A menu written before a dish could be more than one meal says it here; [`Menu::of`]
+    /// folds it into `meals`, and it is never written back.
+    #[serde(skip_serializing)]
     pub meal: Option<Meal>,
     pub ingredients: Vec<Ingredient>,
 }
@@ -209,7 +215,15 @@ impl Menu {
     /// some later version this one cannot follow is not worth refusing the tour over.
     pub fn of(tour: &Tour) -> Option<Menu> {
         let value = value_of(&tour.extras)?;
-        serde_json::from_value(value.clone()).ok()
+        let mut menu: Menu = serde_json::from_value(value.clone()).ok()?;
+        for dish in &mut menu.dishes {
+            if let Some(meal) = dish.meal.take() {
+                if !dish.meals.contains(&meal) {
+                    dish.meals.push(meal);
+                }
+            }
+        }
+        Some(menu)
     }
 
     /// The tour's menu if it is switched on.
@@ -233,7 +247,7 @@ impl Menu {
     }
 
     pub fn dishes_for(&self, meal: Meal) -> impl Iterator<Item = &Dish> {
-        self.dishes.iter().filter(move |d| d.meal == Some(meal))
+        self.dishes.iter().filter(move |d| d.meals.contains(&meal))
     }
 
     pub fn slot(&self, day: u32, meal: Meal) -> Option<&Slot> {
@@ -279,6 +293,47 @@ impl Menu {
             }
         }
         self.plan.sort_by_key(|s| (s.day, Meal::ALL.iter().position(|m| *m == s.meal)));
+    }
+
+    /// Adds a dish, or replaces the one with its id.
+    pub fn put_dish(&mut self, dish: Dish) {
+        match self.dishes.iter_mut().find(|d| d.id == dish.id) {
+            Some(d) => *d = dish,
+            None => self.dishes.push(dish),
+        }
+    }
+
+    /// Takes a dish out of the catalogue, and out of the plan: the meals it was on are
+    /// "nothing" until somebody picks another, rather than quietly something else.
+    pub fn remove_dish(&mut self, id: &str) {
+        self.dishes.retain(|d| d.id != id);
+        for slot in &mut self.plan {
+            if slot.dish.as_deref() == Some(id) {
+                slot.dish = None;
+            }
+        }
+    }
+
+    /// Adds a product, or replaces the one with its id.
+    pub fn put_product(&mut self, product: Product) {
+        match self.products.iter_mut().find(|p| p.id == product.id) {
+            Some(p) => *p = product,
+            None => self.products.push(product),
+        }
+    }
+
+    /// Whether any dish or the daily list has it - such a product is not to be removed.
+    pub fn uses(&self, product: &str) -> bool {
+        self.daily.iter().any(|i| i.product == product)
+            || self.dishes.iter().any(|d| d.ingredients.iter().any(|i| i.product == product))
+    }
+
+    /// Takes an unused product out of the catalogue; a used one stays.
+    pub fn remove_product(&mut self, id: &str) {
+        if !self.uses(id) {
+            self.products.retain(|p| p.id != id);
+            self.purchases.retain(|p| p.product != id);
+        }
     }
 
     pub fn purchase(&self, product: &str) -> Option<&Purchase> {
@@ -391,7 +446,8 @@ mod tests {
                 Dish {
                     id: "plov".into(),
                     name: "Plov".into(),
-                    meal: Some(Meal::Dinner),
+                    meals: vec![Meal::Dinner],
+                    meal: None,
                     ingredients: vec![
                         Ingredient { product: "lamb".into(), amount: 200.0 },
                         Ingredient { product: "rice".into(), amount: 100.0 },
@@ -400,7 +456,8 @@ mod tests {
                 Dish {
                     id: "steak".into(),
                     name: "Steak".into(),
-                    meal: Some(Meal::Dinner),
+                    meals: vec![Meal::Dinner],
+                    meal: None,
                     ingredients: vec![Ingredient { product: "lamb".into(), amount: 300.0 }],
                 },
             ],
@@ -487,6 +544,41 @@ mod tests {
         assert!(m.sources("rice").0.is_empty());
         let eating = Eating::of(&tour(&[100]));
         assert!(m.shopping(&eating).iter().all(|n| n.product.id != "rice"));
+    }
+
+    /// A dish from before `meals` - `"Meal": "Dinner"` - is read as a dinner, and written
+    /// back with `Meals` only.
+    #[test]
+    fn a_dish_of_one_meal_is_read_as_a_dish_of_several() {
+        let mut t = tour(&[100]);
+        let mut json = serde_json::to_value(menu()).expect("json");
+        for d in json["Dishes"].as_array_mut().expect("dishes") {
+            d.as_object_mut().expect("dish").remove("Meals");
+            d["Meal"] = "Dinner".into();
+        }
+        tc_core_set(&mut t, json);
+        let m = Menu::of(&t).expect("menu");
+        assert!(m.dishes.iter().all(|d| d.meals == [Meal::Dinner] && d.meal.is_none()));
+        let written = serde_json::to_value(&m).expect("json");
+        assert!(written["Dishes"][0].get("Meal").is_none());
+        assert_eq!(m.dishes_for(Meal::Dinner).count(), 2);
+    }
+
+    fn tc_core_set(t: &mut Tour, menu: serde_json::Value) {
+        crate::extras::set(&mut t.extras, MENU, menu);
+    }
+
+    /// A dish taken out leaves its meals empty; a product still in a dish is not taken out.
+    #[test]
+    fn removing_a_dish_empties_its_meals_and_a_used_product_stays() {
+        let mut m = menu();
+        m.remove_dish("plov");
+        assert!(m.dish("plov").is_none());
+        assert_eq!(m.slot(1, Meal::Dinner).map(|s| s.dish.clone()), Some(None));
+        m.remove_product("lamb");
+        assert!(m.product("lamb").is_some(), "the steak has lamb");
+        m.remove_product("rice");
+        assert!(m.product("rice").is_none(), "nothing has rice once the plov is gone");
     }
 
     #[test]

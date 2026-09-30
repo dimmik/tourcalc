@@ -794,6 +794,14 @@ pub enum MenuEdit {
     /// nobody yet.
     Buyer { products: Vec<String>, who: Option<String> },
     Bought { product: String, bought: bool },
+    /// A dish added or changed - its name, its meals, what goes into it.
+    PutDish(tc_core::menu::Dish),
+    RemoveDish(String),
+    PutProduct(tc_core::menu::Product),
+    /// Only if nothing uses it - see `Menu::remove_product`.
+    RemoveProduct(String),
+    /// What is bought every day, whatever is cooked.
+    Daily(Vec<tc_core::menu::Ingredient>),
 }
 
 /// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
@@ -814,6 +822,11 @@ pub fn put_menu(tour: &Tour, change: &MenuEdit) -> Tour {
             }
         }
         MenuEdit::Bought { product, bought } => menu.purchase_mut(product).bought = *bought,
+        MenuEdit::PutDish(dish) => menu.put_dish(dish.clone()),
+        MenuEdit::RemoveDish(id) => menu.remove_dish(id),
+        MenuEdit::PutProduct(product) => menu.put_product(product.clone()),
+        MenuEdit::RemoveProduct(id) => menu.remove_product(id),
+        MenuEdit::Daily(items) => menu.daily = items.clone(),
     }
     let mut next = tour.clone();
     menu.put(&mut next);
