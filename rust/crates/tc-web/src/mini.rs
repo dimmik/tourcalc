@@ -545,6 +545,7 @@ fn MiniPerson(
     // Somebody who is paid for hands nothing over themselves, so their own figure is the
     // honest one to show; everybody else settles for their whole family.
     let shown = if is_child { own } else { settle };
+    let settling = tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING);
 
     let paid = balances
         .get(&person.id)
@@ -605,7 +606,18 @@ fn MiniPerson(
                         ().into_any()
                     }}
                 </button>
-                {if shown.is_zero() {
+                // A zero is "settled" only while the tour is being settled up; before that it is
+                // "0", as in the roomy list - see `signed` in people.rs. Somebody paid for is
+                // settled through their payer either way, and the title still says so.
+                {if shown.is_zero() && !settling {
+                    let why = is_child
+                        .then(|| payer.clone().map(|p| (t().mini.settled_through)(&p)))
+                        .flatten();
+                    view! {
+                        <span class="tcm-half"></span>
+                        <span class="tcm-half" title=why>"0"</span>
+                    }.into_any()
+                } else if shown.is_zero() {
                     let why = if is_child {
                         payer.clone().map(|p| (t().mini.settled_through)(&p))
                             .unwrap_or_else(|| t().mini.settled_row.to_owned())
