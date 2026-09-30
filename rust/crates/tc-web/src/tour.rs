@@ -727,6 +727,13 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
 
     view! {
         <crate::others::OthersLine others=others />
+        // Out of the browser's scroll anchoring. Every save draws the tour again, and while
+        // the new drawing and the old were both in the page the browser kept the row under
+        // the pointer in place by scrolling down by the new one's height - and when the old
+        // one went, there was nothing left below: a tick on the shopping list landed the
+        // reader at the end of the page. Nothing here needs anchoring; the page keeps its own
+        // place (`keep_scroll`).
+        <div style="overflow-anchor:none">
         {move || match state.get() {
             Load::Loading => view! { <div class="tcn-loading">{t().sync.loading}</div> }.into_any(),
             Load::Failed(why) => view! {
@@ -738,6 +745,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
             Load::Ready(tour) => {
                 // In the currency this reader chose to read it in, if any - see `show_in`.
                 let tour = crate::show_in::view_of(&tour, shown_in.get().as_deref());
+                request_animation_frame(back_where_it_was);
                 view! {
                     <TourView tour=tour reload=load status=status landing=landing tab=tab
                               refresh=refresh sifting=sifting people=people_state
@@ -745,6 +753,39 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                 }.into_any()
             }
         }}
+        </div>
+    }
+}
+
+thread_local! {
+    /// Where the page was scrolled to when an edit was made, and until when to hold it there.
+    static KEEP_SCROLL: std::cell::Cell<Option<(f64, f64)>> = const { std::cell::Cell::new(None) };
+}
+
+/// How long after an edit its redraws keep the reader's place: the one from this device's
+/// copy and the one from the server's answer.
+const KEEP_FOR_MS: f64 = 2500.0;
+
+/// Remembers where the page is, for the redraws an edit is about to cause.
+fn keep_scroll() {
+    if let Some(w) = web_sys::window() {
+        let y = w.scroll_y().unwrap_or(0.0);
+        KEEP_SCROLL.with(|k| k.set(Some((y, js_sys::Date::now() + KEEP_FOR_MS))));
+    }
+}
+
+/// After a redraw: back to where the page was when the edit was made, if that was a moment
+/// ago and the page has moved.
+fn back_where_it_was() {
+    let Some((y, until)) = KEEP_SCROLL.with(|k| k.get()) else { return };
+    if js_sys::Date::now() > until {
+        KEEP_SCROLL.with(|k| k.set(None));
+        return;
+    }
+    if let Some(w) = web_sys::window() {
+        if (w.scroll_y().unwrap_or(y) - y).abs() > 1.0 {
+            w.scroll_to_with_x_and_y(0.0, y);
+        }
     }
 }
 
@@ -813,6 +854,7 @@ fn TourView(
             if let Some(o) = others {
                 o.saving.update(|n| *n += 1);
             }
+            keep_scroll();
             dialog.set(None);
             spawn_local(async move {
                 let (_, st) = sync::record(&tour_id, op).await;
