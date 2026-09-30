@@ -76,8 +76,10 @@ enum Route {
     /// The two settings this client has.
     Settings,
     /// A tour, and which of its tabs the address asks for. The app's own deep links -
-    /// /tour/x/persons and /tour/x/spendings - land on the matching tab, and
-    /// /tour/x/spending/add opens the tour with the expense dialog already up.
+    /// /tour/x/persons and /tour/x/spendings - land on the matching tab, and so do
+    /// /tour/x/balance, /stats and /menu, which the address bar follows as tabs are switched
+    /// (`tour::address_of`); /tour/x/spending/add opens the tour with the expense dialog
+    /// already up.
     Tour(String, Landing),
     /// A share link: an access code and the tour it opens.
     Goto(String, String),
@@ -94,6 +96,9 @@ pub enum Landing {
     People,
     Expenses,
     Stats,
+    /// On a tour without a menu - or in the compact view, which has no Menu tab - the tour's
+    /// own tab instead.
+    Menu,
     /// Straight into "record an expense", which is what the app's own add link does.
     AddSpending,
 }
@@ -116,6 +121,8 @@ fn route_of(path: &str) -> Route {
         ["tour", id, "persons"] => Route::Tour((*id).to_owned(), Landing::People),
         ["tour", id, "spendings"] => Route::Tour((*id).to_owned(), Landing::Expenses),
         ["tour", id, "stats"] => Route::Tour((*id).to_owned(), Landing::Stats),
+        ["tour", id, "balance"] => Route::Tour((*id).to_owned(), Landing::Balance),
+        ["tour", id, "menu"] => Route::Tour((*id).to_owned(), Landing::Menu),
         ["tour", id, "spending", "add"] => Route::Tour((*id).to_owned(), Landing::AddSpending),
         ["goto", code, id] => Route::Goto((*code).to_owned(), (*id).to_owned()),
         _ => Route::Unknown(path.to_owned()),
@@ -582,6 +589,22 @@ mod tests {
             route_of("/tour/abc/spending/add"),
             Route::Tour(_, Landing::AddSpending)
         ));
+        // Every tab has an address, and it is the one the address bar shows on that tab.
+        for tab in [
+            tour::Tab::Balance,
+            tour::Tab::People,
+            tour::Tab::Expenses,
+            tour::Tab::Stats,
+            tour::Tab::Menu,
+        ] {
+            match route_of(&tour::address_of("abc", tab)) {
+                Route::Tour(id, landing) => {
+                    assert_eq!(id, "abc");
+                    assert_eq!(tour::tab_of(landing), tab, "{tab:?}");
+                }
+                other => panic!("{tab:?}: {other:?}"),
+            }
+        }
         // A query string or a fragment belongs to the page, not to the route: without this
         // a link with one on the end would be swallowed by the interceptor and land on
         // "nothing here".

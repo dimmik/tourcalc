@@ -557,10 +557,36 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         let id = id.clone();
         Effect::new(move |_| leaving_tab(&id, tab.get()));
     }
+    // The address bar says which tab is open, so that it can be copied and sent: "the menu"
+    // is a link, not "open the tour and tap Menu". Replaced, not pushed - switching tabs is
+    // not somewhere Back should step through.
+    {
+        let id = id.clone();
+        Effect::new(move |_| {
+            let address = address_of(&id, tab.get());
+            if let Some(w) = web_sys::window() {
+                if w.location().pathname().ok().as_deref() != Some(address.as_str()) {
+                    let _ = w.history().map(|h| {
+                        h.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&address))
+                    });
+                }
+            }
+        });
+    }
+    let mode = use_context::<RwSignal<crate::mode::UiMode>>();
     let settle_tab = move |tour: &Tour| {
         if !tab_settled.get_untracked() {
             tab.set(opens_on(tour));
             tab_settled.set(true);
+        }
+        // Asked for the menu - by an address, or by being left on it - where there is none:
+        // switched off since, or the compact view, which has no Menu tab. The tour's own tab,
+        // not a blank page.
+        let compact = mode.is_some_and(|m| m.get_untracked() == crate::mode::UiMode::Mini);
+        if tab.get_untracked() == Tab::Menu
+            && (compact || tc_core::menu::Menu::shown(&queue::with_pending(tour)).is_none())
+        {
+            tab.set(opens_on(tour));
         }
     };
 
@@ -2252,6 +2278,19 @@ fn leaving_tab(tour: &str, tab: Tab) {
     LAST_TAB.with(|last| *last.borrow_mut() = Some((tour.to_owned(), tab)));
 }
 
+/// The address of a tour's tab - what the address bar shows while it is open. The app's
+/// own names where it had them (`persons`, `spendings`), so its old links still land.
+pub fn address_of(tour: &str, tab: Tab) -> String {
+    let part = match tab {
+        Tab::Balance => "balance",
+        Tab::People => "persons",
+        Tab::Expenses => "spendings",
+        Tab::Stats => "stats",
+        Tab::Menu => "menu",
+    };
+    format!("/tour/{tour}/{part}")
+}
+
 /// Which tab an address asks for.
 pub fn tab_of(landing: crate::Landing) -> Tab {
     match landing {
@@ -2259,6 +2298,7 @@ pub fn tab_of(landing: crate::Landing) -> Tab {
         crate::Landing::Expenses | crate::Landing::AddSpending => Tab::Expenses,
         crate::Landing::Stats => Tab::Stats,
         crate::Landing::Balance => Tab::Balance,
+        crate::Landing::Menu => Tab::Menu,
         // Until the tour is here to say. It never shows: the tab is settled the moment
         // there is a tour to settle it from, cached copy included.
         crate::Landing::Unsaid => Tab::People,
