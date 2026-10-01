@@ -718,3 +718,37 @@ async fn two_documents_with_one_guid_are_one_tour() {
     }
     assert_eq!(seen, ["zscph2y"], "the reader sees the tour once: {seen:?}");
 }
+
+/// A tour the C# saved with a spending that has no category - `"Type": null` - is a tour,
+/// in the list and with its history: for months the server could not read it, answered "no
+/// such tour", and seven of them vanished from one company's list (2026-10-01).
+#[tokio::test]
+async fn a_tour_with_a_null_category_is_still_there() {
+    let store = store_or_skip!("a_tour_with_a_null_category_is_still_there");
+    let when = bson::DateTime::from_millis(1_764_600_000_000);
+    store
+        .insert_raw_for_tests(bson::doc! {
+            "_id": "withnull", "GUID": "withnull", "Metadata": bson::Bson::Null,
+            "Name": "New Year", "AccessCodeMD5": "CODE", "IsVersion": false,
+            "InternalVersionComment": bson::Bson::Null, "DateCreated": when,
+            "TourCurrencyId": "Din",
+            "Currencies": [ { "_id": "Din", "Name": "Din", "CurrencyRate": 1000 } ],
+            "Persons": [
+                { "GUID": "p1", "Name": "Pasha", "Weight": 100, "ParentId": bson::Bson::Null, "DateCreated": when },
+                { "GUID": "p2", "Name": "Sasha", "Weight": 100, "ParentId": bson::Bson::Null, "DateCreated": when },
+            ],
+            "Spendings": [ {
+                "GUID": "s1", "Description": "a debt", "Type": bson::Bson::Null,
+                "AmountInCents": 9866_i64, "FromGuid": "p2", "ToGuid": ["p1"], "ToAll": false,
+                "Currency": { "_id": "Din", "Name": "Din", "CurrencyRate": 1000 },
+                "SpendingDate": when, "DateCreated": when,
+            } ],
+        })
+        .await;
+
+    let tour = store.get(&TourId::new("withnull".to_owned())).await.expect("readable");
+    assert_eq!(tour.spendings.len(), 1);
+    assert_eq!(tour.spendings[0].category, "");
+    let (listed, total) = store.page(Some(&["CODE".to_owned()]), &|_| true, 0, 50).await;
+    assert_eq!((listed.len(), total), (1, 1), "listed, not just counted");
+}
