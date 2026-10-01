@@ -831,6 +831,8 @@ pub enum MenuEdit {
     /// Who buys and pays for these products - one, or a whole place's at once; `None` -
     /// nobody yet.
     Buyer { products: Vec<String>, who: Option<String> },
+    /// Where these products are bought - "Lidl" - or "" for their places in the catalogue.
+    BuyAt { products: Vec<String>, place: String },
     Bought { product: String, bought: bool },
     /// A dish added or changed - its name, its meals, what goes into it.
     PutDish(tc_core::menu::Dish),
@@ -885,6 +887,7 @@ fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
                 menu.purchase_mut(product).who = who.clone();
             }
         }
+        MenuEdit::BuyAt { products, place } => menu.set_bought_at(products, place),
         MenuEdit::Bought { product, bought } => menu.purchase_mut(product).bought = *bought,
         MenuEdit::PutDish(dish) => menu.put_dish(dish.clone()),
         MenuEdit::RemoveDish(id) => menu.remove_dish(id),

@@ -893,20 +893,20 @@
         .tcw-buy-tick { grid-area: tick; width: 18px; height: 18px; margin: 0; cursor: pointer; }
         .tcw-buy-name { grid-area: name; min-width: 0; }
         .tcw-buy-why { display: block; font-size: 11.5px; color: var(--tcn-muted, #6b7280); }
-        /* In one list the place is the first thing said about a product. */
-        .tcw-buy-place { font-weight: 600; color: var(--tcn-text, #111827); }
         .tcw-buy-amount { grid-area: amount; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap;
             text-align: right; }
         .tcw-buy-who { grid-area: who; display: flex; gap: 6px; align-items: center; min-width: 0; }
         .tcw-buy-who select { width: auto; min-width: 0; max-width: 100%; padding: 4px 8px; font-size: 13px; }
         .tcw-buy-me { flex: 0 0 auto; white-space: nowrap; }
+        /* Where, then who: "Lidl - Sasha". */
+        .tcw-buy-at { flex: 0 1 8em; width: 8em; min-width: 4em; padding: 4px 8px; font-size: 13px; }
         .tcw-food-search { margin-bottom: 12px; }
         .tcw-buy-expense { grid-area: expense; justify-self: end; }
         .tcw-buy-done { font-size: 12.5px; font-weight: 600; color: var(--tcn-green, #047857); white-space: nowrap; }
         .tcw-buy.is-bought .tcw-buy-title, .tcw-buy.is-bought .tcw-buy-amount {
             color: var(--tcn-muted, #6b7280); text-decoration: line-through; font-weight: 400; }
         @media (min-width: 740px) {
-            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 6.5em 17em 12.5em;
+            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 6.5em 24em 12.5em;
                 grid-template-areas: "tick name amount who expense"; }
             .tcw-buy-who select { flex: 1 1 auto; }
         }
