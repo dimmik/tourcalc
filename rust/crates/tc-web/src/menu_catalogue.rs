@@ -684,6 +684,27 @@ fn Ingredients(
         }
     }
     let known_units = StoredValue::new(known_units);
+    // The catalogue's products, offered as the name is typed: picked - or typed out in full -
+    // a product brings its unit along, and the unit is then not the row's to choose.
+    let catalogue: Vec<(String, Unit, Option<String>)> = menu
+        .products
+        .iter()
+        .map(|p| {
+            let own = p.own_unit.as_deref().map(str::trim).filter(|u| !u.is_empty()).map(str::to_owned);
+            (p.name.trim().to_owned(), p.unit, own)
+        })
+        .collect();
+    let suggestions = catalogue
+        .iter()
+        .map(|(name, ..)| view! { <option value=name.clone()></option> })
+        .collect_view();
+    let catalogue = StoredValue::new(catalogue);
+    let found = move |name: &str| {
+        let key = name.trim().to_lowercase();
+        catalogue.with_value(|c| c.iter().find(|(n, ..)| n.to_lowercase() == key).map(|(_, u, o)| (*u, o.clone())))
+    };
+    static LISTS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let list_id = format!("tcw-products-{}", LISTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
     let place = crate::menu::place_for_new(&menu);
     let place_name = menu.places.iter().find(|p| p.id == place).map(|p| p.name.clone()).unwrap_or_default();
     let when_select = move |when: RwSignal<When>| {
@@ -796,27 +817,45 @@ fn Ingredients(
                     }
                 }
             </For>
+            <datalist id=list_id.clone()>{suggestions}</datalist>
             <For each=move || fresh.get() key=|r| r.key let:row>
                 {
+                    // Selected by property, not attribute: the unit follows a product picked by
+                    // name, and an attribute stops counting once the select has been touched.
                     let units = [Unit::Gram, Unit::Millilitre, Unit::Piece]
                         .into_iter()
                         .map(|u| view! {
-                            <option value=unit_name(u) selected=row.own.get_untracked().is_none() && row.unit.get_untracked() == u>
+                            <option value=unit_name(u) prop:selected=move || row.own.get().is_none() && row.unit.get() == u>
                                 {unit_name(u)}
                             </option>
                         })
                         .collect_view();
                     let known = known_units.with_value(|ks| {
                         ks.iter()
-                            .map(|u| view! { <option value=format!("{OWN}{u}")>{u.clone()}</option> })
+                            .map(|u| {
+                                let is = u.clone();
+                                view! {
+                                    <option value=format!("{OWN}{u}") prop:selected=move || row.own.get().as_deref() == Some(is.as_str())>
+                                        {u.clone()}
+                                    </option>
+                                }
+                            })
                             .collect_view()
                     });
+                    let in_catalogue = move || found(&row.name.get()).is_some();
                     view! {
                         <div class="tcw-ingr-row tcw-ingr-new">
                             <input class="tcn-input tcw-ingr-name" type="text" placeholder=t().menu.typed_product
+                                   list=list_id.clone()
                                    prop:value=move || row.name.get()
                                    on:input=move |ev| {
-                                       row.name.set(event_target_value(&ev));
+                                       let name = event_target_value(&ev);
+                                       if let Some((unit, own)) = found(&name) {
+                                           row.unit.set(unit);
+                                           row.own.set(own);
+                                           row.typing.set(false);
+                                       }
+                                       row.name.set(name);
                                        keep_spare(fresh, next);
                                    } />
                             <input class="tcn-input tcw-ingr-amount" type="text" inputmode="decimal"
@@ -829,6 +868,7 @@ fn Ingredients(
                                 <Show when=move || row.typing.get()
                                       fallback=move || view! {
                                           <select class="tcw-ingr-when" title=t().menu.unit
+                                                  prop:disabled=in_catalogue
                                                   on:change=move |ev| {
                                                       let v = event_target_value(&ev);
                                                       if v == OWN {
@@ -865,7 +905,11 @@ fn Ingredients(
                     }
                 }
             </For>
-            <Show when=move || { fresh.track(); fresh.with_untracked(|r| r.iter().any(|x| !x.name.get().trim().is_empty())) }>
+            // Only for a name the catalogue does not have: one it has is that product, as it is.
+            <Show when=move || fresh.with(|r| r.iter().any(|x| {
+                let name = x.name.get();
+                !name.trim().is_empty() && found(&name).is_none()
+            }))>
                 <p class="tcw-food-note tcw-ingr-note">{(t().menu.new_product_note)(&place_name)}</p>
             </Show>
             <button type="button" class="tcn-btn tcn-btn-sm tcw-ingr-add" on:click=add>
