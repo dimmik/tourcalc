@@ -903,6 +903,8 @@ pub const TEXTS: Texts = Texts {
         group_none: "одним списком",
         group_place: "по местам",
         group_category: "по категориям",
+        group_person: "по тому, кто покупает",
+        no_buyer: "Пока никто",
         sort_category: "по категории",
         product_category: "Категория",
         no_category: "Без категории",

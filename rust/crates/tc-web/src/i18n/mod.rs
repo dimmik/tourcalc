@@ -246,6 +246,8 @@ pub struct MenuTexts {
     pub group_none: &'static str,
     pub group_place: &'static str,
     pub group_category: &'static str,
+    pub group_person: &'static str,
+    pub no_buyer: &'static str,
     pub sort_category: &'static str,
     /// A product's category, and the card of those without one.
     pub product_category: &'static str,

@@ -888,6 +888,8 @@ pub const TEXTS: Texts = Texts {
         group_none: "one list",
         group_place: "by place",
         group_category: "by category",
+        group_person: "by who buys",
+        no_buyer: "Nobody yet",
         sort_category: "by category",
         product_category: "Category",
         no_category: "No category",

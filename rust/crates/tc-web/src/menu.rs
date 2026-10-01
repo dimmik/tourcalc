@@ -55,16 +55,19 @@ pub enum Group {
     None,
     Place,
     Category,
+    /// A card per buyer, and one of what nobody has taken yet.
+    Person,
 }
 
 impl Group {
-    const ALL: [Group; 3] = [Group::None, Group::Place, Group::Category];
+    const ALL: [Group; 4] = [Group::None, Group::Place, Group::Category, Group::Person];
 
     fn name(self) -> &'static str {
         match self {
             Group::None => t().menu.group_none,
             Group::Place => t().menu.group_place,
             Group::Category => t().menu.group_category,
+            Group::Person => t().menu.group_person,
         }
     }
 }
@@ -1175,6 +1178,29 @@ fn Shopping(
                 .filter_map(|category| {
                     let here: Vec<Line> = lines.iter().filter(|l| l.category == category).cloned().collect();
                     let title = if category.is_empty() { t().menu.no_category.to_owned() } else { category };
+                    (!here.is_empty()).then(|| view! {
+                        <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
+                                  show_place=true state=state apply=apply dialog=dialog />
+                    })
+                })
+                .collect_view()
+                .into_any()
+        } else if group == Group::Person {
+            // A buyer who has left the tour counts as nobody: the product is to share out again.
+            let mut buyers: Vec<Option<(String, String)>> = shoppers.iter().cloned().map(Some).collect();
+            buyers.push(None);
+            buyers
+                .into_iter()
+                .filter_map(|buyer| {
+                    let here: Vec<Line> = lines
+                        .iter()
+                        .filter(|l| {
+                            let who = l.purchase.who.as_deref().filter(|w| shoppers.iter().any(|(id, _)| id == w));
+                            who == buyer.as_ref().map(|(id, _)| id.as_str())
+                        })
+                        .cloned()
+                        .collect();
+                    let title = buyer.map(|(_, name)| name).unwrap_or_else(|| t().menu.no_buyer.to_owned());
                     (!here.is_empty()).then(|| view! {
                         <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
                                   show_place=true state=state apply=apply dialog=dialog />
