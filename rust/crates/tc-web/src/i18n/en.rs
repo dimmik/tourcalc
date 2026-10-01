@@ -933,6 +933,8 @@ pub const TEXTS: Texts = Texts {
             format!("A new product joins the catalogue: bought at {place}, for everybody. Products changes that.")
         },
         amount_needed: "Say how much of the new product goes in.",
+        unit_differs: |name, unit| format!("“{name}” is in the catalogue already, counted in {unit}: \
+            choose {unit} in its row, or change the product under Products."),
         template_about: "Dishes, products, places and the daily list, kept for this access code: a new \
             tour’s menu starts from them, and any tour can take them.",
         template_save: "Save as template",

@@ -597,7 +597,7 @@ struct Typed {
 /// A name the menu already has is that product - "rice" typed again is the rice, not a
 /// second one - and so is a name typed twice. A new one is bought at [`place_for_new`], by
 /// everybody, with no category: what Products is there to change.
-fn new_products(menu: &Menu, typed: &[Typed]) -> Result<(Vec<Product>, Vec<Ingredient>), &'static str> {
+fn new_products(menu: &Menu, typed: &[Typed]) -> Result<(Vec<Product>, Vec<Ingredient>), String> {
     let mut made: Vec<Product> = Vec::new();
     let mut items = Vec::new();
     for row in typed {
@@ -606,23 +606,35 @@ fn new_products(menu: &Menu, typed: &[Typed]) -> Result<(Vec<Product>, Vec<Ingre
             continue;
         }
         if name.is_empty() {
-            return Err(t().menu.name_needed);
+            return Err(t().menu.name_needed.into());
         }
         let Some(amount) = parse_number(&row.amount) else {
-            return Err(t().menu.amount_needed);
+            return Err(t().menu.amount_needed.into());
         };
         let own = row.own.as_deref().map(str::trim);
         if own == Some("") {
-            return Err(t().menu.unit_needed);
+            return Err(t().menu.unit_needed.into());
         }
         let key = name.to_lowercase();
         let known = menu
             .products
             .iter()
             .chain(made.iter())
-            .find(|p| p.name.trim().to_lowercase() == key)
-            .map(|p| p.id.clone());
-        let product = match known {
+            .find(|p| p.name.trim().to_lowercase() == key);
+        // The one there is, in the unit it has: "rice, pcs, 2" against rice counted in grams
+        // would be two grams of rice, so it is said rather than done.
+        if let Some(p) = known {
+            let theirs = p.own_unit.as_deref().map(str::trim).filter(|u| !u.is_empty());
+            let same = match (own, theirs) {
+                (Some(a), Some(b)) => a.eq_ignore_ascii_case(b) || a.to_lowercase() == b.to_lowercase(),
+                (None, None) => p.unit == row.unit,
+                _ => false,
+            };
+            if !same {
+                return Err((t().menu.unit_differs)(p.name.trim(), &unit_label(p)));
+            }
+        }
+        let product = match known.map(|p| p.id.clone()) {
             Some(id) => id,
             None => {
                 let id = crate::edit::new_id();
@@ -870,7 +882,7 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
     let meals = RwSignal::new(dish.meals.clone());
     let (rows, next) = rows_of(&dish.ingredients);
     let fresh = new_rows(next);
-    let error = RwSignal::new(None::<&'static str>);
+    let error = RwSignal::new(None::<String>);
     let sure = RwSignal::new(false);
     let id = dish.id.clone();
     let menu_for_save = StoredValue::new(menu.clone());
@@ -880,12 +892,12 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
         move |_| {
             let name = name.get_untracked().trim().to_owned();
             if name.is_empty() {
-                error.set(Some(t().menu.name_needed));
+                error.set(Some(t().menu.name_needed.into()));
                 return;
             }
             let meals = meals.get_untracked();
             if meals.is_empty() {
-                error.set(Some(t().menu.meal_needed));
+                error.set(Some(t().menu.meal_needed.into()));
                 return;
             }
             let typed: Vec<Typed> = fresh.get_untracked().iter().map(NewRow::typed).collect();
@@ -994,7 +1006,7 @@ fn DailyRow(menu: Menu, state: MenuState, apply: Callback<Operation>) -> impl In
             {
                 let (rows, next) = rows_of(&items);
                 let fresh = new_rows(next);
-                let error = RwSignal::new(None::<&'static str>);
+                let error = RwSignal::new(None::<String>);
                 let menu_for_save = StoredValue::new(menu.clone());
                 let save = move |_| {
                     let typed: Vec<Typed> = fresh.get_untracked().iter().map(NewRow::typed).collect();
@@ -1450,7 +1462,7 @@ mod tests {
             &menu,
             &[
                 typed("Перловка", "50", Unit::Gram, None),
-                typed(&format!(" {} ", rice.name.to_uppercase()), "70", Unit::Piece, None),
+                typed(&format!(" {} ", rice.name.to_uppercase()), "70", rice.unit, None),
                 typed("перловка", "10", Unit::Gram, None),
                 typed("Каперсы", "0,5", Unit::Gram, Some("банка")),
                 typed("", "", Unit::Gram, None),
@@ -1468,6 +1480,11 @@ mod tests {
         assert_eq!(items[3].amount, 0.5);
 
         assert!(new_products(&menu, &[typed("Перловка", "", Unit::Gram, None)]).is_err(), "no amount");
+        // The rice there is, typed in pieces: said, not turned into two grams of rice.
+        let why = new_products(&menu, &[typed(&rice.name, "2", Unit::Piece, None)]).expect_err("another unit");
+        assert!(why.contains(rice.name.trim()), "{why}");
+        // A new name twice in two units: the same.
+        assert!(new_products(&menu, &[typed("Перловка", "50", Unit::Gram, None), typed("перловка", "1", Unit::Piece, None)]).is_err());
         assert!(new_products(&menu, &[typed("", "50", Unit::Gram, None)]).is_err(), "no name");
     }
 

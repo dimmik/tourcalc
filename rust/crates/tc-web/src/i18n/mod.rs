@@ -292,6 +292,8 @@ pub struct MenuTexts {
     /// Where such a product goes, by the name of its place.
     pub new_product_note: fn(&str) -> String,
     pub amount_needed: &'static str,
+    /// A product typed as new that the catalogue has already, in another unit: its name, its unit.
+    pub unit_differs: fn(&str, &str) -> String,
     pub template_about: &'static str,
     pub template_save: &'static str,
     pub template_take: &'static str,
