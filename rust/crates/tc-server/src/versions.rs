@@ -139,7 +139,7 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
         }
     }
     said.extend(few(plan));
-    // The shopping: ticks and who buys.
+    // The shopping: ticks, who buys and where.
     let product = |id: &str| is.product(id).or_else(|| was.product(id)).map_or(id.to_owned(), |p| p.name.clone());
     let person = |id: &Option<String>| {
         id.as_deref()
@@ -149,6 +149,7 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
     let mut bought = Vec::new();
     let mut unbought = Vec::new();
     let mut buyers = Vec::new();
+    let mut places = Vec::new();
     for p in &is.purchases {
         let before = was.purchase(&p.product).cloned().unwrap_or_default();
         if p.bought && !before.bought {
@@ -160,6 +161,9 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
         if p.who != before.who {
             buyers.push(format!("{} -> {}", product(&p.product), person(&p.who)));
         }
+        if p.place != before.place {
+            places.push(format!("{} at {}", product(&p.product), p.place.as_deref().unwrap_or("its usual place")));
+        }
     }
     if !bought.is_empty() {
         said.push(format!("bought {}", few(bought).join(", ")));
@@ -168,6 +172,7 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
         said.push(format!("not bought {}", few(unbought).join(", ")));
     }
     said.extend(few(buyers));
+    said.extend(few(places));
     // The catalogue: what was added, taken out or changed, by name.
     catalogue(&mut said, "dish", &was.dishes, &is.dishes, |d| (d.id.as_str(), d.name.as_str()));
     catalogue(&mut said, "product", &was.products, &is.products, |p| (p.id.as_str(), p.name.as_str()));
@@ -467,6 +472,10 @@ mod tests {
         assert_eq!(describe_menu(&tour(4400, 117_500), &before).as_deref(), Some("Menu on"));
         let renamed = with_menu(&before, |m| m.dishes[0].name = "Pilaf".into());
         assert_eq!(describe_menu(&before, &renamed).as_deref(), Some("Menu: dinner day 1 Plov -> Pilaf; dish changed: Pilaf"));
+        let elsewhere = with_menu(&before, |m| m.set_bought_at(&["lamb".into()], "Lidl"));
+        assert_eq!(describe_menu(&before, &elsewhere).as_deref(), Some("Menu: Lamb at Lidl"));
+        let back = with_menu(&elsewhere, |m| m.set_bought_at(&["lamb".into()], ""));
+        assert_eq!(describe_menu(&elsewhere, &back).as_deref(), Some("Menu: Lamb at its usual place"));
     }
 
     #[test]

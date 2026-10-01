@@ -55,16 +55,19 @@ pub enum Group {
     None,
     Place,
     Category,
+    /// A card per buyer, and one of what nobody has taken yet.
+    Person,
 }
 
 impl Group {
-    const ALL: [Group; 3] = [Group::None, Group::Place, Group::Category];
+    const ALL: [Group; 4] = [Group::None, Group::Place, Group::Category, Group::Person];
 
     fn name(self) -> &'static str {
         match self {
             Group::None => t().menu.group_none,
             Group::Place => t().menu.group_place,
             Group::Category => t().menu.group_category,
+            Group::Person => t().menu.group_person,
         }
     }
 }
@@ -1084,6 +1087,9 @@ fn Shopping(
     };
 
     let categories = menu.categories();
+    let places = menu.shop_places();
+    let place_options = places.iter().map(|p| view! { <option value=p.clone()></option> }).collect_view();
+    let place_order = |name: &str| places.iter().position(|p| p.to_lowercase() == name.to_lowercase()).unwrap_or(usize::MAX);
     // Everything to buy, owned, with what has been said about each.
     let lines: Vec<Line> = menu
         .shopping(&eating)
@@ -1094,7 +1100,7 @@ fn Shopping(
             if let Some(when) = daily {
                 why.push(format!("{} ×{}", when_name(when), menu.days_for(when)));
             }
-            let place = menu.places.iter().position(|p| p.id == n.product.place);
+            let place_name = menu.bought_at(n.product);
             let purchase = menu.purchase(&n.product.id).cloned().unwrap_or_default();
             let buyer = purchase
                 .who
@@ -1102,7 +1108,6 @@ fn Shopping(
                 .and_then(|w| shoppers.iter().find(|(id, _)| id == w))
                 .map(|(_, name)| name.clone())
                 .unwrap_or_default();
-            let place_name = place.map(|i| menu.places[i].name.clone()).unwrap_or_default();
             let category = n.product.category.as_deref().map(str::trim).unwrap_or("").to_owned();
             let hay = folded(&format!("{} {} {} {} {} {}", n.product.name, place_name, category, buyer, whom(n.product.eaters), why.join(" ")));
             Line {
@@ -1111,10 +1116,10 @@ fn Shopping(
                 purchase,
                 why: why.join(" · "),
                 hay,
+                place_order: place_order(&place_name),
                 place: place_name,
                 category_order: categories.iter().position(|c| *c == category).unwrap_or(usize::MAX),
                 category,
-                place_order: place.unwrap_or(usize::MAX),
                 order: menu.products.iter().position(|p| p.id == n.product.id).unwrap_or(usize::MAX),
             }
         })
@@ -1177,19 +1182,46 @@ fn Shopping(
                     let title = if category.is_empty() { t().menu.no_category.to_owned() } else { category };
                     (!here.is_empty()).then(|| view! {
                         <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
-                                  show_place=true state=state apply=apply dialog=dialog />
+                                  state=state apply=apply dialog=dialog />
+                    })
+                })
+                .collect_view()
+                .into_any()
+        } else if group == Group::Person {
+            // A buyer who has left the tour counts as nobody: the product is to share out again.
+            let mut buyers: Vec<Option<(String, String)>> = shoppers.iter().cloned().map(Some).collect();
+            buyers.push(None);
+            buyers
+                .into_iter()
+                .filter_map(|buyer| {
+                    let here: Vec<Line> = lines
+                        .iter()
+                        .filter(|l| {
+                            let who = l.purchase.who.as_deref().filter(|w| shoppers.iter().any(|(id, _)| id == w));
+                            who == buyer.as_ref().map(|(id, _)| id.as_str())
+                        })
+                        .cloned()
+                        .collect();
+                    let title = buyer.map(|(_, name)| name).unwrap_or_else(|| t().menu.no_buyer.to_owned());
+                    (!here.is_empty()).then(|| view! {
+                        <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
+                                  state=state apply=apply dialog=dialog />
                     })
                 })
                 .collect_view()
                 .into_any()
         } else if group == Group::Place {
-            menu.places
-                .iter()
+            // Where the shopping says, not the catalogue: Sasha's beer from Lidl is Lidl's.
+            let mut titles = places.clone();
+            titles.push(String::new());
+            titles
+                .into_iter()
                 .filter_map(|place| {
-                    let here: Vec<Line> = lines.iter().filter(|l| l.product.place == place.id).cloned().collect();
+                    let here: Vec<Line> = lines.iter().filter(|l| l.place.to_lowercase() == place.to_lowercase()).cloned().collect();
+                    let title = if place.is_empty() { t().menu.no_place.to_owned() } else { place };
                     (!here.is_empty()).then(|| view! {
-                        <ListCard tour=tour.clone() title=place.name.clone() lines=here shoppers=shoppers.clone()
-                                  show_place=false state=state apply=apply dialog=dialog />
+                        <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
+                                  state=state apply=apply dialog=dialog />
                     })
                 })
                 .collect_view()
@@ -1197,7 +1229,7 @@ fn Shopping(
         } else {
             view! {
                 <ListCard tour=tour.clone() title=t().menu.category.to_owned() lines=lines shoppers=shoppers.clone()
-                          show_place=true state=state apply=apply dialog=dialog />
+                          state=state apply=apply dialog=dialog />
             }
             .into_any()
         }
@@ -1206,6 +1238,7 @@ fn Shopping(
     view! {
         {who_am_i}
         {arrange}
+        <datalist id=PLACES_LIST>{place_options}</datalist>
         {search_box(state.shop_find, t().menu.find_product)}
         <Show when=move || !anything_shown()>
             <div class="tcn-empty">
@@ -1217,6 +1250,9 @@ fn Shopping(
     .into_any()
 }
 
+/// The places to pick from in a product's "where": the catalogue's and the ones typed.
+const PLACES_LIST: &str = "tcw-shop-places";
+
 /// One product on the list.
 #[derive(Clone)]
 struct Line {
@@ -1227,7 +1263,8 @@ struct Line {
     why: String,
     /// Everything a search looks at - name, place, buyer, dishes - [`folded`].
     hay: String,
-    /// Where it is bought, and that place's and the product's own place in the catalogue.
+    /// Where it is bought - its purchase's word, else its catalogue place - and that place's
+    /// and the product's own place in the catalogue.
     place: String,
     place_order: usize,
     /// Its category, "" for none, and that category's place among the tour's.
@@ -1298,11 +1335,9 @@ fn expense_for(tour: &Tour, who: Option<&str>, description: String, products: Ve
 #[component]
 fn ListCard(
     tour: Tour,
-    /// The place, or "Groceries" for the one list - also what a shared receipt is called.
+    /// The place, the buyer or the category, or "Groceries" for the one list.
     title: String,
     lines: Vec<Line>,
-    /// Say each product's place: in one list they are mixed.
-    show_place: bool,
     shoppers: Vec<(String, String)>,
     state: MenuState,
     apply: Callback<Operation>,
@@ -1342,7 +1377,6 @@ fn ListCard(
         .collect();
     let together = {
         let tour = tour.clone();
-        let place_name = title.clone();
         move || {
             let these: Vec<&Line> = unrecorded.iter().filter(|l| shown(state, l.purchase.who.as_deref())).collect();
             if these.len() < 2 {
@@ -1350,6 +1384,12 @@ fn ListCard(
             }
             let first = these[0].purchase.who.clone();
             let who = if these.iter().all(|l| l.purchase.who == first) { first } else { state.me.get() };
+            // Named after the shop, as one receipt is: the place they share, else "Groceries" -
+            // a buyer's or a category's card is no shop.
+            let place_name = match these.iter().all(|l| l.place.to_lowercase() == these[0].place.to_lowercase()) {
+                true if !these[0].place.is_empty() => these[0].place.clone(),
+                _ => t().menu.category.to_owned(),
+            };
             let names: Vec<String> = these.iter().map(|l| l.product.name.to_lowercase()).collect();
             let description = if names.len() > 3 {
                 format!("{}: {} +{}", place_name, names[..3].join(", "), names.len() - 3)
@@ -1392,6 +1432,12 @@ fn ListCard(
                 move |ev: leptos::ev::Event| {
                     let v = event_target_value(&ev);
                     change(MenuEdit::Buyer { products: vec![id.clone()], who: (!v.is_empty()).then_some(v) });
+                }
+            };
+            let put_place = {
+                let id = id.clone();
+                move |ev: leptos::ev::Event| {
+                    change(MenuEdit::BuyAt { products: vec![id.clone()], place: event_target_value(&ev) });
                 }
             };
             let tick = {
@@ -1458,13 +1504,16 @@ fn ListCard(
                         <span class="tcw-buy-name">
                             <span class="tcw-buy-title">{line.product.name.clone()}</span>
                             <small class="tcw-buy-why">
-                                {show_place.then(|| view! { <span class="tcw-buy-place">{line.place.clone()}</span> " · " })}
                                 {whom(line.product.eaters)} " · "
                                 {line.why.clone()}
                             </small>
                         </span>
                         <span class="tcw-buy-amount">{quantity_of(line.amount, &line.product)}</span>
                         <span class="tcw-buy-who">
+                            <input type="text" class="tcn-input tcw-buy-at" list=PLACES_LIST
+                                   prop:value=line.purchase.place.clone().unwrap_or_default()
+                                   placeholder=if line.place.is_empty() { t().menu.where_buy.to_owned() } else { line.place.clone() }
+                                   title=t().menu.where_buy_title on:change=put_place />
                             <select class="tcn-input" title=t().menu.buyer on:change=pick>
                                 <option value="" selected=who.is_none()>{t().menu.nobody_yet}</option>
                                 {options}

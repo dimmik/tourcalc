@@ -203,8 +203,8 @@ pub struct Menu {
     pub day_notes: Vec<String>,
 }
 
-/// One product's shopping: who buys and pays for it, whether it is bought, and the expense
-/// it was recorded as. Made the first time any of that is said, so a product nobody has
+/// One product's shopping: who buys and pays for it, where, whether it is bought, and the
+/// expense it was recorded as. Made the first time any of that is said, so a product nobody has
 /// touched has none.
 ///
 /// Per product, not per place: the market is often two people's - one takes the meat, the
@@ -215,6 +215,10 @@ pub struct Purchase {
     pub product: String,
     /// Who buys it and pays for it, if anybody has taken it.
     pub who: Option<String>,
+    /// Where it is bought, as whoever buys it says - "Lidl", "delivery" - if not at the
+    /// product's own place from the catalogue. Text, not a catalogue place: one person's
+    /// "Lidl" is nobody else's business, and it does not go back into the catalogue.
+    pub place: Option<String>,
     pub bought: bool,
     /// The expense it was recorded as - one receipt can be several products', so several
     /// can point at one expense. Only a pointer: whether the expense is still there is the
@@ -548,6 +552,44 @@ impl Menu {
                 self.purchases.last_mut().expect("just pushed")
             }
         }
+    }
+
+    /// Where a product is bought: where its purchase says, else its place in the catalogue.
+    pub fn bought_at(&self, product: &Product) -> String {
+        match self.purchase(&product.id).and_then(|p| p.place.as_deref()) {
+            Some(place) => place.to_owned(),
+            None => self.places.iter().find(|p| p.id == product.place).map(|p| p.name.clone()).unwrap_or_default(),
+        }
+    }
+
+    /// Says where these products are bought. Blank, or the product's own place, is that
+    /// place again - so a typed "Market" does not stay behind when the catalogue's market is
+    /// renamed.
+    pub fn set_bought_at(&mut self, products: &[String], place: &str) {
+        let place = place.trim();
+        for id in products {
+            let own = self
+                .products
+                .iter()
+                .find(|p| p.id == *id)
+                .and_then(|p| self.places.iter().find(|x| x.id == p.place))
+                .map(|x| x.name.trim().to_lowercase());
+            let text = (!place.is_empty() && own.as_deref() != Some(place.to_lowercase().as_str())).then(|| place.to_owned());
+            self.purchase_mut(id).place = text;
+        }
+    }
+
+    /// Every place there is to shop at: the catalogue's, in its order, and then the ones
+    /// typed in the shopping, as first said - each once, whatever its case.
+    pub fn shop_places(&self) -> Vec<String> {
+        let mut names: Vec<String> = Vec::new();
+        let typed = self.purchases.iter().filter_map(|p| p.place.clone());
+        for name in self.places.iter().map(|p| p.name.clone()).chain(typed) {
+            if !names.iter().any(|n| n.to_lowercase() == name.to_lowercase()) {
+                names.push(name);
+            }
+        }
+        names
     }
 
     /// The products bought at a place, in the catalogue's order.
@@ -997,5 +1039,22 @@ mod tests {
         m.set_day_note(3, "");
         assert_eq!(m.day_notes, vec!["arrival".to_owned()]);
         assert!(m.as_template().day_notes.is_empty(), "a template is a catalogue, not a trip");
+    }
+
+    #[test]
+    fn a_purchase_says_where_it_is_bought_and_its_own_place_is_none() {
+        let mut m = menu();
+        let lamb = m.products[0].clone();
+        assert_eq!(m.bought_at(&lamb), "Market");
+        m.set_bought_at(&["lamb".into(), "rice".into()], " Lidl ");
+        assert_eq!(m.bought_at(&lamb), "Lidl");
+        assert_eq!(m.shop_places(), vec!["Market".to_owned(), "Lidl".to_owned()]);
+        // The product's own place, in any case, is no place of the purchase's own.
+        m.set_bought_at(&["lamb".into()], "market");
+        assert_eq!(m.purchase("lamb").and_then(|p| p.place.clone()), None);
+        m.set_bought_at(&["rice".into()], "");
+        assert_eq!(m.purchase("rice").and_then(|p| p.place.clone()), None);
+        // Nor is it the catalogue's: the place list stays as it was.
+        assert_eq!(m.places.len(), 1);
     }
 }
