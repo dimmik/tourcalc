@@ -257,12 +257,23 @@ async fn add_under(
             crate::auth::code_md5(code)
         }
     } else {
-        auth.access_codes()
-            .next()
+        // One of the caller's own codes: the one asked for, if the caller holds it - a token
+        // carries every code its holder has, and a template saved, or a tour copied, from a
+        // tour under the second of them belongs under the second, not the first. Any other
+        // code is not the caller's to file under, and the first of theirs is used, as always.
+        let asked = if already_md5.is_some() {
+            code.trim().to_uppercase()
+        } else {
+            crate::auth::code_md5(code.trim())
+        };
+        let mine: Vec<&str> = auth.access_codes().collect();
+        mine.iter()
+            .find(|c| c.eq_ignore_ascii_case(&asked))
+            .or(mine.first())
             .ok_or_else(|| {
                 ApiError::Forbidden("No valid access code associated with this token".into())
             })?
-            .to_owned()
+            .to_string()
     };
 
     let mut tour = Tour::from_json(&body.to_string())

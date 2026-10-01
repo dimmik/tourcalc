@@ -1054,3 +1054,25 @@ async fn the_list_says_what_is_left_to_settle() {
         .sum();
     assert_eq!(before, by_hand, "the list and the tour screen agree");
 }
+
+/// A token with two codes files a new tour under the one asked for - a template saved from a
+/// tour under the second code went under the first, where that code already had one - and a
+/// code the caller does not hold still gets them the first of their own.
+#[tokio::test]
+async fn a_new_tour_goes_under_the_asked_code_when_it_is_the_callers() {
+    const OTHER: &str = "1BDF237AD08D68F6B63D9555425BF6E0";
+    let app = app();
+    let (status, token) = get(&app, &format!("/api/Auth/token/code/{OTHER};{CODE}/md5"), None).await;
+    assert_eq!(status, StatusCode::OK);
+    let body = serde_json::json!({ "Name": "Second pile", "Persons": [], "Spendings": [] });
+
+    let (status, id) = send(&app, "POST", &format!("/api/Tour/add/{CODE}/md5"), Some(&token), Some(body.clone())).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(fetch_tour(&app, &token, &id).await["AccessCodeMD5"], CODE, "the second code, as asked");
+
+    let (_, id) = send(&app, "POST", &format!("/api/Tour/add/{OTHER}/md5"), Some(&token), Some(body.clone())).await;
+    assert_eq!(fetch_tour(&app, &token, &id).await["AccessCodeMD5"], OTHER);
+
+    let (_, id) = send(&app, "POST", "/api/Tour/add/ABCDEF0123456789ABCDEF0123456789/md5", Some(&token), Some(body)).await;
+    assert_eq!(fetch_tour(&app, &token, &id).await["AccessCodeMD5"], OTHER, "not theirs: their first");
+}
