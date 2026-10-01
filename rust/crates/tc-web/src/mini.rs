@@ -160,7 +160,7 @@ pub fn MiniTour(
                 <button type="button" class="tcm-btn"
                         on:click={
                             let t = for_head.clone();
-                            move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::of(&t))))
+                            move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::for_dialog(&t))))
                         }>{t().mini.edit}</button>
                 <button type="button" class="tcm-btn"
                         on:click=move |_| dialog.set(Some(Dialog::Currencies))>{t().mini.currencies}</button>
@@ -1260,6 +1260,9 @@ pub fn MiniList(
     copy_json: Callback<Tour>,
     bells: crate::push::Bells,
 ) -> impl IntoView {
+    // Folded until asked, as in the roomy list; outside the list's redraw, so a refresh of
+    // the list does not fold it again.
+    let templates_open = RwSignal::new(false);
     let more: RwSignal<Option<String>> = RwSignal::new(None);
     // "+ tour" opens the fields to type its name in: the cursor is there already.
     let name_box = NodeRef::<leptos::html::Input>::new();
@@ -1339,7 +1342,32 @@ pub fn MiniList(
 
         {move || {
             let needle = search.get().trim().to_lowercase();
-            let shown: Vec<Tour> = tours
+            // The menu templates under the tours, apart - see the roomy list.
+            let (templates, trips): (Vec<Tour>, Vec<Tour>) =
+                tours.iter().cloned().partition(crate::menu::is_template);
+            let count = templates.len();
+            let templates = (!templates.is_empty()).then(|| view! {
+                <button type="button" class="tcm-caption is-band tcw-fold-band"
+                        aria-expanded=move || templates_open.get().to_string()
+                        on:click=move |_| templates_open.update(|o| *o = !*o)>
+                    {move || if templates_open.get() { "▾ " } else { "▸ " }}
+                    {t().list.menu_templates} " " <span class="tcm-count">{count}</span>
+                </button>
+                <div class="tcm-list" style:display=move || if templates_open.get() { "" } else { "none" }>
+                    {templates
+                        .into_iter()
+                        .map(|tour| {
+                            let owners = crate::menu::template_owners(&tour, &trips);
+                            view! {
+                                <div class="tcm-caption">{owners}</div>
+                                <MiniTourRow tour=tour more=more remove=remove
+                                             clone_it=clone_it copy_json=copy_json bells=bells />
+                            }
+                        })
+                        .collect_view()}
+                </div>
+            });
+            let shown: Vec<Tour> = trips
                 .iter()
                 .filter(|t| {
                     // Searching finds the archived ones too; see the roomy list.
@@ -1364,6 +1392,7 @@ pub fn MiniList(
                             t().mini.nothing_matches
                         }}
                     </div>
+                    {templates}
                 }.into_any();
             }
 
@@ -1377,6 +1406,7 @@ pub fn MiniList(
                         })
                         .collect_view()}
                 </div>
+                {templates}
             }.into_any()
         }}
     }

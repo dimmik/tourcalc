@@ -362,9 +362,11 @@ pub const TEXTS: Texts = Texts {
         local_copy: "local copy",
         stale_hint: |when| format!("The server could not be reached. This is the copy stored on \
             this device at {when}."),
-        share_hint: "Copy a link that opens this tour",
+        share_hint: "Copy a link that opens this tour; then, if you like, one to this tab",
         link_copied: "link copied",
         share_link: "share link",
+        share_tab: |tab| format!("or to the {tab} tab"),
+        tab_link_copied: "tab link copied",
         and_more: |first, n| format!("{first}, and {n} more"),
         not_taken: |count, what, why| format!(
             "The server did not take {}: {what}. It said: {why}",
@@ -377,6 +379,13 @@ pub const TEXTS: Texts = Texts {
         lost_one: |what| format!("{what} was deleted by somebody else, so your edit to it was dropped."),
         lost_many: |what| format!("{what} were deleted by somebody else, so your edits to them were \
             dropped."),
+        unreadable_edits: |n| if n == 1 {
+            "An edit saved on this device by another version of the app cannot be read by this \
+            one, so it was not sent.".to_owned()
+        } else {
+            format!("{n} edits saved on this device by another version of the app cannot be read \
+                by this one, so they were not sent.")
+        },
         dismiss: "Dismiss",
         offline: "Offline — showing what this device had last",
         never_opened: "This tour has not been opened on this device before, and there is no \
@@ -604,6 +613,9 @@ pub const TEXTS: Texts = Texts {
         cannot_write_tour: "could not write that tour out",
         copied: "Copied — the JSON is in the clipboard.",
         delete_question: |name| format!("Delete '{name}' and everything in it?"),
+        delete_template_question: "This is the menu template of the access code: new tours start \
+            their menu from it, and “Take from template” gives it to any tour. Without it they get \
+            the built-in catalogue. Tours made already keep their menus. Delete the template?",
         search: "Search",
         clear: "Clear",
         new_tour: "+ New tour",
@@ -623,6 +635,13 @@ pub const TEXTS: Texts = Texts {
         no_tours: "No tours yet",
         nothing_matches: "Nothing matches",
         your_tours: "Your tours",
+        menu_templates: "Menu templates",
+        template_for: |names, more| if more == 0 {
+            format!("for: {names}")
+        } else {
+            format!("for: {names} and {more} more")
+        },
+        template_for_none: "no tours under its code",
         orphans: |n| if n == 1 {
             "Edits waiting for 1 tour that is not in your list:".to_owned()
         } else {
@@ -888,6 +907,58 @@ pub const TEXTS: Texts = Texts {
             shopping» to see it.",
         category: "Groceries",
         catalogue: "Catalogue",
+        template_title: "Menu template",
+        transfer_title: "To another access code",
+        copy_dish: "make a copy",
+        copy_dish_title: "A copy of this dish, to change: plov with buckwheat starts as plov",
+        copy_of: |name| format!("{name} (copy)"),
+        new_dishes_note: "One dish a row; what goes in each is added afterwards, with Edit.",
+        clear_catalogue: "Clear the catalogue",
+        more_dish: "+ another dish",
+        day_note_add: "✎ note",
+        day_note_title: "A word for the day: arrival, radial hikes, leaving",
+        day_note_hint: "arrival, radial hikes, leaving…",
+        clear_dishes: "Clear the dishes",
+        clear_dishes_q: "Delete every dish? The products, the daily list and the places stay; the \
+            meals they were planned on become “— nothing —”. The tour's versions keep them.",
+        clear_daily: "Clear the daily list",
+        clear_daily_q: "Take everything off the daily list? The products stay in the catalogue.",
+        clear_q: "Delete every dish, product and the daily list? The places stay; the plan and \
+            what was bought go with them. The tour's versions keep the old catalogue.",
+        transfer_about: "“Copy menu” puts this tour’s dishes, products, places and daily list on the \
+            clipboard — no plan, no shopping, no people. Send it on; in a tour under the other code, \
+            “Paste menu” puts it in place of the catalogue, and there it can be saved as the template.",
+        copy_menu: "Copy menu",
+        menu_copied: "menu copied",
+        paste_menu: "Paste menu",
+        paste_here: "Paste the copied menu here",
+        take_pasted: "Replace the catalogue",
+        paste_q: "Replace this tour’s dishes, products, places and daily list with the pasted ones? \
+            Meals with a dish they do not have are planned anew.",
+        not_a_menu: "This does not look like a menu: copy it with “Copy menu”.",
+        typed_product: "new product",
+        new_product_note: |place| if place.is_empty() {
+            "A new product joins the catalogue for everybody, with no place; Products changes that.".to_owned()
+        } else {
+            format!("A new product joins the catalogue: bought at {place}, for everybody. Products changes that.")
+        },
+        amount_needed: "Say how much of the new product goes in.",
+        unit_differs: |name, unit| format!("“{name}” is in the catalogue already, counted in {unit}: \
+            choose {unit} in its row, or change the product under Products."),
+        template_about: "Dishes, products, places and the daily list, kept for this access code: a new \
+            tour’s menu starts from them, and any tour can take them.",
+        template_save: "Save as template",
+        template_take: "Take from template",
+        template_replace_q: "Replace the template with this tour’s dishes, products, places and daily \
+            list? The template’s versions keep the old one.",
+        template_take_q: "Replace this tour’s dishes, products, places and daily list with the \
+            template’s? Meals with a dish the template does not have are planned anew.",
+        template_saved: "Saved as the template.",
+        template_saved_here: "Saved on this device; the template gets it when the network is back.",
+        template_none: "No template under this access code yet — “Save as template” makes one.",
+        template_name: "📋 Menu template — do not delete",
+        template_is_this: "This is the menu template of this access code: a new tour’s menu starts \
+            from these dishes, products and places, and any tour can take them. Change them here.",
         dishes: "Dishes",
         per_portion_title: "for one portion",
         per_portion_day_title: "for one portion a day",

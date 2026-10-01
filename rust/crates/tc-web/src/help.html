@@ -227,7 +227,12 @@
         <p>
             <b>Plan</b> is the days, each with breakfast, lunch and dinner. Pick a dish from
             the list; the <b>On every day</b> row puts one dish on that meal on every day at
-            once, and “— nothing —” is a meal eaten out. <b>−</b> and <b>+</b> change the
+            once (the main one: what was added beside it stays), and “— nothing —” is a meal
+            eaten out. A meal can have several dishes — plov, a salad and mulled wine: <b>+
+            another dish</b> under it adds one, and its cross takes it off; each is bought for
+            in full. <b>✎ note</b> by a day's name gives it a word of its own — “arrival”,
+            “radial hikes”, “leaving” — shown after its date or number. <b>−</b> and <b>+</b>
+            change the
             number of days, which starts as the tour's length. Below is what is bought every
             day whatever is cooked: vegetables, bread, water, wine.
         </p>
@@ -271,7 +276,11 @@
             The <b>Catalogue</b> is what all this is worked out from; its search unfolds a
             folded section when the match is in it. <b>Dishes</b>: a name,
             which meals it can be (several at once — sandwiches for breakfast and for lunch),
-            and what goes in: a product and how much of it per portion. <b>Every day</b> is
+            and what goes in: a product and how much of it per portion — one from the list, or a
+            new one typed into the blank row at the end with its unit (pearl barley, g, 50); it
+            joins the products, bought at the supermarket (or the first place there is) by
+            everybody, and a name the list already has is that product: the row offers the
+            catalogue's products as you type, and one picked brings its own unit. <b>Every day</b> is
             what is bought daily whatever is cooked, and for which days: every day, or with
             breakfast, lunch or dinner. <b>Products</b>: what they are counted in
             (g, ml, pcs, or a unit of your own — “btl”, “can”: a portion may be a fraction of
@@ -285,6 +294,30 @@
             the plan by itself, only when chosen. A deleted dish leaves the plan: its
             meals become “— nothing —”.
         </p>
+        <p>
+            <b>+ Dish</b> adds dishes by the list — a name and its meals a row, a blank row at the
+            end — with nothing in them yet; what goes in each is added afterwards with
+            <b>Edit</b>, by several people at once if you like. <b>make a copy</b> under a dish makes one
+            right under it and opens it: plov with buckwheat starts as plov. <b>Clear the
+            dishes</b> and <b>Clear the daily list</b>, under each, empty just that, and <b>Clear
+            the catalogue</b>, at the very bottom, deletes every dish, product and the daily list,
+            keeping the places; the tour's versions keep what was there.
+        </p>
+        <p>
+            Under the catalogue, <b>Save as template</b> keeps its dishes, products, places and
+            daily list for the access code — as a tour of its own, “📋 Menu template”, listed
+            apart under <b>Menu templates</b> — folded at
+            first, each saying which tours it is for, which tells two codes' templates apart; saving again replaces it, and its versions keep
+            the old one. A tour under that code that switches its menu on starts from the
+            template instead of the built-in one, and <b>Take from template</b> gives any tour
+            the template's catalogue: the plan keeps the dishes the template has, the rest of its
+            meals are planned again. The template is edited like any catalogue, by opening it.
+            There is one per code: a copy of it is an ordinary tour, and deleting it asks twice.
+            To take a menu to another access code, <b>Copy menu</b> puts the catalogue — no plan,
+            no shopping, no people — on the clipboard as text to send on; in a tour under the
+            other code, <b>Paste menu</b> takes it (a tour's “Copy JSON” works too), and there it
+            can be saved as that code's template.
+        </p>
     </section>
 
     <section class="tcn-help-sec" id="sharing">
@@ -293,6 +326,13 @@
             <b>share link</b> in the tour header copies an invite link to the clipboard.
             Opening that link logs the other person in by itself — no code to type, no account
             to create.
+        </p>
+        <p>
+            <b>share link</b> copies the tour's link, and for a few seconds offers <b>or to the
+            … tab</b> — the tab that is open: the same invitation, landing on the menu, say,
+            instead of wherever the tour opens. The
+            address bar names the open tab too (<code>…/tour/…/menu</code>), for somebody
+            already signed in.
         </p>
         <div class="tcn-help-note">
             The link carries the <b>access code</b> of the tour, and that code opens

@@ -170,6 +170,8 @@ pub fn TourListPage() -> impl IntoView {
     let new_code = RwSignal::new(String::new());
     let new_json = RwSignal::new(String::new());
     let show_archived = RwSignal::new(false);
+    // The menu templates are seldom what the list is opened for: folded until asked.
+    let templates_open = RwSignal::new(false);
     let trouble = RwSignal::new(String::new());
     let done = crate::ui::Brief::new();
     let busy = RwSignal::new(false);
@@ -292,7 +294,13 @@ pub fn TourListPage() -> impl IntoView {
                 return;
             };
             if let Some(obj) = body.as_object_mut() {
-                obj.insert("Name".into(), (t().list.clone_of)(&tour.name).into());
+                // A copy of the menu template is a tour, not a second template: with two, which
+                // one "Save as template" and "Take from template" mean would be the server's
+                // order to decide. Nor is it named "do not delete".
+                let template = crate::menu::is_template(&tour);
+                let name = if template { t().menu.template_title } else { tour.name.as_str() };
+                obj.insert("Name".into(), (t().list.clone_of)(name).into());
+                obj.retain(|k, _| !k.eq_ignore_ascii_case(tc_core::extras::MENU_TEMPLATE));
                 for key in ["Id", "GUID", "StateGUID"] {
                     obj.remove(key);
                 }
@@ -339,11 +347,17 @@ pub fn TourListPage() -> impl IntoView {
     });
 
     let remove = Callback::new(move |tour: Tour| {
-        let question = (t().list.delete_question)(&tour.name);
-        let confirmed = web_sys::window()
-            .and_then(|w| w.confirm_with_message(&question).ok())
-            .unwrap_or(false);
-        if !confirmed {
+        let ask = |question: &str| {
+            web_sys::window()
+                .and_then(|w| w.confirm_with_message(question).ok())
+                .unwrap_or(false)
+        };
+        if !ask(&(t().list.delete_question)(&tour.name)) {
+            return;
+        }
+        // The template is not one trip but where every next one's menu starts: asked twice,
+        // the second time saying so.
+        if crate::menu::is_template(&tour) && !ask(t().list.delete_template_question) {
             return;
         }
         trouble.set(String::new());
@@ -468,6 +482,31 @@ pub fn TourListPage() -> impl IntoView {
             Load::Ready(mut tours) => {
                 order_tours(&mut tours, order_by.get(), downwards.get());
                 let needle = search.get().trim().to_lowercase();
+                // The menu templates are not trips: a section of their own, under the tours.
+                let (templates, tours): (Vec<Tour>, Vec<Tour>) =
+                    tours.into_iter().partition(crate::menu::is_template);
+                let templates = (!templates.is_empty()).then(|| view! {
+                    <div class="tcn-section">
+                        <button type="button" class="tcn-section-title tcw-fold-title"
+                                aria-expanded=move || templates_open.get().to_string()
+                                on:click=move |_| templates_open.update(|o| *o = !*o)>
+                            <span class="tcw-cat-caret">{move || if templates_open.get() { "▾" } else { "▸" }}</span>
+                            {t().list.menu_templates} " " <span class="tcn-count">{templates.len()}</span>
+                        </button>
+                        <div class="tcn-tourgrid" style:display=move || if templates_open.get() { "" } else { "none" }>
+                            {templates
+                                .iter()
+                                .map(|tpl| view! {
+                                    <div class="tcw-template-cell">
+                                        <div class="tcw-template-for">{crate::menu::template_owners(tpl, &tours)}</div>
+                                        <Row tour=tpl.clone() remove=remove clone_it=clone
+                                             copy_json=copy_json bells=bells />
+                                    </div>
+                                })
+                                .collect_view()}
+                        </div>
+                    </div>
+                });
                 let shown: Vec<Tour> = tours
                     .into_iter()
                     // Archived tours are out of the way until asked for - that is what
@@ -491,7 +530,7 @@ pub fn TourListPage() -> impl IntoView {
                     })
                     .collect();
 
-                if shown.is_empty() {
+                let main = if shown.is_empty() {
                     view! {
                         <div class="tcn-section">
                             <div class="tcn-empty">
@@ -519,7 +558,8 @@ pub fn TourListPage() -> impl IntoView {
                             </div>
                         </div>
                     }.into_any()
-                }
+                };
+                view! { {main} {templates} }.into_any()
             }
         }}
 

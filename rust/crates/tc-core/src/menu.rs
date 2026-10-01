@@ -128,17 +128,56 @@ pub struct Dish {
     pub ingredients: Vec<Ingredient>,
 }
 
-/// One meal of one day. `dish: None` is "nothing cooked" - eating out, say - which is not
-/// the same as a day nobody has planned yet: that one has no slot at all, and is filled in
-/// when the days are.
+/// One meal of one day: what is cooked for it, in order - plov, and a salad, and mulled
+/// wine. No dishes is "nothing cooked" - eating out, say - which is not the same as a day
+/// nobody has planned yet: that one has no slot at all, and is filled in when the days are.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(from = "SlotWire", into = "SlotWire")]
 pub struct Slot {
     /// From 1.
     pub day: u32,
     pub meal: Meal,
+    pub dishes: Vec<String>,
+}
+
+impl Slot {
+    /// One dish, or nothing.
+    pub fn one(day: u32, meal: Meal, dish: Option<String>) -> Slot {
+        Slot { day, meal, dishes: dish.into_iter().collect() }
+    }
+}
+
+/// A slot as stored. A meal had one dish before it could have several, and a client from
+/// then reads `Dish` and writes `Dish` only - so the first dish is always written there, and
+/// `Dishes` only when there are more. Read back, `Dishes` wins when it is there: a client
+/// that knows only `Dish` drops it on saving, and then `Dish` is the whole story.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct SlotWire {
+    day: u32,
+    meal: Meal,
     #[serde(default)]
-    pub dish: Option<String>,
+    dish: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    dishes: Vec<String>,
+}
+
+impl From<SlotWire> for Slot {
+    fn from(w: SlotWire) -> Slot {
+        let dishes = if w.dishes.is_empty() { w.dish.into_iter().collect() } else { w.dishes };
+        Slot { day: w.day, meal: w.meal, dishes }
+    }
+}
+
+impl From<Slot> for SlotWire {
+    fn from(s: Slot) -> SlotWire {
+        SlotWire {
+            day: s.day,
+            meal: s.meal,
+            dish: s.dishes.first().cloned(),
+            dishes: if s.dishes.len() > 1 { s.dishes } else { Vec::new() },
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -158,6 +197,10 @@ pub struct Menu {
     pub daily: Vec<Ingredient>,
     pub plan: Vec<Slot>,
     pub purchases: Vec<Purchase>,
+    /// A word for a day, by its number from 1 - "arrival", "radial hikes", "leaving" - beside
+    /// its date or number. Kept for days beyond the trip's length too: shortened and grown
+    /// again, a day finds its word where it left it.
+    pub day_notes: Vec<String>,
 }
 
 /// One product's shopping: who buys and pays for it, whether it is bought, and the expense
@@ -272,6 +315,42 @@ impl Menu {
         }
     }
 
+    /// What a template keeps of this menu: the catalogue - places, products, dishes, the daily
+    /// list. Not the plan, the days or what was bought: those are one trip's, and the next
+    /// trip is another length with other people buying.
+    pub fn as_template(&self) -> Menu {
+        Menu {
+            on: true,
+            places: self.places.clone(),
+            products: self.products.clone(),
+            dishes: self.dishes.clone(),
+            daily: self.daily.clone(),
+            ..Menu::default()
+        }
+    }
+
+    /// Takes a template's catalogue in place of this one's.
+    ///
+    /// The plan stays where its dishes are still there - a template saved from this group's
+    /// last trip mostly has the same ones - and a meal whose dish the template does not have
+    /// goes back to unplanned. What is bought stays for the products the template has.
+    pub fn take_catalogue(&mut self, template: &Menu) {
+        self.places = template.places.clone();
+        self.products = template.products.clone();
+        self.dishes = template.dishes.clone();
+        self.daily = template.daily.clone();
+        let dishes = &self.dishes;
+        // A meal keeps the dishes still there; one left with none of its own goes back to
+        // unplanned. One that was "nothing" stays nothing.
+        self.plan.retain_mut(|s| {
+            let had = !s.dishes.is_empty();
+            s.dishes.retain(|id| dishes.iter().any(|d| &d.id == id));
+            !had || !s.dishes.is_empty()
+        });
+        let products = &self.products;
+        self.purchases.retain(|p| products.iter().any(|x| x.id == p.product));
+    }
+
     pub fn product(&self, id: &str) -> Option<&Product> {
         self.products.iter().find(|p| p.id == id)
     }
@@ -288,17 +367,23 @@ impl Menu {
         self.plan.iter().find(|s| s.day == day && s.meal == meal)
     }
 
-    /// What is cooked for this meal of this day.
+    /// What is cooked for this meal of this day - the main dish, the first.
     pub fn dish_on(&self, day: u32, meal: Meal) -> Option<&Dish> {
-        self.slot(day, meal)
-            .and_then(|s| s.dish.as_deref())
-            .and_then(|id| self.dish(id))
+        self.dishes_on(day, meal).into_iter().next()
     }
 
-    /// Puts a dish, or nothing, on one meal of one day.
+    /// Everything cooked for this meal of this day, in order; a dish since deleted is left
+    /// out.
+    pub fn dishes_on(&self, day: u32, meal: Meal) -> Vec<&Dish> {
+        self.slot(day, meal)
+            .map(|s| s.dishes.iter().filter_map(|id| self.dish(id)).collect())
+            .unwrap_or_default()
+    }
+
+    /// Puts dishes, or nothing, on one meal of one day.
     pub fn set(&mut self, slot: Slot) {
         match self.plan.iter_mut().find(|s| s.day == slot.day && s.meal == slot.meal) {
-            Some(s) => s.dish = slot.dish,
+            Some(s) => s.dishes = slot.dishes,
             None => self.plan.push(slot),
         }
     }
@@ -315,7 +400,7 @@ impl Menu {
         self.days = days.max(1);
         if self.days != was_last && leaving != Meal::Dinner {
             let index = |m: Meal| Meal::ALL.iter().position(|x| *x == m).unwrap_or(0);
-            self.plan.retain(|s| !(s.day == was_last && s.dish.is_none() && index(s.meal) > index(leaving)));
+            self.plan.retain(|s| !(s.day == was_last && s.dishes.is_empty() && index(s.meal) > index(leaving)));
             self.fill();
             self.leave(leaving);
         } else {
@@ -341,7 +426,7 @@ impl Menu {
             for day in 1..=self.days {
                 if self.slot(day, meal).is_none() {
                     let dish = choice[(day as usize - 1) % choice.len()].clone();
-                    self.plan.push(Slot { day, meal, dish: Some(dish) });
+                    self.plan.push(Slot::one(day, meal, Some(dish)));
                 }
             }
         }
@@ -356,14 +441,44 @@ impl Menu {
         }
     }
 
+    /// The word written for a day, if any.
+    pub fn day_note(&self, day: u32) -> Option<&str> {
+        let at = usize::try_from(day).ok()?.checked_sub(1)?;
+        self.day_notes.get(at).map(|n| n.trim()).filter(|n| !n.is_empty())
+    }
+
+    /// Writes a day's word; an empty one takes it away.
+    pub fn set_day_note(&mut self, day: u32, note: &str) {
+        let Some(at) = usize::try_from(day).ok().and_then(|d| d.checked_sub(1)) else { return };
+        if self.day_notes.len() <= at {
+            self.day_notes.resize(at + 1, String::new());
+        }
+        self.day_notes[at] = note.trim().to_owned();
+        while self.day_notes.last().is_some_and(|n| n.is_empty()) {
+            self.day_notes.pop();
+        }
+    }
+
+    /// A dish as another one is now - its meals and what goes in - under a new id and name,
+    /// right after it in the list: plov with buckwheat starts as plov. Nothing, if there is
+    /// no such dish or the id is taken already (a copy replayed is not a second copy).
+    pub fn copy_dish(&mut self, from: &str, id: &str, name: &str) {
+        if self.dishes.iter().any(|d| d.id == id) {
+            return;
+        }
+        let Some(at) = self.dishes.iter().position(|d| d.id == from) else {
+            return;
+        };
+        let copy = Dish { id: id.to_owned(), name: name.to_owned(), ..self.dishes[at].clone() };
+        self.dishes.insert(at + 1, copy);
+    }
+
     /// Takes a dish out of the catalogue, and out of the plan: the meals it was on are
     /// "nothing" until somebody picks another, rather than quietly something else.
     pub fn remove_dish(&mut self, id: &str) {
         self.dishes.retain(|d| d.id != id);
         for slot in &mut self.plan {
-            if slot.dish.as_deref() == Some(id) {
-                slot.dish = None;
-            }
+            slot.dishes.retain(|d| d != id);
         }
     }
 
@@ -446,13 +561,14 @@ impl Menu {
         let mut dishes: Vec<(&Dish, u32)> = Vec::new();
         for day in 1..=self.days {
             for meal in Meal::ALL {
-                let Some(dish) = self.dish_on(day, meal) else { continue };
-                if !dish.ingredients.iter().any(|i| i.product == product) {
-                    continue;
-                }
-                match dishes.iter_mut().find(|(d, _)| d.id == dish.id) {
-                    Some((_, n)) => *n += 1,
-                    None => dishes.push((dish, 1)),
+                for dish in self.dishes_on(day, meal) {
+                    if !dish.ingredients.iter().any(|i| i.product == product) {
+                        continue;
+                    }
+                    match dishes.iter_mut().find(|(d, _)| d.id == dish.id) {
+                        Some((_, n)) => *n += 1,
+                        None => dishes.push((dish, 1)),
+                    }
                 }
             }
         }
@@ -495,8 +611,8 @@ impl Menu {
         let index = |m: Meal| Meal::ALL.iter().position(|x| *x == m).unwrap_or(0);
         for meal in Meal::ALL {
             if outside(index(meal), index(at)) {
-                self.set(Slot { day, meal, dish: None });
-            } else if self.slot(day, meal).is_some_and(|s| s.dish.is_none()) {
+                self.set(Slot::one(day, meal, None));
+            } else if self.slot(day, meal).is_some_and(|s| s.dishes.is_empty()) {
                 // Emptied by an earlier arrival or departure: let `fill` choose again.
                 self.plan.retain(|s| !(s.day == day && s.meal == meal));
             }
@@ -515,7 +631,7 @@ impl Menu {
         };
         for day in 1..=self.days {
             for meal in Meal::ALL {
-                if let Some(dish) = self.dish_on(day, meal) {
+                for dish in self.dishes_on(day, meal) {
                     for ingredient in &dish.ingredients {
                         add(ingredient, 1.0);
                     }
@@ -597,6 +713,7 @@ mod tests {
             ],
             plan: vec![],
             purchases: vec![],
+            day_notes: vec![],
         };
         m.fill();
         m
@@ -641,7 +758,7 @@ mod tests {
         let mut m = menu();
         let dinners = |m: &Menu| (1..=m.days).map(|d| m.dish_on(d, Meal::Dinner).map(|x| x.id.clone())).collect::<Vec<_>>();
         assert_eq!(dinners(&m), [Some("plov".into()), Some("steak".into())]);
-        m.set(Slot { day: 2, meal: Meal::Dinner, dish: None });
+        m.set(Slot::one(2, Meal::Dinner, None));
         m.set_days(3);
         assert_eq!(dinners(&m), [Some("plov".into()), None, Some("plov".into())]);
         // Fewer days keep the plan of the ones taken off.
@@ -670,7 +787,7 @@ mod tests {
         assert_eq!(dishes.iter().map(|(d, n)| (d.id.as_str(), *n)).collect::<Vec<_>>(), [("plov", 1)]);
         assert!(daily.is_none());
         assert_eq!(m.sources("wine").1, Some(When::EveryDay));
-        m.set(Slot { day: 1, meal: Meal::Dinner, dish: Some("steak".into()) });
+        m.set(Slot::one(1, Meal::Dinner, Some("steak".into())));
         assert!(m.sources("rice").0.is_empty());
         let eating = Eating::of(&tour(&[100]));
         assert!(m.shopping(&eating).iter().all(|n| n.product.id != "rice"));
@@ -704,7 +821,7 @@ mod tests {
         let mut m = menu();
         m.remove_dish("plov");
         assert!(m.dish("plov").is_none());
-        assert_eq!(m.slot(1, Meal::Dinner).map(|s| s.dish.clone()), Some(None));
+        assert_eq!(m.slot(1, Meal::Dinner).map(|s| s.dishes.clone()), Some(Vec::new()));
         m.remove_product("lamb");
         assert!(m.product("lamb").is_some(), "the steak has lamb");
         m.remove_product("rice");
@@ -790,5 +907,95 @@ mod tests {
         assert_eq!(m.purchases.len(), 1);
         assert_eq!(m.purchase("lamb").map(|p| (p.bought, p.who.clone())), Some((true, Some("p0".into()))));
         assert_eq!(m.products_at("market").count(), 4);
+    }
+
+    /// A template is the catalogue only; taking it keeps the plan where its dishes survive.
+    #[test]
+    fn a_template_is_the_catalogue_and_taking_it_keeps_what_still_fits() {
+        let mut trip = menu();
+        trip.purchase_mut("lamb").bought = true;
+        trip.purchase_mut("rice").bought = true;
+        let template = trip.as_template();
+        assert!(template.on && template.plan.is_empty() && template.purchases.is_empty());
+        assert_eq!((template.days, template.start.clone()), (0, None));
+        assert_eq!(template.dishes, trip.dishes);
+
+        // The group dropped steak and rice from the template since.
+        let mut newer = template.clone();
+        newer.dishes.retain(|d| d.id != "steak");
+        newer.products.retain(|p| p.id != "rice");
+        newer.dishes[0].ingredients.retain(|i| i.product != "rice");
+
+        trip.take_catalogue(&newer);
+        assert_eq!(trip.dishes, newer.dishes);
+        assert_eq!(trip.dish_on(1, Meal::Dinner).map(|d| d.id.as_str()), Some("plov"), "plov stays planned");
+        assert!(trip.slot(2, Meal::Dinner).is_none(), "the steak's dinner is unplanned again");
+        assert!(trip.purchase("lamb").is_some_and(|p| p.bought), "still bought");
+        assert!(trip.purchase("rice").is_none(), "a product the template dropped takes its purchase along");
+        assert_eq!(trip.days, 2, "the trip keeps its length");
+    }
+
+    /// A copy is the dish under a new name, right after it, planned nowhere; replayed, it is
+    /// still one copy.
+    #[test]
+    fn a_copied_dish_sits_next_to_its_original() {
+        let mut m = menu();
+        m.copy_dish("plov", "plov2", "Plov (copy)");
+        let ids: Vec<&str> = m.dishes.iter().map(|d| d.id.as_str()).collect();
+        assert_eq!(ids, vec!["plov", "plov2", "steak"]);
+        assert_eq!(m.dishes[1].name, "Plov (copy)");
+        assert_eq!(m.dishes[1].ingredients, m.dishes[0].ingredients);
+        assert!(m.plan.iter().all(|s| !s.dishes.iter().any(|d| d == "plov2")));
+        m.copy_dish("plov", "plov2", "Plov (copy)");
+        m.copy_dish("nothing", "x", "x");
+        assert_eq!(m.dishes.len(), 3, "a replay or a missing original adds nothing");
+    }
+
+    /// A meal with several dishes buys for each of them, and says each is where a product
+    /// goes.
+    #[test]
+    fn every_dish_of_a_meal_is_bought_for() {
+        let mut m = menu();
+        m.set(Slot { day: 1, meal: Meal::Dinner, dishes: vec!["plov".into(), "steak".into()] });
+        let needs = m.shopping(&Eating::of(&tour(&[100])));
+        // Day 1 plov (200) and steak (300), day 2 steak (300): lamb for one portion each.
+        assert_eq!(amount(&needs, "lamb"), 800.0);
+        let (sources, _) = m.sources("lamb");
+        let names: Vec<(&str, u32)> = sources.iter().map(|(d, n)| (d.id.as_str(), *n)).collect();
+        assert_eq!(names, vec![("plov", 1), ("steak", 2)]);
+        // Deleting one leaves the other on that dinner.
+        m.remove_dish("plov");
+        assert_eq!(m.slot(1, Meal::Dinner).map(|s| s.dishes.clone()), Some(vec!["steak".to_owned()]));
+    }
+
+    /// The first dish is written where a client that knows one dish a meal reads it; the
+    /// rest beside it. What such a client writes back - `Dish` alone - reads as that dish.
+    #[test]
+    fn a_meal_is_stored_so_that_one_dish_clients_still_read_it() {
+        let several = Slot { day: 2, meal: Meal::Dinner, dishes: vec!["plov".into(), "salad".into()] };
+        let json = serde_json::to_value(&several).expect("json");
+        assert_eq!(json["Dish"], "plov");
+        assert_eq!(json["Dishes"], serde_json::json!(["plov", "salad"]));
+        assert_eq!(serde_json::from_value::<Slot>(json).expect("reads"), several);
+
+        let one = serde_json::to_value(Slot::one(1, Meal::Lunch, Some("soup".into()))).expect("json");
+        assert!(one.get("Dishes").is_none(), "one dish is written the old way");
+        let old: Slot = serde_json::from_value(serde_json::json!({"Day": 1, "Meal": "Lunch", "Dish": "soup"})).expect("old");
+        assert_eq!(old.dishes, vec!["soup".to_owned()]);
+        let nothing: Slot = serde_json::from_value(serde_json::json!({"Day": 1, "Meal": "Lunch", "Dish": null})).expect("nothing");
+        assert!(nothing.dishes.is_empty());
+    }
+
+    /// A day's word is set, read, taken away; the list does not grow with empty tails.
+    #[test]
+    fn a_day_has_a_word_of_its_own() {
+        let mut m = menu();
+        m.set_day_note(3, " leaving ");
+        assert_eq!(m.day_note(3), Some("leaving"));
+        assert_eq!((m.day_note(1), m.day_note(0), m.day_note(9)), (None, None, None));
+        m.set_day_note(1, "arrival");
+        m.set_day_note(3, "");
+        assert_eq!(m.day_notes, vec!["arrival".to_owned()]);
+        assert!(m.as_template().day_notes.is_empty(), "a template is a catalogue, not a trip");
     }
 }

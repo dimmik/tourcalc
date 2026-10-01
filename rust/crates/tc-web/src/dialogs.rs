@@ -926,6 +926,7 @@ pub fn TourDialog(
     let archived = RwSignal::new(draft.archived);
     let finalizing = RwSignal::new(draft.finalizing);
     let menu = RwSignal::new(draft.menu.unwrap_or(false));
+    let template = StoredValue::new(draft.template.clone());
     let error = RwSignal::new(String::new());
 
     let submit = move |_| {
@@ -935,6 +936,8 @@ pub fn TourDialog(
             archived: archived.get(),
             finalizing: finalizing.get(),
             menu: Some(menu.get()),
+            // Only when it is used: a rename carrying a whole catalogue along is just weight.
+            template: if menu.get() { template.get_value() } else { None },
         };
         if let Some(why) = d.problem() {
             error.set(why.to_owned());

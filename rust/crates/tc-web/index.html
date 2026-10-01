@@ -828,6 +828,32 @@
         .tcw-food-days { display: inline-flex; gap: 8px; align-items: center; font-size: 13.5px; }
         .tcw-food-days b { min-width: 1.5em; text-align: center; font-variant-numeric: tabular-nums; }
         .tcw-food-note { margin: 4px 0 12px; font-size: 12.5px; color: var(--tcn-muted, #6b7280); }
+        /* Under the catalogue: the access code's template. Set off by a rule, not a card - it
+           is about the catalogue above, not another thing beside it. */
+        .tcw-food-template { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--tcn-border, #e5e7eb); }
+        .tcw-food-template .tcw-food-note { margin: 4px 0 8px; max-width: 60ch; }
+        .tcw-food-template-title { font-weight: 700; font-size: 14px; }
+        .tcw-food-template-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tcw-food-paste { display: grid; gap: 8px; margin-top: 8px; max-width: 60ch; }
+        .tcw-cat-clear { display: flex; justify-content: flex-end; padding-top: 10px; }
+        /* The tour list's "Menu templates": a heading that folds, and under each template
+           whose it is - two codes on a device are two templates of one name. */
+        .tcw-fold-title { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none;
+            padding: 0; font: inherit; cursor: pointer; text-align: left; }
+        .tcw-fold-band { width: 100%; border: 0; cursor: pointer; font: inherit; text-align: left; }
+        .tcw-template-cell { display: grid; gap: 4px; align-content: start; }
+        .tcw-template-for { font-size: 12px; color: var(--tcn-muted, #6b7280); padding: 0 4px; }
+        /* "+ Dish": a dish a row - its name, its meals, and the cross. */
+        .tcw-newdish { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+        .tcw-newdish-meals { display: inline-flex; gap: 4px; }
+        .tcw-newdish-meals .tcw-meal-pick { font-size: 12px; padding: 3px 9px; }
+        @media (max-width: 480px) {
+            .tcw-newdish { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name x" "meals meals"; row-gap: 4px; }
+            .tcw-newdish > .tcw-cat-name { grid-area: name; }
+            .tcw-newdish-meals { grid-area: meals; }
+            .tcw-newdish > .tcw-ingr-x { grid-area: x; }
+        }
+        .tcw-food-paste > button { justify-self: start; }
         .tcw-food-days-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
         .tcw-food-day { padding: 10px 12px; display: grid; gap: 6px; }
         .tcw-food-all { margin-bottom: 10px; background: var(--tcn-primary-soft, #eef2ff); }
@@ -835,6 +861,17 @@
         .tcw-food-meal { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 8px;
             align-items: center; font-size: 13px; color: var(--tcn-muted, #6b7280); }
         .tcw-food-meal select { padding: 6px 8px; font-size: 13.5px; color: var(--tcn-text, #111827); }
+        /* A meal's dishes: the main one, the ones beside it with their cross, and "+". */
+        .tcw-food-dishes { display: grid; gap: 4px; min-width: 0; }
+        .tcw-food-extra { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; align-items: center; }
+        .tcw-food-more { justify-self: start; font-size: 12px; padding: 2px 8px; }
+        .tcw-food-extra > .tcw-ingr-x { grid-area: auto; }
+        /* With several dishes the meal's badge stays by the first, not halfway down. */
+        .tcw-food-slot { align-items: start; }
+        .tcw-food-slot > .tcw-meal { margin-top: 7px; }
+        /* Cards side by side keep their own height: a day with three dinners does not stretch
+           the next one's meals apart. */
+        .tcw-food-day { align-content: start; }
         .tcw-food-all .tcw-food-meal { max-width: 420px; }
         .tcw-food-me { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
         .tcw-food-me > label:first-child { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
@@ -903,10 +940,21 @@
             border-bottom: 1px solid var(--tcn-border, #e5e7eb); }
         .tcw-cat-main { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
         .tcw-cat-what { flex-basis: 100%; font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        /* "Copy" under a dish: a link, apart from the "Edit" button. */
+        .tcw-cat-copy { border: 0; background: none; padding: 0; font: inherit; font-size: 12px; cursor: pointer;
+            color: var(--tcn-primary, #4f46e5); text-decoration: underline; text-underline-offset: 2px; }
         .tcw-cat-edit { padding: 12px; margin: 8px 0 12px; display: grid; gap: 10px; }
         .tcw-cat-name { font-weight: 600; }
-        .tcw-cat-meals-edit { display: flex; flex-wrap: wrap; gap: 4px 16px; }
-        .tcw-cat-meal { margin: 0; padding: 3px 10px; gap: 6px; }
+        .tcw-cat-meals-edit { display: flex; flex-wrap: wrap; gap: 6px; }
+        /* A meal to press, like a category: outlined when not chosen, the meal's badge when it is. */
+        .tcw-meal-pick { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 12px; cursor: pointer;
+            border: 1px solid transparent; transition: background .12s ease, border-color .12s ease; }
+        .tcw-meal-pick:not(.is-on) { background: var(--tcn-surface, #fff); color: var(--tcn-muted, #6b7280);
+            border-color: var(--tcn-border-strong, #d1d5db); }
+        .tcw-meal-pick:not(.is-on):hover { border-color: currentColor; }
+        .tcw-meal-pick.is-on.is-breakfast { border-color: #f59e0b; }
+        .tcw-meal-pick.is-on.is-lunch { border-color: #10b981; }
+        .tcw-meal-pick.is-on.is-dinner { border-color: #6366f1; }
         .tcw-cat-fields { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
         .tcw-cat-fields label { display: grid; gap: 3px; font-size: 12.5px; color: var(--tcn-muted, #6b7280); }
         .tcw-cat-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -918,11 +966,19 @@
         .tcw-ingr-amount { text-align: right; font-variant-numeric: tabular-nums; }
         .tcw-ingr-per { font-size: 12px; color: var(--tcn-muted, #6b7280); white-space: nowrap; }
         .tcw-ingr-add { justify-self: start; }
+        /* A product typed rather than picked: its name where the list would be, its unit where
+           the unit is said. */
+        .tcw-ingr-new .tcw-ingr-name { padding: 6px 8px; font-size: 13.5px; }
+        .tcw-ingr-own { width: 5em; }
+        .tcw-ingr-note { margin: 0; }
+        /* "link copied  [or to the Menu tab]", in the header's line. */
+        .tcw-share-pick { cursor: pointer; font: inherit; font-size: 12px;
+            color: var(--tcn-text, #111827); background: var(--tcn-surface, #fff); }
         /* On a phone the unit goes under the amount, so the product keeps its width. */
         @media (max-width: 480px) {
             .tcw-ingr-row { grid-template-columns: minmax(0, 1fr) 4.5em auto;
                 grid-template-areas: "product amount x" "per per per"; row-gap: 2px; }
-            .tcw-ingr-row > select { grid-area: product; }
+            .tcw-ingr-row > select, .tcw-ingr-new > .tcw-ingr-name { grid-area: product; }
             .tcw-ingr-amount { grid-area: amount; }
             .tcw-ingr-per { grid-area: per; text-align: right; }
             .tcw-ingr-x { grid-area: x; }
@@ -935,6 +991,12 @@
         .tcw-food-trip { margin-bottom: 10px; }
         .tcw-food-trip .tcw-food-meal { grid-template-columns: 8.5em minmax(0, 1fr); max-width: 420px; }
         .tcw-food-dayname small { font-weight: 400; font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        /* A day's own word, after its name, and the pencil that writes it. */
+        .tcw-food-dayname { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+        .tcw-day-note { font-weight: 600; }
+        .tcw-day-note-edit { border: 0; background: none; padding: 0 2px; font: inherit; font-size: 12px; font-weight: 400;
+            cursor: pointer; color: var(--tcn-primary, #4f46e5); }
+        .tcw-day-note-input { flex: 1 1 100%; padding: 4px 8px; font-size: 13px; font-weight: 400; }
         .tcw-ingr-when { font: inherit; font-size: 12px; padding: 1px 2px; border: 1px solid var(--tcn-border, #e5e7eb);
             border-radius: 6px; background: var(--tcn-surface, #fff); color: var(--tcn-text, #111827); }
     </style>

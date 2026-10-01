@@ -270,7 +270,7 @@ fn Freshness(refresh: Refresh) -> impl IntoView {
 /// gets a token for that code and sees the tour without being told anything else. That also
 /// means it is the whole of the security here - a link is an invitation.
 #[component]
-fn ShareLink(tour: Tour) -> impl IntoView {
+fn ShareLink(tour: Tour, tab: RwSignal<Tab>) -> impl IntoView {
     let code = tour
         .extras
         .0
@@ -280,22 +280,64 @@ fn ShareLink(tour: Tour) -> impl IntoView {
         .unwrap_or("")
         .to_owned();
     let said = crate::ui::Brief::new();
+    // A click copies the tour's link at once, as it always has; then, for a while, one more
+    // offers the open tab's - the same invitation with the tab on the end, landing the
+    // newcomer on the menu rather than on wherever the tour opens.
+    let offered = RwSignal::new(false);
+    let offers = StoredValue::new(0u32);
 
-    let href = format!("/goto/{}/{}", code, tour.id);
+    let href = StoredValue::new(format!("/goto/{}/{}", code, tour.id));
+    let copy = move |with_tab: bool| {
+        let href = href.get_value();
+        let path = if with_tab { format!("{href}/{}", tab_part(tab.get_untracked())) } else { href };
+        let full = web_sys::window()
+            .and_then(|w| w.location().origin().ok())
+            .map(|o| format!("{o}{path}"))
+            .unwrap_or(path);
+        copy_to_clipboard(&full);
+    };
+    let share = move |_| {
+        copy(false);
+        said.say(t().sync.link_copied);
+        // Longer than "copied" stays: long enough to decide that it was the menu you meant.
+        let n = offers.get_value().wrapping_add(1);
+        offers.set_value(n);
+        offered.set(true);
+        set_timeout(
+            move || {
+                if offers.try_get_value() == Some(n) {
+                    offered.try_set(false);
+                }
+            },
+            std::time::Duration::from_secs(15),
+        );
+    };
 
     view! {
-        <button type="button" class="tcn-hero-link"
-                title=t().sync.share_hint
-                on:click=move |_| {
-                    let full = web_sys::window()
-                        .and_then(|w| w.location().origin().ok())
-                        .map(|o| format!("{o}{href}"))
-                        .unwrap_or_else(|| href.clone());
-                    copy_to_clipboard(&full);
-                    said.say(t().sync.link_copied);
-                }>
-            {move || if said.is_on() { t().sync.link_copied } else { t().sync.share_link }}
+        <button type="button" class="tcn-hero-link" title=t().sync.share_hint on:click=share>
+            {move || if said.is_on() { said.get() } else { t().sync.share_link.to_owned() }}
         </button>
+        <Show when=move || offered.get()>
+            <button type="button" class="tcn-chip tcw-share-pick"
+                    on:click=move |_| {
+                        copy(true);
+                        offered.set(false);
+                        said.say(t().sync.tab_link_copied);
+                    }>
+                {move || (t().sync.share_tab)(tab_label(tab.get()))}
+            </button>
+        </Show>
+    }
+}
+
+/// A tab's name, as its button says it.
+fn tab_label(tab: Tab) -> &'static str {
+    match tab {
+        Tab::Balance => t().tour.tab_balance,
+        Tab::People => t().tour.tab_people,
+        Tab::Expenses => t().tour.tab_expenses,
+        Tab::Stats => t().tour.tab_stats,
+        Tab::Menu => t().menu.tab,
     }
 }
 
@@ -304,7 +346,7 @@ fn ShareLink(tour: Tour) -> impl IntoView {
 /// Reached through `js_sys` rather than `web_sys`: the clipboard sits on `Navigator`, which
 /// would mean turning on another web-sys feature for one call, and this crate is measured
 /// by what it weighs.
-fn copy_to_clipboard(text: &str) {
+pub(crate) fn copy_to_clipboard(text: &str) {
     use wasm_bindgen::JsCast as _;
     let Some(window) = web_sys::window() else {
         return;
@@ -389,6 +431,8 @@ fn CurrencyPicker(tour: Tour, shown_in: RwSignal<Option<String>>) -> impl IntoVi
 fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -> impl IntoView {
     let tour_for_status = tour_id.clone();
     let tour_for_buttons = StoredValue::new(tour_id.clone());
+    // Bumped when a queue has waited long enough to be said - see `queue::QUIET_FOR_MS`.
+    let ripe = RwSignal::new(0u32);
     view! {
         // What is waiting is a fact about this device, not about the last request: it is
         // read from the queue, and the queue says when it changes. Tied to the request, the
@@ -444,9 +488,18 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                     </div>
                 }.into_any();
             }
-            // Floating, not in the page: on a good network this is there for half a second
-            // after every save, and in the page it pushed everything below it down and back
-            // up again - a tick on the shopping list made the whole list jump. Without a
+            // Not for the first seconds: on a good network the edit is on the server before
+            // then, and the line was a flicker after every save. Asked again when the time
+            // is up; still waiting, it is said.
+            ripe.track();
+            let waited = queue::waiting_for(&tour_id);
+            if waited < queue::QUIET_FOR_MS {
+                let left = (queue::QUIET_FOR_MS - waited).max(0.0) as u64 + 50;
+                set_timeout(move || { ripe.try_update(|n| *n += 1); }, std::time::Duration::from_millis(left));
+                return ().into_any();
+            }
+            // Floating, not in the page: in the page it pushed everything below it down and
+            // back up again - a tick on the shopping list made the whole list jump. Without a
             // network it stays, and floating it is in sight wherever the reader has scrolled.
             view! {
                 <div class="tcw-sync-float" role="status">
@@ -474,6 +527,26 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                         {what}
                         <button type="button" class="tcw-others-close" aria-label=t().sync.dismiss
                                 on:click=move |_| queue::set_lost(&tour_for_buttons.get_value(), None)>
+                            "×"
+                        </button>
+                    </div>
+                </div>
+            }.into_any()
+        }}
+        // Edits waiting on this device that this version of the app cannot read - see
+        // `queue::pending`. Said once, until dismissed, so that they do not vanish unmentioned.
+        {move || {
+            queue::changes();
+            let odd = queue::unreadable(&tour_for_buttons.get_value()).len();
+            if odd == 0 {
+                return ().into_any();
+            }
+            view! {
+                <div class="tcn-section" style="padding-bottom:0">
+                    <div class="tcn-chip tcn-chip-amber tcw-wraps">
+                        {(t().sync.unreadable_edits)(odd)}
+                        <button type="button" class="tcw-others-close" aria-label=t().sync.dismiss
+                                on:click=move |_| queue::forget_unreadable(&tour_for_buttons.get_value())>
                             "×"
                         </button>
                     </div>
@@ -537,10 +610,40 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
         let id = id.clone();
         Effect::new(move |_| leaving_tab(&id, tab.get()));
     }
+    // The address bar says which tab is open, so that it can be copied and sent: "the menu"
+    // is a link, not "open the tour and tap Menu". Replaced, not pushed - switching tabs is
+    // not somewhere Back should step through.
+    {
+        let id = id.clone();
+        Effect::new(move |_| {
+            let address = address_of(&id, tab.get());
+            if let Some(w) = web_sys::window() {
+                if w.location().pathname().ok().as_deref() != Some(address.as_str()) {
+                    let _ = w.history().map(|h| {
+                        h.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&address))
+                    });
+                }
+            }
+        });
+    }
+    let mode = use_context::<RwSignal<crate::mode::UiMode>>();
     let settle_tab = move |tour: &Tour| {
         if !tab_settled.get_untracked() {
             tab.set(opens_on(tour));
             tab_settled.set(true);
+        }
+        // Asked for the menu - by an address, or by being left on it - where there is none:
+        // switched off since, or the compact view, which has no Menu tab. The tour's own tab,
+        // not a blank page.
+        let compact = mode.is_some_and(|m| m.get_untracked() == crate::mode::UiMode::Mini);
+        if tab.get_untracked() == Tab::Menu
+            && (compact || tc_core::menu::Menu::shown(&queue::with_pending(tour)).is_none())
+        {
+            // A template opens on its menu; with none to show, on its people.
+            tab.set(match opens_on(tour) {
+                Tab::Menu => Tab::People,
+                other => other,
+            });
         }
     };
 
@@ -1027,7 +1130,7 @@ fn TourView(
                         aria-label=t().tour.edit_tour
                         on:click={
                             let t = tour_for_rename.clone();
-                            move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::of(&t))))
+                            move |_| dialog.set(Some(Dialog::Tour(crate::edit::TourDraft::for_dialog(&t))))
                         }>
                     <crate::icon::Icon name="edit" />
                 </button>
@@ -1068,7 +1171,7 @@ fn TourView(
                     {t().tour.currencies}
                 </button>
                 <span>"·"</span>
-                <ShareLink tour=tour_for_share.clone() />
+                <ShareLink tour=tour_for_share.clone() tab=tab />
                 <span>"·"</span>
                 <span class="tcn-legacy-btn">
                     <button type="button" class="tcn-hero-link"
@@ -2232,6 +2335,23 @@ fn leaving_tab(tour: &str, tab: Tab) {
     LAST_TAB.with(|last| *last.borrow_mut() = Some((tour.to_owned(), tab)));
 }
 
+/// The address of a tour's tab - what the address bar shows while it is open. The app's
+/// own names where it had them (`persons`, `spendings`), so its old links still land.
+pub fn address_of(tour: &str, tab: Tab) -> String {
+    format!("/tour/{tour}/{}", tab_part(tab))
+}
+
+/// How a tab is named at the end of an address - the tour's own, and a share link's.
+pub fn tab_part(tab: Tab) -> &'static str {
+    match tab {
+        Tab::Balance => "balance",
+        Tab::People => "persons",
+        Tab::Expenses => "spendings",
+        Tab::Stats => "stats",
+        Tab::Menu => "menu",
+    }
+}
+
 /// Which tab an address asks for.
 pub fn tab_of(landing: crate::Landing) -> Tab {
     match landing {
@@ -2239,6 +2359,7 @@ pub fn tab_of(landing: crate::Landing) -> Tab {
         crate::Landing::Expenses | crate::Landing::AddSpending => Tab::Expenses,
         crate::Landing::Stats => Tab::Stats,
         crate::Landing::Balance => Tab::Balance,
+        crate::Landing::Menu => Tab::Menu,
         // Until the tour is here to say. It never shows: the tab is settled the moment
         // there is a tour to settle it from, cached copy included.
         crate::Landing::Unsaid => Tab::People,
@@ -2263,7 +2384,10 @@ pub fn tab_of(landing: crate::Landing) -> Tab {
 /// tour it decides nothing; the badge in the header says it is archived and that is all.
 /// The second deliberate departure from the app, after the settlement threshold.
 pub fn opens_on(tour: &Tour) -> Tab {
-    if tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING) {
+    // A menu template has nobody on it: the catalogue is the whole of it.
+    if crate::menu::is_template(tour) {
+        Tab::Menu
+    } else if tc_core::extras::bool_of(&tour.extras, tc_core::extras::FINALIZING) {
         Tab::Balance
     } else {
         Tab::People
@@ -2685,6 +2809,9 @@ mod tests {
         assert_eq!(opens_on(&flagged(false, true)), Tab::Balance);
         assert_eq!(opens_on(&flagged(true, true)), Tab::Balance, "archived as well");
         assert_eq!(opens_on(&flagged(true, false)), Tab::People);
+        let mut template = tour();
+        tc_core::extras::set(&mut template.extras, tc_core::extras::MENU_TEMPLATE, true.into());
+        assert_eq!(opens_on(&template), Tab::Menu, "a menu template is its catalogue");
         assert_eq!(opens_on(&flagged(false, false)), Tab::People);
     }
 

@@ -149,6 +149,31 @@ const MARKET: &str = "market";
 const SUPERMARKET: &str = "supermarket";
 const DELIVERY: &str = "delivery";
 
+/// Where a product typed straight into a dish is bought, until somebody moves it in
+/// Products. The supermarket: chosen on 30.09 as a start, to be settled with the group - to
+/// change it, change this.
+pub const NEW_PRODUCT_PLACE: &str = SUPERMARKET;
+
+/// The place a new product typed into a dish gets in this menu: [`NEW_PRODUCT_PLACE`] - by
+/// its id, or, in a menu that made its own, by its name in either language - else the menu's
+/// first place, else none.
+pub fn place_for_new(menu: &Menu) -> String {
+    if menu.places.iter().any(|p| p.id == NEW_PRODUCT_PLACE) {
+        return NEW_PRODUCT_PLACE.to_owned();
+    }
+    let names: Vec<String> = PLACES
+        .iter()
+        .filter(|(id, ..)| *id == NEW_PRODUCT_PLACE)
+        .flat_map(|(_, en, ru)| [en.to_lowercase(), ru.to_lowercase()])
+        .collect();
+    menu.places
+        .iter()
+        .find(|p| names.contains(&p.name.trim().to_lowercase()))
+        .or(menu.places.first())
+        .map(|p| p.id.clone())
+        .unwrap_or_default()
+}
+
 /// Both languages side by side: it is data, written into the tour in the language of
 /// whoever switches the menu on, and a pair per row keeps the two from drifting apart.
 const PLACES: &[(&str, &str, &str)] = &[
@@ -289,6 +314,7 @@ pub fn starter(days: u32) -> Menu {
             .collect(),
         plan: Vec::new(),
         purchases: Vec::new(),
+        day_notes: Vec::new(),
     };
     menu.fill();
     menu
@@ -382,6 +408,281 @@ pub(crate) fn meal_name(meal: Meal) -> &'static str {
     }
 }
 
+// ---- the template ------------------------------------------------------------------------
+
+/// Whether this tour is an access code's menu template rather than a trip.
+pub fn is_template(tour: &Tour) -> bool {
+    tc_core::extras::bool_of(&tour.extras, tc_core::extras::MENU_TEMPLATE)
+}
+
+fn code_of(tour: &Tour) -> String {
+    tc_core::extras::str_of(&tour.extras, tc_core::extras::ACCESS_CODE)
+}
+
+/// Whose a template is, as its row in the tour list says: the trips under its code, in the
+/// list's order - "for: Danube, Shipka and 5 more". With two codes on a device there are
+/// two templates of one name, and this is what tells them apart.
+pub fn template_owners(template: &Tour, trips: &[Tour]) -> String {
+    let code = code_of(template);
+    let names: Vec<&str> = trips
+        .iter()
+        .filter(|t| !is_template(t) && code_of(t) == code)
+        .map(|t| t.name.trim())
+        .collect();
+    match names.len() {
+        0 => t().list.template_for_none.to_owned(),
+        1 | 2 => (t().list.template_for)(&names.join(", "), 0),
+        n => (t().list.template_for)(&names[..2].join(", "), n - 2),
+    }
+}
+
+/// The template filed under the same access code as `tour`, among `tours`.
+fn template_among(tours: &[Tour], tour: &Tour) -> Option<Tour> {
+    let code = code_of(tour);
+    tours
+        .iter()
+        .find(|t| is_template(t) && t.id != tour.id && code_of(t) == code)
+        .cloned()
+}
+
+/// The code's template menu as this device last saw the tour list - for the tour dialog,
+/// which has to say what switching the menu on will start from without asking anybody.
+pub fn template_for(tour: &Tour) -> Option<Menu> {
+    let tours = crate::queue::cached_list()?;
+    Menu::of(&template_among(&tours, tour)?)
+}
+
+/// The code's template tour, from the server - or, without a network, from the list this
+/// device saw last. The list is kept, so the tour dialog knows about a template made here.
+async fn find_template(tour: &Tour) -> Result<Option<Tour>, crate::api::Failed> {
+    match crate::api::tours().await {
+        Ok(tours) => {
+            crate::queue::cache_list(&tours);
+            Ok(template_among(&tours, tour))
+        }
+        Err(e) if crate::api::looks_offline(&e) => {
+            Ok(crate::queue::cached_list().and_then(|tours| template_among(&tours, tour)))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub(crate) fn ask(question: &str) -> bool {
+    web_sys::window()
+        .and_then(|w| w.confirm_with_message(question).ok())
+        .unwrap_or(false)
+}
+
+/// Under the catalogue: keep it as the access code's template, or take the template's.
+///
+/// The template is a tour of its own under the same code, marked `IsMenuTemplate`, with
+/// nobody on it: the one thing every client already stores, lists and keeps versions of. On
+/// the template itself this says what it is instead.
+#[component]
+fn TemplateBar(tour: Tour, menu: Menu, apply: Callback<Operation>) -> impl IntoView {
+    // The template says what it is where a trip says what its portions come to.
+    if is_template(&tour) {
+        return ().into_any();
+    }
+    let said = RwSignal::new(String::new());
+    let busy = RwSignal::new(false);
+    let tour = StoredValue::new(tour);
+    let menu = StoredValue::new(menu);
+
+    let save = move |_| {
+        busy.set(true);
+        said.set(String::new());
+        leptos::task::spawn_local(async move {
+            let tour = tour.get_value();
+            let template = menu.get_value().as_template();
+            said.set(match find_template(&tour).await {
+                Err(e) => e.to_string(),
+                Ok(Some(existing)) => {
+                    if ask(t().menu.template_replace_q) {
+                        let op = Operation::Menu(MenuEdit::TakeTemplate(template));
+                        match crate::sync::record(existing.id.as_str(), op).await.1 {
+                            crate::sync::Status::Failed(e) => e.to_string(),
+                            crate::sync::Status::Waiting(_) => t().menu.template_saved_here.into(),
+                            _ => t().menu.template_saved.into(),
+                        }
+                    } else {
+                        String::new()
+                    }
+                }
+                Ok(None) => {
+                    let mut body = crate::edit::new_tour_body(t().menu.template_name);
+                    if let (Some(obj), Ok(value)) = (body.as_object_mut(), serde_json::to_value(&template)) {
+                        obj.insert(tc_core::extras::MENU_TEMPLATE.into(), true.into());
+                        obj.insert(tc_core::menu::MENU.into(), value);
+                    }
+                    let code = code_of(&tour);
+                    match crate::api::add_tour(body, crate::api::Pile::Hashed(&code)).await {
+                        Ok(_) => {
+                            if let Ok(tours) = crate::api::tours().await {
+                                crate::queue::cache_list(&tours);
+                            }
+                            t().menu.template_saved.into()
+                        }
+                        Err(e) => e.to_string(),
+                    }
+                }
+            });
+            busy.set(false);
+        });
+    };
+
+    let take = move |_| {
+        busy.set(true);
+        said.set(String::new());
+        leptos::task::spawn_local(async move {
+            let tour = tour.get_value();
+            said.set(match find_template(&tour).await {
+                Err(e) => e.to_string(),
+                Ok(None) => t().menu.template_none.into(),
+                Ok(Some(found)) => match Menu::of(&found) {
+                    None => t().menu.template_none.into(),
+                    Some(template) => {
+                        if ask(t().menu.template_take_q) {
+                            apply.run(Operation::Menu(MenuEdit::TakeTemplate(template.as_template())));
+                        }
+                        String::new()
+                    }
+                },
+            });
+            busy.set(false);
+        });
+    };
+
+    view! {
+        <div class="tcw-food-template">
+            <div class="tcw-food-template-title">{t().menu.template_title}</div>
+            <p class="tcw-food-note">{t().menu.template_about}</p>
+            <div class="tcw-food-template-buttons">
+                <button type="button" class="tcn-btn tcn-btn-sm" prop:disabled=move || busy.get()
+                        on:click=save>{t().menu.template_save}</button>
+                <button type="button" class="tcn-btn tcn-btn-sm" prop:disabled=move || busy.get()
+                        on:click=take>{t().menu.template_take}</button>
+            </div>
+            <Show when=move || !said.get().is_empty()>
+                <p class="tcw-food-note" role="status">{move || said.get()}</p>
+            </Show>
+        </div>
+    }
+    .into_any()
+}
+
+// ---- moving a menu to another access code -------------------------------------------------
+
+/// What "Copy menu" puts on the clipboard: the catalogue, marked as such, so that a paste can
+/// tell a menu from any other JSON.
+const MENU_MARK: &str = "TourcalcMenu";
+
+fn menu_as_text(menu: &Menu) -> String {
+    serde_json::json!({ MENU_MARK: 1, tc_core::menu::MENU: menu.as_template() }).to_string()
+}
+
+/// The menu in pasted text: what "Copy menu" wrote, a whole tour's JSON from the list's "Copy
+/// JSON", or a bare menu. Something with no dishes and no products is not taken for one -
+/// an empty catalogue in place of a real one is not what anybody pasting meant.
+fn menu_from_text(text: &str) -> Option<Menu> {
+    let value: serde_json::Value = serde_json::from_str(text.trim()).ok()?;
+    let inner = value
+        .as_object()?
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case(tc_core::menu::MENU))
+        .map(|(_, v)| v.clone())
+        .unwrap_or(value);
+    // Read the way a tour's own menu is read, older spellings and all.
+    let tour = Tour::from_json(&serde_json::json!({ "Id": "pasted", "Name": "", tc_core::menu::MENU: inner }).to_string()).ok()?;
+    Menu::of(&tour)
+        .filter(|m| !m.dishes.is_empty() || !m.products.is_empty())
+        .map(|m| m.as_template())
+}
+
+/// Under the catalogue, after the template: the catalogue as text to send to another access
+/// code, and a box to paste one into.
+///
+/// Through the clipboard and a box rather than between codes directly: a device holds only
+/// the codes' hashes, and the people of one code have no business in another's tours - a
+/// message with the menu in it is how one group hands it to the next.
+#[component]
+fn TransferBar(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
+    let said = crate::ui::Brief::new();
+    let pasting = RwSignal::new(false);
+    let pasted = RwSignal::new(String::new());
+    let trouble = RwSignal::new(None::<&'static str>);
+    let text = StoredValue::new(menu_as_text(&menu));
+
+    let take = move |_| match menu_from_text(&pasted.get_untracked()) {
+        None => trouble.set(Some(t().menu.not_a_menu)),
+        Some(found) => {
+            trouble.set(None);
+            if ask(t().menu.paste_q) {
+                pasting.set(false);
+                pasted.set(String::new());
+                apply.run(Operation::Menu(MenuEdit::TakeTemplate(found)));
+            }
+        }
+    };
+
+    view! {
+        <div class="tcw-food-template">
+            <div class="tcw-food-template-title">{t().menu.transfer_title}</div>
+            <p class="tcw-food-note">{t().menu.transfer_about}</p>
+            <div class="tcw-food-template-buttons">
+                <button type="button" class="tcn-btn tcn-btn-sm"
+                        on:click=move |_| {
+                            crate::tour::copy_to_clipboard(&text.get_value());
+                            said.say(t().menu.menu_copied);
+                        }>
+                    {move || if said.is_on() { said.get() } else { t().menu.copy_menu.to_owned() }}
+                </button>
+                <button type="button" class="tcn-btn tcn-btn-sm" aria-expanded=move || pasting.get().to_string()
+                        on:click=move |_| pasting.update(|p| *p = !*p)>
+                    {t().menu.paste_menu}
+                </button>
+            </div>
+            <Show when=move || pasting.get()>
+                <div class="tcw-food-paste">
+                    <textarea class="tcn-input" rows="3" placeholder=t().menu.paste_here
+                              prop:value=move || pasted.get()
+                              on:input=move |ev| pasted.set(event_target_value(&ev))></textarea>
+                    <Show when=move || trouble.get().is_some()>
+                        <div class="tcn-errors">{move || trouble.get().unwrap_or_default()}</div>
+                    </Show>
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
+                            prop:disabled=move || pasted.get().trim().is_empty()
+                            on:click=take>
+                        {t().menu.take_pasted}
+                    </button>
+                </div>
+            </Show>
+        </div>
+    }
+}
+
+/// The catalogue emptied - dishes, products, the daily list - for a group that would rather
+/// start from nothing than from the starter. The places stay: they are where the group
+/// shops, not what it eats. The edit is "take this template" with an empty one, so the plan
+/// and what was bought go the way they go then.
+#[component]
+fn ClearBar(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
+    let places = StoredValue::new(menu.places.clone());
+    view! {
+        <div class="tcw-food-template">
+            <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
+                    on:click=move |_| {
+                        if ask(t().menu.clear_q) {
+                            let empty = Menu { on: true, places: places.get_value(), ..Menu::default() };
+                            apply.run(Operation::Menu(MenuEdit::TakeTemplate(empty)));
+                        }
+                    }>
+                {t().menu.clear_catalogue}
+            </button>
+        </div>
+    }
+}
+
 // ---- the tab -----------------------------------------------------------------------------
 
 #[component]
@@ -402,15 +703,23 @@ pub fn MenuTab(
         .trim_end_matches(".0")
         .replace('.', &crate::ui::decimal().to_string());
     let note = (t().menu.portions_note)(&portions, eating.full as usize, eating.others as usize, eating.full_weight);
-    let note_for_catalogue = note.clone();
+    // A template has nobody on it, so no portions to speak of: it says what it is instead.
+    let note_for_catalogue = if is_template(&tour) { t().menu.template_is_this.to_owned() } else { note.clone() };
 
     let tour_for_shopping = tour.clone();
     let menu_for_shopping = menu.clone();
     let menu_for_catalogue = menu.clone();
+    let tour_for_template = tour.clone();
+    let menu_for_template = menu.clone();
+    // A template has no trip to plan or shop for: only its catalogue is shown.
+    let template = is_template(&tour);
+    if template {
+        state.view.set(View::Catalogue);
+    }
 
     view! {
         <div class="tcw-food">
-            <div class="tcw-food-bar">
+            <div class="tcw-food-bar" style:display=move || if template { "none" } else { "" }>
                 <div class="tcw-seg" role="group">
                     <button type="button" class:is-on=move || state.view.get() == View::Plan
                             on:click=move |_| state.view.set(View::Plan)>{t().menu.plan}</button>
@@ -445,6 +754,9 @@ pub fn MenuTab(
             <Show when=move || state.view.get() == View::Catalogue>
                 <crate::menu_catalogue::Catalogue menu=menu_for_catalogue.clone() state=state apply=apply
                                                   note=note_for_catalogue.clone() />
+                <TemplateBar tour=tour_for_template.clone() menu=menu_for_template.clone() apply=apply />
+                <TransferBar menu=menu_for_template.clone() apply=apply />
+                <ClearBar menu=menu_for_template.clone() apply=apply />
             </Show>
         </div>
     }
@@ -504,8 +816,16 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
         </div>
     };
 
+    // What each meal has now, dishes since deleted left out - what the selects show, and what
+    // an edit of one of them starts from.
+    let plan = StoredValue::new(menu.clone());
+    let current = move |day: u32, meal: Meal| -> Vec<String> {
+        plan.with_value(|m| m.dishes_on(day, meal).iter().map(|d| d.id.clone()).collect())
+    };
+    let put = move |day: u32, meal: Meal, dishes: Vec<String>| change(MenuEdit::Meals(vec![Slot { day, meal, dishes }]));
+
     // A dish for one meal on every day at once - "yoghurt every morning" - on the days the
-    // trip has that meal.
+    // trip has that meal. The main dish only: what was added beside it on a day stays.
     let every_day = Meal::ALL
         .into_iter()
         .map(|meal| {
@@ -520,8 +840,20 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                             on:change=move |ev| {
                                 let v = event_target_value(&ev);
                                 if v == "?" { return; }
-                                let dish = (!v.is_empty()).then_some(v);
-                                change(MenuEdit::Meals((1..=days).filter(|d| inside(*d, meal)).map(|day| Slot { day, meal, dish: dish.clone() }).collect()));
+                                let slots = (1..=days)
+                                    .filter(|d| inside(*d, meal))
+                                    .map(|day| {
+                                        let mut dishes = current(day, meal);
+                                        match (v.is_empty(), dishes.is_empty()) {
+                                            // "Nothing cooked" is nothing, extras and all.
+                                            (true, _) => dishes.clear(),
+                                            (false, true) => dishes.push(v.clone()),
+                                            (false, false) => dishes[0] = v.clone(),
+                                        }
+                                        Slot { day, meal, dishes }
+                                    })
+                                    .collect();
+                                change(MenuEdit::Meals(slots));
                             }>
                         <option value="?" selected=true>{t().menu.pick}</option>
                         <option value="">{t().menu.nothing}</option>
@@ -537,27 +869,83 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
             let meals = Meal::ALL
                 .into_iter()
                 .map(|meal| {
-                    let chosen = menu.dish_on(day, meal).map(|d| d.id.clone()).unwrap_or_default();
-                    let options = menu
-                        .dishes_for(meal)
-                        .map(|d| {
-                            let on = d.id == chosen;
-                            view! { <option value=d.id.clone() selected=on>{d.name.clone()}</option> }
+                    let now = current(day, meal);
+                    let options = |chosen: &str| {
+                        menu.dishes_for(meal)
+                            .map(|d| {
+                                let on = d.id == chosen;
+                                view! { <option value=d.id.clone() selected=on>{d.name.clone()}</option> }
+                            })
+                            .collect_view()
+                    };
+                    let main = now.first().cloned().unwrap_or_default();
+                    // The dishes beside the main one: plov, and a salad, and mulled wine.
+                    let extras = now
+                        .iter()
+                        .enumerate()
+                        .skip(1)
+                        .map(|(at, id)| view! {
+                            <div class="tcw-food-extra">
+                                <select class="tcn-input"
+                                        on:change=move |ev| {
+                                            let mut dishes = current(day, meal);
+                                            if at < dishes.len() {
+                                                dishes[at] = event_target_value(&ev);
+                                                put(day, meal, dishes);
+                                            }
+                                        }>
+                                    {options(id)}
+                                </select>
+                                <button type="button" class="tcn-btn tcn-btn-sm tcw-ingr-x" title=t().menu.remove
+                                        on:click=move |_| {
+                                            let mut dishes = current(day, meal);
+                                            if at < dishes.len() {
+                                                dishes.remove(at);
+                                                put(day, meal, dishes);
+                                            }
+                                        }>
+                                    "✕"
+                                </button>
+                            </div>
                         })
                         .collect_view();
+                    // "+": the first of the meal's dishes not on it yet; a meal with nothing
+                    // cooked has nothing to add beside.
+                    let next = menu.dishes_for(meal).map(|d| d.id.clone()).find(|id| !now.contains(id));
+                    let can_add = !now.is_empty() && next.is_some();
                     view! {
-                        <label class="tcw-food-meal">
+                        <div class="tcw-food-meal tcw-food-slot">
                             <span class=format!("tcw-meal {}", crate::menu_catalogue::meal_class(meal))>{meal_name(meal)}</span>
-                            <select class="tcn-input"
-                                    on:change=move |ev| {
-                                        let v = event_target_value(&ev);
-                                        let dish = (!v.is_empty()).then_some(v);
-                                        change(MenuEdit::Meals(vec![Slot { day, meal, dish }]));
-                                    }>
-                                <option value="" selected=chosen.is_empty()>{t().menu.nothing}</option>
-                                {options}
-                            </select>
-                        </label>
+                            <div class="tcw-food-dishes">
+                                <select class="tcn-input" aria-label=meal_name(meal)
+                                        on:change=move |ev| {
+                                            let v = event_target_value(&ev);
+                                            let mut dishes = current(day, meal);
+                                            match (v.is_empty(), dishes.is_empty()) {
+                                                (true, _) => dishes.clear(),
+                                                (false, true) => dishes.push(v),
+                                                (false, false) => dishes[0] = v,
+                                            }
+                                            put(day, meal, dishes);
+                                        }>
+                                    <option value="" selected=main.is_empty()>{t().menu.nothing}</option>
+                                    {options(&main)}
+                                </select>
+                                {extras}
+                                {can_add.then(|| view! {
+                                    <button type="button" class="tcn-btn tcn-btn-sm tcw-food-more"
+                                            on:click=move |_| {
+                                                let mut dishes = current(day, meal);
+                                                if let Some(id) = next.clone() {
+                                                    dishes.push(id);
+                                                    put(day, meal, dishes);
+                                                }
+                                            }>
+                                        {t().menu.more_dish}
+                                    </button>
+                                })}
+                            </div>
+                        </div>
                     }
                 })
                 .collect_view();
@@ -565,11 +953,42 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                 Some(date) => (day_date(date), Some((t().menu.day_n)(day))),
                 None => ((t().menu.day)(day), None),
             };
+            // The day's own word - "arrival", "radial hikes" - after its name; "✎" writes it.
+            let note = menu.day_note(day).unwrap_or_default().to_owned();
+            let writing = RwSignal::new(false);
+            let typed = RwSignal::new(note.clone());
+            let was = StoredValue::new(note.clone());
+            let done = move || {
+                writing.set(false);
+                let now = typed.get_untracked().trim().to_owned();
+                if now != was.get_value() {
+                    change(MenuEdit::DayNote { day, note: now });
+                }
+            };
             view! {
                 <div class="tcn-card tcw-food-day">
                     <div class="tcw-food-dayname">
                         {title}
                         {small.map(|s| view! { " " <small>{s}</small> })}
+                        <Show when=move || !writing.get()
+                              fallback=move || view! {
+                                  <input class="tcn-input tcw-day-note-input" type="text" autofocus=true
+                                         placeholder=t().menu.day_note_hint
+                                         prop:value=move || typed.get()
+                                         on:input=move |ev| typed.set(event_target_value(&ev))
+                                         on:blur=move |_| done()
+                                         on:keydown=move |ev| match ev.key().as_str() {
+                                             "Enter" => done(),
+                                             "Escape" => writing.set(false),
+                                             _ => {}
+                                         } />
+                              }>
+                            {(!note.is_empty()).then(|| view! { <span class="tcw-day-note">" — " {note.clone()}</span> })}
+                            <button type="button" class="tcw-day-note-edit" title=t().menu.day_note_title
+                                    on:click=move |_| writing.set(true)>
+                                {if note.is_empty() { t().menu.day_note_add } else { "✎" }}
+                            </button>
+                        </Show>
                     </div>
                     {meals}
                 </div>
@@ -1083,6 +1502,26 @@ fn ListCard(
 mod tests {
     use super::*;
 
+    /// What "Copy menu" writes reads back as the catalogue alone; so does a whole tour's JSON;
+    /// anything else is not a menu.
+    #[test]
+    fn a_copied_menu_pastes_back_as_its_catalogue() {
+        let mut trip = starter(3);
+        trip.purchase_mut("rice").bought = true;
+        let back = menu_from_text(&menu_as_text(&trip)).expect("a menu");
+        assert_eq!(back, trip.as_template());
+        assert!(back.plan.is_empty() && back.purchases.is_empty());
+
+        let mut tour = Tour::from_json("{\"Id\": \"t\", \"Name\": \"t\"}").expect("tour");
+        trip.put(&mut tour);
+        let whole = tour.to_json().expect("json");
+        assert_eq!(menu_from_text(&whole), Some(trip.as_template()), "a tour's JSON");
+
+        assert_eq!(menu_from_text("hello"), None);
+        assert_eq!(menu_from_text("{\"Name\": \"a tour without a menu\"}"), None);
+        assert_eq!(menu_from_text(&menu_as_text(&Menu::default())), None, "an empty one");
+    }
+
     /// Every dish and every daily line names a product the catalogue has - a typo there
     /// would quietly leave something off every shopping list.
     #[test]
@@ -1132,6 +1571,88 @@ mod tests {
         let mut old = crate::edit::TourDraft::of(&on);
         old.menu = None;
         assert!(Menu::shown(&crate::edit::put_tour(&on, &old)).is_some());
+    }
+
+    /// Switched on for the first time with a template, the menu starts from the template's
+    /// catalogue, planned for the tour's days; taking a template later keeps what still fits.
+    #[test]
+    fn a_template_starts_the_menu_and_can_be_taken_later() {
+        let mut template = starter(3).as_template();
+        template.dishes.retain(|d| d.id != "grill");
+        let mut d = crate::edit::TourDraft::of(&tour());
+        d.menu = Some(true);
+        d.template = Some(template.clone());
+        let on = crate::edit::put_tour(&tour(), &d);
+        let menu = Menu::shown(&on).expect("a menu");
+        assert_eq!(menu.dishes, template.dishes);
+        assert_eq!(menu.days, 5);
+        assert!(menu.plan.len() >= 5, "planned, not empty");
+        assert!(menu.plan.iter().all(|s| !s.dishes.iter().any(|d| d == "grill")));
+
+        // A tour started from the starter takes the template: the grill is gone from its plan,
+        // and its dinners are planned again from what the template has.
+        let started = switched(&tour(), true);
+        assert!(Menu::shown(&started).expect("a menu").plan.iter().any(|s| s.dishes.iter().any(|d| d == "grill")));
+        let taken = crate::edit::put_menu(&started, &MenuEdit::TakeTemplate(template.clone()));
+        let menu = Menu::shown(&taken).expect("a menu");
+        assert_eq!(menu.dishes, template.dishes);
+        assert!(menu.plan.iter().all(|s| !s.dishes.iter().any(|d| d == "grill")));
+        assert_eq!(menu.plan.len(), Menu::shown(&started).expect("a menu").plan.len(), "no meal left unplanned");
+    }
+
+    /// Clearing is taking an empty template: no dishes, products or daily list, nothing
+    /// planned or bought - and the places still there.
+    #[test]
+    fn clearing_the_catalogue_keeps_the_places() {
+        let started = switched(&tour(), true);
+        let places = Menu::shown(&started).expect("a menu").places;
+        let empty = Menu { on: true, places: places.clone(), ..Menu::default() };
+        let cleared = crate::edit::put_menu(&started, &MenuEdit::TakeTemplate(empty));
+        let m = Menu::shown(&cleared).expect("still a menu");
+        assert!(m.dishes.is_empty() && m.products.is_empty() && m.daily.is_empty());
+        assert!(m.plan.iter().all(|s| s.dishes.is_empty()) && m.purchases.is_empty());
+        assert_eq!(m.places, places);
+        assert_eq!(m.days, 5, "the trip keeps its length");
+    }
+
+    /// The dishes cleared on their own: the products and the daily list stay, and nothing is
+    /// planned; the daily list cleared leaves the dishes alone.
+    #[test]
+    fn dishes_and_the_daily_list_clear_apart() {
+        let started = switched(&tour(), true);
+        let before = Menu::shown(&started).expect("a menu");
+        let all = MenuEdit::All(before.dishes.iter().map(|d| MenuEdit::RemoveDish(d.id.clone())).collect());
+        let m = Menu::shown(&crate::edit::put_menu(&started, &all)).expect("a menu");
+        assert!(m.dishes.is_empty());
+        assert_eq!((m.products.len(), m.daily.len()), (before.products.len(), before.daily.len()));
+        assert!(m.plan.iter().all(|s| s.dishes.is_empty()));
+
+        let m = Menu::shown(&crate::edit::put_menu(&started, &MenuEdit::Daily(Vec::new()))).expect("a menu");
+        assert!(m.daily.is_empty());
+        assert_eq!(m.dishes, before.dishes);
+    }
+
+    /// A template says whose it is by the trips under its own code, not the other code's.
+    #[test]
+    fn a_template_is_known_by_its_codes_tours() {
+        let make = |id: &str, name: &str, code: &str, template: bool| {
+            Tour::from_json(&serde_json::json!({
+                "Id": id, "Name": name, "AccessCodeMD5": code, "IsMenuTemplate": template
+            }).to_string()).expect("tour")
+        };
+        let tours = vec![
+            make("a", "Danube", "HIKE", false),
+            make("b", "Office party", "WORK", false),
+            make("c", "Shipka", "HIKE", false),
+            make("d", "Ural", "HIKE", false),
+            make("e", "Kayaks", "HIKE", false),
+        ];
+        let hike = make("t1", "template", "HIKE", true);
+        let work = make("t2", "template", "WORK", true);
+        let lonely = make("t3", "template", "NONE", true);
+        assert_eq!(template_owners(&hike, &tours), (t().list.template_for)("Danube, Shipka", 2));
+        assert_eq!(template_owners(&work, &tours), (t().list.template_for)("Office party", 0));
+        assert_eq!(template_owners(&lonely, &tours), t().list.template_for_none);
     }
 
     /// One receipt for the meat and the lamb: both point at it, and both are bought.

@@ -76,11 +76,14 @@ enum Route {
     /// The two settings this client has.
     Settings,
     /// A tour, and which of its tabs the address asks for. The app's own deep links -
-    /// /tour/x/persons and /tour/x/spendings - land on the matching tab, and
-    /// /tour/x/spending/add opens the tour with the expense dialog already up.
+    /// /tour/x/persons and /tour/x/spendings - land on the matching tab, and so do
+    /// /tour/x/balance, /stats and /menu, which the address bar follows as tabs are switched
+    /// (`tour::address_of`); /tour/x/spending/add opens the tour with the expense dialog
+    /// already up.
     Tour(String, Landing),
-    /// A share link: an access code and the tour it opens.
-    Goto(String, String),
+    /// A share link: an access code, the tour it opens, and - if the link names one - the tab,
+    /// as the tour's own address spells it (`menu`, `spendings`).
+    Goto(String, String, Option<String>),
     Unknown(String),
 }
 
@@ -94,6 +97,9 @@ pub enum Landing {
     People,
     Expenses,
     Stats,
+    /// On a tour without a menu - or in the compact view, which has no Menu tab - the tour's
+    /// own tab instead.
+    Menu,
     /// Straight into "record an expense", which is what the app's own add link does.
     AddSpending,
 }
@@ -116,8 +122,11 @@ fn route_of(path: &str) -> Route {
         ["tour", id, "persons"] => Route::Tour((*id).to_owned(), Landing::People),
         ["tour", id, "spendings"] => Route::Tour((*id).to_owned(), Landing::Expenses),
         ["tour", id, "stats"] => Route::Tour((*id).to_owned(), Landing::Stats),
+        ["tour", id, "balance"] => Route::Tour((*id).to_owned(), Landing::Balance),
+        ["tour", id, "menu"] => Route::Tour((*id).to_owned(), Landing::Menu),
         ["tour", id, "spending", "add"] => Route::Tour((*id).to_owned(), Landing::AddSpending),
-        ["goto", code, id] => Route::Goto((*code).to_owned(), (*id).to_owned()),
+        ["goto", code, id] => Route::Goto((*code).to_owned(), (*id).to_owned(), None),
+        ["goto", code, id, tab] => Route::Goto((*code).to_owned(), (*id).to_owned(), Some((*tab).to_owned())),
         _ => Route::Unknown(path.to_owned()),
     }
 }
@@ -246,7 +255,7 @@ fn intercept_links(set_route: WriteSignal<Route>) {
             }
             // A share link is not a screen: it exchanges a code for a token on the way
             // through, and that happens when the app starts. Let it load properly.
-            if matches!(route_of(&href), Route::Goto(_, _)) {
+            if matches!(route_of(&href), Route::Goto(..)) {
                 return;
             }
             ev.prevent_default();
@@ -425,7 +434,12 @@ fn App() -> impl IntoView {
     // three companies sees the tours of all three, as they did in the app. It used to replace
     // them, and every link from one company hid the tours of the others. Should the server
     // refuse the lot, the link's code alone - which is what the app fell back to as well.
-    if let Route::Goto(code, id) = route.get_untracked() {
+    if let Route::Goto(code, id, tab) = route.get_untracked() {
+        // The tab the link names, if it is one: anything else on the end opens the tour.
+        let target = tab
+            .map(|tab| format!("/tour/{id}/{tab}"))
+            .filter(|path| matches!(route_of(path), Route::Tour(..)))
+            .unwrap_or_else(|| format!("/tour/{id}"));
         spawn_local(async move {
             let all = api::codes_with(&api::my_codes().await, &code);
             let signed = match api::log_in_with_md5(&all).await {
@@ -435,7 +449,7 @@ fn App() -> impl IntoView {
             match signed {
                 Ok(()) => {
                     signed_in.set(true);
-                    go(&format!("/tour/{id}"), set_route)
+                    go(&target, set_route)
                 }
                 Err(_) => go("/", set_route),
             }
@@ -526,7 +540,7 @@ fn App() -> impl IntoView {
                 {move || match (signed_in.get(), route.get()) {
                     // Nothing is readable without a code, so the sign-in screen stands in
                     // front of every route except the share link, which signs in by itself.
-                    (false, Route::Goto(_, _)) => {
+                    (false, Route::Goto(..)) => {
                         view! { <div class="tcn-loading">{t().shell.signing_in}</div> }.into_any()
                     }
                     // Help is readable without a code: somebody who has just been handed a
@@ -544,7 +558,7 @@ fn App() -> impl IntoView {
                                 view! { <tour::TourPage id=id.clone() landing=landing /> }
                             }}
                         }.into_any(),
-                        Route::Goto(_, _) => {
+                        Route::Goto(..) => {
                             view! { <div class="tcn-loading">{t().shell.signing_in}</div> }.into_any()
                         }
                         Route::Help => ().into_any(),
@@ -582,6 +596,22 @@ mod tests {
             route_of("/tour/abc/spending/add"),
             Route::Tour(_, Landing::AddSpending)
         ));
+        // Every tab has an address, and it is the one the address bar shows on that tab.
+        for tab in [
+            tour::Tab::Balance,
+            tour::Tab::People,
+            tour::Tab::Expenses,
+            tour::Tab::Stats,
+            tour::Tab::Menu,
+        ] {
+            match route_of(&tour::address_of("abc", tab)) {
+                Route::Tour(id, landing) => {
+                    assert_eq!(id, "abc");
+                    assert_eq!(tour::tab_of(landing), tab, "{tab:?}");
+                }
+                other => panic!("{tab:?}: {other:?}"),
+            }
+        }
         // A query string or a fragment belongs to the page, not to the route: without this
         // a link with one on the end would be swallowed by the interceptor and land on
         // "nothing here".
@@ -610,5 +640,9 @@ mod tests {
         // exchanges its code for a token while the app is starting, so it has to start:
         // turning it into a change of signal would land on a tour nobody is signed in for.
         assert!(matches!(route_of("/goto/CODE/tourid"), Route::Goto(..)));
+        assert_eq!(
+            route_of("/goto/CODE/tourid/menu"),
+            Route::Goto("CODE".into(), "tourid".into(), Some("menu".into()))
+        );
     }
 }

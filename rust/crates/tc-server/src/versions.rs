@@ -112,6 +112,11 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
     if was.start != is.start {
         said.push(format!("starts {}", is.start.as_deref().unwrap_or("-")));
     }
+    for day in 1..=was.day_notes.len().max(is.day_notes.len()) as u32 {
+        if was.day_note(day) != is.day_note(day) {
+            said.push(format!("day {day}: {}", is.day_note(day).unwrap_or("-")));
+        }
+    }
     // The plan, over the days both have: a changed number of days is said above, and the
     // days it adds are filled in by themselves.
     let meal = |m: Meal| match m {
@@ -119,7 +124,11 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
         Meal::Lunch => "lunch",
         Meal::Dinner => "dinner",
     };
-    let dish = |menu: &Menu, day: u32, m: Meal| menu.dish_on(day, m).map_or("nothing".to_owned(), |d| d.name.clone());
+    // Several dishes a meal: "Plov + Salad".
+    let dish = |menu: &Menu, day: u32, m: Meal| {
+        let names: Vec<&str> = menu.dishes_on(day, m).iter().map(|d| d.name.as_str()).collect();
+        if names.is_empty() { "nothing".to_owned() } else { names.join(" + ") }
+    };
     let mut plan: Vec<String> = Vec::new();
     for day in 1..=was.days.min(is.days) {
         for m in Meal::ALL {
@@ -446,7 +455,7 @@ mod tests {
         use tc_core::menu::{Meal, Slot};
         let before = with_menu(&tour(4400, 117_500), |_| {});
         let after = with_menu(&before, |m| {
-            m.set(Slot { day: 2, meal: Meal::Dinner, dish: Some("plov".into()) });
+            m.set(Slot::one(2, Meal::Dinner, Some("plov".into())));
             m.purchase_mut("lamb").bought = true;
         });
         assert_eq!(
