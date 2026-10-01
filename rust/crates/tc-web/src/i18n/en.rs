@@ -902,6 +902,18 @@ pub const TEXTS: Texts = Texts {
         category: "Groceries",
         catalogue: "Catalogue",
         template_title: "Menu template",
+        transfer_title: "To another access code",
+        transfer_about: "“Copy menu” puts this tour’s dishes, products, places and daily list on the \
+            clipboard — no plan, no shopping, no people. Send it on; in a tour under the other code, \
+            “Paste menu” puts it in place of the catalogue, and there it can be saved as the template.",
+        copy_menu: "Copy menu",
+        menu_copied: "menu copied",
+        paste_menu: "Paste menu",
+        paste_here: "Paste the copied menu here",
+        take_pasted: "Replace the catalogue",
+        paste_q: "Replace this tour’s dishes, products, places and daily list with the pasted ones? \
+            Meals with a dish they do not have are planned anew.",
+        not_a_menu: "This does not look like a menu: copy it with “Copy menu”.",
         typed_product: "new product",
         new_product_note: |place| if place.is_empty() {
             "A new product joins the catalogue for everybody, with no place; Products changes that.".to_owned()

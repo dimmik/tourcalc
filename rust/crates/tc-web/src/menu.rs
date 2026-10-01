@@ -553,6 +553,96 @@ fn TemplateBar(tour: Tour, menu: Menu, apply: Callback<Operation>) -> impl IntoV
     .into_any()
 }
 
+// ---- moving a menu to another access code -------------------------------------------------
+
+/// What "Copy menu" puts on the clipboard: the catalogue, marked as such, so that a paste can
+/// tell a menu from any other JSON.
+const MENU_MARK: &str = "TourcalcMenu";
+
+fn menu_as_text(menu: &Menu) -> String {
+    serde_json::json!({ MENU_MARK: 1, tc_core::menu::MENU: menu.as_template() }).to_string()
+}
+
+/// The menu in pasted text: what "Copy menu" wrote, a whole tour's JSON from the list's "Copy
+/// JSON", or a bare menu. Something with no dishes and no products is not taken for one -
+/// an empty catalogue in place of a real one is not what anybody pasting meant.
+fn menu_from_text(text: &str) -> Option<Menu> {
+    let value: serde_json::Value = serde_json::from_str(text.trim()).ok()?;
+    let inner = value
+        .as_object()?
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case(tc_core::menu::MENU))
+        .map(|(_, v)| v.clone())
+        .unwrap_or(value);
+    // Read the way a tour's own menu is read, older spellings and all.
+    let tour = Tour::from_json(&serde_json::json!({ "Id": "pasted", "Name": "", tc_core::menu::MENU: inner }).to_string()).ok()?;
+    Menu::of(&tour)
+        .filter(|m| !m.dishes.is_empty() || !m.products.is_empty())
+        .map(|m| m.as_template())
+}
+
+/// Under the catalogue, after the template: the catalogue as text to send to another access
+/// code, and a box to paste one into.
+///
+/// Through the clipboard and a box rather than between codes directly: a device holds only
+/// the codes' hashes, and the people of one code have no business in another's tours - a
+/// message with the menu in it is how one group hands it to the next.
+#[component]
+fn TransferBar(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
+    let said = crate::ui::Brief::new();
+    let pasting = RwSignal::new(false);
+    let pasted = RwSignal::new(String::new());
+    let trouble = RwSignal::new(None::<&'static str>);
+    let text = StoredValue::new(menu_as_text(&menu));
+
+    let take = move |_| match menu_from_text(&pasted.get_untracked()) {
+        None => trouble.set(Some(t().menu.not_a_menu)),
+        Some(found) => {
+            trouble.set(None);
+            if ask(t().menu.paste_q) {
+                pasting.set(false);
+                pasted.set(String::new());
+                apply.run(Operation::Menu(MenuEdit::TakeTemplate(found)));
+            }
+        }
+    };
+
+    view! {
+        <div class="tcw-food-template">
+            <div class="tcw-food-template-title">{t().menu.transfer_title}</div>
+            <p class="tcw-food-note">{t().menu.transfer_about}</p>
+            <div class="tcw-food-template-buttons">
+                <button type="button" class="tcn-btn tcn-btn-sm"
+                        on:click=move |_| {
+                            crate::tour::copy_to_clipboard(&text.get_value());
+                            said.say(t().menu.menu_copied);
+                        }>
+                    {move || if said.is_on() { said.get() } else { t().menu.copy_menu.to_owned() }}
+                </button>
+                <button type="button" class="tcn-btn tcn-btn-sm" aria-expanded=move || pasting.get().to_string()
+                        on:click=move |_| pasting.update(|p| *p = !*p)>
+                    {t().menu.paste_menu}
+                </button>
+            </div>
+            <Show when=move || pasting.get()>
+                <div class="tcw-food-paste">
+                    <textarea class="tcn-input" rows="3" placeholder=t().menu.paste_here
+                              prop:value=move || pasted.get()
+                              on:input=move |ev| pasted.set(event_target_value(&ev))></textarea>
+                    <Show when=move || trouble.get().is_some()>
+                        <div class="tcn-errors">{move || trouble.get().unwrap_or_default()}</div>
+                    </Show>
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
+                            prop:disabled=move || pasted.get().trim().is_empty()
+                            on:click=take>
+                        {t().menu.take_pasted}
+                    </button>
+                </div>
+            </Show>
+        </div>
+    }
+}
+
 // ---- the tab -----------------------------------------------------------------------------
 
 #[component]
@@ -625,6 +715,7 @@ pub fn MenuTab(
                 <crate::menu_catalogue::Catalogue menu=menu_for_catalogue.clone() state=state apply=apply
                                                   note=note_for_catalogue.clone() />
                 <TemplateBar tour=tour_for_template.clone() menu=menu_for_template.clone() apply=apply />
+                <TransferBar menu=menu_for_template.clone() apply=apply />
             </Show>
         </div>
     }
@@ -1262,6 +1353,26 @@ fn ListCard(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What "Copy menu" writes reads back as the catalogue alone; so does a whole tour's JSON;
+    /// anything else is not a menu.
+    #[test]
+    fn a_copied_menu_pastes_back_as_its_catalogue() {
+        let mut trip = starter(3);
+        trip.purchase_mut("rice").bought = true;
+        let back = menu_from_text(&menu_as_text(&trip)).expect("a menu");
+        assert_eq!(back, trip.as_template());
+        assert!(back.plan.is_empty() && back.purchases.is_empty());
+
+        let mut tour = Tour::from_json("{\"Id\": \"t\", \"Name\": \"t\"}").expect("tour");
+        trip.put(&mut tour);
+        let whole = tour.to_json().expect("json");
+        assert_eq!(menu_from_text(&whole), Some(trip.as_template()), "a tour's JSON");
+
+        assert_eq!(menu_from_text("hello"), None);
+        assert_eq!(menu_from_text("{\"Name\": \"a tour without a menu\"}"), None);
+        assert_eq!(menu_from_text(&menu_as_text(&Menu::default())), None, "an empty one");
+    }
 
     /// Every dish and every daily line names a product the catalogue has - a typo there
     /// would quietly leave something off every shopping list.

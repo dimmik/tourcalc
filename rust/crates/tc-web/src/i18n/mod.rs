@@ -267,6 +267,15 @@ pub struct MenuTexts {
     // The catalogue.
     pub catalogue: &'static str,
     pub template_title: &'static str,
+    pub transfer_title: &'static str,
+    pub transfer_about: &'static str,
+    pub copy_menu: &'static str,
+    pub menu_copied: &'static str,
+    pub paste_menu: &'static str,
+    pub paste_here: &'static str,
+    pub take_pasted: &'static str,
+    pub paste_q: &'static str,
+    pub not_a_menu: &'static str,
     /// The blank row for a product typed into a dish rather than picked.
     pub typed_product: &'static str,
     /// Where such a product goes, by the name of its place.

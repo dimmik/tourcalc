@@ -346,7 +346,7 @@ fn tab_label(tab: Tab) -> &'static str {
 /// Reached through `js_sys` rather than `web_sys`: the clipboard sits on `Navigator`, which
 /// would mean turning on another web-sys feature for one call, and this crate is measured
 /// by what it weighs.
-fn copy_to_clipboard(text: &str) {
+pub(crate) fn copy_to_clipboard(text: &str) {
     use wasm_bindgen::JsCast as _;
     let Some(window) = web_sys::window() else {
         return;
