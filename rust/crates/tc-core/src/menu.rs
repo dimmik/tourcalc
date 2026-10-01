@@ -197,6 +197,10 @@ pub struct Menu {
     pub daily: Vec<Ingredient>,
     pub plan: Vec<Slot>,
     pub purchases: Vec<Purchase>,
+    /// A word for a day, by its number from 1 - "arrival", "radial hikes", "leaving" - beside
+    /// its date or number. Kept for days beyond the trip's length too: shortened and grown
+    /// again, a day finds its word where it left it.
+    pub day_notes: Vec<String>,
 }
 
 /// One product's shopping: who buys and pays for it, whether it is bought, and the expense
@@ -434,6 +438,24 @@ impl Menu {
         match self.dishes.iter_mut().find(|d| d.id == dish.id) {
             Some(d) => *d = dish,
             None => self.dishes.push(dish),
+        }
+    }
+
+    /// The word written for a day, if any.
+    pub fn day_note(&self, day: u32) -> Option<&str> {
+        let at = usize::try_from(day).ok()?.checked_sub(1)?;
+        self.day_notes.get(at).map(|n| n.trim()).filter(|n| !n.is_empty())
+    }
+
+    /// Writes a day's word; an empty one takes it away.
+    pub fn set_day_note(&mut self, day: u32, note: &str) {
+        let Some(at) = usize::try_from(day).ok().and_then(|d| d.checked_sub(1)) else { return };
+        if self.day_notes.len() <= at {
+            self.day_notes.resize(at + 1, String::new());
+        }
+        self.day_notes[at] = note.trim().to_owned();
+        while self.day_notes.last().is_some_and(|n| n.is_empty()) {
+            self.day_notes.pop();
         }
     }
 
@@ -691,6 +713,7 @@ mod tests {
             ],
             plan: vec![],
             purchases: vec![],
+            day_notes: vec![],
         };
         m.fill();
         m
@@ -961,5 +984,18 @@ mod tests {
         assert_eq!(old.dishes, vec!["soup".to_owned()]);
         let nothing: Slot = serde_json::from_value(serde_json::json!({"Day": 1, "Meal": "Lunch", "Dish": null})).expect("nothing");
         assert!(nothing.dishes.is_empty());
+    }
+
+    /// A day's word is set, read, taken away; the list does not grow with empty tails.
+    #[test]
+    fn a_day_has_a_word_of_its_own() {
+        let mut m = menu();
+        m.set_day_note(3, " leaving ");
+        assert_eq!(m.day_note(3), Some("leaving"));
+        assert_eq!((m.day_note(1), m.day_note(0), m.day_note(9)), (None, None, None));
+        m.set_day_note(1, "arrival");
+        m.set_day_note(3, "");
+        assert_eq!(m.day_notes, vec!["arrival".to_owned()]);
+        assert!(m.as_template().day_notes.is_empty(), "a template is a catalogue, not a trip");
     }
 }

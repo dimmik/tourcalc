@@ -314,6 +314,7 @@ pub fn starter(days: u32) -> Menu {
             .collect(),
         plan: Vec::new(),
         purchases: Vec::new(),
+        day_notes: Vec::new(),
     };
     menu.fill();
     menu
@@ -952,11 +953,42 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                 Some(date) => (day_date(date), Some((t().menu.day_n)(day))),
                 None => ((t().menu.day)(day), None),
             };
+            // The day's own word - "arrival", "radial hikes" - after its name; "✎" writes it.
+            let note = menu.day_note(day).unwrap_or_default().to_owned();
+            let writing = RwSignal::new(false);
+            let typed = RwSignal::new(note.clone());
+            let was = StoredValue::new(note.clone());
+            let done = move || {
+                writing.set(false);
+                let now = typed.get_untracked().trim().to_owned();
+                if now != was.get_value() {
+                    change(MenuEdit::DayNote { day, note: now });
+                }
+            };
             view! {
                 <div class="tcn-card tcw-food-day">
                     <div class="tcw-food-dayname">
                         {title}
                         {small.map(|s| view! { " " <small>{s}</small> })}
+                        <Show when=move || !writing.get()
+                              fallback=move || view! {
+                                  <input class="tcn-input tcw-day-note-input" type="text" autofocus=true
+                                         placeholder=t().menu.day_note_hint
+                                         prop:value=move || typed.get()
+                                         on:input=move |ev| typed.set(event_target_value(&ev))
+                                         on:blur=move |_| done()
+                                         on:keydown=move |ev| match ev.key().as_str() {
+                                             "Enter" => done(),
+                                             "Escape" => writing.set(false),
+                                             _ => {}
+                                         } />
+                              }>
+                            {(!note.is_empty()).then(|| view! { <span class="tcw-day-note">" — " {note.clone()}</span> })}
+                            <button type="button" class="tcw-day-note-edit" title=t().menu.day_note_title
+                                    on:click=move |_| writing.set(true)>
+                                {if note.is_empty() { t().menu.day_note_add } else { "✎" }}
+                            </button>
+                        </Show>
                     </div>
                     {meals}
                 </div>

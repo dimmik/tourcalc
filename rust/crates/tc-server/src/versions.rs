@@ -112,6 +112,11 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
     if was.start != is.start {
         said.push(format!("starts {}", is.start.as_deref().unwrap_or("-")));
     }
+    for day in 1..=was.day_notes.len().max(is.day_notes.len()) as u32 {
+        if was.day_note(day) != is.day_note(day) {
+            said.push(format!("day {day}: {}", is.day_note(day).unwrap_or("-")));
+        }
+    }
     // The plan, over the days both have: a changed number of days is said above, and the
     // days it adds are filled in by themselves.
     let meal = |m: Meal| match m {

@@ -991,6 +991,12 @@
         .tcw-food-trip { margin-bottom: 10px; }
         .tcw-food-trip .tcw-food-meal { grid-template-columns: 8.5em minmax(0, 1fr); max-width: 420px; }
         .tcw-food-dayname small { font-weight: 400; font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        /* A day's own word, after its name, and the pencil that writes it. */
+        .tcw-food-dayname { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+        .tcw-day-note { font-weight: 600; }
+        .tcw-day-note-edit { border: 0; background: none; padding: 0 2px; font: inherit; font-size: 12px; font-weight: 400;
+            cursor: pointer; color: var(--tcn-primary, #4f46e5); }
+        .tcw-day-note-input { flex: 1 1 100%; padding: 4px 8px; font-size: 13px; font-weight: 400; }
         .tcw-ingr-when { font: inherit; font-size: 12px; padding: 1px 2px; border: 1px solid var(--tcn-border, #e5e7eb);
             border-radius: 6px; background: var(--tcn-surface, #fff); color: var(--tcn-text, #111827); }
     </style>

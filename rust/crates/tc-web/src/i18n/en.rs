@@ -915,6 +915,9 @@ pub const TEXTS: Texts = Texts {
         new_dishes_note: "One dish a row; what goes in each is added afterwards, with Edit.",
         clear_catalogue: "Clear the catalogue",
         more_dish: "+ another dish",
+        day_note_add: "✎ note",
+        day_note_title: "A word for the day: arrival, radial hikes, leaving",
+        day_note_hint: "arrival, radial hikes, leaving…",
         clear_dishes: "Clear the dishes",
         clear_dishes_q: "Delete every dish? The products, the daily list and the places stay; the \
             meals they were planned on become “— nothing —”. The tour's versions keep them.",

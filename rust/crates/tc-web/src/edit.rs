@@ -857,6 +857,8 @@ pub enum MenuEdit {
     TakeTemplate(tc_core::menu::Menu),
     /// A dish copied, next to the original - see `Menu::copy_dish`.
     CopyDish { from: String, id: String, name: String },
+    /// A word for a day - "arrival" - or none.
+    DayNote { day: u32, note: String },
 }
 
 /// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
@@ -900,6 +902,7 @@ fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
             }
         }
         MenuEdit::CopyDish { from, id, name } => menu.copy_dish(from, id, name),
+        MenuEdit::DayNote { day, note } => menu.set_day_note(*day, note),
         MenuEdit::TakeTemplate(template) => {
             menu.take_catalogue(template);
             // Meals whose dish the template has not got are planned again from its dishes.

@@ -276,6 +276,10 @@ pub struct MenuTexts {
     pub clear_catalogue: &'static str,
     /// Another dish beside the main one of a meal.
     pub more_dish: &'static str,
+    /// A day's own word: the link that adds one, its tooltip, the box's hint.
+    pub day_note_add: &'static str,
+    pub day_note_title: &'static str,
+    pub day_note_hint: &'static str,
     pub clear_dishes: &'static str,
     pub clear_dishes_q: &'static str,
     pub clear_daily: &'static str,
