@@ -105,6 +105,23 @@ pub fn Catalogue(
     let menu_for_new_product = menu.clone();
 
     let dish_count = menu.dishes.len();
+    // Each section empties on its own - "start the dishes over" is the usual wish, and it
+    // must not take the products and the daily list along. Edits that exist already: the
+    // dishes one by one, the daily list as nothing.
+    let dish_ids: Vec<String> = menu.dishes.iter().map(|d| d.id.clone()).collect();
+    let clear_dishes = move |_| {
+        if crate::menu::ask(t().menu.clear_dishes_q) {
+            state.editing.set(None);
+            apply.run(Operation::Menu(MenuEdit::All(dish_ids.iter().cloned().map(MenuEdit::RemoveDish).collect())));
+        }
+    };
+    let has_daily = !menu.daily.is_empty();
+    let clear_daily = move |_| {
+        if crate::menu::ask(t().menu.clear_daily_q) {
+            state.editing.set(None);
+            apply.run(Operation::Menu(MenuEdit::Daily(Vec::new())));
+        }
+    };
     let product_count = menu.products.len();
     // A section's heading folds it; "+ Dish" opens it, since the new one is drawn inside.
     let fold = |open: RwSignal<bool>, shown: Memo<bool>, title: &'static str, count: Option<usize>, per: Option<&'static str>| view! {
@@ -138,6 +155,13 @@ pub fn Catalogue(
                     <NewDishes state=state apply=apply />
                 </Show>
                 {dishes}
+                {(dish_count > 0).then(|| view! {
+                    <div class="tcw-cat-clear">
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" on:click=clear_dishes.clone()>
+                            {t().menu.clear_dishes}
+                        </button>
+                    </div>
+                })}
             </div>
         </section>
 
@@ -148,6 +172,13 @@ pub fn Catalogue(
             <Show when=move || daily_shown.get()>
                 <p class="tcw-food-note">{t().menu.daily_note}</p>
                 <DailyRow menu=menu.clone() state=state apply=apply />
+                {has_daily.then(|| view! {
+                    <div class="tcw-cat-clear">
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" on:click=clear_daily>
+                            {t().menu.clear_daily}
+                        </button>
+                    </div>
+                })}
             </Show>
         </section>
 

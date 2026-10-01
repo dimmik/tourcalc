@@ -449,7 +449,7 @@ async fn find_template(tour: &Tour) -> Result<Option<Tour>, crate::api::Failed> 
     }
 }
 
-fn ask(question: &str) -> bool {
+pub(crate) fn ask(question: &str) -> bool {
     web_sys::window()
         .and_then(|w| w.confirm_with_message(question).ok())
         .unwrap_or(false)
@@ -1488,6 +1488,23 @@ mod tests {
         assert!(m.plan.iter().all(|s| s.dish.is_none()) && m.purchases.is_empty());
         assert_eq!(m.places, places);
         assert_eq!(m.days, 5, "the trip keeps its length");
+    }
+
+    /// The dishes cleared on their own: the products and the daily list stay, and nothing is
+    /// planned; the daily list cleared leaves the dishes alone.
+    #[test]
+    fn dishes_and_the_daily_list_clear_apart() {
+        let started = switched(&tour(), true);
+        let before = Menu::shown(&started).expect("a menu");
+        let all = MenuEdit::All(before.dishes.iter().map(|d| MenuEdit::RemoveDish(d.id.clone())).collect());
+        let m = Menu::shown(&crate::edit::put_menu(&started, &all)).expect("a menu");
+        assert!(m.dishes.is_empty());
+        assert_eq!((m.products.len(), m.daily.len()), (before.products.len(), before.daily.len()));
+        assert!(m.plan.iter().all(|s| s.dish.is_none()));
+
+        let m = Menu::shown(&crate::edit::put_menu(&started, &MenuEdit::Daily(Vec::new()))).expect("a menu");
+        assert!(m.daily.is_empty());
+        assert_eq!(m.dishes, before.dishes);
     }
 
     /// One receipt for the meat and the lamb: both point at it, and both are bought.
