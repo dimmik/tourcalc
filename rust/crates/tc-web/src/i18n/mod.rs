@@ -274,6 +274,8 @@ pub struct MenuTexts {
     pub copy_of: fn(&str) -> String,
     pub new_dishes_note: &'static str,
     pub clear_catalogue: &'static str,
+    /// Another dish beside the main one of a meal.
+    pub more_dish: &'static str,
     pub clear_dishes: &'static str,
     pub clear_dishes_q: &'static str,
     pub clear_daily: &'static str,

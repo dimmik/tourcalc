@@ -798,8 +798,16 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
         </div>
     };
 
+    // What each meal has now, dishes since deleted left out - what the selects show, and what
+    // an edit of one of them starts from.
+    let plan = StoredValue::new(menu.clone());
+    let current = move |day: u32, meal: Meal| -> Vec<String> {
+        plan.with_value(|m| m.dishes_on(day, meal).iter().map(|d| d.id.clone()).collect())
+    };
+    let put = move |day: u32, meal: Meal, dishes: Vec<String>| change(MenuEdit::Meals(vec![Slot { day, meal, dishes }]));
+
     // A dish for one meal on every day at once - "yoghurt every morning" - on the days the
-    // trip has that meal.
+    // trip has that meal. The main dish only: what was added beside it on a day stays.
     let every_day = Meal::ALL
         .into_iter()
         .map(|meal| {
@@ -814,8 +822,20 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                             on:change=move |ev| {
                                 let v = event_target_value(&ev);
                                 if v == "?" { return; }
-                                let dish = (!v.is_empty()).then_some(v);
-                                change(MenuEdit::Meals((1..=days).filter(|d| inside(*d, meal)).map(|day| Slot { day, meal, dish: dish.clone() }).collect()));
+                                let slots = (1..=days)
+                                    .filter(|d| inside(*d, meal))
+                                    .map(|day| {
+                                        let mut dishes = current(day, meal);
+                                        match (v.is_empty(), dishes.is_empty()) {
+                                            // "Nothing cooked" is nothing, extras and all.
+                                            (true, _) => dishes.clear(),
+                                            (false, true) => dishes.push(v.clone()),
+                                            (false, false) => dishes[0] = v.clone(),
+                                        }
+                                        Slot { day, meal, dishes }
+                                    })
+                                    .collect();
+                                change(MenuEdit::Meals(slots));
                             }>
                         <option value="?" selected=true>{t().menu.pick}</option>
                         <option value="">{t().menu.nothing}</option>
@@ -831,27 +851,83 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
             let meals = Meal::ALL
                 .into_iter()
                 .map(|meal| {
-                    let chosen = menu.dish_on(day, meal).map(|d| d.id.clone()).unwrap_or_default();
-                    let options = menu
-                        .dishes_for(meal)
-                        .map(|d| {
-                            let on = d.id == chosen;
-                            view! { <option value=d.id.clone() selected=on>{d.name.clone()}</option> }
+                    let now = current(day, meal);
+                    let options = |chosen: &str| {
+                        menu.dishes_for(meal)
+                            .map(|d| {
+                                let on = d.id == chosen;
+                                view! { <option value=d.id.clone() selected=on>{d.name.clone()}</option> }
+                            })
+                            .collect_view()
+                    };
+                    let main = now.first().cloned().unwrap_or_default();
+                    // The dishes beside the main one: plov, and a salad, and mulled wine.
+                    let extras = now
+                        .iter()
+                        .enumerate()
+                        .skip(1)
+                        .map(|(at, id)| view! {
+                            <div class="tcw-food-extra">
+                                <select class="tcn-input"
+                                        on:change=move |ev| {
+                                            let mut dishes = current(day, meal);
+                                            if at < dishes.len() {
+                                                dishes[at] = event_target_value(&ev);
+                                                put(day, meal, dishes);
+                                            }
+                                        }>
+                                    {options(id)}
+                                </select>
+                                <button type="button" class="tcn-btn tcn-btn-sm tcw-ingr-x" title=t().menu.remove
+                                        on:click=move |_| {
+                                            let mut dishes = current(day, meal);
+                                            if at < dishes.len() {
+                                                dishes.remove(at);
+                                                put(day, meal, dishes);
+                                            }
+                                        }>
+                                    "✕"
+                                </button>
+                            </div>
                         })
                         .collect_view();
+                    // "+": the first of the meal's dishes not on it yet; a meal with nothing
+                    // cooked has nothing to add beside.
+                    let next = menu.dishes_for(meal).map(|d| d.id.clone()).find(|id| !now.contains(id));
+                    let can_add = !now.is_empty() && next.is_some();
                     view! {
-                        <label class="tcw-food-meal">
+                        <div class="tcw-food-meal tcw-food-slot">
                             <span class=format!("tcw-meal {}", crate::menu_catalogue::meal_class(meal))>{meal_name(meal)}</span>
-                            <select class="tcn-input"
-                                    on:change=move |ev| {
-                                        let v = event_target_value(&ev);
-                                        let dish = (!v.is_empty()).then_some(v);
-                                        change(MenuEdit::Meals(vec![Slot { day, meal, dish }]));
-                                    }>
-                                <option value="" selected=chosen.is_empty()>{t().menu.nothing}</option>
-                                {options}
-                            </select>
-                        </label>
+                            <div class="tcw-food-dishes">
+                                <select class="tcn-input" aria-label=meal_name(meal)
+                                        on:change=move |ev| {
+                                            let v = event_target_value(&ev);
+                                            let mut dishes = current(day, meal);
+                                            match (v.is_empty(), dishes.is_empty()) {
+                                                (true, _) => dishes.clear(),
+                                                (false, true) => dishes.push(v),
+                                                (false, false) => dishes[0] = v,
+                                            }
+                                            put(day, meal, dishes);
+                                        }>
+                                    <option value="" selected=main.is_empty()>{t().menu.nothing}</option>
+                                    {options(&main)}
+                                </select>
+                                {extras}
+                                {can_add.then(|| view! {
+                                    <button type="button" class="tcn-btn tcn-btn-sm tcw-food-more"
+                                            on:click=move |_| {
+                                                let mut dishes = current(day, meal);
+                                                if let Some(id) = next.clone() {
+                                                    dishes.push(id);
+                                                    put(day, meal, dishes);
+                                                }
+                                            }>
+                                        {t().menu.more_dish}
+                                    </button>
+                                })}
+                            </div>
+                        </div>
                     }
                 })
                 .collect_view();
@@ -1462,16 +1538,16 @@ mod tests {
         assert_eq!(menu.dishes, template.dishes);
         assert_eq!(menu.days, 5);
         assert!(menu.plan.len() >= 5, "planned, not empty");
-        assert!(menu.plan.iter().all(|s| s.dish.as_deref() != Some("grill")));
+        assert!(menu.plan.iter().all(|s| !s.dishes.iter().any(|d| d == "grill")));
 
         // A tour started from the starter takes the template: the grill is gone from its plan,
         // and its dinners are planned again from what the template has.
         let started = switched(&tour(), true);
-        assert!(Menu::shown(&started).expect("a menu").plan.iter().any(|s| s.dish.as_deref() == Some("grill")));
+        assert!(Menu::shown(&started).expect("a menu").plan.iter().any(|s| s.dishes.iter().any(|d| d == "grill")));
         let taken = crate::edit::put_menu(&started, &MenuEdit::TakeTemplate(template.clone()));
         let menu = Menu::shown(&taken).expect("a menu");
         assert_eq!(menu.dishes, template.dishes);
-        assert!(menu.plan.iter().all(|s| s.dish.as_deref() != Some("grill")));
+        assert!(menu.plan.iter().all(|s| !s.dishes.iter().any(|d| d == "grill")));
         assert_eq!(menu.plan.len(), Menu::shown(&started).expect("a menu").plan.len(), "no meal left unplanned");
     }
 
@@ -1485,7 +1561,7 @@ mod tests {
         let cleared = crate::edit::put_menu(&started, &MenuEdit::TakeTemplate(empty));
         let m = Menu::shown(&cleared).expect("still a menu");
         assert!(m.dishes.is_empty() && m.products.is_empty() && m.daily.is_empty());
-        assert!(m.plan.iter().all(|s| s.dish.is_none()) && m.purchases.is_empty());
+        assert!(m.plan.iter().all(|s| s.dishes.is_empty()) && m.purchases.is_empty());
         assert_eq!(m.places, places);
         assert_eq!(m.days, 5, "the trip keeps its length");
     }
@@ -1500,7 +1576,7 @@ mod tests {
         let m = Menu::shown(&crate::edit::put_menu(&started, &all)).expect("a menu");
         assert!(m.dishes.is_empty());
         assert_eq!((m.products.len(), m.daily.len()), (before.products.len(), before.daily.len()));
-        assert!(m.plan.iter().all(|s| s.dish.is_none()));
+        assert!(m.plan.iter().all(|s| s.dishes.is_empty()));
 
         let m = Menu::shown(&crate::edit::put_menu(&started, &MenuEdit::Daily(Vec::new()))).expect("a menu");
         assert!(m.daily.is_empty());

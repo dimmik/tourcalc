@@ -908,6 +908,7 @@ pub const TEXTS: Texts = Texts {
         copy_of: |name| format!("{name} (copy)"),
         new_dishes_note: "One dish a row; what goes in each is added afterwards, with Edit.",
         clear_catalogue: "Clear the catalogue",
+        more_dish: "+ another dish",
         clear_dishes: "Clear the dishes",
         clear_dishes_q: "Delete every dish? The products, the daily list and the places stay; the \
             meals they were planned on become “— nothing —”. The tour's versions keep them.",

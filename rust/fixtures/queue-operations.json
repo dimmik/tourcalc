@@ -450,6 +450,25 @@
           }
         }
       }
+    },
+    {
+      "as_of": "2026-10-01, several dishes a meal",
+      "op": {
+        "Menu": {
+          "Meals": [
+            {
+              "Day": 2,
+              "Meal": "Dinner",
+              "Dish": "plov",
+              "Dishes": [
+                "plov",
+                "salad",
+                "mulled-wine"
+              ]
+            }
+          ]
+        }
+      }
     }
   ]
 }

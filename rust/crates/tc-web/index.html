@@ -854,6 +854,17 @@
         .tcw-food-meal { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 8px;
             align-items: center; font-size: 13px; color: var(--tcn-muted, #6b7280); }
         .tcw-food-meal select { padding: 6px 8px; font-size: 13.5px; color: var(--tcn-text, #111827); }
+        /* A meal's dishes: the main one, the ones beside it with their cross, and "+". */
+        .tcw-food-dishes { display: grid; gap: 4px; min-width: 0; }
+        .tcw-food-extra { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; align-items: center; }
+        .tcw-food-more { justify-self: start; font-size: 12px; padding: 2px 8px; }
+        .tcw-food-extra > .tcw-ingr-x { grid-area: auto; }
+        /* With several dishes the meal's badge stays by the first, not halfway down. */
+        .tcw-food-slot { align-items: start; }
+        .tcw-food-slot > .tcw-meal { margin-top: 7px; }
+        /* Cards side by side keep their own height: a day with three dinners does not stretch
+           the next one's meals apart. */
+        .tcw-food-day { align-content: start; }
         .tcw-food-all .tcw-food-meal { max-width: 420px; }
         .tcw-food-me { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
         .tcw-food-me > label:first-child { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }

@@ -119,7 +119,11 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
         Meal::Lunch => "lunch",
         Meal::Dinner => "dinner",
     };
-    let dish = |menu: &Menu, day: u32, m: Meal| menu.dish_on(day, m).map_or("nothing".to_owned(), |d| d.name.clone());
+    // Several dishes a meal: "Plov + Salad".
+    let dish = |menu: &Menu, day: u32, m: Meal| {
+        let names: Vec<&str> = menu.dishes_on(day, m).iter().map(|d| d.name.as_str()).collect();
+        if names.is_empty() { "nothing".to_owned() } else { names.join(" + ") }
+    };
     let mut plan: Vec<String> = Vec::new();
     for day in 1..=was.days.min(is.days) {
         for m in Meal::ALL {
@@ -446,7 +450,7 @@ mod tests {
         use tc_core::menu::{Meal, Slot};
         let before = with_menu(&tour(4400, 117_500), |_| {});
         let after = with_menu(&before, |m| {
-            m.set(Slot { day: 2, meal: Meal::Dinner, dish: Some("plov".into()) });
+            m.set(Slot::one(2, Meal::Dinner, Some("plov".into())));
             m.purchase_mut("lamb").bought = true;
         });
         assert_eq!(
