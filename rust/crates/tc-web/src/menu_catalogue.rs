@@ -459,20 +459,23 @@ fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>)
                                       }).collect_view()}
                                   </span>
                                   <small class="tcw-cat-what">{what.clone()}</small>
+                                  // A copy, opened at once: what is copied is usually to be
+                                  // changed. A small link under the dish, not a button beside
+                                  // "Edit": two buttons side by side, and the copy kept being
+                                  // pressed when an edit was meant.
+                                  <button type="button" class="tcw-cat-copy" title=t().menu.copy_dish_title
+                                          on:click=move |_| {
+                                              let id = crate::edit::new_id();
+                                              state.editing.set(Some(id.clone()));
+                                              apply.run(Operation::Menu(MenuEdit::CopyDish {
+                                                  from: from.clone(),
+                                                  id,
+                                                  name: copy_name.clone(),
+                                              }));
+                                          }>
+                                      {t().menu.copy_dish}
+                                  </button>
                               </div>
-                              // A copy, opened at once: what is copied is usually to be changed.
-                              <button type="button" class="tcn-btn tcn-btn-sm" title=t().menu.copy_dish_title
-                                      on:click=move |_| {
-                                          let id = crate::edit::new_id();
-                                          state.editing.set(Some(id.clone()));
-                                          apply.run(Operation::Menu(MenuEdit::CopyDish {
-                                              from: from.clone(),
-                                              id,
-                                              name: copy_name.clone(),
-                                          }));
-                                      }>
-                                  {t().menu.copy_dish}
-                              </button>
                               <button type="button" class="tcn-btn tcn-btn-sm"
                                       on:click=move |_| state.editing.set(Some(id.clone()))>
                                   {t().menu.edit}

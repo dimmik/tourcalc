@@ -918,7 +918,7 @@ pub const TEXTS: Texts = Texts {
         catalogue: "Каталог",
         template_title: "Шаблон меню",
         transfer_title: "В другой код доступа",
-        copy_dish: "Копия",
+        copy_dish: "сделать копию",
         copy_dish_title: "Копия блюда, чтобы поменять: плов из гречки начинается как плов",
         copy_of: |name| format!("{name} (копия)"),
         new_dishes_note: "По блюду в строке; что в каждое кладётся — потом, через «Изменить».",

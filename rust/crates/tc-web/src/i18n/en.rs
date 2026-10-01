@@ -903,7 +903,7 @@ pub const TEXTS: Texts = Texts {
         catalogue: "Catalogue",
         template_title: "Menu template",
         transfer_title: "To another access code",
-        copy_dish: "Copy",
+        copy_dish: "make a copy",
         copy_dish_title: "A copy of this dish, to change: plov with buckwheat starts as plov",
         copy_of: |name| format!("{name} (copy)"),
         new_dishes_note: "One dish a row; what goes in each is added afterwards, with Edit.",
