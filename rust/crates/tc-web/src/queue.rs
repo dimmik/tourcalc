@@ -373,6 +373,7 @@ pub fn forget_unreadable(tour: &str) {
 pub fn set_pending(tour: &str, ops: &[Operation]) {
     let Some(s) = storage() else { return };
     if ops.is_empty() {
+        WAITING_SINCE.with(|w| w.borrow_mut().remove(tour));
         let _ = s.remove_item(&queue_key(tour));
     } else if let Ok(text) = serde_json::to_string(ops) {
         let _ = s.set_item(&queue_key(tour), &text);
@@ -403,8 +404,31 @@ pub fn tours_with_pending() -> Vec<String> {
 
 pub fn push(tour: &str, op: Operation) {
     let mut ops = pending(tour);
+    if ops.is_empty() {
+        WAITING_SINCE.with(|w| w.borrow_mut().insert(tour.to_owned(), now_millis()));
+    }
     ops.push(op);
     set_pending(tour, &ops);
+}
+
+thread_local! {
+    /// Since when each tour's queue has had something in it, as this page saw it start.
+    static WAITING_SINCE: std::cell::RefCell<std::collections::HashMap<String, f64>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// How long a queue may wait before the tour says so. On a good network an edit is on the
+/// server in under a second, and a line that came for that second after every tick on the
+/// shopping list was a flicker, not news.
+pub const QUIET_FOR_MS: f64 = 5_000.0;
+
+/// How long this tour's edits have been waiting, in milliseconds - for ever, as far as this
+/// page knows, if they were waiting before it was opened: a queue left from last time is
+/// worth saying at once.
+pub fn waiting_for(tour: &str) -> f64 {
+    WAITING_SINCE
+        .with(|w| w.borrow().get(tour).copied())
+        .map_or(f64::INFINITY, |since| now_millis() - since)
 }
 
 /// The last tour seen from the server, kept so the app opens without one.

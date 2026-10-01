@@ -431,6 +431,8 @@ fn CurrencyPicker(tour: Tour, shown_in: RwSignal<Option<String>>) -> impl IntoVi
 fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -> impl IntoView {
     let tour_for_status = tour_id.clone();
     let tour_for_buttons = StoredValue::new(tour_id.clone());
+    // Bumped when a queue has waited long enough to be said - see `queue::QUIET_FOR_MS`.
+    let ripe = RwSignal::new(0u32);
     view! {
         // What is waiting is a fact about this device, not about the last request: it is
         // read from the queue, and the queue says when it changes. Tied to the request, the
@@ -486,9 +488,18 @@ fn SyncLine(status: RwSignal<Status>, reload: Callback<bool>, tour_id: String) -
                     </div>
                 }.into_any();
             }
-            // Floating, not in the page: on a good network this is there for half a second
-            // after every save, and in the page it pushed everything below it down and back
-            // up again - a tick on the shopping list made the whole list jump. Without a
+            // Not for the first seconds: on a good network the edit is on the server before
+            // then, and the line was a flicker after every save. Asked again when the time
+            // is up; still waiting, it is said.
+            ripe.track();
+            let waited = queue::waiting_for(&tour_id);
+            if waited < queue::QUIET_FOR_MS {
+                let left = (queue::QUIET_FOR_MS - waited).max(0.0) as u64 + 50;
+                set_timeout(move || { ripe.try_update(|n| *n += 1); }, std::time::Duration::from_millis(left));
+                return ().into_any();
+            }
+            // Floating, not in the page: in the page it pushed everything below it down and
+            // back up again - a tick on the shopping list made the whole list jump. Without a
             // network it stays, and floating it is in sight wherever the reader has scrolled.
             view! {
                 <div class="tcw-sync-float" role="status">
