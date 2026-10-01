@@ -1335,7 +1335,7 @@ fn expense_for(tour: &Tour, who: Option<&str>, description: String, products: Ve
 #[component]
 fn ListCard(
     tour: Tour,
-    /// The place, or "Groceries" for the one list - also what a shared receipt is called.
+    /// The place, the buyer or the category, or "Groceries" for the one list.
     title: String,
     lines: Vec<Line>,
     shoppers: Vec<(String, String)>,
@@ -1377,7 +1377,6 @@ fn ListCard(
         .collect();
     let together = {
         let tour = tour.clone();
-        let place_name = title.clone();
         move || {
             let these: Vec<&Line> = unrecorded.iter().filter(|l| shown(state, l.purchase.who.as_deref())).collect();
             if these.len() < 2 {
@@ -1385,6 +1384,12 @@ fn ListCard(
             }
             let first = these[0].purchase.who.clone();
             let who = if these.iter().all(|l| l.purchase.who == first) { first } else { state.me.get() };
+            // Named after the shop, as one receipt is: the place they share, else "Groceries" -
+            // a buyer's or a category's card is no shop.
+            let place_name = match these.iter().all(|l| l.place.to_lowercase() == these[0].place.to_lowercase()) {
+                true if !these[0].place.is_empty() => these[0].place.clone(),
+                _ => t().menu.category.to_owned(),
+            };
             let names: Vec<String> = these.iter().map(|l| l.product.name.to_lowercase()).collect();
             let description = if names.len() > 3 {
                 format!("{}: {} +{}", place_name, names[..3].join(", "), names.len() - 3)
@@ -1506,7 +1511,8 @@ fn ListCard(
                         <span class="tcw-buy-amount">{quantity_of(line.amount, &line.product)}</span>
                         <span class="tcw-buy-who">
                             <input type="text" class="tcn-input tcw-buy-at" list=PLACES_LIST
-                                   prop:value=line.place.clone() placeholder=t().menu.where_buy
+                                   prop:value=line.purchase.place.clone().unwrap_or_default()
+                                   placeholder=if line.place.is_empty() { t().menu.where_buy.to_owned() } else { line.place.clone() }
                                    title=t().menu.where_buy_title on:change=put_place />
                             <select class="tcn-input" title=t().menu.buyer on:change=pick>
                                 <option value="" selected=who.is_none()>{t().menu.nobody_yet}</option>
