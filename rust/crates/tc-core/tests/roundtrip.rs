@@ -252,3 +252,31 @@ fn spendings_that_share_an_id_are_told_apart() {
     assert_eq!(Tour::from_json(&text).unwrap(), tour);
     assert_eq!(Tour::from_json(&tour.to_json().unwrap()).unwrap(), tour);
 }
+
+/// The C# writes a missing value as `null` - a spending with no category is `"Type": null`
+/// - and a tour like that has to read, not vanish: one did, from prod, with its history.
+#[test]
+fn a_null_reads_as_nothing_there() {
+    let json = r#"{
+        "Id": "t1", "Name": null, "Metadata": null, "InternalVersionComment": null,
+        "Persons": [
+            {"GUID": "a", "Name": "Ann", "Weight": 100, "ParentId": null, "GroupId": null},
+            {"GUID": "b", "Name": null, "Weight": null, "ParentId": "a"}
+        ],
+        "Spendings": [
+            {"GUID": "s1", "FromGuid": "a", "AmountInCents": 1000, "ToAll": true,
+             "Type": null, "Description": null, "Currency": null, "Color": null}
+        ],
+        "Currencies": null, "TourCurrencyId": null
+    }"#;
+    let tour = Tour::from_json(json).expect("a tour with nulls parses");
+    assert_eq!(tour.persons.len(), 2);
+    assert_eq!(tour.spendings.len(), 1);
+    assert_eq!(tour.spendings[0].category, "");
+    assert_eq!(tour.spendings[0].description, "");
+
+    // And it writes back as something the C# reads: no null where a string was.
+    let back: Value = serde_json::from_str(&tour.to_json().expect("writes")).expect("json");
+    assert_eq!(back["Spendings"][0]["Type"], Value::String(String::new()));
+    Tour::from_json(&back.to_string()).expect("and reads again");
+}

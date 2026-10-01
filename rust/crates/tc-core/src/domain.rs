@@ -391,6 +391,13 @@ pub mod wire {
     ///
     /// This is the same hazard the plan flagged for swapping Newtonsoft for
     /// System.Text.Json in the C# app, found here first because this port hit it first.
+    ///
+    /// And a field that is `null` is a field that is not there. The C# writes a spending
+    /// with no category as `"Type": null`, and Newtonsoft reads null into a string without a
+    /// murmur; serde refused the whole tour over it - and the server, unable to read the
+    /// document, answered "no such tour". Seven of one company's tours went missing from
+    /// prod that way, history and all (2026-10-01). Dropped here, a null takes the field's
+    /// default like an absent one does.
     pub fn normalise_case(value: &mut Value) {
         const TOUR: &[&str] = &[
             "Id",
@@ -438,14 +445,17 @@ pub mod wire {
             return;
         };
         for want in canonical {
-            if obj.contains_key(*want) {
-                continue;
-            }
-            let found = obj.keys().find(|k| k.eq_ignore_ascii_case(want)).cloned();
-            if let Some(k) = found {
-                if let Some(v) = obj.remove(&k) {
-                    obj.insert((*want).to_owned(), v);
+            if !obj.contains_key(*want) {
+                let found = obj.keys().find(|k| k.eq_ignore_ascii_case(want)).cloned();
+                if let Some(k) = found {
+                    if let Some(v) = obj.remove(&k) {
+                        obj.insert((*want).to_owned(), v);
+                    }
                 }
+            }
+            // See `normalise_case`: null is absent.
+            if obj.get(*want).is_some_and(Value::is_null) {
+                obj.remove(*want);
             }
         }
     }
