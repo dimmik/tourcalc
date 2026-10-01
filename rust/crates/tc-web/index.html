@@ -869,6 +869,12 @@
         /* With several dishes the meal's badge stays by the first, not halfway down. */
         .tcw-food-slot { align-items: start; }
         .tcw-food-slot > .tcw-meal { margin-top: 7px; }
+        /* Each meal of a day on a ground of its colour: with several dishes a meal, where one
+           ends and the next begins is otherwise only the badge. */
+        .tcw-food-slot { padding: 6px 8px; border-radius: 8px; }
+        .tcw-food-slot.is-breakfast { background: #fffbeb; }
+        .tcw-food-slot.is-lunch { background: #ecfdf5; }
+        .tcw-food-slot.is-dinner { background: #eef2ff; }
         /* Cards side by side keep their own height: a day with three dinners does not stretch
            the next one's meals apart. */
         .tcw-food-day { align-content: start; }
