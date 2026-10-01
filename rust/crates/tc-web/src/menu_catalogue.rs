@@ -98,12 +98,10 @@ pub fn Catalogue(
     let daily_shown = Memo::new(move |_| {
         if searching() { found(&state.cat_find.get(), &daily_hay) } else { state.daily_open.get() }
     });
-    let blank_dish = Dish { meals: vec![Meal::Dinner], ..Dish::default() };
     let blank_product = Product {
         place: menu.places.first().map(|p| p.id.clone()).unwrap_or_default(),
         ..Product::default()
     };
-    let menu_for_new_dish = menu.clone();
     let menu_for_new_product = menu.clone();
 
     let dish_count = menu.dishes.len();
@@ -137,7 +135,7 @@ pub fn Catalogue(
             <div style:display=move || if dishes_shown.get() { "" } else { "none" }>
                 <p class="tcw-food-note">{note}</p>
                 <Show when=move || state.editing.get().as_deref() == Some("")>
-                    <DishEditor menu=menu_for_new_dish.clone() dish=blank_dish.clone() state=state apply=apply />
+                    <NewDishes state=state apply=apply />
                 </Show>
                 {dishes}
             </div>
@@ -192,6 +190,121 @@ pub fn Catalogue(
                 {places}
             </div>
         </section>
+    }
+}
+
+/// One row of the new-dishes list: a name and its meals.
+#[derive(Clone, Copy)]
+struct NewDish {
+    key: u32,
+    name: RwSignal<String>,
+    meals: RwSignal<Vec<Meal>>,
+}
+
+impl NewDish {
+    fn blank(next: StoredValue<u32>) -> NewDish {
+        let key = next.get_value();
+        next.set_value(key + 1);
+        // Dinner, as a new dish always started: most of what a group cooks is dinner.
+        NewDish { key, name: RwSignal::new(String::new()), meals: RwSignal::new(vec![Meal::Dinner]) }
+    }
+}
+
+/// "+ Dish": dishes by the list, as currencies are added - a blank row at the end, a name
+/// and its meals in each. Saved, they are in the catalogue with nothing in them yet, to be
+/// filled one by one - or by several people at once. One dish alone opens its editor, since
+/// that one is about to be filled.
+#[component]
+fn NewDishes(state: MenuState, apply: Callback<Operation>) -> impl IntoView {
+    let next = StoredValue::new(0u32);
+    let rows = RwSignal::new(vec![NewDish::blank(next)]);
+    let error = RwSignal::new(None::<&'static str>);
+    let spare = move || {
+        if rows.with_untracked(|r| r.last().is_none_or(|l| !l.name.get_untracked().trim().is_empty())) {
+            rows.update(|r| r.push(NewDish::blank(next)));
+        }
+    };
+    let save = move |_| {
+        let named: Vec<NewDish> = rows
+            .get_untracked()
+            .into_iter()
+            .filter(|r| !r.name.get_untracked().trim().is_empty())
+            .collect();
+        if named.iter().any(|r| r.meals.get_untracked().is_empty()) {
+            error.set(Some(t().menu.meal_needed));
+            return;
+        }
+        let dishes: Vec<Dish> = named
+            .iter()
+            .map(|r| Dish {
+                id: crate::edit::new_id(),
+                name: r.name.get_untracked().trim().to_owned(),
+                meals: r.meals.get_untracked(),
+                meal: None,
+                ingredients: Vec::new(),
+            })
+            .collect();
+        state.editing.set(match dishes.as_slice() {
+            [one] => Some(one.id.clone()),
+            _ => None,
+        });
+        if !dishes.is_empty() {
+            apply.run(Operation::Menu(MenuEdit::All(dishes.into_iter().map(MenuEdit::PutDish).collect())));
+        }
+    };
+    view! {
+        <div class="tcn-card tcw-cat-edit">
+            <Show when=move || error.get().is_some()>
+                <div class="tcn-errors">{move || error.get().unwrap_or_default()}</div>
+            </Show>
+            <For each=move || rows.get() key=|r| r.key let:row>
+                <div class="tcw-newdish">
+                    <input class="tcn-input tcw-cat-name" type="text" placeholder=t().menu.dish_name
+                           prop:value=move || row.name.get()
+                           on:input=move |ev| {
+                               row.name.set(event_target_value(&ev));
+                               spare();
+                           } />
+                    <span class="tcw-newdish-meals">
+                        {Meal::ALL.into_iter().map(|meal| {
+                            let on = move || row.meals.get().contains(&meal);
+                            view! {
+                                <button type="button" class=format!("tcw-meal tcw-meal-pick {}", meal_class(meal))
+                                        class:is-on=on aria-pressed=move || on().to_string()
+                                        on:click=move |_| row.meals.update(|m| {
+                                            if m.contains(&meal) {
+                                                m.retain(|x| *x != meal);
+                                            } else {
+                                                m.push(meal);
+                                                m.sort_by_key(|x| Meal::ALL.iter().position(|y| y == x));
+                                            }
+                                        })>
+                                    {meal_name(meal)}
+                                </button>
+                            }
+                        }).collect_view()}
+                    </span>
+                    <button type="button" class="tcn-btn tcn-btn-sm tcw-ingr-x" title=t().menu.remove
+                            style:visibility=move || if rows.with(|r| r.last().map(|l| l.key)) == Some(row.key) { "hidden" } else { "visible" }
+                            on:click=move |_| {
+                                rows.update(|r| r.retain(|x| x.key != row.key));
+                                spare();
+                            }>
+                        "✕"
+                    </button>
+                </div>
+            </For>
+            <p class="tcw-food-note tcw-ingr-note">{t().menu.new_dishes_note}</p>
+            <div class="tcw-cat-actions">
+                <span class="tcw-cat-gap"></span>
+                <button type="button" class="tcn-btn tcn-btn-sm" on:click=move |_| state.editing.set(None)>
+                    {t().dialogs.cancel}
+                </button>
+                <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary" on:click=save>
+                    {t().dialogs.save}
+                </button>
+            </div>
+        </div>
     }
 }
 
@@ -292,6 +405,7 @@ fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>)
     let meals: Vec<Meal> = dish.meals.clone();
     let what = summary(&menu, &dish.ingredients);
     let editor_dish = dish.clone();
+    let copy_name = (t().menu.copy_of)(&dish.name);
     view! {
         <Show when=open.clone()
               fallback={
@@ -299,8 +413,11 @@ fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>)
                   let name = dish.name.clone();
                   let meals = meals.clone();
                   let what = what.clone();
+                  let copy_name = copy_name.clone();
                   move || {
                       let id = id.clone();
+                      let from = id.clone();
+                      let copy_name = copy_name.clone();
                       view! {
                           <div class="tcw-cat-row">
                               <div class="tcw-cat-main">
@@ -312,6 +429,19 @@ fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>)
                                   </span>
                                   <small class="tcw-cat-what">{what.clone()}</small>
                               </div>
+                              // A copy, opened at once: what is copied is usually to be changed.
+                              <button type="button" class="tcn-btn tcn-btn-sm" title=t().menu.copy_dish_title
+                                      on:click=move |_| {
+                                          let id = crate::edit::new_id();
+                                          state.editing.set(Some(id.clone()));
+                                          apply.run(Operation::Menu(MenuEdit::CopyDish {
+                                              from: from.clone(),
+                                              id,
+                                              name: copy_name.clone(),
+                                          }));
+                                      }>
+                                  {t().menu.copy_dish}
+                              </button>
                               <button type="button" class="tcn-btn tcn-btn-sm"
                                       on:click=move |_| state.editing.set(Some(id.clone()))>
                                   {t().menu.edit}

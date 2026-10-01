@@ -268,6 +268,13 @@ pub struct MenuTexts {
     pub catalogue: &'static str,
     pub template_title: &'static str,
     pub transfer_title: &'static str,
+    pub copy_dish: &'static str,
+    pub copy_dish_title: &'static str,
+    /// The name a copied dish starts with.
+    pub copy_of: fn(&str) -> String,
+    pub new_dishes_note: &'static str,
+    pub clear_catalogue: &'static str,
+    pub clear_q: &'static str,
     pub transfer_about: &'static str,
     pub copy_menu: &'static str,
     pub menu_copied: &'static str,

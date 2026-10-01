@@ -438,6 +438,18 @@
           }
         }
       }
+    },
+    {
+      "as_of": "2026-10-01",
+      "op": {
+        "Menu": {
+          "CopyDish": {
+            "from": "plov",
+            "id": "plov2",
+            "name": "Plov (copy)"
+          }
+        }
+      }
     }
   ]
 }

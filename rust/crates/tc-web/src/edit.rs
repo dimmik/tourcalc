@@ -855,6 +855,8 @@ pub enum MenuEdit {
     /// The template's catalogue in place of this menu's - see `Menu::take_catalogue`. The
     /// template itself travels in the edit, as it was when the reader took it.
     TakeTemplate(tc_core::menu::Menu),
+    /// A dish copied, next to the original - see `Menu::copy_dish`.
+    CopyDish { from: String, id: String, name: String },
 }
 
 /// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
@@ -897,6 +899,7 @@ fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
                 edit_menu(menu, change);
             }
         }
+        MenuEdit::CopyDish { from, id, name } => menu.copy_dish(from, id, name),
         MenuEdit::TakeTemplate(template) => {
             menu.take_catalogue(template);
             // Meals whose dish the template has not got are planned again from its dishes.

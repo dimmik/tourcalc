@@ -386,6 +386,20 @@ impl Menu {
         }
     }
 
+    /// A dish as another one is now - its meals and what goes in - under a new id and name,
+    /// right after it in the list: plov with buckwheat starts as plov. Nothing, if there is
+    /// no such dish or the id is taken already (a copy replayed is not a second copy).
+    pub fn copy_dish(&mut self, from: &str, id: &str, name: &str) {
+        if self.dishes.iter().any(|d| d.id == id) {
+            return;
+        }
+        let Some(at) = self.dishes.iter().position(|d| d.id == from) else {
+            return;
+        };
+        let copy = Dish { id: id.to_owned(), name: name.to_owned(), ..self.dishes[at].clone() };
+        self.dishes.insert(at + 1, copy);
+    }
+
     /// Takes a dish out of the catalogue, and out of the plan: the meals it was on are
     /// "nothing" until somebody picks another, rather than quietly something else.
     pub fn remove_dish(&mut self, id: &str) {
@@ -846,5 +860,21 @@ mod tests {
         assert!(trip.purchase("lamb").is_some_and(|p| p.bought), "still bought");
         assert!(trip.purchase("rice").is_none(), "a product the template dropped takes its purchase along");
         assert_eq!(trip.days, 2, "the trip keeps its length");
+    }
+
+    /// A copy is the dish under a new name, right after it, planned nowhere; replayed, it is
+    /// still one copy.
+    #[test]
+    fn a_copied_dish_sits_next_to_its_original() {
+        let mut m = menu();
+        m.copy_dish("plov", "plov2", "Plov (copy)");
+        let ids: Vec<&str> = m.dishes.iter().map(|d| d.id.as_str()).collect();
+        assert_eq!(ids, vec!["plov", "plov2", "steak"]);
+        assert_eq!(m.dishes[1].name, "Plov (copy)");
+        assert_eq!(m.dishes[1].ingredients, m.dishes[0].ingredients);
+        assert!(m.plan.iter().all(|s| s.dish.as_deref() != Some("plov2")));
+        m.copy_dish("plov", "plov2", "Plov (copy)");
+        m.copy_dish("nothing", "x", "x");
+        assert_eq!(m.dishes.len(), 3, "a replay or a missing original adds nothing");
     }
 }

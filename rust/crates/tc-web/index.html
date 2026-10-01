@@ -835,6 +835,16 @@
         .tcw-food-template-title { font-weight: 700; font-size: 14px; }
         .tcw-food-template-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
         .tcw-food-paste { display: grid; gap: 8px; margin-top: 8px; max-width: 60ch; }
+        /* "+ Dish": a dish a row - its name, its meals, and the cross. */
+        .tcw-newdish { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+        .tcw-newdish-meals { display: inline-flex; gap: 4px; }
+        .tcw-newdish-meals .tcw-meal-pick { font-size: 12px; padding: 3px 9px; }
+        @media (max-width: 480px) {
+            .tcw-newdish { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name x" "meals meals"; row-gap: 4px; }
+            .tcw-newdish > .tcw-cat-name { grid-area: name; }
+            .tcw-newdish-meals { grid-area: meals; }
+            .tcw-newdish > .tcw-ingr-x { grid-area: x; }
+        }
         .tcw-food-paste > button { justify-self: start; }
         .tcw-food-days-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
         .tcw-food-day { padding: 10px 12px; display: grid; gap: 6px; }

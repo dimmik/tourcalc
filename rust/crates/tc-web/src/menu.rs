@@ -643,6 +643,28 @@ fn TransferBar(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
     }
 }
 
+/// The catalogue emptied - dishes, products, the daily list - for a group that would rather
+/// start from nothing than from the starter. The places stay: they are where the group
+/// shops, not what it eats. The edit is "take this template" with an empty one, so the plan
+/// and what was bought go the way they go then.
+#[component]
+fn ClearBar(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
+    let places = StoredValue::new(menu.places.clone());
+    view! {
+        <div class="tcw-food-template">
+            <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger"
+                    on:click=move |_| {
+                        if ask(t().menu.clear_q) {
+                            let empty = Menu { on: true, places: places.get_value(), ..Menu::default() };
+                            apply.run(Operation::Menu(MenuEdit::TakeTemplate(empty)));
+                        }
+                    }>
+                {t().menu.clear_catalogue}
+            </button>
+        </div>
+    }
+}
+
 // ---- the tab -----------------------------------------------------------------------------
 
 #[component]
@@ -716,6 +738,7 @@ pub fn MenuTab(
                                                   note=note_for_catalogue.clone() />
                 <TemplateBar tour=tour_for_template.clone() menu=menu_for_template.clone() apply=apply />
                 <TransferBar menu=menu_for_template.clone() apply=apply />
+                <ClearBar menu=menu_for_template.clone() apply=apply />
             </Show>
         </div>
     }
@@ -1450,6 +1473,21 @@ mod tests {
         assert_eq!(menu.dishes, template.dishes);
         assert!(menu.plan.iter().all(|s| s.dish.as_deref() != Some("grill")));
         assert_eq!(menu.plan.len(), Menu::shown(&started).expect("a menu").plan.len(), "no meal left unplanned");
+    }
+
+    /// Clearing is taking an empty template: no dishes, products or daily list, nothing
+    /// planned or bought - and the places still there.
+    #[test]
+    fn clearing_the_catalogue_keeps_the_places() {
+        let started = switched(&tour(), true);
+        let places = Menu::shown(&started).expect("a menu").places;
+        let empty = Menu { on: true, places: places.clone(), ..Menu::default() };
+        let cleared = crate::edit::put_menu(&started, &MenuEdit::TakeTemplate(empty));
+        let m = Menu::shown(&cleared).expect("still a menu");
+        assert!(m.dishes.is_empty() && m.products.is_empty() && m.daily.is_empty());
+        assert!(m.plan.iter().all(|s| s.dish.is_none()) && m.purchases.is_empty());
+        assert_eq!(m.places, places);
+        assert_eq!(m.days, 5, "the trip keeps its length");
     }
 
     /// One receipt for the meat and the lamb: both point at it, and both are bought.

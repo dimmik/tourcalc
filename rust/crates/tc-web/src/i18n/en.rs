@@ -903,6 +903,13 @@ pub const TEXTS: Texts = Texts {
         catalogue: "Catalogue",
         template_title: "Menu template",
         transfer_title: "To another access code",
+        copy_dish: "Copy",
+        copy_dish_title: "A copy of this dish, to change: plov with buckwheat starts as plov",
+        copy_of: |name| format!("{name} (copy)"),
+        new_dishes_note: "One dish a row; what goes in each is added afterwards, with Edit.",
+        clear_catalogue: "Clear the catalogue",
+        clear_q: "Delete every dish, product and the daily list? The places stay; the plan and \
+            what was bought go with them. The tour's versions keep the old catalogue.",
         transfer_about: "“Copy menu” puts this tour’s dishes, products, places and daily list on the \
             clipboard — no plan, no shopping, no people. Send it on; in a tour under the other code, \
             “Paste menu” puts it in place of the catalogue, and there it can be saved as the template.",
