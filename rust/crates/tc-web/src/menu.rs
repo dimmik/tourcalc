@@ -917,7 +917,7 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                     let next = menu.dishes_for(meal).map(|d| d.id.clone()).find(|id| !now.contains(id));
                     let can_add = !now.is_empty() && next.is_some();
                     view! {
-                        <div class="tcw-food-meal tcw-food-slot">
+                        <div class=format!("tcw-food-meal tcw-food-slot {}", crate::menu_catalogue::meal_class(meal))>
                             <span class=format!("tcw-meal {}", crate::menu_catalogue::meal_class(meal))>{meal_name(meal)}</span>
                             <div class="tcw-food-dishes">
                                 <select class="tcn-input" aria-label=meal_name(meal)
