@@ -648,6 +648,12 @@ pub const TEXTS: Texts = Texts {
         nothing_matches: "Ничего не нашлось",
         your_tours: "Ваши туры",
         menu_templates: "Шаблоны меню",
+        template_for: |names, more| if more == 0 {
+            format!("для туров: {names}")
+        } else {
+            format!("для туров: {names} и ещё {more}")
+        },
+        template_for_none: "под его кодом туров нет",
         orphans: |n| format!(
             "Правки ждут отправки в {n} {}, которых нет в вашем списке:",
             ru_plural(n as i64, "тур", "тура", "туров")

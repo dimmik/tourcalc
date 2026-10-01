@@ -170,6 +170,8 @@ pub fn TourListPage() -> impl IntoView {
     let new_code = RwSignal::new(String::new());
     let new_json = RwSignal::new(String::new());
     let show_archived = RwSignal::new(false);
+    // The menu templates are seldom what the list is opened for: folded until asked.
+    let templates_open = RwSignal::new(false);
     let trouble = RwSignal::new(String::new());
     let done = crate::ui::Brief::new();
     let busy = RwSignal::new(false);
@@ -485,15 +487,21 @@ pub fn TourListPage() -> impl IntoView {
                     tours.into_iter().partition(crate::menu::is_template);
                 let templates = (!templates.is_empty()).then(|| view! {
                     <div class="tcn-section">
-                        <div class="tcn-section-title">
+                        <button type="button" class="tcn-section-title tcw-fold-title"
+                                aria-expanded=move || templates_open.get().to_string()
+                                on:click=move |_| templates_open.update(|o| *o = !*o)>
+                            <span class="tcw-cat-caret">{move || if templates_open.get() { "▾" } else { "▸" }}</span>
                             {t().list.menu_templates} " " <span class="tcn-count">{templates.len()}</span>
-                        </div>
-                        <div class="tcn-tourgrid">
+                        </button>
+                        <div class="tcn-tourgrid" style:display=move || if templates_open.get() { "" } else { "none" }>
                             {templates
                                 .iter()
-                                .map(|t| view! {
-                                    <Row tour=t.clone() remove=remove clone_it=clone
-                                         copy_json=copy_json bells=bells />
+                                .map(|tpl| view! {
+                                    <div class="tcw-template-cell">
+                                        <div class="tcw-template-for">{crate::menu::template_owners(tpl, &tours)}</div>
+                                        <Row tour=tpl.clone() remove=remove clone_it=clone
+                                             copy_json=copy_json bells=bells />
+                                    </div>
                                 })
                                 .collect_view()}
                         </div>

@@ -629,6 +629,9 @@ pub struct ListTexts {
     pub nothing_matches: &'static str,
     pub your_tours: &'static str,
     pub menu_templates: &'static str,
+    /// Whose a menu template is: some of the tours under its code, and how many more.
+    pub template_for: fn(&str, usize) -> String,
+    pub template_for_none: &'static str,
     pub orphans: fn(usize) -> String,
     pub orphans_tail: &'static str,
     pub people: fn(usize) -> String,

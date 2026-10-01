@@ -418,6 +418,23 @@ fn code_of(tour: &Tour) -> String {
     tc_core::extras::str_of(&tour.extras, tc_core::extras::ACCESS_CODE)
 }
 
+/// Whose a template is, as its row in the tour list says: the trips under its code, in the
+/// list's order - "for: Danube, Shipka and 5 more". With two codes on a device there are
+/// two templates of one name, and this is what tells them apart.
+pub fn template_owners(template: &Tour, trips: &[Tour]) -> String {
+    let code = code_of(template);
+    let names: Vec<&str> = trips
+        .iter()
+        .filter(|t| !is_template(t) && code_of(t) == code)
+        .map(|t| t.name.trim())
+        .collect();
+    match names.len() {
+        0 => t().list.template_for_none.to_owned(),
+        1 | 2 => (t().list.template_for)(&names.join(", "), 0),
+        n => (t().list.template_for)(&names[..2].join(", "), n - 2),
+    }
+}
+
 /// The template filed under the same access code as `tour`, among `tours`.
 fn template_among(tours: &[Tour], tour: &Tour) -> Option<Tour> {
     let code = code_of(tour);
@@ -1581,6 +1598,29 @@ mod tests {
         let m = Menu::shown(&crate::edit::put_menu(&started, &MenuEdit::Daily(Vec::new()))).expect("a menu");
         assert!(m.daily.is_empty());
         assert_eq!(m.dishes, before.dishes);
+    }
+
+    /// A template says whose it is by the trips under its own code, not the other code's.
+    #[test]
+    fn a_template_is_known_by_its_codes_tours() {
+        let make = |id: &str, name: &str, code: &str, template: bool| {
+            Tour::from_json(&serde_json::json!({
+                "Id": id, "Name": name, "AccessCodeMD5": code, "IsMenuTemplate": template
+            }).to_string()).expect("tour")
+        };
+        let tours = vec![
+            make("a", "Danube", "HIKE", false),
+            make("b", "Office party", "WORK", false),
+            make("c", "Shipka", "HIKE", false),
+            make("d", "Ural", "HIKE", false),
+            make("e", "Kayaks", "HIKE", false),
+        ];
+        let hike = make("t1", "template", "HIKE", true);
+        let work = make("t2", "template", "WORK", true);
+        let lonely = make("t3", "template", "NONE", true);
+        assert_eq!(template_owners(&hike, &tours), (t().list.template_for)("Danube, Shipka", 2));
+        assert_eq!(template_owners(&work, &tours), (t().list.template_for)("Office party", 0));
+        assert_eq!(template_owners(&lonely, &tours), t().list.template_for_none);
     }
 
     /// One receipt for the meat and the lamb: both point at it, and both are bought.

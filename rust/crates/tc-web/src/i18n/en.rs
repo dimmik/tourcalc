@@ -636,6 +636,12 @@ pub const TEXTS: Texts = Texts {
         nothing_matches: "Nothing matches",
         your_tours: "Your tours",
         menu_templates: "Menu templates",
+        template_for: |names, more| if more == 0 {
+            format!("for: {names}")
+        } else {
+            format!("for: {names} and {more} more")
+        },
+        template_for_none: "no tours under its code",
         orphans: |n| if n == 1 {
             "Edits waiting for 1 tour that is not in your list:".to_owned()
         } else {
