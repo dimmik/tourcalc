@@ -687,13 +687,29 @@ pub fn connection_string(url: &str, username: &str, password: &str) -> String {
 
 /// A stored document as a tour.
 pub fn to_tour(document: &Document) -> Option<Tour> {
-    let mut value: serde_json::Value = bson::from_document(document.clone()).ok()?;
+    // Said out loud when it fails: a document that does not read is a tour that answers "no
+    // such tour", drops out of the list and takes its versions along - and for months that
+    // was all anybody saw of seven tours with a `"Type": null` in them.
+    let id = document.get_str("_id").unwrap_or("?");
+    let mut value: serde_json::Value = match bson::from_document(document.clone()) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!("tour {id} is not readable as JSON: {e}");
+            return None;
+        }
+    };
     dates_to_text(&mut value);
     // `_id` is Mongo's; the tour's own id is `Id`/`GUID`, which travel in the document too.
     if let Some(obj) = value.as_object_mut() {
         obj.remove("_id");
     }
-    Tour::from_json(&value.to_string()).ok()
+    match Tour::from_json(&value.to_string()) {
+        Ok(tour) => Some(tour),
+        Err(e) => {
+            tracing::warn!("tour {id} is not readable as a tour: {e}");
+            None
+        }
+    }
 }
 
 /// The soft lock as a filter: which documents count as "still the state the caller read".
