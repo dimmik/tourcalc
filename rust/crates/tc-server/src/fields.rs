@@ -60,10 +60,17 @@ pub fn access_code(tour: &Tour) -> String {
 /// fraction. A new stamp that happened to land on a whole second is nudged a millisecond so it
 /// cannot be taken for an old one.
 pub fn now_stamp() -> String {
+    stamp_ago(0)
+}
+
+/// The stamp of so many seconds ago, in the shape [`now_stamp`] writes: fixed width, so two
+/// of them compare as text the way they compare in time.
+pub fn stamp_ago(seconds: u64) -> String {
     let millis = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
+        .unwrap_or(0)
+        .saturating_sub(seconds * 1000);
     let millis = if millis % 1000 == 0 { millis + 1 } else { millis };
     format!(
         "{}.{:03}Z",

@@ -143,6 +143,7 @@ Turning the redirect off does not remove `/t` — it is still there to be typed,
 | Setting | Default | |
 |---|---|---|
 | `TourVersioning` | `true` | Keep a version of a tour on every change. |
+| `TourMenuVersioning` | `false` | Keep versions for saves that changed only the menu too: none for the shopping list, one per ten-minute sitting of planning. Rust server only. |
 | `TourVersionEditable` | `false` | Allow editing an old version. |
 | `ReturnVersionsInAllTours` | `false` | Include versions in the tour list. |
 | `DoRedirectToDomain`, `RedirectDomain` | `false` | Redirect to a canonical domain. |

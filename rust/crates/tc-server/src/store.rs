@@ -129,6 +129,16 @@ pub trait TourStore: Send + Sync {
         version_of: &(dyn for<'a> Fn(&'a Tour) -> Option<Tour> + Sync),
     ) -> Result<(), Stale>;
 
+    /// Rewrites what a kept state says about itself. Read whole and written back: a version
+    /// is a tour like any other, so every store already knows how.
+    async fn recomment(&self, version: &TourId, comment: &str) {
+        if let Some(tour) = self.get(version).await {
+            let mut tour = (*tour).clone();
+            crate::fields::set(&mut tour, crate::fields::VERSION_COMMENT, comment.into());
+            self.store(tour).await;
+        }
+    }
+
     /// The kept states of one tour, newest first, and how many there are in all.
     async fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize);
 }
