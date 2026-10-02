@@ -1381,8 +1381,9 @@ fn shown(state: MenuState, who: Option<&str>) -> bool {
 
 /// A new expense for these products, paid by whoever buys them - or, when nobody or
 /// several people do, by whom this phone records expenses for. Filed under the shopping's
-/// category and the products' own ("Shopping/Alcohol"), and shared by whom they are for:
-/// the grown-ups' wine by the grown-ups, one each. The lines are all for the same people -
+/// category and the products' own ("Shopping/Alcohol"), and shared by whom they are for, by
+/// weight - as they were bought: the grown-ups' wine by the grown-ups. The lines are all for
+/// the same people -
 /// the shared receipt is split by that first (see `by_whom`).
 fn expense_for(tour: &Tour, who: Option<&str>, description: String, lines: &[&Line]) -> SpendingDraft {
     let mut d = match who {
@@ -1396,7 +1397,6 @@ fn expense_for(tour: &Tour, who: Option<&str>, description: String, lines: &[&Li
     if let Some(payers) = lines.first().and_then(|l| tc_core::menu::payers_for(tour, l.product.eaters)) {
         d.everyone = false;
         d.to = payers;
-        d.by_weight = false;
     }
     d.purchases = lines.iter().map(|l| l.product.id.clone()).collect();
     d

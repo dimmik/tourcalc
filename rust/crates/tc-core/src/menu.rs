@@ -40,9 +40,11 @@ pub enum Eaters {
     /// Everybody, by weight: a child at 35 counts as 0.35 of a portion.
     #[default]
     Everyone,
-    /// One each for everybody at the full weight, nothing for the others. Wine.
+    /// Everybody at the full weight or above, by weight, nothing for the others. Wine: a
+    /// couple written as one person at 200 drinks two people's.
     FullWeight,
-    /// One each for everybody below the full weight. Juice.
+    /// Everybody below the full weight, by weight. Juice: a child at 50 drinks half of what
+    /// a teenager at 100 would - were the teenager not already a grown-up by weight.
     Others,
 }
 
@@ -242,10 +244,15 @@ pub struct Need<'a> {
 pub struct Eating {
     /// Everybody's weight over 100.
     pub portions: f64,
-    /// Heads at the full weight or above.
+    /// Heads at the full weight or above - said on the plan, not counted with.
     pub full: f64,
     /// Heads below it.
     pub others: f64,
+    /// Their weights over 100: what the grown-ups' and the children's products are bought
+    /// for. Counted in heads, a child at 35 got a whole juice, and two people written as one
+    /// at 200 one bottle of wine between them.
+    pub full_portions: f64,
+    pub others_portions: f64,
     /// The full weight itself.
     pub full_weight: i32,
 }
@@ -253,13 +260,16 @@ pub struct Eating {
 impl Eating {
     pub fn of(tour: &Tour) -> Eating {
         let full_weight = common_weight(tour);
-        let mut e = Eating { portions: 0.0, full: 0.0, others: 0.0, full_weight };
+        let mut e = Eating { portions: 0.0, full: 0.0, others: 0.0, full_portions: 0.0, others_portions: 0.0, full_weight };
         for p in &tour.persons {
-            e.portions += f64::from(p.weight.max(0)) / 100.0;
+            let share = f64::from(p.weight.max(0)) / 100.0;
+            e.portions += share;
             if p.weight >= full_weight {
                 e.full += 1.0;
+                e.full_portions += share;
             } else {
                 e.others += 1.0;
+                e.others_portions += share;
             }
         }
         e
@@ -268,16 +278,16 @@ impl Eating {
     pub fn times(&self, eaters: Eaters) -> f64 {
         match eaters {
             Eaters::Everyone => self.portions,
-            Eaters::FullWeight => self.full,
-            Eaters::Others => self.others,
+            Eaters::FullWeight => self.full_portions,
+            Eaters::Others => self.others_portions,
         }
     }
 }
 
 /// Who pays for a product, by whom it is for: `None` for everybody - the tour's own "for
 /// everyone, by weight" - and otherwise the people at the full weight or above, or those
-/// below it. Wine bought for the grown-ups is the grown-ups' expense; recorded "for
-/// everyone", the children paid a share of it.
+/// below it, by weight as it was bought. Wine bought for the grown-ups is the grown-ups'
+/// expense; recorded "for everyone", the children paid a share of it.
 pub fn payers_for(tour: &Tour, eaters: Eaters) -> Option<Vec<crate::PersonId>> {
     let full = common_weight(tour);
     let grown = match eaters {
@@ -796,18 +806,28 @@ mod tests {
         needs.iter().find(|n| n.product.id == id).map_or(0.0, |n| n.amount)
     }
 
-    /// Two adults and a child at 50: 2.5 portions of dinner, wine for two, juice for one.
+    /// Two adults and a child at 50: 2.5 portions of dinner, wine for two, juice for half a
+    /// child - by weight, as everything else.
     #[test]
     fn portions_are_weights_and_wine_is_for_the_full_weight() {
         let eating = Eating::of(&tour(&[100, 100, 50]));
         assert_eq!((eating.portions, eating.full, eating.others, eating.full_weight), (2.5, 2.0, 1.0, 100));
+        assert_eq!((eating.full_portions, eating.others_portions), (2.0, 0.5));
         let m = menu();
         let needs = m.shopping(&eating);
         // Plov on day 1, steak on day 2: (200 + 300) × 2.5.
         assert_eq!(amount(&needs, "lamb"), 1250.0);
         assert_eq!(amount(&needs, "rice"), 250.0);
         assert_eq!(amount(&needs, "wine"), 350.0 * 2.0 * 2.0);
-        assert_eq!(amount(&needs, "juice"), 500.0 * 2.0);
+        assert_eq!(amount(&needs, "juice"), 500.0 * 2.0 * 0.5);
+    }
+
+    /// A couple written as one person at 200 drinks two people's wine.
+    #[test]
+    fn a_couple_at_200_is_two_portions_of_wine() {
+        let eating = Eating::of(&tour(&[200, 100, 100]));
+        assert_eq!((eating.full, eating.full_portions), (3.0, 4.0));
+        assert_eq!(amount(&menu().shopping(&eating), "wine"), 350.0 * 2.0 * 4.0);
     }
 
     /// Everybody at 100: nobody below the full weight, so no juice on the list at all.
@@ -925,7 +945,7 @@ mod tests {
         let eating = Eating::of(&tour(&[100, 100, 50]));
         let needs = m.shopping(&eating);
         assert_eq!(amount(&needs, "wine"), 350.0 * 2.0 * 2.0, "two adults, two evenings");
-        assert_eq!(amount(&needs, "juice"), 500.0 * 3.0, "one child, three days");
+        assert_eq!(amount(&needs, "juice"), 500.0 * 3.0 * 0.5, "a child at 50, three days");
         // A fourth day: Sunday is a whole day now, and the departure is Monday's.
         m.set_days(4);
         assert!(m.dish_on(3, Meal::Dinner).is_some() && m.dish_on(4, Meal::Dinner).is_none());
