@@ -1260,10 +1260,25 @@ fn Shopping(
 fn expense_category_line(menu: &Menu, apply: Callback<Operation>) -> impl IntoView {
     let root = menu.expense_category.clone().unwrap_or_else(|| t().menu.expense_root.to_owned());
     let renaming = RwSignal::new(false);
-    let typed = RwSignal::new(menu.expense_category.clone().unwrap_or_default());
+    let was = menu.expense_category.clone().unwrap_or_default();
+    let typed = RwSignal::new(was.clone());
+    // Closed first, so that the blur that follows the box going away finds it closed and
+    // saves nothing more: Escape is "never mind", and Enter has saved already. Saved only
+    // when it changed - opened and closed again, the box is no edit.
     let done = move || {
+        if !renaming.get_untracked() {
+            return;
+        }
         renaming.set(false);
-        apply.run(Operation::Menu(MenuEdit::ExpenseCategory(typed.get_untracked())));
+        let now = typed.get_untracked();
+        if now.trim() != was.trim() {
+            apply.run(Operation::Menu(MenuEdit::ExpenseCategory(now)));
+        }
+    };
+    let was_again = menu.expense_category.clone().unwrap_or_default();
+    let cancel = move || {
+        typed.set(was_again.clone());
+        renaming.set(false);
     };
     view! {
         <p class="tcw-food-note tcw-shop-category">
@@ -1274,11 +1289,15 @@ fn expense_category_line(menu: &Menu, apply: Callback<Operation>) -> impl IntoVi
                              placeholder=t().menu.expense_root
                              prop:value=move || typed.get()
                              on:input=move |ev| typed.set(event_target_value(&ev))
-                             on:blur=move |_| done()
-                             on:keydown=move |ev| match ev.key().as_str() {
-                                 "Enter" => done(),
-                                 "Escape" => renaming.set(false),
-                                 _ => {}
+                             on:blur={let done = done.clone(); move |_| done()}
+                             on:keydown={
+                                 let done = done.clone();
+                                 let cancel = cancel.clone();
+                                 move |ev| match ev.key().as_str() {
+                                     "Enter" => done(),
+                                     "Escape" => cancel(),
+                                     _ => {}
+                                 }
                              } />
                       <span class="tcn-hint">{t().menu.expense_category_hint}</span>
                   }>
