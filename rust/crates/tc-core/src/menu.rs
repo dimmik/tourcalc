@@ -11,10 +11,10 @@
 //! about the money reads it.
 //!
 //! **Portions are weights.** The weight that divides the money divides the food: somebody
-//! at 100 eats one portion, a child at 35 a third of one. Two kinds of product are counted
-//! by heads instead - what only the full weights have (wine: nobody pours a third of a glass
-//! for a child) and what only everybody else has (juice). "Full" is the weight most people
-//! in the tour have ([`common_weight`]), as the "×100" on the People tab.
+//! at 100 eats one portion, a child at 35 a third of one. Two kinds of product are only for
+//! some: what the grown-ups have (wine), at weight 100 and over ([`GROWN_UP`]), and what the
+//! children have (juice) - counted by weight among them too: a child at 50 gets half a
+//! juice, a couple written as one at 200 two bottles.
 
 use crate::domain::Extras;
 use crate::Tour;
@@ -259,7 +259,7 @@ pub struct Eating {
 
 impl Eating {
     pub fn of(tour: &Tour) -> Eating {
-        let full_weight = common_weight(tour);
+        let full_weight = GROWN_UP;
         let mut e = Eating { portions: 0.0, full: 0.0, others: 0.0, full_portions: 0.0, others_portions: 0.0, full_weight };
         for p in &tour.persons {
             let share = f64::from(p.weight.max(0)) / 100.0;
@@ -289,7 +289,7 @@ impl Eating {
 /// below it, by weight as it was bought. Wine bought for the grown-ups is the grown-ups'
 /// expense; recorded "for everyone", the children paid a share of it.
 pub fn payers_for(tour: &Tour, eaters: Eaters) -> Option<Vec<crate::PersonId>> {
-    let full = common_weight(tour);
+    let full = GROWN_UP;
     let grown = match eaters {
         Eaters::Everyone => return None,
         Eaters::FullWeight => true,
@@ -297,6 +297,12 @@ pub fn payers_for(tour: &Tour, eaters: Eaters) -> Option<Vec<crate::PersonId>> {
     };
     Some(tour.persons.iter().filter(|p| (p.weight >= full) == grown).map(|p| p.id.clone()).collect())
 }
+
+/// From what weight on somebody is a grown-up for the menu: wine, beer, the adults' share.
+/// A weight, not "the most common weight in the tour": in a group of mostly children at 35
+/// that made everybody at 35 a grown-up, wine and all. 100 is one portion, and a couple
+/// written as one at 200 is two grown-ups' worth.
+pub const GROWN_UP: i32 = 100;
 
 /// The weight almost everybody shares.
 ///
@@ -838,12 +844,13 @@ mod tests {
         assert!(needs.iter().all(|n| n.product.id != "juice"));
     }
 
-    /// Mostly children: the full weight is theirs, and the two at 100 are above it - still
-    /// full weights, still wine.
+    /// Mostly children: still children. The grown-ups are the two at 100 - the most common
+    /// weight, 35, made all five of them grown-ups, wine and all.
     #[test]
-    fn the_full_weight_is_the_most_common_one() {
+    fn grown_ups_are_100_and_over_however_many_children() {
         let eating = Eating::of(&tour(&[35, 35, 35, 100, 100]));
-        assert_eq!((eating.full_weight, eating.full, eating.others), (35, 5.0, 0.0));
+        assert_eq!((eating.full_weight, eating.full, eating.others), (100, 2.0, 3.0));
+        assert!((eating.others_portions - 1.05).abs() < 1e-9);
     }
 
     #[test]

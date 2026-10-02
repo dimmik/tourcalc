@@ -857,13 +857,13 @@ pub const TEXTS: Texts = Texts {
         more_days: "На день больше",
         portions_note: |portions, full, others, weight| {
             let mut s = format!("В этом туре {portions} {} по весу: вес 100 — одна порция. \
-                «Взрослым» — на {full} {} с весом {weight} и больше",
+                «Взрослым» — тем, у кого вес {weight} и больше ({full} {})",
                 match portions.parse::<i64>() { Ok(n) => ru_plural(n, "порция", "порции", "порций"), Err(_) => "порции" },
-                ru_plural(full as i64, "человека", "человек", "человек"));
+                ru_plural(full as i64, "человек", "человека", "человек"));
             if others > 0 {
-                s += &format!(", «детям» — на остальных {others}");
+                s += &format!(", «детям» — остальным ({others})");
             }
-            s + "."
+            s + "; их продукты тоже по весу."
         },
         day: |d| format!("День {d}"),
         breakfast: "Завтрак",

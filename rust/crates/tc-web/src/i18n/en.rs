@@ -844,11 +844,11 @@ pub const TEXTS: Texts = Texts {
         more_days: "One day more",
         portions_note: |portions, full, others, weight| {
             let mut s = format!("This tour is {portions} portions by weight: a weight of 100 is one. \
-                “Adults” means the {full} at weight {weight} and over");
+                “Adults” are those at weight {weight} and over ({full})");
             if others > 0 {
-                s += &format!(", “children” the other {others}");
+                s += &format!(", “children” the others ({others})");
             }
-            s + "."
+            s + "; their products go by weight too."
         },
         day: |d| format!("Day {d}"),
         breakfast: "Breakfast",
