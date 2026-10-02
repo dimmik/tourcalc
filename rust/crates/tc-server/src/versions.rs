@@ -84,6 +84,19 @@ pub fn describe_change(old: &Tour, new: &Tour) -> Option<String> {
     Some(format!("Changed: {changed}"))
 }
 
+/// Whether all a save did to the menu was the shopping - ticks, who buys, where. Those keep
+/// no version: nobody restores a tick, and a trip's shopping is a couple of hundred of them.
+pub fn shopping_only(old: &Tour, new: &Tour) -> bool {
+    use tc_core::menu::Menu;
+    let bare = |t: &Tour| {
+        Menu::of(t).map(|mut m| {
+            m.purchases.clear();
+            m
+        })
+    };
+    bare(old) == bare(new)
+}
+
 /// The line for what a save did to the menu, or `None` when it did nothing to it.
 ///
 /// Apart from [`describe_change`] because it is apart everywhere else: it goes into the

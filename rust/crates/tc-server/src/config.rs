@@ -21,6 +21,9 @@ pub struct Config {
     pub max_tours_per_code: i64,
     /// Whether saving a tour keeps the state it replaced.
     pub versioning: bool,
+    /// Whether a save that changed only the menu keeps one too. Off by default: a version is
+    /// a whole copy of the tour, and planning and shopping are hundreds of small saves.
+    pub menu_versioning: bool,
     /// Whether a stored version may itself be written to. Off, as in the C#: a version is a
     /// record of what was, and editing one would make it a record of nothing.
     pub version_editable: bool,
@@ -74,6 +77,7 @@ impl Config {
             listen: var("Listen").unwrap_or_else(|| "127.0.0.1:5400".to_owned()),
             max_tours_per_code: number("MaxCountOfToursPerCode", -1),
             versioning: flag("TourVersioning", true),
+            menu_versioning: flag("TourMenuVersioning", false),
             version_editable: flag("TourVersionEditable", false),
             build_type: var("BUILD_TYPE").unwrap_or_else(|| "na".to_owned()),
             build_id: var("BUILD_ID").unwrap_or_else(|| "dev".to_owned()),

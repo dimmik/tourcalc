@@ -16,7 +16,7 @@
 
 use super::{ApiError, Bearer};
 use crate::fields;
-use crate::state::Shared;
+use crate::state::{AppState, Shared};
 use axum::extract::{Path, State};
 use axum::Json;
 use tc_core::{Tour, TourId};
@@ -123,6 +123,16 @@ pub async fn update(
         (money, menu) => money.clone().or(menu),
     };
 
+    // A save that changed only the menu: no version for the shopping, none at all unless the
+    // menu's versions are switched on, and one for a whole sitting of planning - see
+    // `menu_version`.
+    let line = match (&change, &line) {
+        (None, Some(_)) if asked_comment.is_empty() => {
+            menu_version(&state, &tour_id, &stored, &incoming, line).await
+        }
+        _ => line,
+    };
+
     let keep_versions = state.versioning;
     let comment_for_version = line;
     let make_version = |previous: &Tour| -> Option<Tour> {
@@ -165,6 +175,39 @@ pub async fn update(
         ))),
     }
 }
+
+/// How long a sitting of menu edits is: the saves within it after the first keep no version
+/// of their own.
+const MENU_SITTING_SECONDS: u64 = 10 * 60;
+
+/// What a menu-only save writes on its version, or `None` for no version.
+///
+/// Every save keeps a whole copy of the tour, and the menu is saved a select at a time:
+/// planning a week is a hundred saves, the shopping a couple of hundred more. So the
+/// shopping keeps none, and planning keeps one per sitting - the state before it, with a
+/// line saying more followed - when the tour's newest version is a menu one from the last
+/// ten minutes. Restoring that version undoes the sitting, which is what anybody would
+/// restore it for.
+async fn menu_version(state: &AppState, tour: &TourId, old: &Tour, new: &Tour, line: Option<String>) -> Option<String> {
+    if !state.menu_versioning || crate::versions::shopping_only(old, new) {
+        return None;
+    }
+    let (newest, _) = state.store.versions(tour, 0, 1).await;
+    if let Some(last) = newest.first() {
+        let said = fields::str_of(last, fields::VERSION_COMMENT);
+        let recent = fields::str_of(last, fields::VERSIONED_AT) >= fields::stamp_ago(MENU_SITTING_SECONDS);
+        if said.starts_with("Menu") && recent {
+            if !said.ends_with(MORE) {
+                state.store.recomment(&last.id, &format!("{said}{MORE}")).await;
+            }
+            return None;
+        }
+    }
+    line
+}
+
+/// Added to a menu version's line when later edits of the same sitting were folded into it.
+const MORE: &str = "; and more";
 
 /// The copy of a state that is kept when it is replaced.
 pub fn version_of(previous: &Tour, comment: String) -> Tour {

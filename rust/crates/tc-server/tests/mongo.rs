@@ -142,6 +142,30 @@ async fn versions_are_kept_and_kept_out_of_the_list() {
     assert!(!fields::is_version(&listed[0]));
 }
 
+/// A sitting of menu edits rewrites its version's line, and tells "ten minutes ago" by the
+/// stamp as the database gives it back - a date, not the text it was written as.
+#[tokio::test]
+async fn a_version_is_recommented_and_dated() {
+    let store = store_or_skip!("a_version_is_recommented_and_dated");
+    let mut version = fixture();
+    version.id = TourId::new("v1");
+    fields::set(&mut version, fields::IS_VERSION, true.into());
+    fields::set(&mut version, fields::VERSION_FOR, fixture().id.as_str().into());
+    fields::set(&mut version, fields::VERSIONED_AT, fields::now_stamp().into());
+    fields::set(&mut version, fields::VERSION_COMMENT, "Menu: days 2 -> 3".into());
+    store.store(version).await;
+
+    store.recomment(&TourId::new("v1"), "Menu: days 2 -> 3; and more").await;
+    let (versions, _) = store.versions(&fixture().id, 0, 1).await;
+    assert_eq!(fields::str_of(&versions[0], fields::VERSION_COMMENT), "Menu: days 2 -> 3; and more");
+    let at = fields::str_of(&versions[0], fields::VERSIONED_AT);
+    assert!(at >= fields::stamp_ago(600), "{at} is within ten minutes");
+    assert!(fields::stamp_ago(3600) < at, "{at} is after an hour ago");
+    // The rest of it is still there: rewritten, not cut down to the line.
+    let whole = store.get(&TourId::new("v1")).await.expect("there");
+    assert_eq!(whole.spendings.len(), fixture().spendings.len());
+}
+
 #[tokio::test]
 async fn deleting_takes_it_away() {
     let store = store_or_skip!("deleting_takes_it_away");

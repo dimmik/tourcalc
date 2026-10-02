@@ -28,6 +28,8 @@ pub struct AppState {
     /// to. Both are the C#'s switches, with its defaults.
     pub versioning: bool,
     pub version_editable: bool,
+    /// Whether a save that changed only the menu keeps a version - see `api::write`.
+    pub menu_versioning: bool,
     pub wakeup_code: String,
     pub wakeup_pre_delay_min: u64,
     pub wakeup_post_delay_min: u64,

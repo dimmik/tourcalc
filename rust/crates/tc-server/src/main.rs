@@ -122,6 +122,7 @@ async fn main() {
         started: std::time::SystemTime::now(),
         versioning: cfg.versioning,
         version_editable: cfg.version_editable,
+        menu_versioning: cfg.menu_versioning,
         max_tours_per_code: cfg.max_tours_per_code,
         wakeup_code: cfg.wakeup_code.clone(),
         wakeup_pre_delay_min: cfg.wakeup_pre_delay_min,

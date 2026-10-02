@@ -23,6 +23,7 @@ fn app() -> axum::Router {
         started: std::time::SystemTime::now(),
         versioning: true,
         version_editable: false,
+        menu_versioning: true,
         max_tours_per_code: -1,
         wakeup_code: "secCode".into(),
         wakeup_pre_delay_min: 0,

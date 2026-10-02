@@ -32,6 +32,7 @@ fn app_with(tweak: impl FnOnce(&mut tc_server::state::AppState)) -> axum::Router
         started: std::time::SystemTime::now(),
         versioning: true,
         version_editable: false,
+        menu_versioning: true,
         max_tours_per_code: -1,
         wakeup_code: "secCode".into(),
         wakeup_pre_delay_min: 0,
@@ -434,6 +435,75 @@ async fn saving_the_same_tour_again_keeps_nothing() {
         list["TotalCount"], 0,
         "nothing changed, nothing kept: {body}"
     );
+}
+
+/// Saves the tour with its menu changed by `edit`.
+async fn save_menu(app: &axum::Router, token: &str, edit: impl FnOnce(&mut tc_core::menu::Menu)) {
+    let mut tour = fetch_tour(app, token, "zscph2y").await;
+    let mut menu: tc_core::menu::Menu = serde_json::from_value(tour["Menu"].clone()).unwrap_or_default();
+    edit(&mut menu);
+    tour["Menu"] = serde_json::to_value(&menu).unwrap();
+    let (status, _) = send(app, "PATCH", "/api/Tour/zscph2y", Some(token), Some(tour)).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+async fn version_lines(app: &axum::Router, token: &str) -> Vec<String> {
+    let (_, body) = get(app, "/api/Tour/zscph2y/versions", Some(token)).await;
+    let list: serde_json::Value = serde_json::from_str(&body).unwrap();
+    list["Tours"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["VersionComment"].as_str().unwrap_or_default().to_owned())
+        .collect()
+}
+
+/// With the menu's versions off - the default - a save that changed only the menu keeps
+/// none; a change of money still does.
+#[tokio::test]
+async fn the_menu_keeps_no_versions_unless_asked() {
+    let app = app_with(|s| s.menu_versioning = false);
+    let token = token_for_code(&app).await;
+    save_menu(&app, &token, |m| {
+        m.on = true;
+        m.days = 2;
+    })
+    .await;
+    assert!(version_lines(&app, &token).await.is_empty());
+
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    tour["Name"] = "Renamed".into();
+    send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+    assert_eq!(version_lines(&app, &token).await.len(), 1);
+}
+
+/// With them on: the shopping keeps none, and a sitting of planning keeps one - the state
+/// before it - until something else is saved in between.
+#[tokio::test]
+async fn a_sitting_of_menu_edits_keeps_one_version_and_the_shopping_none() {
+    let app = app();
+    let token = token_for_code(&app).await;
+    save_menu(&app, &token, |m| {
+        m.on = true;
+        m.days = 2;
+    })
+    .await;
+    assert_eq!(version_lines(&app, &token).await, vec!["Menu on".to_owned()]);
+
+    save_menu(&app, &token, |m| m.purchase_mut("rice").bought = true).await;
+    assert_eq!(version_lines(&app, &token).await.len(), 1, "a tick keeps no version");
+
+    save_menu(&app, &token, |m| m.days = 3).await;
+    save_menu(&app, &token, |m| m.days = 4).await;
+    assert_eq!(version_lines(&app, &token).await, vec!["Menu on; and more".to_owned()], "one sitting, one version");
+
+    let mut tour = fetch_tour(&app, &token, "zscph2y").await;
+    tour["Name"] = "Renamed".into();
+    send(&app, "PATCH", "/api/Tour/zscph2y", Some(&token), Some(tour)).await;
+    save_menu(&app, &token, |m| m.days = 5).await;
+    let lines = version_lines(&app, &token).await;
+    assert_eq!(lines.len(), 3, "after a change of money, a new sitting: {lines:?}");
+    assert!(lines[0].starts_with("Menu:"), "{lines:?}");
 }
 
 /// Restoring a version puts the old state back, and says so in the history.
