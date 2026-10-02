@@ -875,9 +875,15 @@
         .tcw-food-slot.is-breakfast { background: #fffbeb; }
         .tcw-food-slot.is-lunch { background: #ecfdf5; }
         .tcw-food-slot.is-dinner { background: #eef2ff; }
-        /* Cards side by side keep their own height: a day with three dinners does not stretch
-           the next one's meals apart. */
         .tcw-food-day { align-content: start; }
+        /* Days side by side line up meal by meal: breakfast across from breakfast, whatever
+           the day before it holds. Each card is four rows of the list's grid - the day's
+           name and its three meals - so a row is as tall as its tallest day, and a day with
+           three dinners pushes the next row down, not its neighbours' meals apart. */
+        @supports (grid-template-rows: subgrid) {
+            .tcw-food-days-list > .tcw-food-day { grid-row: span 4; grid-template-rows: subgrid; row-gap: 6px; }
+            .tcw-food-days-list .tcw-food-slot { align-self: stretch; }
+        }
         .tcw-food-all .tcw-food-meal { max-width: 420px; }
         .tcw-food-me { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
         .tcw-food-me > label:first-child { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
