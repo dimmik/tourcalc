@@ -493,6 +493,14 @@
           }
         }
       }
+    },
+    {
+      "as_of": "2026-10-02",
+      "op": {
+        "Menu": {
+          "ExpenseCategory": "Shopping"
+        }
+      }
     }
   ]
 }

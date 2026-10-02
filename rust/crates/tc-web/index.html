@@ -910,15 +910,22 @@
         .tcw-buy-who { grid-area: who; display: flex; gap: 6px; align-items: center; min-width: 0; }
         .tcw-buy-who select { width: auto; min-width: 0; max-width: 100%; padding: 4px 8px; font-size: 13px; }
         .tcw-buy-me { flex: 0 0 auto; white-space: nowrap; }
-        /* Where, then who: "Lidl - Sasha". */
-        .tcw-buy-at { flex: 0 1 8em; width: 8em; min-width: 4em; padding: 4px 8px; font-size: 13px; }
+        /* Where: a word in the line under the name - the catalogue's place quiet, one the
+           buyer said in ink - which a tap turns into a box. */
+        .tcw-buy-place { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
+            text-decoration: underline dotted; text-underline-offset: 2px; }
+        .tcw-buy-place.is-own { color: var(--tcn-text, #111827); font-weight: 600; text-decoration-style: solid; }
+        .tcw-buy-place:hover { color: var(--tcn-primary, #4f46e5); }
+        .tcw-buy-at { display: inline-block; width: 12em; max-width: 100%; padding: 2px 6px; font-size: 12.5px; }
+        .tcw-shop-category { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; margin-top: 4px; }
+        .tcw-shop-category-input { width: 12em; padding: 3px 8px; font-size: 13px; }
         .tcw-food-search { margin-bottom: 12px; }
         .tcw-buy-expense { grid-area: expense; justify-self: end; }
         .tcw-buy-done { font-size: 12.5px; font-weight: 600; color: var(--tcn-green, #047857); white-space: nowrap; }
         .tcw-buy.is-bought .tcw-buy-title, .tcw-buy.is-bought .tcw-buy-amount {
             color: var(--tcn-muted, #6b7280); text-decoration: line-through; font-weight: 400; }
         @media (min-width: 740px) {
-            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 6.5em 24em 12.5em;
+            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 6.5em 17em 12.5em;
                 grid-template-areas: "tick name amount who expense"; }
             .tcw-buy-who select { flex: 1 1 auto; }
         }

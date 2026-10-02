@@ -318,6 +318,7 @@ pub fn starter(days: u32) -> Menu {
         plan: Vec::new(),
         purchases: Vec::new(),
         day_notes: Vec::new(),
+        expense_category: None,
     };
     menu.fill();
     menu
@@ -1087,6 +1088,7 @@ fn Shopping(
     };
 
     let categories = menu.categories();
+    let category_line = expense_category_line(&menu, apply);
     let places = menu.shop_places();
     let place_options = places.iter().map(|p| view! { <option value=p.clone()></option> }).collect_view();
     let place_order = |name: &str| places.iter().position(|p| p.to_lowercase() == name.to_lowercase()).unwrap_or(usize::MAX);
@@ -1118,6 +1120,7 @@ fn Shopping(
                 hay,
                 place_order: place_order(&place_name),
                 place: place_name,
+                own_place: menu.places.iter().find(|p| p.id == n.product.place).map(|p| p.name.clone()).unwrap_or_default(),
                 category_order: categories.iter().position(|c| *c == category).unwrap_or(usize::MAX),
                 category,
                 order: menu.products.iter().position(|p| p.id == n.product.id).unwrap_or(usize::MAX),
@@ -1246,8 +1249,64 @@ fn Shopping(
             </div>
         </Show>
         {cards}
+        {category_line}
     }
     .into_any()
+}
+
+/// Under the shopping: what its expenses are filed under, and a way to rename that. Seldom
+/// changed, so a line of small print rather than a field - findable where the expenses are
+/// made, out of the way of the list.
+fn expense_category_line(menu: &Menu, apply: Callback<Operation>) -> impl IntoView {
+    let root = menu.expense_category.clone().unwrap_or_else(|| t().menu.expense_root.to_owned());
+    let renaming = RwSignal::new(false);
+    let was = menu.expense_category.clone().unwrap_or_default();
+    let typed = RwSignal::new(was.clone());
+    // Closed first, so that the blur that follows the box going away finds it closed and
+    // saves nothing more: Escape is "never mind", and Enter has saved already. Saved only
+    // when it changed - opened and closed again, the box is no edit.
+    let done = move || {
+        if !renaming.get_untracked() {
+            return;
+        }
+        renaming.set(false);
+        let now = typed.get_untracked();
+        if now.trim() != was.trim() {
+            apply.run(Operation::Menu(MenuEdit::ExpenseCategory(now)));
+        }
+    };
+    let was_again = menu.expense_category.clone().unwrap_or_default();
+    let cancel = move || {
+        typed.set(was_again.clone());
+        renaming.set(false);
+    };
+    view! {
+        <p class="tcw-food-note tcw-shop-category">
+            {t().menu.expense_category_is} " «" <b>{root}</b> "/…» · "
+            <Show when=move || !renaming.get()
+                  fallback=move || view! {
+                      <input class="tcn-input tcw-shop-category-input" type="text" autofocus=true
+                             placeholder=t().menu.expense_root
+                             prop:value=move || typed.get()
+                             on:input=move |ev| typed.set(event_target_value(&ev))
+                             on:blur={let done = done.clone(); move |_| done()}
+                             on:keydown={
+                                 let done = done.clone();
+                                 let cancel = cancel.clone();
+                                 move |ev| match ev.key().as_str() {
+                                     "Enter" => done(),
+                                     "Escape" => cancel(),
+                                     _ => {}
+                                 }
+                             } />
+                      <span class="tcn-hint">{t().menu.expense_category_hint}</span>
+                  }>
+                <button type="button" class="tcn-linkbtn" on:click=move |_| renaming.set(true)>
+                    {t().menu.expense_category_change}
+                </button>
+            </Show>
+        </p>
+    }
 }
 
 /// The places to pick from in a product's "where": the catalogue's and the ones typed.
@@ -1266,6 +1325,8 @@ struct Line {
     /// Where it is bought - its purchase's word, else its catalogue place - and that place's
     /// and the product's own place in the catalogue.
     place: String,
+    /// The product's place in the catalogue - where it goes back to when "where" is emptied.
+    own_place: String,
     place_order: usize,
     /// Its category, "" for none, and that category's place among the tour's.
     category: String,
@@ -1319,16 +1380,47 @@ fn shown(state: MenuState, who: Option<&str>) -> bool {
 }
 
 /// A new expense for these products, paid by whoever buys them - or, when nobody or
-/// several people do, by whom this phone records expenses for.
-fn expense_for(tour: &Tour, who: Option<&str>, description: String, products: Vec<String>) -> SpendingDraft {
+/// several people do, by whom this phone records expenses for. Filed under the shopping's
+/// category and the products' own ("Shopping/Alcohol"), and shared by whom they are for:
+/// the grown-ups' wine by the grown-ups, one each. The lines are all for the same people -
+/// the shared receipt is split by that first (see `by_whom`).
+fn expense_for(tour: &Tour, who: Option<&str>, description: String, lines: &[&Line]) -> SpendingDraft {
     let mut d = match who {
         Some(p) => SpendingDraft::paid_by(tour, &PersonId::new(p)),
         None => SpendingDraft::new(tour),
     };
     d.description = description;
-    d.category = t().menu.category.to_owned();
-    d.purchases = products;
+    let menu = Menu::of(tour).unwrap_or_default();
+    let products: Vec<&Product> = lines.iter().map(|l| &l.product).collect();
+    d.category = menu.expense_category(t().menu.expense_root, &products);
+    if let Some(payers) = lines.first().and_then(|l| tc_core::menu::payers_for(tour, l.product.eaters)) {
+        d.everyone = false;
+        d.to = payers;
+        d.by_weight = false;
+    }
+    d.purchases = lines.iter().map(|l| l.product.id.clone()).collect();
     d
+}
+
+/// What an expense from the shopping is described as starting with - "Shopping: milk, bread"
+/// - the same word its category starts with. Not the place: who bought what where is the
+/// shopping list's business, and the expenses list reads better with one word for all of them.
+fn shopping_root(tour: &Tour) -> String {
+    Menu::of(tour)
+        .and_then(|m| m.expense_category)
+        .map(|r| r.trim().to_owned())
+        .filter(|r| !r.is_empty())
+        .unwrap_or_else(|| t().menu.expense_root.to_owned())
+}
+
+/// Lines by whom they are for - everybody, the grown-ups, the children - in that order: one
+/// receipt is shared one way, so a shared one with wine and bread in it is two expenses.
+fn by_whom<'a>(lines: &[&'a Line]) -> Vec<(Eaters, Vec<&'a Line>)> {
+    [Eaters::Everyone, Eaters::FullWeight, Eaters::Others]
+        .into_iter()
+        .map(|e| (e, lines.iter().copied().filter(|l| l.product.eaters == e).collect::<Vec<_>>()))
+        .filter(|(_, ls)| !ls.is_empty())
+        .collect()
 }
 
 /// A card of the shopping: one place's, or everything in one list.
@@ -1382,30 +1474,33 @@ fn ListCard(
             if these.len() < 2 {
                 return None;
             }
-            let first = these[0].purchase.who.clone();
-            let who = if these.iter().all(|l| l.purchase.who == first) { first } else { state.me.get() };
-            // Named after the shop, as one receipt is: the place they share, else "Groceries" -
-            // a buyer's or a category's card is no shop.
-            let place_name = match these.iter().all(|l| l.place.to_lowercase() == these[0].place.to_lowercase()) {
-                true if !these[0].place.is_empty() => these[0].place.clone(),
-                _ => t().menu.category.to_owned(),
-            };
-            let names: Vec<String> = these.iter().map(|l| l.product.name.to_lowercase()).collect();
-            let description = if names.len() > 3 {
-                format!("{}: {} +{}", place_name, names[..3].join(", "), names.len() - 3)
-            } else {
-                format!("{}: {}", place_name, names.join(", "))
-            };
-            let draft = expense_for(&tour, who.as_deref(), description, these.iter().map(|l| l.product.id.clone()).collect());
-            let n = these.len();
-            Some(view! {
-                <div class="tcw-errand-foot">
-                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
-                            on:click=move |_| dialog.set(Some(Dialog::Spending(draft.clone())))>
-                        {(t().menu.record_together)(n)}
-                    </button>
-                </div>
-            })
+            // One button a way of sharing: bread for everybody, wine for the grown-ups.
+            let groups = by_whom(&these);
+            let several = groups.len() > 1;
+            let buttons = groups
+                .into_iter()
+                .map(|(eaters, these)| {
+                    let first = these[0].purchase.who.clone();
+                    let who = if these.iter().all(|l| l.purchase.who == first) { first } else { state.me.get() };
+                    let prefix = shopping_root(&tour);
+                    let names: Vec<String> = these.iter().map(|l| l.product.name.to_lowercase()).collect();
+                    let description = if names.len() > 3 {
+                        format!("{}: {} +{}", prefix, names[..3].join(", "), names.len() - 3)
+                    } else {
+                        format!("{}: {}", prefix, names.join(", "))
+                    };
+                    let draft = expense_for(&tour, who.as_deref(), description, &these);
+                    let n = these.len();
+                    let label = if several { (t().menu.record_together_for)(n, whom(eaters)) } else { (t().menu.record_together)(n) };
+                    view! {
+                        <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
+                                on:click=move |_| dialog.set(Some(Dialog::Spending(draft.clone())))>
+                            {label}
+                        </button>
+                    }
+                })
+                .collect_view();
+            Some(view! { <div class="tcw-errand-foot">{buttons}</div> })
         }
     };
 
@@ -1434,10 +1529,36 @@ fn ListCard(
                     change(MenuEdit::Buyer { products: vec![id.clone()], who: (!v.is_empty()).then_some(v) });
                 }
             };
-            let put_place = {
+            // Where: a word under the name, which a tap turns into a box with the places said
+            // so far. A box in the row itself was three letters wide on a phone - "Mar" - and,
+            // with the catalogue's place as its grey hint, every row looked unset.
+            let placing = RwSignal::new(false);
+            let place_word = {
+                let own = line.purchase.place.is_some();
+                let label = if line.place.is_empty() { t().menu.where_buy.to_owned() } else { line.place.clone() };
+                move || {
+                    view! {
+                        <button type="button" class="tcw-buy-place" class:is-own=own title=t().menu.place_change
+                                on:click=move |_| placing.set(true)>{label.clone()}</button>
+                    }
+                }
+            };
+            let place_box = {
                 let id = id.clone();
-                move |ev: leptos::ev::Event| {
-                    change(MenuEdit::BuyAt { products: vec![id.clone()], place: event_target_value(&ev) });
+                let typed = line.purchase.place.clone().unwrap_or_default();
+                let hint = if line.own_place.is_empty() { t().menu.where_buy.to_owned() } else { line.own_place.clone() };
+                move || {
+                    let id = id.clone();
+                    view! {
+                        <input type="text" class="tcn-input tcw-buy-at" list=PLACES_LIST autofocus=true
+                               prop:value=typed.clone() placeholder=hint.clone() title=t().menu.where_buy_title
+                               on:change=move |ev| {
+                                   placing.set(false);
+                                   change(MenuEdit::BuyAt { products: vec![id.clone()], place: event_target_value(&ev) });
+                               }
+                               on:blur=move |_| placing.set(false)
+                               on:keydown=move |ev| if ev.key() == "Escape" { placing.set(false) } />
+                    }
                 }
             };
             let tick = {
@@ -1461,8 +1582,8 @@ fn ListCard(
                     let draft = expense_for(
                         &tour,
                         who.as_deref(),
-                        format!("{}: {}", line.place, line.product.name.to_lowercase()),
-                        vec![id.clone()],
+                        format!("{}: {}", shopping_root(&tour), line.product.name.to_lowercase()),
+                        &[line],
                     );
                     view! {
                         <button type="button" class="tcn-btn tcn-btn-sm tcw-buy-record"
@@ -1504,16 +1625,13 @@ fn ListCard(
                         <span class="tcw-buy-name">
                             <span class="tcw-buy-title">{line.product.name.clone()}</span>
                             <small class="tcw-buy-why">
-                                {whom(line.product.eaters)} " · "
+                                <Show when=move || !placing.get() fallback=place_box>{place_word()}</Show>
+                                " · " {whom(line.product.eaters)} " · "
                                 {line.why.clone()}
                             </small>
                         </span>
                         <span class="tcw-buy-amount">{quantity_of(line.amount, &line.product)}</span>
                         <span class="tcw-buy-who">
-                            <input type="text" class="tcn-input tcw-buy-at" list=PLACES_LIST
-                                   prop:value=line.purchase.place.clone().unwrap_or_default()
-                                   placeholder=if line.place.is_empty() { t().menu.where_buy.to_owned() } else { line.place.clone() }
-                                   title=t().menu.where_buy_title on:change=put_place />
                             <select class="tcn-input" title=t().menu.buyer on:change=pick>
                                 <option value="" selected=who.is_none()>{t().menu.nobody_yet}</option>
                                 {options}
@@ -1791,5 +1909,21 @@ mod tests {
         assert_eq!(quantity(2000.0, Unit::Millilitre), format!("2\u{a0}{}", t().menu.litres));
         assert_eq!(quantity(333.0, Unit::Gram), format!("340\u{a0}{}", t().menu.grams));
         assert_eq!(quantity(2.25, Unit::Piece), format!("3\u{a0}{}", t().menu.pieces));
+    }
+
+    /// A day added to the plan is a day more of the trip; the tour's length changed in its
+    /// dialog leaves the plan alone.
+    #[test]
+    fn the_menus_days_are_the_tours_and_not_the_other_way() {
+        let started = switched(&tour(), true);
+        let longer = crate::edit::put_menu(&started, &MenuEdit::Days(7));
+        assert_eq!(tc_core::extras::int_of(&longer.extras, tc_core::extras::DURATION), Some(7));
+        assert_eq!(Menu::shown(&longer).expect("a menu").days, 7);
+
+        let mut d = crate::edit::TourDraft::of(&longer);
+        d.days = 3;
+        let shorter = crate::edit::put_tour(&longer, &d);
+        assert_eq!(tc_core::extras::int_of(&shorter.extras, tc_core::extras::DURATION), Some(3));
+        assert_eq!(Menu::shown(&shorter).expect("a menu").days, 7, "the plan keeps its days");
     }
 }

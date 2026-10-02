@@ -861,6 +861,8 @@ pub enum MenuEdit {
     CopyDish { from: String, id: String, name: String },
     /// A word for a day - "arrival" - or none.
     DayNote { day: u32, note: String },
+    /// What expenses from the shopping are filed under - "Shopping" - or "" for the default.
+    ExpenseCategory(String),
 }
 
 /// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
@@ -871,6 +873,12 @@ pub fn put_menu(tour: &Tour, change: &MenuEdit) -> Tour {
     edit_menu(&mut menu, change);
     let mut next = tour.clone();
     menu.put(&mut next);
+    // The menu's days are the trip's: a day added to the plan is a day more for "per day" on
+    // Stats. Not the other way round - the tour's length is changed in its dialog, and a
+    // plan a day short of it is the group's choice.
+    if let MenuEdit::Days(days) = change {
+        tc_core::extras::set(&mut next.extras, tc_core::extras::DURATION, (*days).into());
+    }
     next
 }
 
@@ -906,6 +914,10 @@ fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
         }
         MenuEdit::CopyDish { from, id, name } => menu.copy_dish(from, id, name),
         MenuEdit::DayNote { day, note } => menu.set_day_note(*day, note),
+        MenuEdit::ExpenseCategory(root) => {
+            let root = root.trim();
+            menu.expense_category = (!root.is_empty()).then(|| root.to_owned());
+        }
         MenuEdit::TakeTemplate(template) => {
             menu.take_catalogue(template);
             // Meals whose dish the template has not got are planned again from its dishes.

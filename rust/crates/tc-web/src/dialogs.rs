@@ -163,8 +163,9 @@ pub fn SpendingDialog(
     let currency = RwSignal::new(draft.currency_id.clone());
     let errors: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
     // A new expense opens in the category last used, and says so: it is a guess, and one
-    // that is wrong often enough that it has to look different from a choice.
-    let guessed = RwSignal::new(!editing && !category.get_untracked().trim().is_empty());
+    // that is wrong often enough that it has to look different from a choice. One from the
+    // shopping is no guess: the menu chose it - "Shopping/Alcohol" - from the products.
+    let guessed = RwSignal::new(!editing && draft.purchases.is_empty() && !category.get_untracked().trim().is_empty());
     let more = RwSignal::new(false);
     let adding = RwSignal::new(false);
     let fresh_category = RwSignal::new(String::new());

@@ -226,6 +226,12 @@ pub struct MenuTexts {
     pub record: &'static str,
     /// One expense for so many bought products.
     pub record_together: fn(usize) -> String,
+    pub record_together_for: fn(usize, &str) -> String,
+    pub expense_root: &'static str,
+    pub expense_category_is: &'static str,
+    pub expense_category_change: &'static str,
+    pub expense_category_hint: &'static str,
+    pub place_change: &'static str,
     /// Recorded in an expense shared with other products, of this amount.
     pub in_shared: fn(&str) -> String,
     pub nothing_to_buy: &'static str,

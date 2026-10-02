@@ -725,6 +725,7 @@ mod tests {
                         M::TakeTemplate(_) => "TakeTemplate",
                         M::CopyDish { .. } => "CopyDish",
                         M::DayNote { .. } => "DayNote",
+                        M::ExpenseCategory(_) => "ExpenseCategory",
                     }
                 )
             }
@@ -738,7 +739,7 @@ mod tests {
         "Menu.Buyer", "Menu.Bought", "Menu.PutDish", "Menu.RemoveDish", "Menu.PutProduct",
         "Menu.RemoveProduct", "Menu.Daily", "Menu.Arrive", "Menu.Leave", "Menu.Start",
         "Menu.PutPlace", "Menu.RemovePlace", "Menu.All", "Menu.TakeTemplate",
-        "Menu.CopyDish", "Menu.DayNote", "Menu.BuyAt",
+        "Menu.CopyDish", "Menu.DayNote", "Menu.BuyAt", "Menu.ExpenseCategory",
     ];
 
     /// A queue is sent by whatever version of the app is loaded when the network comes back,
