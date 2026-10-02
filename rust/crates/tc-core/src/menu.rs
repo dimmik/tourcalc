@@ -201,6 +201,10 @@ pub struct Menu {
     /// its date or number. Kept for days beyond the trip's length too: shortened and grown
     /// again, a day finds its word where it left it.
     pub day_notes: Vec<String>,
+    /// The category expenses from the shopping go under, if the group renamed it from the
+    /// default ("Shopping"); each expense adds its products' own category below it - see
+    /// [`Menu::expense_category`].
+    pub expense_category: Option<String>,
 }
 
 /// One product's shopping: who buys and pays for it, where, whether it is bought, and the
@@ -270,6 +274,20 @@ impl Eating {
     }
 }
 
+/// Who pays for a product, by whom it is for: `None` for everybody - the tour's own "for
+/// everyone, by weight" - and otherwise the people at the full weight or above, or those
+/// below it. Wine bought for the grown-ups is the grown-ups' expense; recorded "for
+/// everyone", the children paid a share of it.
+pub fn payers_for(tour: &Tour, eaters: Eaters) -> Option<Vec<crate::PersonId>> {
+    let full = common_weight(tour);
+    let grown = match eaters {
+        Eaters::Everyone => return None,
+        Eaters::FullWeight => true,
+        Eaters::Others => false,
+    };
+    Some(tour.persons.iter().filter(|p| (p.weight >= full) == grown).map(|p| p.id.clone()).collect())
+}
+
 /// The weight almost everybody shares.
 ///
 /// On a tie - two at 100 and two at 50 - the full share, 100, if it is one of them, and
@@ -322,6 +340,18 @@ impl Menu {
     /// What a template keeps of this menu: the catalogue - places, products, dishes, the daily
     /// list. Not the plan, the days or what was bought: those are one trip's, and the next
     /// trip is another length with other people buying.
+    /// The category an expense for these products goes into: "Shopping" - or whatever the
+    /// group named it - and the products' own category under it when they share one,
+    /// "Shopping/Alcohol". Several categories in one receipt are just "Shopping".
+    pub fn expense_category(&self, root_by_default: &str, products: &[&Product]) -> String {
+        let root = self.expense_category.as_deref().map(str::trim).filter(|r| !r.is_empty()).unwrap_or(root_by_default);
+        let own = |p: &&Product| p.category.as_deref().map(str::trim).unwrap_or("").to_owned();
+        match products.first().map(own) {
+            Some(first) if !first.is_empty() && products.iter().all(|p| own(p) == first) => format!("{root}/{first}"),
+            _ => root.to_owned(),
+        }
+    }
+
     pub fn as_template(&self) -> Menu {
         Menu {
             on: true,
@@ -756,6 +786,7 @@ mod tests {
             plan: vec![],
             purchases: vec![],
             day_notes: vec![],
+            expense_category: None,
         };
         m.fill();
         m
@@ -1056,5 +1087,33 @@ mod tests {
         assert_eq!(m.purchase("rice").and_then(|p| p.place.clone()), None);
         // Nor is it the catalogue's: the place list stays as it was.
         assert_eq!(m.places.len(), 1);
+    }
+
+    #[test]
+    fn wine_is_paid_by_the_grown_ups_and_juice_by_the_children() {
+        let t = tour(&[100, 100, 50]);
+        assert_eq!(payers_for(&t, Eaters::Everyone), None);
+        let ids = |v: Option<Vec<crate::PersonId>>| v.unwrap().iter().map(|p| p.as_str().to_owned()).collect::<Vec<_>>();
+        assert_eq!(ids(payers_for(&t, Eaters::FullWeight)), vec!["p0", "p1"]);
+        assert_eq!(ids(payers_for(&t, Eaters::Others)), vec!["p2"]);
+    }
+
+    #[test]
+    fn an_expense_goes_under_the_shopping_and_its_products_category() {
+        let mut m = menu();
+        let mut wine = m.products[2].clone();
+        wine.category = Some("Alcohol".into());
+        let mut beer = wine.clone();
+        beer.id = "beer".into();
+        let mut rice = m.products[1].clone();
+        rice.category = Some("Groceries".into());
+        assert_eq!(m.expense_category("Shopping", &[&wine]), "Shopping/Alcohol");
+        assert_eq!(m.expense_category("Shopping", &[&wine, &beer]), "Shopping/Alcohol");
+        assert_eq!(m.expense_category("Shopping", &[&wine, &rice]), "Shopping", "two categories, the root alone");
+        assert_eq!(m.expense_category("Shopping", &[&m.products[0].clone()]), "Shopping", "no category of its own");
+        m.expense_category = Some(" Food ".into());
+        assert_eq!(m.expense_category("Shopping", &[&wine]), "Food/Alcohol");
+        m.expense_category = Some("  ".into());
+        assert_eq!(m.expense_category("Shopping", &[&wine]), "Shopping/Alcohol", "blank is the default");
     }
 }
