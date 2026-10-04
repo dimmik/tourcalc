@@ -1199,10 +1199,15 @@ fn Shopping(
             // What a tick or a record is for: the days picked; or, over the whole trip of a
             // product already bought a day at a time, the days no recorded part has paid for -
             // recording it whole would count Friday's half twice.
-            let by_parts = !purchase.bought && !purchase.parts.is_empty();
-            // A part's expense, if it is still in the tour: deleted, the part is bought but
-            // not recorded, as a whole-trip purchase is.
-            let alive = |p: &tc_core::menu::Part| p.spending.as_deref().is_some_and(|s| tour.spendings.iter().any(|x| x.id.as_str() == s));
+            // An expense, if it is still in the tour: deleted, what it was for is bought but not
+            // recorded.
+            let exists = |s: Option<&str>| s.is_some_and(|s| tour.spendings.iter().any(|x| x.id.as_str() == s));
+            let alive = |p: &tc_core::menu::Part| exists(p.spending.as_deref());
+            // Recorded for the whole trip: that expense is for every day, picked or not.
+            let whole = purchase.bought && exists(purchase.spending.as_deref());
+            // Bought a day at a time - also when it was ticked for the whole trip besides, but
+            // never recorded so: the whole trip's "Record" must leave the recorded days out.
+            let by_parts = !whole && !purchase.parts.is_empty();
             let days: Vec<u32> = if subset {
                 needed.iter().copied().filter(|d| chosen.contains(d)).collect()
             } else if by_parts {
@@ -1219,7 +1224,7 @@ fn Shopping(
             } else {
                 purchase.bought || needed.iter().all(|d| covered.contains(d))
             };
-            let spending = if purchase.bought && !subset {
+            let spending = if whole || (purchase.bought && !by_parts && !subset) {
                 purchase.spending.clone()
             } else if subset {
                 purchase.parts.iter().filter(|p| alive(p) && days.iter().all(|d| p.days.contains(d))).find_map(|p| p.spending.clone())
@@ -1227,13 +1232,16 @@ fn Shopping(
                 None
             };
             let recorded_parts = by_parts && !subset && days.is_empty();
-            let parts_note = if purchase.bought || purchase.parts.is_empty() {
+            // Every part, on whatever days are picked - "bought for Fri 13: 3 000" over Saturday
+            // too - but the one this line's own expense already shows.
+            let parts_note = if purchase.parts.is_empty() {
                 String::new()
             } else {
                 let total = need_of(id, &needed);
                 let mut bits: Vec<String> = purchase
                     .parts
                     .iter()
+                    .filter(|p| !(subset && p.spending.is_some() && p.spending == spending))
                     .map(|p| {
                         let its: Vec<u32> = p.days.iter().copied().filter(|d| needed.contains(d)).collect();
                         let share = if total > 0.0 { (need_of(id, &its) / total * 100.0).round() as i64 } else { 0 };

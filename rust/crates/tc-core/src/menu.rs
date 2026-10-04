@@ -730,11 +730,14 @@ impl Menu {
 
     /// Marks a product bought, or not, for these days only. Bought: a part for them, unless
     /// one without an expense already is for exactly them. Not: every part touching them
-    /// goes - its expense stays in the tour, only the pointer is dropped.
+    /// goes - its expense stays in the tour, only the pointer is dropped. A product bought
+    /// for the whole trip is, after that, bought for the rest of its days: a part for them,
+    /// with the whole trip's expense, if it had one.
     pub fn set_bought_on(&mut self, product: &str, days: &[u32], bought: bool) {
         let mut days = days.to_vec();
         days.sort_unstable();
         days.dedup();
+        let rest: Vec<u32> = self.days_needing(product).into_iter().filter(|d| !days.contains(d)).collect();
         let p = self.purchase_mut(product);
         if bought {
             if !p.parts.iter().any(|x| x.spending.is_none() && x.days == days) {
@@ -742,6 +745,18 @@ impl Menu {
             }
         } else {
             p.parts.retain(|x| !x.days.iter().any(|d| days.contains(d)));
+            if p.bought {
+                p.bought = false;
+                let spending = p.spending.take();
+                if spending.is_some() {
+                    p.parts.retain(|x| x.spending.is_some() || !x.days.iter().all(|d| rest.contains(d)));
+                }
+                // Days a part already says something about keep it.
+                let rest: Vec<u32> = rest.into_iter().filter(|d| !p.parts.iter().any(|x| x.days.contains(d))).collect();
+                if !rest.is_empty() {
+                    p.parts.push(Part { days: rest, spending });
+                }
+            }
         }
     }
 
@@ -1265,5 +1280,22 @@ mod tests {
         // Bought for the whole trip covers every day, parts or not.
         m.purchase_mut("rice").bought = true;
         assert_eq!(m.covered_days("rice"), vec![1, 2]);
+
+        // Bought and recorded for the whole trip, then not for day 2: the expense stays with
+        // day 1, the one day still bought.
+        let p = m.purchase_mut("lamb");
+        (p.bought, p.spending, p.parts) = (true, Some("s9".into()), Vec::new());
+        m.set_bought_on("lamb", &[2], false);
+        let p = m.purchase("lamb").expect("lamb");
+        assert!(!p.bought && p.spending.is_none());
+        assert_eq!(p.parts, vec![Part { days: vec![1], spending: Some("s9".into()) }]);
+        assert_eq!(m.covered_days("lamb"), vec![1]);
+
+        // Ticked for the whole trip besides a recorded day 1, then not for day 2: day 1 keeps
+        // its one part, and no unrecorded one beside it.
+        let p = m.purchase_mut("lamb");
+        (p.bought, p.spending, p.parts) = (true, None, vec![Part { days: vec![1], spending: Some("s1".into()) }]);
+        m.set_bought_on("lamb", &[2], false);
+        assert_eq!(m.purchase("lamb").expect("lamb").parts, vec![Part { days: vec![1], spending: Some("s1".into()) }]);
     }
 }
