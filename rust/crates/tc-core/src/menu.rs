@@ -230,6 +230,20 @@ pub struct Purchase {
     /// can point at one expense. Only a pointer: whether the expense is still there is the
     /// tour's say, and deleted, the product is "not recorded" again.
     pub spending: Option<String>,
+    /// Bought for some days only - the meat for Friday, the rest on Saturday's market - each
+    /// with its own expense, if recorded. `bought` above is "for the whole trip", and the
+    /// product is bought once these cover every day it is needed on.
+    pub parts: Vec<Part>,
+}
+
+/// Some of a product, bought for these days of the plan.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase", default)]
+pub struct Part {
+    /// The days it is for, by number from 1, in order.
+    pub days: Vec<u32>,
+    /// The expense it was recorded as, if it was.
+    pub spending: Option<String>,
 }
 
 /// So much of one product for the whole trip.
@@ -666,12 +680,74 @@ impl Menu {
     /// How many of the planned days a daily item is bought for: the days anything is cooked
     /// on, or the days a given meal is.
     pub fn days_for(&self, when: When) -> u32 {
+        (1..=self.days).filter(|&day| self.daily_on(when, day)).count() as u32
+    }
+
+    /// Whether what is bought "every day" or "with dinner" is bought for this day: on a day
+    /// something is cooked, or that meal is.
+    pub fn daily_on(&self, when: When, day: u32) -> bool {
+        match when {
+            When::EveryDay => Meal::ALL.iter().any(|m| self.dish_on(day, *m).is_some()),
+            When::With(meal) => self.dish_on(day, meal).is_some(),
+        }
+    }
+
+    /// Every day of the plan, 1 to the last.
+    pub fn all_days(&self) -> Vec<u32> {
+        (1..=self.days).collect()
+    }
+
+    /// The days a product is needed on: a dish with it planned, or it on the daily list.
+    pub fn days_needing(&self, product: &str) -> Vec<u32> {
         (1..=self.days)
-            .filter(|&day| match when {
-                When::EveryDay => Meal::ALL.iter().any(|m| self.dish_on(day, *m).is_some()),
-                When::With(meal) => self.dish_on(day, meal).is_some(),
+            .filter(|&day| {
+                let in_dish = Meal::ALL.iter().any(|m| {
+                    self.dishes_on(day, *m).iter().any(|d| d.ingredients.iter().any(|i| i.product == product))
+                });
+                in_dish || self.daily.iter().any(|i| i.product == product && self.daily_on(i.when, day))
             })
-            .count() as u32
+            .collect()
+    }
+
+    /// The days a product is bought for: all of them if it was bought for the whole trip,
+    /// else those its parts cover, in order.
+    pub fn covered_days(&self, product: &str) -> Vec<u32> {
+        let Some(p) = self.purchase(product) else { return Vec::new() };
+        if p.bought {
+            return self.all_days();
+        }
+        let mut days: Vec<u32> = p.parts.iter().flat_map(|x| x.days.iter().copied()).collect();
+        days.sort_unstable();
+        days.dedup();
+        days
+    }
+
+    /// Marks a product bought, or not, for these days only. Bought: a part for them, unless
+    /// one without an expense already is for exactly them. Not: every part touching them
+    /// goes - its expense stays in the tour, only the pointer is dropped.
+    pub fn set_bought_on(&mut self, product: &str, days: &[u32], bought: bool) {
+        let mut days = days.to_vec();
+        days.sort_unstable();
+        days.dedup();
+        let p = self.purchase_mut(product);
+        if bought {
+            if !p.parts.iter().any(|x| x.spending.is_none() && x.days == days) {
+                p.parts.push(Part { days, spending: None });
+            }
+        } else {
+            p.parts.retain(|x| !x.days.iter().any(|d| days.contains(d)));
+        }
+    }
+
+    /// Records the part of a product bought for these days as this expense: the ticked,
+    /// unrecorded part for them gives way to one that points at the expense.
+    pub fn record_on(&mut self, product: &str, days: &[u32], spending: &str) {
+        let mut days = days.to_vec();
+        days.sort_unstable();
+        days.dedup();
+        let p = self.purchase_mut(product);
+        p.parts.retain(|x| !(x.spending.is_none() && x.days.iter().all(|d| days.contains(d))));
+        p.parts.push(Part { days, spending: Some(spending.to_owned()) });
     }
 
     /// The first meal cooked on the first day, and the last one on the last day - where the
@@ -711,23 +787,29 @@ impl Menu {
     /// Everything to buy for the planned days, in the catalogue's order. A product nobody
     /// needs is left out, and so is an ingredient whose product is not in the catalogue.
     pub fn shopping(&self, eating: &Eating) -> Vec<Need<'_>> {
+        self.shopping_on(eating, &self.all_days())
+    }
+
+    /// Everything to buy for these days of the plan alone - the shopping before Friday's
+    /// market, when Sunday's is bought on Saturday.
+    pub fn shopping_on(&self, eating: &Eating, days: &[u32]) -> Vec<Need<'_>> {
         let mut amounts: Vec<f64> = vec![0.0; self.products.len()];
-        let mut add = |ingredient: &Ingredient, times: f64| {
+        let mut add = |ingredient: &Ingredient| {
             if let Some(i) = self.products.iter().position(|p| p.id == ingredient.product) {
-                amounts[i] += ingredient.amount * times * eating.times(self.products[i].eaters);
+                amounts[i] += ingredient.amount * eating.times(self.products[i].eaters);
             }
         };
-        for day in 1..=self.days {
+        for &day in days.iter().filter(|&&d| d >= 1 && d <= self.days) {
             for meal in Meal::ALL {
                 for dish in self.dishes_on(day, meal) {
                     for ingredient in &dish.ingredients {
-                        add(ingredient, 1.0);
+                        add(ingredient);
                     }
                 }
             }
-        }
-        for ingredient in &self.daily {
-            add(ingredient, f64::from(self.days_for(ingredient.when)));
+            for ingredient in self.daily.iter().filter(|i| self.daily_on(i.when, day)) {
+                add(ingredient);
+            }
         }
         self.products
             .iter()
@@ -1142,5 +1224,37 @@ mod tests {
         assert_eq!(m.expense_category("Shopping", &[&wine]), "Food/Alcohol");
         m.expense_category = Some("  ".into());
         assert_eq!(m.expense_category("Shopping", &[&wine]), "Shopping/Alcohol", "blank is the default");
+    }
+
+    /// Bought for day 1 only: day 1's share is covered, day 2's still to buy; recorded, the
+    /// tick gives way to the expense; unticked, the part goes.
+    #[test]
+    fn a_product_is_bought_a_day_at_a_time() {
+        let eating = Eating::of(&tour(&[100, 100, 50]));
+        let mut m = menu();
+        // Plov on day 1, steak on day 2: 200 and 300 of lamb a portion.
+        assert_eq!(amount(&m.shopping_on(&eating, &[1]), "lamb"), 200.0 * 2.5);
+        assert_eq!(amount(&m.shopping_on(&eating, &[2]), "lamb"), 300.0 * 2.5);
+        assert_eq!(amount(&m.shopping_on(&eating, &[1, 2]), "lamb"), amount(&m.shopping(&eating), "lamb"));
+        assert_eq!(m.days_needing("lamb"), vec![1, 2]);
+
+        m.set_bought_on("lamb", &[1], true);
+        m.set_bought_on("lamb", &[1], true);
+        assert_eq!(m.covered_days("lamb"), vec![1]);
+        assert_eq!(m.purchase("lamb").map(|p| p.parts.len()), Some(1), "ticked twice, one part");
+
+        m.record_on("lamb", &[1], "s1");
+        let parts = &m.purchase("lamb").expect("bought").parts;
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0].spending.as_deref(), Some("s1"));
+
+        m.set_bought_on("lamb", &[2], true);
+        assert_eq!(m.covered_days("lamb"), vec![1, 2]);
+        m.set_bought_on("lamb", &[2], false);
+        assert_eq!(m.covered_days("lamb"), vec![1], "day 1's recorded part stays");
+
+        // Bought for the whole trip covers every day, parts or not.
+        m.purchase_mut("rice").bought = true;
+        assert_eq!(m.covered_days("rice"), vec![1, 2]);
     }
 }
