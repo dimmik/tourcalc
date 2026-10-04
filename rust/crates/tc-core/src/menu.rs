@@ -779,7 +779,8 @@ impl Menu {
     }
 
     /// Records the part of a product bought for these days as this expense. It ticks
-    /// nothing; a part for exactly these days whose expense is gone gives way.
+    /// nothing; every part whose expense is gone, for whatever days, goes - a part is only a
+    /// record now, and one without its expense says nothing.
     pub fn record_on(&mut self, product: &str, days: &[u32], spending: &str, exists: impl Fn(&str) -> bool) {
         let mut days = days.to_vec();
         days.sort_unstable();
