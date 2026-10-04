@@ -103,7 +103,8 @@ pub struct SpendingDraft {
     #[serde(default)]
     pub on_behalf: bool,
     /// Recorded from the menu's shopping: the products it pays for. Saving it marks them
-    /// bought and recorded, with this expense (see `tc_core::menu::Purchase::spending`).
+    /// recorded with this expense (see `tc_core::menu::Purchase::spending`) - not bought:
+    /// that is a tick of its own.
     /// Empty for anything else, and for anything queued before the menu.
     #[serde(default)]
     pub purchases: Vec<String>,
@@ -297,28 +298,16 @@ pub fn categories(tour: &Tour) -> Vec<String> {
 /// The tour with this spending added or replaced.
 pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
     let mut next = put_spending_only(tour, draft);
-    // The products it was recorded from now point at it, and are bought - replayed onto a
-    // tour whose menu is gone, there is nothing to point from, and the expense is recorded
-    // all the same.
+    // The products it was recorded from now point at it - replayed onto a tour whose menu is
+    // gone, there is nothing to point from, and the expense is recorded all the same.
     if let (false, Some(id)) = (draft.purchases.is_empty(), &draft.id) {
         if let Some(mut menu) = tc_core::menu::Menu::of(&next) {
+            // Recorded, not ticked: the tick is the group's own - see `Purchase::bought`.
+            let exists = |s: &str| next.spendings.iter().any(|x| x.id.as_str() == s);
             for (i, product) in draft.purchases.iter().enumerate() {
                 match draft.days_of.get(i).filter(|days| !days.is_empty()) {
-                    None => {
-                        let p = menu.purchase_mut(product);
-                        p.spending = Some(id.as_str().to_owned());
-                        p.bought = true;
-                    }
-                    Some(days) => {
-                        // A part whose expense was deleted is bought, not recorded - and
-                        // gives way to this one like any other such part.
-                        for part in &mut menu.purchase_mut(product).parts {
-                            if part.spending.as_deref().is_some_and(|s| !next.spendings.iter().any(|x| x.id.as_str() == s)) {
-                                part.spending = None;
-                            }
-                        }
-                        menu.record_on(product, days, id.as_str());
-                    }
+                    None => menu.purchase_mut(product).spending = Some(id.as_str().to_owned()),
+                    Some(days) => menu.record_on(product, days, id.as_str(), exists),
                 }
             }
             menu.put(&mut next);
@@ -923,9 +912,9 @@ fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
         MenuEdit::Bought { product, bought } => {
             let p = menu.purchase_mut(product);
             p.bought = *bought;
-            // Not bought at all: what was bought a day at a time goes too.
+            // Not bought at all: nor for any day. The expenses stay.
             if !*bought {
-                p.parts.clear();
+                p.bought_days.clear();
             }
         }
         MenuEdit::BoughtOn { product, days, bought } => menu.set_bought_on(product, days, *bought),
