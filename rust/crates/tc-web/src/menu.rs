@@ -330,28 +330,43 @@ pub fn starter(days: u32) -> Menu {
 
 // ---- amounts -----------------------------------------------------------------------------
 
-/// So much of a product, as a shop sells it: grams up to 10, kilograms and litres to a
-/// tenth, pieces whole - always rounded up, since the point is to have enough.
+/// So much of a product, as a shop sells it: grams to 5 under 100 and to 10 above,
+/// kilograms and litres to a tenth, pieces whole - to the nearest, but never more than 5 %
+/// short, since the point is to have enough: 10.1 g of salt (2 g a portion, 5.05 portions)
+/// is 10 g, not 20.
 pub fn quantity_of(amount: f64, product: &Product) -> String {
     match product.own_unit.as_deref().filter(|u| !u.trim().is_empty()) {
-        Some(own) => format!("{}\u{a0}{}", amount.ceil(), own.trim()),
+        Some(own) => format!("{}\u{a0}{}", to_step(amount, 1.0), own.trim()),
         None => quantity(amount, product.unit),
+    }
+}
+
+/// To the nearest step, but never short by more than 5 %: 10.1 g is 10 g - that 0.1 is the
+/// noise of weights like 35, and rounding it up would add a whole step, doubling 10 g - while
+/// 348 g is still 350.
+fn to_step(amount: f64, step: f64) -> f64 {
+    let below = (amount / step).floor() * step;
+    if below > 0.0 && amount - below <= (amount * 0.05).min(step / 2.0) {
+        below
+    } else {
+        (amount / step).ceil() * step
     }
 }
 
 pub fn quantity(amount: f64, unit: Unit) -> String {
     let m = &t().menu;
     let tenths = |x: f64| {
-        let v = (x * 10.0).ceil() / 10.0;
-        let text = if v.fract() == 0.0 { format!("{v:.0}") } else { format!("{v:.1}") };
+        let v = to_step(x, 0.1);
+        let text = if (v * 10.0).round() % 10.0 == 0.0 { format!("{v:.0}") } else { format!("{v:.1}") };
         text.replace('.', &crate::ui::decimal().to_string())
     };
+    let grams = |x: f64| to_step(x, if x < 100.0 { 5.0 } else { 10.0 });
     match unit {
-        Unit::Piece => format!("{}\u{a0}{}", amount.ceil(), m.pieces),
+        Unit::Piece => format!("{}\u{a0}{}", to_step(amount, 1.0), m.pieces),
         Unit::Gram if amount >= 1000.0 => format!("{}\u{a0}{}", tenths(amount / 1000.0), m.kilograms),
         Unit::Millilitre if amount >= 1000.0 => format!("{}\u{a0}{}", tenths(amount / 1000.0), m.litres),
-        Unit::Gram => format!("{}\u{a0}{}", (amount / 10.0).ceil() * 10.0, m.grams),
-        Unit::Millilitre => format!("{}\u{a0}{}", (amount / 10.0).ceil() * 10.0, m.millilitres),
+        Unit::Gram => format!("{}\u{a0}{}", grams(amount), m.grams),
+        Unit::Millilitre => format!("{}\u{a0}{}", grams(amount), m.millilitres),
     }
 }
 
@@ -1158,10 +1173,11 @@ fn Shopping(
         .shopping_on(&eating, &chosen)
         .into_iter()
         .map(|n| {
-            let (dishes, daily) = menu.sources(&n.product.id);
+            let (dishes, daily) = menu.sources_on(&n.product.id, &chosen);
             let mut why: Vec<String> = dishes.iter().map(|(d, times)| format!("{} ×{times}", d.name)).collect();
             if let Some(when) = daily {
-                why.push(format!("{} ×{}", when_name(when), menu.days_for(when)));
+                let times = chosen.iter().filter(|&&day| menu.daily_on(when, day)).count();
+                why.push(format!("{} ×{times}", when_name(when)));
             }
             let place_name = menu.bought_at(n.product);
             let purchase = menu.purchase(&n.product.id).cloned().unwrap_or_default();
@@ -2134,11 +2150,20 @@ mod tests {
     }
 
     #[test]
-    fn quantities_are_rounded_up_to_what_a_shop_sells() {
-        assert_eq!(quantity(1234.0, Unit::Gram), format!("1{}3\u{a0}{}", crate::ui::decimal(), t().menu.kilograms));
+    fn quantities_are_rounded_to_what_a_shop_sells() {
+        assert_eq!(quantity(1270.0, Unit::Gram), format!("1{}3\u{a0}{}", crate::ui::decimal(), t().menu.kilograms));
+        // 34 g short of 1.234 kg is under 5 %: not a reason for another 100 g.
+        assert_eq!(quantity(1234.0, Unit::Gram), format!("1{}2\u{a0}{}", crate::ui::decimal(), t().menu.kilograms));
         assert_eq!(quantity(2000.0, Unit::Millilitre), format!("2\u{a0}{}", t().menu.litres));
-        assert_eq!(quantity(333.0, Unit::Gram), format!("340\u{a0}{}", t().menu.grams));
+        assert_eq!(quantity(348.0, Unit::Gram), format!("350\u{a0}{}", t().menu.grams));
+        assert_eq!(quantity(333.0, Unit::Gram), format!("330\u{a0}{}", t().menu.grams));
         assert_eq!(quantity(2.25, Unit::Piece), format!("3\u{a0}{}", t().menu.pieces));
+        // Salt for an omelette, 2 g a portion, 5.05 portions: a day is 10 g, two are 20 -
+        // not 20 and 30, as rounding 10.1 up to the next 10 made it.
+        assert_eq!(quantity(10.1, Unit::Gram), format!("10\u{a0}{}", t().menu.grams));
+        assert_eq!(quantity(20.2, Unit::Gram), format!("20\u{a0}{}", t().menu.grams));
+        assert_eq!(quantity(15.0, Unit::Gram), format!("15\u{a0}{}", t().menu.grams));
+        assert_eq!(quantity(5.05, Unit::Piece), format!("5\u{a0}{}", t().menu.pieces));
     }
 
     /// A day added to the plan is a day more of the trip; the tour's length changed in its

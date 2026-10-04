@@ -660,8 +660,14 @@ impl Menu {
     /// Why a product is on the list: the planned dishes it goes into, with how many times
     /// each is cooked, and when it is bought besides, if it is on the daily list.
     pub fn sources(&self, product: &str) -> (Vec<(&Dish, u32)>, Option<When>) {
+        self.sources_on(product, &self.all_days())
+    }
+
+    /// The same for these days of the plan alone: the omelette cooked on days 2 and 3 is
+    /// "×1" when shopping for day 2.
+    pub fn sources_on(&self, product: &str, days: &[u32]) -> (Vec<(&Dish, u32)>, Option<When>) {
         let mut dishes: Vec<(&Dish, u32)> = Vec::new();
-        for day in 1..=self.days {
+        for &day in days.iter().filter(|&&d| d >= 1 && d <= self.days) {
             for meal in Meal::ALL {
                 for dish in self.dishes_on(day, meal) {
                     if !dish.ingredients.iter().any(|i| i.product == product) {
@@ -971,6 +977,9 @@ mod tests {
         assert_eq!(m.sources("wine").1, Some(When::EveryDay));
         m.set(Slot::one(1, Meal::Dinner, Some("steak".into())));
         assert!(m.sources("rice").0.is_empty());
+        // Steak on days 1 and 2: twice over the trip, once on day 2.
+        assert_eq!(m.sources("lamb").0.iter().map(|(_, n)| *n).collect::<Vec<_>>(), [2]);
+        assert_eq!(m.sources_on("lamb", &[2]).0.iter().map(|(_, n)| *n).collect::<Vec<_>>(), [1]);
         let eating = Eating::of(&tour(&[100]));
         assert!(m.shopping(&eating).iter().all(|n| n.product.id != "rice"));
     }
