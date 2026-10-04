@@ -501,6 +501,21 @@
           "ExpenseCategory": "Shopping"
         }
       }
+    },
+    {
+      "as_of": "2026-10-04",
+      "op": {
+        "Menu": {
+          "BoughtOn": {
+            "product": "rice",
+            "days": [
+              1,
+              2
+            ],
+            "bought": true
+          }
+        }
+      }
     }
   ]
 }

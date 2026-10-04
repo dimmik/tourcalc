@@ -125,6 +125,9 @@ pub struct MenuState {
     /// Other people's shopping too, although somebody is picked. Without it the shopping
     /// shows theirs and nobody's - nobody's so that there is something to take.
     pub everybody: RwSignal<bool>,
+    /// The days the shopping is for, when only some - Friday's market before the trip, the
+    /// rest on Saturday. Empty: the whole trip.
+    pub days: RwSignal<Vec<u32>>,
 }
 
 impl MenuState {
@@ -142,6 +145,7 @@ impl MenuState {
             places_open: RwSignal::new(false),
             me: RwSignal::new(crate::settings::me(tour)),
             everybody: RwSignal::new(false),
+            days: RwSignal::new(Vec::new()),
         }
     }
 }
@@ -326,28 +330,43 @@ pub fn starter(days: u32) -> Menu {
 
 // ---- amounts -----------------------------------------------------------------------------
 
-/// So much of a product, as a shop sells it: grams up to 10, kilograms and litres to a
-/// tenth, pieces whole - always rounded up, since the point is to have enough.
+/// So much of a product, as a shop sells it: grams to 5 under 100 and to 10 above,
+/// kilograms and litres to a tenth, pieces whole - to the nearest, but never more than 5 %
+/// short, since the point is to have enough: 10.1 g of salt (2 g a portion, 5.05 portions)
+/// is 10 g, not 20.
 pub fn quantity_of(amount: f64, product: &Product) -> String {
     match product.own_unit.as_deref().filter(|u| !u.trim().is_empty()) {
-        Some(own) => format!("{}\u{a0}{}", amount.ceil(), own.trim()),
+        Some(own) => format!("{}\u{a0}{}", to_step(amount, 1.0), own.trim()),
         None => quantity(amount, product.unit),
+    }
+}
+
+/// To the nearest step, but never short by more than 5 %: 10.1 g is 10 g - that 0.1 is the
+/// noise of weights like 35, and rounding it up would add a whole step, doubling 10 g - while
+/// 348 g is still 350.
+fn to_step(amount: f64, step: f64) -> f64 {
+    let below = (amount / step).floor() * step;
+    if below > 0.0 && amount - below <= (amount * 0.05).min(step / 2.0) {
+        below
+    } else {
+        (amount / step).ceil() * step
     }
 }
 
 pub fn quantity(amount: f64, unit: Unit) -> String {
     let m = &t().menu;
     let tenths = |x: f64| {
-        let v = (x * 10.0).ceil() / 10.0;
-        let text = if v.fract() == 0.0 { format!("{v:.0}") } else { format!("{v:.1}") };
+        let v = to_step(x, 0.1);
+        let text = if (v * 10.0).round() % 10.0 == 0.0 { format!("{v:.0}") } else { format!("{v:.1}") };
         text.replace('.', &crate::ui::decimal().to_string())
     };
+    let grams = |x: f64| to_step(x, if x < 100.0 { 5.0 } else { 10.0 });
     match unit {
-        Unit::Piece => format!("{}\u{a0}{}", amount.ceil(), m.pieces),
+        Unit::Piece => format!("{}\u{a0}{}", to_step(amount, 1.0), m.pieces),
         Unit::Gram if amount >= 1000.0 => format!("{}\u{a0}{}", tenths(amount / 1000.0), m.kilograms),
         Unit::Millilitre if amount >= 1000.0 => format!("{}\u{a0}{}", tenths(amount / 1000.0), m.litres),
-        Unit::Gram => format!("{}\u{a0}{}", (amount / 10.0).ceil() * 10.0, m.grams),
-        Unit::Millilitre => format!("{}\u{a0}{}", (amount / 10.0).ceil() * 10.0, m.millilitres),
+        Unit::Gram => format!("{}\u{a0}{}", grams(amount), m.grams),
+        Unit::Millilitre => format!("{}\u{a0}{}", grams(amount), m.millilitres),
     }
 }
 
@@ -752,8 +771,18 @@ pub fn MenuTab(
                 <Plan menu=menu.clone() apply=apply />
             </Show>
             <Show when=move || state.view.get() == View::Shopping>
-                <Shopping tour=tour_for_shopping.clone() menu=menu_for_shopping.clone() eating=eating
-                          state=state apply=apply dialog=dialog />
+                // Built again when the days change: every amount on it is for them.
+                {
+                    let tour = tour_for_shopping.clone();
+                    let menu = menu_for_shopping.clone();
+                    move || {
+                        state.days.track();
+                        view! {
+                            <Shopping tour=tour.clone() menu=menu.clone() eating=eating
+                                      state=state apply=apply dialog=dialog />
+                        }
+                    }
+                }
             </Show>
             <Show when=move || state.view.get() == View::Catalogue>
                 <crate::menu_catalogue::Catalogue menu=menu_for_catalogue.clone() state=state apply=apply
@@ -1089,18 +1118,70 @@ fn Shopping(
 
     let categories = menu.categories();
     let category_line = expense_category_line(&menu, apply);
+    // The days the shopping is for: all, or a few - one tap picks a day, more add to it.
+    // Days picked before the plan was made shorter are not days of it any more.
+    let plan_days = menu.days;
+    let in_plan = move |v: Vec<u32>| -> Vec<u32> { v.into_iter().filter(|d| (1..=plan_days).contains(d)).collect() };
+    let day_chips = (menu.days > 1).then(|| {
+        let total = menu.days as usize;
+        let chips = menu
+            .all_days()
+            .into_iter()
+            .map(|day| {
+                let on = in_plan(state.days.get_untracked()).contains(&day);
+                view! {
+                    <button type="button" class="tcn-chip tcn-filter-chip" class:is-on=on
+                            on:click=move |_| state.days.update(|v| {
+                                v.retain(|d| (1..=plan_days).contains(d));
+                                if v.contains(&day) {
+                                    v.retain(|d| *d != day);
+                                } else {
+                                    v.push(day);
+                                    v.sort_unstable();
+                                }
+                                if v.len() == total {
+                                    v.clear();
+                                }
+                            })>
+                        {day_short(&menu, day)}
+                    </button>
+                }
+            })
+            .collect_view();
+        let all = in_plan(state.days.get_untracked()).is_empty();
+        view! {
+            <div class="tcw-shop-days tcn-chips">
+                <span class="tcw-shop-days-label">{t().menu.shopping_for}</span>
+                <button type="button" class="tcn-chip tcn-filter-chip" class:is-on=all
+                        on:click=move |_| state.days.set(Vec::new())>
+                    {t().menu.days_all}
+                </button>
+                {chips}
+            </div>
+        }
+    });
     let places = menu.shop_places();
     let place_options = places.iter().map(|p| view! { <option value=p.clone()></option> }).collect_view();
     let place_order = |name: &str| places.iter().position(|p| p.to_lowercase() == name.to_lowercase()).unwrap_or(usize::MAX);
+    // The days it is for: all of them, or those picked above the list.
+    let all_days = menu.all_days();
+    let picked = in_plan(state.days.get_untracked());
+    let subset = !picked.is_empty() && picked.len() < all_days.len();
+    let chosen: Vec<u32> = if subset { picked.clone() } else { all_days.clone() };
+    let unit = crate::ui::unit(&tour);
+    let need_of = |id: &str, days: &[u32]| {
+        menu.shopping_on(&eating, days).iter().find(|n| n.product.id == id).map_or(0.0, |n| n.amount)
+    };
     // Everything to buy, owned, with what has been said about each.
     let lines: Vec<Line> = menu
-        .shopping(&eating)
+        .shopping_on(&eating, &chosen)
         .into_iter()
         .map(|n| {
-            let (dishes, daily) = menu.sources(&n.product.id);
+            let (dishes, daily) = menu.sources_on(&n.product.id, &chosen);
             let mut why: Vec<String> = dishes.iter().map(|(d, times)| format!("{} ×{times}", d.name)).collect();
             if let Some(when) = daily {
-                why.push(format!("{} ×{}", when_name(when), menu.days_for(when)));
+                let times = chosen.iter().filter(|&&day| menu.daily_on(when, day)).count();
+                why.push(format!("{} ×{times}", when_name(when)));
             }
             let place_name = menu.bought_at(n.product);
             let purchase = menu.purchase(&n.product.id).cloned().unwrap_or_default();
@@ -1111,6 +1192,66 @@ fn Shopping(
                 .map(|(_, name)| name.clone())
                 .unwrap_or_default();
             let category = n.product.category.as_deref().map(str::trim).unwrap_or("").to_owned();
+            // Bought a day at a time: which days, how much of it, and what is left.
+            let id = n.product.id.as_str();
+            let needed = menu.days_needing(id);
+            let covered = menu.covered_days(id);
+            // What a tick or a record is for: the days picked; or, over the whole trip of a
+            // product already bought a day at a time, the days no recorded part has paid for -
+            // recording it whole would count Friday's half twice.
+            let by_parts = !purchase.bought && !purchase.parts.is_empty();
+            // A part's expense, if it is still in the tour: deleted, the part is bought but
+            // not recorded, as a whole-trip purchase is.
+            let alive = |p: &tc_core::menu::Part| p.spending.as_deref().is_some_and(|s| tour.spendings.iter().any(|x| x.id.as_str() == s));
+            let days: Vec<u32> = if subset {
+                needed.iter().copied().filter(|d| chosen.contains(d)).collect()
+            } else if by_parts {
+                needed
+                    .iter()
+                    .copied()
+                    .filter(|d| !purchase.parts.iter().any(|p| alive(p) && p.days.contains(d)))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            let ticked = if subset {
+                days.iter().all(|d| covered.contains(d))
+            } else {
+                purchase.bought || needed.iter().all(|d| covered.contains(d))
+            };
+            let spending = if purchase.bought && !subset {
+                purchase.spending.clone()
+            } else if subset {
+                purchase.parts.iter().filter(|p| alive(p) && days.iter().all(|d| p.days.contains(d))).find_map(|p| p.spending.clone())
+            } else {
+                None
+            };
+            let recorded_parts = by_parts && !subset && days.is_empty();
+            let parts_note = if purchase.bought || purchase.parts.is_empty() {
+                String::new()
+            } else {
+                let total = need_of(id, &needed);
+                let mut bits: Vec<String> = purchase
+                    .parts
+                    .iter()
+                    .map(|p| {
+                        let its: Vec<u32> = p.days.iter().copied().filter(|d| needed.contains(d)).collect();
+                        let share = if total > 0.0 { (need_of(id, &its) / total * 100.0).round() as i64 } else { 0 };
+                        let money = p
+                            .spending
+                            .as_deref()
+                            .and_then(|sid| tour.spendings.iter().find(|s| s.id.as_str() == sid))
+                            .map(|s| money_in(tour.convert(s.amount, &s.currency), &unit))
+                            .unwrap_or_else(|| t().menu.not_recorded.to_owned());
+                        (t().menu.bought_part)(&days_label(&menu, &its), share, &money)
+                    })
+                    .collect();
+                let left: Vec<u32> = needed.iter().copied().filter(|d| !covered.contains(d)).collect();
+                if !left.is_empty() {
+                    bits.push((t().menu.left_for)(&quantity_of(need_of(id, &left), n.product), &days_label(&menu, &left)));
+                }
+                bits.join(" · ")
+            };
             let hay = folded(&format!("{} {} {} {} {} {}", n.product.name, place_name, category, buyer, whom(n.product.eaters), why.join(" ")));
             Line {
                 product: n.product.clone(),
@@ -1124,6 +1265,11 @@ fn Shopping(
                 category_order: categories.iter().position(|c| *c == category).unwrap_or(usize::MAX),
                 category,
                 order: menu.products.iter().position(|p| p.id == n.product.id).unwrap_or(usize::MAX),
+                days,
+                ticked,
+                spending,
+                recorded_parts,
+                parts_note,
             }
         })
         .collect();
@@ -1241,6 +1387,7 @@ fn Shopping(
     view! {
         {who_am_i}
         {arrange}
+        {day_chips}
         <datalist id=PLACES_LIST>{place_options}</datalist>
         {search_box(state.shop_find, t().menu.find_product)}
         <Show when=move || !anything_shown()>
@@ -1332,6 +1479,18 @@ struct Line {
     category: String,
     category_order: usize,
     order: usize,
+    /// The days picked over the list that it is needed on - what a tick or a record is for
+    /// now. Empty: the whole trip.
+    days: Vec<u32>,
+    /// Bought for the days the list is for.
+    ticked: bool,
+    /// The expense those days were recorded as.
+    spending: Option<String>,
+    /// Bought a day at a time over the whole trip, every part recorded.
+    recorded_parts: bool,
+    /// "bought for Fri 13: 30 % · 2 000 · 2,3 kg left for Sat 14, Sun 15"; empty when it was
+    /// not bought a day at a time.
+    parts_note: String,
 }
 
 /// The shopping list in the order asked for; the catalogue's order breaks every tie, so
@@ -1399,7 +1558,56 @@ fn expense_for(tour: &Tour, who: Option<&str>, description: String, lines: &[&Li
         d.to = payers;
     }
     d.purchases = lines.iter().map(|l| l.product.id.clone()).collect();
+    d.days_of = lines.iter().map(|l| l.days.clone()).collect();
     d
+}
+
+/// The days a receipt is for, if all of it is for the same ones - "Shopping for Sat 14 – Tue
+/// 17"; else none, and it is plain "Shopping".
+fn receipt_days(lines: &[&Line]) -> Vec<u32> {
+    match lines.split_first() {
+        Some((first, rest)) if rest.iter().all(|l| l.days == first.days) => first.days.clone(),
+        _ => Vec::new(),
+    }
+}
+
+/// "Shopping", or "Shopping for Fri 13" when it is for some days only.
+fn shopping_prefix(tour: &Tour, days: &[u32]) -> String {
+    let root = shopping_root(tour);
+    match (days.is_empty(), Menu::of(tour)) {
+        (false, Some(menu)) => (t().menu.root_for_days)(&root, &days_label(&menu, days)),
+        _ => root,
+    }
+}
+
+/// A day, short: "Fri 13" when the plan has dates, else "day 3".
+fn day_short(menu: &Menu, day: u32) -> String {
+    match menu.start.as_deref().and_then(|s| date_after(s, day.saturating_sub(1))) {
+        Some((y, m, d)) => {
+            let weekday = (days_from_civil(y, m, d) + 3).rem_euclid(7) as usize;
+            format!("{} {d}", t().menu.weekdays_short[weekday])
+        }
+        None => (t().menu.day_n)(day),
+    }
+}
+
+/// Days, short, with a run of three or more as one: "Fri 13, Sat 14", "day 2 – day 5".
+fn days_label(menu: &Menu, days: &[u32]) -> String {
+    let mut out: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < days.len() {
+        let mut j = i;
+        while j + 1 < days.len() && days[j + 1] == days[j] + 1 {
+            j += 1;
+        }
+        if j - i >= 2 {
+            out.push(format!("{} – {}", day_short(menu, days[i]), day_short(menu, days[j])));
+        } else {
+            out.extend(days[i..=j].iter().map(|d| day_short(menu, *d)));
+        }
+        i = j + 1;
+    }
+    out.join(", ")
 }
 
 /// What an expense from the shopping is described as starting with - "Shopping: milk, bread"
@@ -1436,12 +1644,11 @@ fn ListCard(
     dialog: RwSignal<Option<Dialog>>,
 ) -> impl IntoView {
     let change = move |edit: MenuEdit| apply.run(Operation::Menu(edit));
-    let bought = lines.iter().filter(|l| l.purchase.bought).count();
+    let bought = lines.iter().filter(|l| l.ticked).count();
     let total = lines.len();
     let unit = crate::ui::unit(&tour);
     let recorded = |l: &Line| {
-        l.purchase
-            .spending
+        l.spending
             .as_deref()
             .and_then(|id| tour.spendings.iter().find(|s| s.id.as_str() == id))
             .cloned()
@@ -1464,7 +1671,7 @@ fn ListCard(
     // Bought, not recorded, and on screen: one receipt for all of them.
     let unrecorded: Vec<Line> = lines
         .iter()
-        .filter(|l| l.purchase.bought && recorded(l).is_none())
+        .filter(|l| l.ticked && recorded(l).is_none() && !l.recorded_parts)
         .cloned()
         .collect();
     let together = {
@@ -1482,7 +1689,7 @@ fn ListCard(
                 .map(|(eaters, these)| {
                     let first = these[0].purchase.who.clone();
                     let who = if these.iter().all(|l| l.purchase.who == first) { first } else { state.me.get() };
-                    let prefix = shopping_root(&tour);
+                    let prefix = shopping_prefix(&tour, &receipt_days(&these));
                     let names: Vec<String> = these.iter().map(|l| l.product.name.to_lowercase()).collect();
                     let description = if names.len() > 3 {
                         format!("{}: {} +{}", prefix, names[..3].join(", "), names.len() - 3)
@@ -1514,7 +1721,7 @@ fn ListCard(
         .map(|line| {
             let id = line.product.id.clone();
             let who = line.purchase.who.clone();
-            let ticked = line.purchase.bought;
+            let ticked = line.ticked;
             let options = shoppers
                 .iter()
                 .map(|(pid, name)| {
@@ -1561,9 +1768,18 @@ fn ListCard(
                     }
                 }
             };
+            // For the whole trip, or for the days picked over the list.
             let tick = {
                 let id = id.clone();
-                move |ev: leptos::ev::Event| change(MenuEdit::Bought { product: id.clone(), bought: event_target_checked(&ev) })
+                let days = line.days.clone();
+                move |ev: leptos::ev::Event| {
+                    let bought = event_target_checked(&ev);
+                    if days.is_empty() {
+                        change(MenuEdit::Bought { product: id.clone(), bought });
+                    } else {
+                        change(MenuEdit::BoughtOn { product: id.clone(), days: days.clone(), bought });
+                    }
+                }
             };
             // The expense: there, with what it came to - its own, or a receipt shared with
             // other products - or a button to record it.
@@ -1572,17 +1788,20 @@ fn ListCard(
                     let amount = money_in(tour.convert(s.amount, &s.currency), &unit);
                     let shared = lines
                         .iter()
-                        .filter(|l| l.purchase.spending.as_deref() == Some(s.id.as_str()))
+                        .filter(|l| l.spending.as_deref() == Some(s.id.as_str()))
                         .count()
                         > 1;
                     let text = if shared { (t().menu.in_shared)(&amount) } else { format!("✓ {amount}") };
                     view! { <span class="tcw-buy-done" title=s.description.clone()>{text}</span> }.into_any()
                 }
+                None if line.recorded_parts => {
+                    view! { <span class="tcw-buy-done">{t().menu.in_parts}</span> }.into_any()
+                }
                 None => {
                     let draft = expense_for(
                         &tour,
                         who.as_deref(),
-                        format!("{}: {}", shopping_root(&tour), line.product.name.to_lowercase()),
+                        format!("{}: {}", shopping_prefix(&tour, &line.days), line.product.name.to_lowercase()),
                         &[line],
                     );
                     view! {
@@ -1629,6 +1848,9 @@ fn ListCard(
                                 " · " {whom(line.product.eaters)} " · "
                                 {line.why.clone()}
                             </small>
+                            {(!line.parts_note.is_empty()).then(|| view! {
+                                <small class="tcw-buy-parts">{line.parts_note.clone()}</small>
+                            })}
                         </span>
                         <span class="tcw-buy-amount">{quantity_of(line.amount, &line.product)}</span>
                         <span class="tcw-buy-who">
@@ -1843,6 +2065,7 @@ mod tests {
             in_cents: None,
             on_behalf: true,
             purchases: vec!["meat".into(), "lamb".into()],
+            days_of: Vec::new(),
         };
         let after = crate::edit::put_spending(&t, &d);
         let menu = Menu::of(&after).expect("menu");
@@ -1856,6 +2079,58 @@ mod tests {
         plain.amount = tc_core::Cents(5000);
         let edited = crate::edit::put_spending(&after, &plain);
         assert_eq!(Menu::of(&edited).and_then(|m| m.purchase("lamb").and_then(|p| p.spending.clone())).as_deref(), Some("s1"));
+    }
+
+    /// Recorded for day 1 only: a part for day 1 points at it, and the product is not bought
+    /// for the whole trip; the tick for day 1 it replaces is gone.
+    #[test]
+    fn an_expense_for_some_days_records_their_part() {
+        let mut t = switched(&tour(), true);
+        t = crate::edit::put_menu(&t, &MenuEdit::BoughtOn { product: "lamb".into(), days: vec![1], bought: true });
+        let d = SpendingDraft {
+            id: Some(tc_core::SpendingId::new("s2")),
+            description: "Shopping for day 1: lamb".into(),
+            category: "Shopping".into(),
+            amount: tc_core::Cents(2000),
+            from: PersonId::new("a"),
+            everyone: true,
+            to: Vec::new(),
+            by_weight: true,
+            date: "2026-09-30".into(),
+            colour: String::new(),
+            currency_id: t.currency().id.as_str().to_owned(),
+            editing: false,
+            in_cents: None,
+            on_behalf: true,
+            purchases: vec!["lamb".into()],
+            days_of: vec![vec![1]],
+        };
+        let after = crate::edit::put_spending(&t, &d);
+        let p = Menu::of(&after).and_then(|m| m.purchase("lamb").cloned()).expect("a purchase");
+        assert!(!p.bought, "not the whole trip");
+        assert_eq!(p.parts, vec![tc_core::menu::Part { days: vec![1], spending: Some("s2".into()) }]);
+        // Unticked for the whole trip: the parts go too.
+        let none = crate::edit::put_menu(&after, &MenuEdit::Bought { product: "lamb".into(), bought: false });
+        assert!(Menu::of(&none).and_then(|m| m.purchase("lamb").cloned()).expect("a purchase").parts.is_empty());
+        // One receipt: rice for the whole trip, the rest of the lamb for day 2. Each is
+        // recorded as what it was bought for - rice not as a part for day 2.
+        let mut both = d.clone();
+        both.id = Some(tc_core::SpendingId::new("s3"));
+        both.purchases = vec!["rice".into(), "lamb".into()];
+        both.days_of = vec![Vec::new(), vec![2]];
+        let m = Menu::of(&crate::edit::put_spending(&after, &both)).expect("menu");
+        let rice = m.purchase("rice").expect("rice");
+        assert!(rice.bought && rice.parts.is_empty());
+        assert_eq!(rice.spending.as_deref(), Some("s3"));
+        assert_eq!(m.covered_days("lamb"), vec![1, 2]);
+
+        // Day 1's expense deleted: its part is bought, not recorded, and recording day 1
+        // again replaces it rather than adding a second part beside it.
+        let gone = crate::edit::remove_spending(&after, &tc_core::SpendingId::new("s2"));
+        let mut again = d.clone();
+        again.id = Some(tc_core::SpendingId::new("s4"));
+        let m = Menu::of(&crate::edit::put_spending(&gone, &again)).expect("menu");
+        assert_eq!(m.purchase("lamb").expect("lamb").parts, vec![tc_core::menu::Part { days: vec![1], spending: Some("s4".into()) }]);
     }
 
     #[test]
@@ -1904,11 +2179,20 @@ mod tests {
     }
 
     #[test]
-    fn quantities_are_rounded_up_to_what_a_shop_sells() {
-        assert_eq!(quantity(1234.0, Unit::Gram), format!("1{}3\u{a0}{}", crate::ui::decimal(), t().menu.kilograms));
+    fn quantities_are_rounded_to_what_a_shop_sells() {
+        assert_eq!(quantity(1270.0, Unit::Gram), format!("1{}3\u{a0}{}", crate::ui::decimal(), t().menu.kilograms));
+        // 34 g short of 1.234 kg is under 5 %: not a reason for another 100 g.
+        assert_eq!(quantity(1234.0, Unit::Gram), format!("1{}2\u{a0}{}", crate::ui::decimal(), t().menu.kilograms));
         assert_eq!(quantity(2000.0, Unit::Millilitre), format!("2\u{a0}{}", t().menu.litres));
-        assert_eq!(quantity(333.0, Unit::Gram), format!("340\u{a0}{}", t().menu.grams));
+        assert_eq!(quantity(348.0, Unit::Gram), format!("350\u{a0}{}", t().menu.grams));
+        assert_eq!(quantity(333.0, Unit::Gram), format!("330\u{a0}{}", t().menu.grams));
         assert_eq!(quantity(2.25, Unit::Piece), format!("3\u{a0}{}", t().menu.pieces));
+        // Salt for an omelette, 2 g a portion, 5.05 portions: a day is 10 g, two are 20 -
+        // not 20 and 30, as rounding 10.1 up to the next 10 made it.
+        assert_eq!(quantity(10.1, Unit::Gram), format!("10\u{a0}{}", t().menu.grams));
+        assert_eq!(quantity(20.2, Unit::Gram), format!("20\u{a0}{}", t().menu.grams));
+        assert_eq!(quantity(15.0, Unit::Gram), format!("15\u{a0}{}", t().menu.grams));
+        assert_eq!(quantity(5.05, Unit::Piece), format!("5\u{a0}{}", t().menu.pieces));
     }
 
     /// A day added to the plan is a day more of the trip; the tour's length changed in its

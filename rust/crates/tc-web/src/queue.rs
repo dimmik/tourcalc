@@ -570,6 +570,7 @@ mod tests {
             in_cents: None,
             on_behalf: false,
             purchases: Vec::new(),
+            days_of: Vec::new(),
         })
     }
 
@@ -711,6 +712,7 @@ mod tests {
                         M::Buyer { .. } => "Buyer",
                         M::BuyAt { .. } => "BuyAt",
                         M::Bought { .. } => "Bought",
+                        M::BoughtOn { .. } => "BoughtOn",
                         M::PutDish(_) => "PutDish",
                         M::RemoveDish(_) => "RemoveDish",
                         M::PutProduct(_) => "PutProduct",
@@ -739,7 +741,7 @@ mod tests {
         "Menu.Buyer", "Menu.Bought", "Menu.PutDish", "Menu.RemoveDish", "Menu.PutProduct",
         "Menu.RemoveProduct", "Menu.Daily", "Menu.Arrive", "Menu.Leave", "Menu.Start",
         "Menu.PutPlace", "Menu.RemovePlace", "Menu.All", "Menu.TakeTemplate",
-        "Menu.CopyDish", "Menu.DayNote", "Menu.BuyAt", "Menu.ExpenseCategory",
+        "Menu.CopyDish", "Menu.DayNote", "Menu.BuyAt", "Menu.ExpenseCategory", "Menu.BoughtOn",
     ];
 
     /// A queue is sent by whatever version of the app is loaded when the network comes back,
