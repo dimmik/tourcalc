@@ -1192,56 +1192,49 @@ fn Shopping(
                 .map(|(_, name)| name.clone())
                 .unwrap_or_default();
             let category = n.product.category.as_deref().map(str::trim).unwrap_or("").to_owned();
-            // Bought a day at a time: which days, how much of it, and what is left.
+            // Ticked and recorded, a day at a time or for the whole trip - each on its own: a
+            // tick is the group's word that it is bought, an expense what was paid.
             let id = n.product.id.as_str();
             let needed = menu.days_needing(id);
             let covered = menu.covered_days(id);
-            // What a tick or a record is for: the days picked; or, over the whole trip of a
-            // product already bought a day at a time, the days no recorded part has paid for -
-            // recording it whole would count Friday's half twice.
-            // An expense, if it is still in the tour: deleted, what it was for is bought but not
-            // recorded.
-            let exists = |s: Option<&str>| s.is_some_and(|s| tour.spendings.iter().any(|x| x.id.as_str() == s));
-            let alive = |p: &tc_core::menu::Part| exists(p.spending.as_deref());
-            // Recorded for the whole trip: that expense is for every day, picked or not.
-            let whole = purchase.bought && exists(purchase.spending.as_deref());
-            // Bought a day at a time - also when it was ticked for the whole trip besides, but
-            // never recorded so: the whole trip's "Record" must leave the recorded days out.
-            let by_parts = !whole && !purchase.parts.is_empty();
-            let days: Vec<u32> = if subset {
-                needed.iter().copied().filter(|d| chosen.contains(d)).collect()
-            } else if by_parts {
-                needed
-                    .iter()
-                    .copied()
-                    .filter(|d| !purchase.parts.iter().any(|p| alive(p) && p.days.contains(d)))
-                    .collect()
-            } else {
-                Vec::new()
-            };
+            // An expense, if it is still in the tour: deleted, what it was for is not recorded.
+            let exists = |s: &str| tour.spendings.iter().any(|x| x.id.as_str() == s);
+            let recorded_days = menu.recorded_days(id, exists);
+            let whole = purchase.spending.as_deref().is_some_and(exists);
+            // The days the list is for, of those it is needed on.
+            let here: Vec<u32> = if subset { needed.iter().copied().filter(|d| chosen.contains(d)).collect() } else { needed.clone() };
+            let tick_days = if subset { here.clone() } else { Vec::new() };
             let ticked = if subset {
-                days.iter().all(|d| covered.contains(d))
+                here.iter().all(|d| covered.contains(d))
             } else {
-                purchase.bought || needed.iter().all(|d| covered.contains(d))
+                purchase.bought || (!needed.is_empty() && needed.iter().all(|d| covered.contains(d)))
             };
-            let spending = if whole || (purchase.bought && !by_parts && !subset) {
+            // What "Record" is for: the days no expense has paid for - over the whole trip, the
+            // whole trip if none has, else the rest, or Friday would be paid twice.
+            let unpaid: Vec<u32> = here.iter().copied().filter(|d| !recorded_days.contains(d)).collect();
+            let days = if !subset && recorded_days.is_empty() { Vec::new() } else { unpaid.clone() };
+            let paid = !here.is_empty() && unpaid.is_empty();
+            let spending = if whole {
                 purchase.spending.clone()
-            } else if subset {
-                purchase.parts.iter().filter(|p| alive(p) && days.iter().all(|d| p.days.contains(d))).find_map(|p| p.spending.clone())
+            } else if paid {
+                purchase
+                    .parts
+                    .iter()
+                    .filter(|p| p.spending.as_deref().is_some_and(exists) && here.iter().all(|d| p.days.contains(d)))
+                    .find_map(|p| p.spending.clone())
             } else {
                 None
             };
-            let recorded_parts = by_parts && !subset && days.is_empty();
-            // Every part, on whatever days are picked - "bought for Fri 13: 3 000" over Saturday
-            // too - but the one this line's own expense already shows.
-            let parts_note = if purchase.parts.is_empty() {
-                String::new()
-            } else {
+            let recorded_parts = paid && spending.is_none();
+            // Every recorded part, on whatever days are picked - "recorded for Fri 13: 3 000" over
+            // Saturday too - but the one the line's own expense already shows; and, ticked for
+            // some days, how much is left for the others.
+            let parts_note = {
                 let total = need_of(id, &needed);
                 let mut bits: Vec<String> = purchase
                     .parts
                     .iter()
-                    .filter(|p| !(subset && p.spending.is_some() && p.spending == spending))
+                    .filter(|p| p.spending.as_deref().is_some_and(exists) && p.spending != spending)
                     .map(|p| {
                         let its: Vec<u32> = p.days.iter().copied().filter(|d| needed.contains(d)).collect();
                         let share = if total > 0.0 { (need_of(id, &its) / total * 100.0).round() as i64 } else { 0 };
@@ -1250,12 +1243,12 @@ fn Shopping(
                             .as_deref()
                             .and_then(|sid| tour.spendings.iter().find(|s| s.id.as_str() == sid))
                             .map(|s| money_in(tour.convert(s.amount, &s.currency), &unit))
-                            .unwrap_or_else(|| t().menu.not_recorded.to_owned());
-                        (t().menu.bought_part)(&days_label(&menu, &its), share, &money)
+                            .unwrap_or_default();
+                        (t().menu.recorded_part)(&days_label(&menu, &its), share, &money)
                     })
                     .collect();
                 let left: Vec<u32> = needed.iter().copied().filter(|d| !covered.contains(d)).collect();
-                if !left.is_empty() {
+                if !purchase.bought && !covered.is_empty() && !left.is_empty() {
                     bits.push((t().menu.left_for)(&quantity_of(need_of(id, &left), n.product), &days_label(&menu, &left)));
                 }
                 bits.join(" · ")
@@ -1274,6 +1267,7 @@ fn Shopping(
                 category,
                 order: menu.products.iter().position(|p| p.id == n.product.id).unwrap_or(usize::MAX),
                 days,
+                tick_days,
                 ticked,
                 spending,
                 recorded_parts,
@@ -1487,14 +1481,16 @@ struct Line {
     category: String,
     category_order: usize,
     order: usize,
-    /// The days picked over the list that it is needed on - what a tick or a record is for
-    /// now. Empty: the whole trip.
+    /// The days a record is for now: those no expense has paid for. Empty: the whole trip.
     days: Vec<u32>,
+    /// The days a tick is for: those picked over the list that it is needed on. Empty: the
+    /// whole trip.
+    tick_days: Vec<u32>,
     /// Bought for the days the list is for.
     ticked: bool,
     /// The expense those days were recorded as.
     spending: Option<String>,
-    /// Bought a day at a time over the whole trip, every part recorded.
+    /// Every day the list is for recorded, by more than one expense.
     recorded_parts: bool,
     /// "bought for Fri 13: 30 % · 2 000 · 2,3 kg left for Sat 14, Sun 15"; empty when it was
     /// not bought a day at a time.
@@ -1779,7 +1775,7 @@ fn ListCard(
             // For the whole trip, or for the days picked over the list.
             let tick = {
                 let id = id.clone();
-                let days = line.days.clone();
+                let days = line.tick_days.clone();
                 move |ev: leptos::ev::Event| {
                     let bought = event_target_checked(&ev);
                     if days.is_empty() {
@@ -2079,7 +2075,8 @@ mod tests {
         let menu = Menu::of(&after).expect("menu");
         for product in ["meat", "lamb"] {
             let p = menu.purchase(product).expect("a purchase");
-            assert_eq!((p.spending.as_deref(), p.bought), (Some("s1"), true), "{product}");
+            // Recorded, not ticked: the tick is given by hand.
+            assert_eq!((p.spending.as_deref(), p.bought), (Some("s1"), false), "{product}");
         }
         assert!(after.spendings.iter().any(|s| s.id.as_str() == "s1"));
         // The same expense edited later, from the Expenses tab, leaves the pointer alone.
@@ -2114,12 +2111,16 @@ mod tests {
             days_of: vec![vec![1]],
         };
         let after = crate::edit::put_spending(&t, &d);
-        let p = Menu::of(&after).and_then(|m| m.purchase("lamb").cloned()).expect("a purchase");
+        let m = Menu::of(&after).expect("menu");
+        let p = m.purchase("lamb").cloned().expect("a purchase");
         assert!(!p.bought, "not the whole trip");
         assert_eq!(p.parts, vec![tc_core::menu::Part { days: vec![1], spending: Some("s2".into()) }]);
-        // Unticked for the whole trip: the parts go too.
+        assert_eq!(m.covered_days("lamb"), vec![1], "the tick is the one given by hand");
+        // Unticked for the whole trip: the expense stays where it was.
         let none = crate::edit::put_menu(&after, &MenuEdit::Bought { product: "lamb".into(), bought: false });
-        assert!(Menu::of(&none).and_then(|m| m.purchase("lamb").cloned()).expect("a purchase").parts.is_empty());
+        let m = Menu::of(&none).expect("menu");
+        assert!(m.covered_days("lamb").is_empty());
+        assert_eq!(m.purchase("lamb").expect("lamb").parts, p.parts);
         // One receipt: rice for the whole trip, the rest of the lamb for day 2. Each is
         // recorded as what it was bought for - rice not as a part for day 2.
         let mut both = d.clone();
@@ -2128,12 +2129,13 @@ mod tests {
         both.days_of = vec![Vec::new(), vec![2]];
         let m = Menu::of(&crate::edit::put_spending(&after, &both)).expect("menu");
         let rice = m.purchase("rice").expect("rice");
-        assert!(rice.bought && rice.parts.is_empty());
+        assert!(!rice.bought && rice.parts.is_empty(), "recorded, not ticked");
         assert_eq!(rice.spending.as_deref(), Some("s3"));
-        assert_eq!(m.covered_days("lamb"), vec![1, 2]);
+        assert_eq!(m.recorded_days("lamb", |_| true), vec![1, 2]);
+        assert_eq!(m.covered_days("lamb"), vec![1]);
 
-        // Day 1's expense deleted: its part is bought, not recorded, and recording day 1
-        // again replaces it rather than adding a second part beside it.
+        // Day 1's expense deleted: recording day 1 again replaces its part rather than adding
+        // a second one beside it.
         let gone = crate::edit::remove_spending(&after, &tc_core::SpendingId::new("s2"));
         let mut again = d.clone();
         again.id = Some(tc_core::SpendingId::new("s4"));

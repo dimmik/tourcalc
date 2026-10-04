@@ -225,24 +225,30 @@ pub struct Purchase {
     /// product's own place from the catalogue. Text, not a catalogue place: one person's
     /// "Lidl" is nobody else's business, and it does not go back into the catalogue.
     pub place: Option<String>,
+    /// Ticked for the whole trip. The tick and the expenses are each other's business only
+    /// in the group's head: ticked by hand, never by recording - the usual wine is bought and
+    /// recorded, the special one is brought from home, and only then is all the wine ticked -
+    /// and unticking forgets no expense.
     pub bought: bool,
-    /// The expense it was recorded as - one receipt can be several products', so several
-    /// can point at one expense. Only a pointer: whether the expense is still there is the
-    /// tour's say, and deleted, the product is "not recorded" again.
+    /// Ticked for these days only - the meat for Friday, the rest on Saturday's market. It is
+    /// bought once these cover every day it is needed on, or `bought` says so.
+    pub bought_days: Vec<u32>,
+    /// The expense it was recorded as for the whole trip - one receipt can be several
+    /// products', so several can point at one expense. Only a pointer: whether the expense is
+    /// still there is the tour's say, and deleted, the product is "not recorded" again.
     pub spending: Option<String>,
-    /// Bought for some days only - the meat for Friday, the rest on Saturday's market - each
-    /// with its own expense, if recorded. `bought` above is "for the whole trip", and the
-    /// product is bought once these cover every day it is needed on.
+    /// Recorded for some days only, each part as its own expense.
     pub parts: Vec<Part>,
 }
 
-/// Some of a product, bought for these days of the plan.
+/// Some of a product, recorded as an expense for these days of the plan.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase", default)]
 pub struct Part {
     /// The days it is for, by number from 1, in order.
     pub days: Vec<u32>,
-    /// The expense it was recorded as, if it was.
+    /// The expense. `None` only in what a beta of 4 October 2026 wrote, where a part was a
+    /// tick as well: [`Menu::of`] reads such a part as ticked days.
     pub spending: Option<String>,
 }
 
@@ -350,6 +356,16 @@ impl Menu {
                 if !dish.meals.contains(&meal) {
                     dish.meals.push(meal);
                 }
+            }
+        }
+        // A part without an expense was a tick for its days.
+        for p in &mut menu.purchases {
+            let ticks: Vec<u32> = p.parts.iter().filter(|x| x.spending.is_none()).flat_map(|x| x.days.clone()).collect();
+            if !ticks.is_empty() {
+                p.bought_days.extend(ticks);
+                p.bought_days.sort_unstable();
+                p.bought_days.dedup();
+                p.parts.retain(|x| x.spending.is_some());
             }
         }
         Some(menu)
@@ -715,59 +731,61 @@ impl Menu {
             .collect()
     }
 
-    /// The days a product is bought for: all of them if it was bought for the whole trip,
-    /// else those its parts cover, in order.
+    /// The days a product is ticked for: all of them if it was ticked for the whole trip,
+    /// else those ticked one by one, in order. Expenses do not count: see [`Purchase::bought`].
     pub fn covered_days(&self, product: &str) -> Vec<u32> {
+        match self.purchase(product) {
+            Some(p) if p.bought => self.all_days(),
+            Some(p) => p.bought_days.clone(),
+            None => Vec::new(),
+        }
+    }
+
+    /// The days a product is recorded for, by its parts' expenses that `exists` says are
+    /// still in the tour; all of them, if its whole-trip expense is.
+    pub fn recorded_days(&self, product: &str, exists: impl Fn(&str) -> bool) -> Vec<u32> {
         let Some(p) = self.purchase(product) else { return Vec::new() };
-        if p.bought {
+        if p.spending.as_deref().is_some_and(&exists) {
             return self.all_days();
         }
-        let mut days: Vec<u32> = p.parts.iter().flat_map(|x| x.days.iter().copied()).collect();
+        let mut days: Vec<u32> = p
+            .parts
+            .iter()
+            .filter(|x| x.spending.as_deref().is_some_and(&exists))
+            .flat_map(|x| x.days.iter().copied())
+            .collect();
         days.sort_unstable();
         days.dedup();
         days
     }
 
-    /// Marks a product bought, or not, for these days only. Bought: a part for them, unless
-    /// one without an expense already is for exactly them. Not: every part touching them
-    /// goes - its expense stays in the tour, only the pointer is dropped. A product bought
-    /// for the whole trip is, after that, bought for the rest of its days: a part for them,
-    /// with the whole trip's expense, if it had one.
+    /// Ticks a product, or unticks it, for these days only. Unticked for some days, a product
+    /// ticked for the whole trip stays ticked for the rest of them. Its expenses stay as they
+    /// are either way.
     pub fn set_bought_on(&mut self, product: &str, days: &[u32], bought: bool) {
-        let mut days = days.to_vec();
-        days.sort_unstable();
-        days.dedup();
-        let rest: Vec<u32> = self.days_needing(product).into_iter().filter(|d| !days.contains(d)).collect();
+        let needing = self.days_needing(product);
         let p = self.purchase_mut(product);
         if bought {
-            if !p.parts.iter().any(|x| x.spending.is_none() && x.days == days) {
-                p.parts.push(Part { days, spending: None });
-            }
+            p.bought_days.extend_from_slice(days);
         } else {
-            p.parts.retain(|x| !x.days.iter().any(|d| days.contains(d)));
             if p.bought {
                 p.bought = false;
-                let spending = p.spending.take();
-                if spending.is_some() {
-                    p.parts.retain(|x| x.spending.is_some() || !x.days.iter().all(|d| rest.contains(d)));
-                }
-                // Days a part already says something about keep it.
-                let rest: Vec<u32> = rest.into_iter().filter(|d| !p.parts.iter().any(|x| x.days.contains(d))).collect();
-                if !rest.is_empty() {
-                    p.parts.push(Part { days: rest, spending });
-                }
+                p.bought_days = needing;
             }
+            p.bought_days.retain(|d| !days.contains(d));
         }
+        p.bought_days.sort_unstable();
+        p.bought_days.dedup();
     }
 
-    /// Records the part of a product bought for these days as this expense: the ticked,
-    /// unrecorded part for them gives way to one that points at the expense.
-    pub fn record_on(&mut self, product: &str, days: &[u32], spending: &str) {
+    /// Records the part of a product bought for these days as this expense. It ticks
+    /// nothing; a part for exactly these days whose expense is gone gives way.
+    pub fn record_on(&mut self, product: &str, days: &[u32], spending: &str, exists: impl Fn(&str) -> bool) {
         let mut days = days.to_vec();
         days.sort_unstable();
         days.dedup();
         let p = self.purchase_mut(product);
-        p.parts.retain(|x| !(x.spending.is_none() && x.days.iter().all(|d| days.contains(d))));
+        p.parts.retain(|x| x.spending.as_deref().is_some_and(&exists));
         p.parts.push(Part { days, spending: Some(spending.to_owned()) });
     }
 
@@ -1262,40 +1280,56 @@ mod tests {
         assert_eq!(amount(&m.shopping_on(&eating, &[1, 2]), "lamb"), amount(&m.shopping(&eating), "lamb"));
         assert_eq!(m.days_needing("lamb"), vec![1, 2]);
 
+        // Ticked twice for day 1: one day.
         m.set_bought_on("lamb", &[1], true);
         m.set_bought_on("lamb", &[1], true);
         assert_eq!(m.covered_days("lamb"), vec![1]);
-        assert_eq!(m.purchase("lamb").map(|p| p.parts.len()), Some(1), "ticked twice, one part");
 
-        m.record_on("lamb", &[1], "s1");
-        let parts = &m.purchase("lamb").expect("bought").parts;
-        assert_eq!(parts.len(), 1);
-        assert_eq!(parts[0].spending.as_deref(), Some("s1"));
+        // Recorded for day 2: an expense, not a tick.
+        let all = |_: &str| true;
+        m.record_on("lamb", &[2], "s1", all);
+        assert_eq!(m.covered_days("lamb"), vec![1]);
+        assert_eq!(m.recorded_days("lamb", all), vec![2]);
+        assert_eq!(m.recorded_days("lamb", |s| s != "s1"), Vec::<u32>::new(), "its expense deleted");
 
-        m.set_bought_on("lamb", &[2], true);
-        assert_eq!(m.covered_days("lamb"), vec![1, 2]);
-        m.set_bought_on("lamb", &[2], false);
-        assert_eq!(m.covered_days("lamb"), vec![1], "day 1's recorded part stays");
+        // Unticked: the expense stays.
+        m.set_bought_on("lamb", &[1, 2], false);
+        assert!(m.covered_days("lamb").is_empty());
+        assert_eq!(m.recorded_days("lamb", all), vec![2]);
 
-        // Bought for the whole trip covers every day, parts or not.
+        // Bought for the whole trip covers every day.
         m.purchase_mut("rice").bought = true;
         assert_eq!(m.covered_days("rice"), vec![1, 2]);
 
-        // Bought and recorded for the whole trip, then not for day 2: the expense stays with
-        // day 1, the one day still bought.
+        // Ticked for the whole trip, then not for day 2: day 1 stays ticked, the whole trip's
+        // expense where it was.
         let p = m.purchase_mut("lamb");
-        (p.bought, p.spending, p.parts) = (true, Some("s9".into()), Vec::new());
+        (p.bought, p.spending) = (true, Some("s9".into()));
         m.set_bought_on("lamb", &[2], false);
         let p = m.purchase("lamb").expect("lamb");
-        assert!(!p.bought && p.spending.is_none());
-        assert_eq!(p.parts, vec![Part { days: vec![1], spending: Some("s9".into()) }]);
+        assert!(!p.bought);
+        assert_eq!(p.spending.as_deref(), Some("s9"));
         assert_eq!(m.covered_days("lamb"), vec![1]);
 
-        // Ticked for the whole trip besides a recorded day 1, then not for day 2: day 1 keeps
-        // its one part, and no unrecorded one beside it.
-        let p = m.purchase_mut("lamb");
-        (p.bought, p.spending, p.parts) = (true, None, vec![Part { days: vec![1], spending: Some("s1".into()) }]);
-        m.set_bought_on("lamb", &[2], false);
-        assert_eq!(m.purchase("lamb").expect("lamb").parts, vec![Part { days: vec![1], spending: Some("s1".into()) }]);
+        // A part recorded again for its days, its expense gone: one part, not two.
+        m.record_on("lamb", &[2], "s2", |s| s != "s1");
+        assert_eq!(m.purchase("lamb").expect("lamb").parts, vec![Part { days: vec![2], spending: Some("s2".into()) }]);
+    }
+
+    /// What a beta of 4 October wrote - a part with no expense, which was a tick - is read as
+    /// ticked days; a part with one stays an expense.
+    #[test]
+    fn an_unrecorded_part_is_read_as_ticked_days() {
+        let mut t = tour(&[100]);
+        let mut m = menu();
+        m.purchase_mut("lamb").parts = vec![
+            Part { days: vec![1], spending: None },
+            Part { days: vec![2], spending: Some("s1".into()) },
+        ];
+        m.put(&mut t);
+        let back = Menu::of(&t).expect("menu");
+        let p = back.purchase("lamb").expect("lamb");
+        assert_eq!(p.bought_days, vec![1]);
+        assert_eq!(p.parts, vec![Part { days: vec![2], spending: Some("s1".into()) }]);
     }
 }

@@ -230,8 +230,8 @@ pub struct MenuTexts {
     pub shopping_for: &'static str,
     pub days_all: &'static str,
     pub weekdays_short: [&'static str; 7],
-    pub bought_part: fn(&str, i64, &str) -> String,
-    pub not_recorded: &'static str,
+    /// "recorded for Fri 13: 50 % · 3 000" - a part recorded as an expense of its own.
+    pub recorded_part: fn(&str, i64, &str) -> String,
     pub left_for: fn(&str, &str) -> String,
     pub root_for_days: fn(&str, &str) -> String,
     pub in_parts: &'static str,
