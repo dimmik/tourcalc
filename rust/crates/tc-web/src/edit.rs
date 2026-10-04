@@ -107,10 +107,12 @@ pub struct SpendingDraft {
     /// Empty for anything else, and for anything queued before the menu.
     #[serde(default)]
     pub purchases: Vec<String>,
-    /// The days of the plan those products were bought for, when only some: the part of each
-    /// it records (see `tc_core::menu::Menu::record_on`). Empty - bought for the whole trip.
+    /// The days of the plan each of those products was bought for, in the same order, when
+    /// only some: the part of it this records (see `tc_core::menu::Menu::record_on`). Empty,
+    /// or none for a product - bought for the whole trip. Per product, since one receipt can
+    /// hold bread for the whole trip and the rest of the meat for Saturday to Tuesday.
     #[serde(default)]
-    pub purchase_days: Vec<u32>,
+    pub days_of: Vec<Vec<u32>>,
 }
 
 /// Whom a new expense starts from: whoever this device last recorded one for, as long as
@@ -185,7 +187,7 @@ impl SpendingDraft {
             in_cents: None,
             on_behalf: false,
             purchases: Vec::new(),
-            purchase_days: Vec::new(),
+            days_of: Vec::new(),
         }
     }
 
@@ -226,7 +228,7 @@ impl SpendingDraft {
             in_cents: None,
             on_behalf: false,
             purchases: Vec::new(),
-            purchase_days: Vec::new(),
+            days_of: Vec::new(),
         }
     }
 
@@ -300,13 +302,23 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
     // all the same.
     if let (false, Some(id)) = (draft.purchases.is_empty(), &draft.id) {
         if let Some(mut menu) = tc_core::menu::Menu::of(&next) {
-            for product in &draft.purchases {
-                if draft.purchase_days.is_empty() {
-                    let p = menu.purchase_mut(product);
-                    p.spending = Some(id.as_str().to_owned());
-                    p.bought = true;
-                } else {
-                    menu.record_on(product, &draft.purchase_days, id.as_str());
+            for (i, product) in draft.purchases.iter().enumerate() {
+                match draft.days_of.get(i).filter(|days| !days.is_empty()) {
+                    None => {
+                        let p = menu.purchase_mut(product);
+                        p.spending = Some(id.as_str().to_owned());
+                        p.bought = true;
+                    }
+                    Some(days) => {
+                        // A part whose expense was deleted is bought, not recorded - and
+                        // gives way to this one like any other such part.
+                        for part in &mut menu.purchase_mut(product).parts {
+                            if part.spending.as_deref().is_some_and(|s| !next.spendings.iter().any(|x| x.id.as_str() == s)) {
+                                part.spending = None;
+                            }
+                        }
+                        menu.record_on(product, days, id.as_str());
+                    }
                 }
             }
             menu.put(&mut next);
@@ -1374,7 +1386,7 @@ mod split_tests {
             in_cents: None,
             on_behalf: false,
             purchases: Vec::new(),
-            purchase_days: Vec::new(),
+            days_of: Vec::new(),
         }
     }
 

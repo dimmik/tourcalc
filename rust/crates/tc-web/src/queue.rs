@@ -570,7 +570,7 @@ mod tests {
             in_cents: None,
             on_behalf: false,
             purchases: Vec::new(),
-            purchase_days: Vec::new(),
+            days_of: Vec::new(),
         })
     }
 

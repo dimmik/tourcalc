@@ -1119,16 +1119,20 @@ fn Shopping(
     let categories = menu.categories();
     let category_line = expense_category_line(&menu, apply);
     // The days the shopping is for: all, or a few - one tap picks a day, more add to it.
+    // Days picked before the plan was made shorter are not days of it any more.
+    let plan_days = menu.days;
+    let in_plan = move |v: Vec<u32>| -> Vec<u32> { v.into_iter().filter(|d| (1..=plan_days).contains(d)).collect() };
     let day_chips = (menu.days > 1).then(|| {
         let total = menu.days as usize;
         let chips = menu
             .all_days()
             .into_iter()
             .map(|day| {
-                let on = state.days.get_untracked().contains(&day);
+                let on = in_plan(state.days.get_untracked()).contains(&day);
                 view! {
                     <button type="button" class="tcn-chip tcn-filter-chip" class:is-on=on
                             on:click=move |_| state.days.update(|v| {
+                                v.retain(|d| (1..=plan_days).contains(d));
                                 if v.contains(&day) {
                                     v.retain(|d| *d != day);
                                 } else {
@@ -1144,7 +1148,7 @@ fn Shopping(
                 }
             })
             .collect_view();
-        let all = state.days.get_untracked().is_empty();
+        let all = in_plan(state.days.get_untracked()).is_empty();
         view! {
             <div class="tcw-shop-days tcn-chips">
                 <span class="tcw-shop-days-label">{t().menu.shopping_for}</span>
@@ -1161,7 +1165,7 @@ fn Shopping(
     let place_order = |name: &str| places.iter().position(|p| p.to_lowercase() == name.to_lowercase()).unwrap_or(usize::MAX);
     // The days it is for: all of them, or those picked above the list.
     let all_days = menu.all_days();
-    let picked = state.days.get_untracked();
+    let picked = in_plan(state.days.get_untracked());
     let subset = !picked.is_empty() && picked.len() < all_days.len();
     let chosen: Vec<u32> = if subset { picked.clone() } else { all_days.clone() };
     let unit = crate::ui::unit(&tour);
@@ -1196,13 +1200,16 @@ fn Shopping(
             // product already bought a day at a time, the days no recorded part has paid for -
             // recording it whole would count Friday's half twice.
             let by_parts = !purchase.bought && !purchase.parts.is_empty();
+            // A part's expense, if it is still in the tour: deleted, the part is bought but
+            // not recorded, as a whole-trip purchase is.
+            let alive = |p: &tc_core::menu::Part| p.spending.as_deref().is_some_and(|s| tour.spendings.iter().any(|x| x.id.as_str() == s));
             let days: Vec<u32> = if subset {
                 needed.iter().copied().filter(|d| chosen.contains(d)).collect()
             } else if by_parts {
                 needed
                     .iter()
                     .copied()
-                    .filter(|d| !purchase.parts.iter().any(|p| p.spending.is_some() && p.days.contains(d)))
+                    .filter(|d| !purchase.parts.iter().any(|p| alive(p) && p.days.contains(d)))
                     .collect()
             } else {
                 Vec::new()
@@ -1215,7 +1222,7 @@ fn Shopping(
             let spending = if purchase.bought && !subset {
                 purchase.spending.clone()
             } else if subset {
-                purchase.parts.iter().filter(|p| days.iter().all(|d| p.days.contains(d))).find_map(|p| p.spending.clone())
+                purchase.parts.iter().filter(|p| alive(p) && days.iter().all(|d| p.days.contains(d))).find_map(|p| p.spending.clone())
             } else {
                 None
             };
@@ -1551,11 +1558,17 @@ fn expense_for(tour: &Tour, who: Option<&str>, description: String, lines: &[&Li
         d.to = payers;
     }
     d.purchases = lines.iter().map(|l| l.product.id.clone()).collect();
-    let mut days: Vec<u32> = lines.iter().flat_map(|l| l.days.iter().copied()).collect();
-    days.sort_unstable();
-    days.dedup();
-    d.purchase_days = days;
+    d.days_of = lines.iter().map(|l| l.days.clone()).collect();
     d
+}
+
+/// The days a receipt is for, if all of it is for the same ones - "Shopping for Sat 14 – Tue
+/// 17"; else none, and it is plain "Shopping".
+fn receipt_days(lines: &[&Line]) -> Vec<u32> {
+    match lines.split_first() {
+        Some((first, rest)) if rest.iter().all(|l| l.days == first.days) => first.days.clone(),
+        _ => Vec::new(),
+    }
 }
 
 /// "Shopping", or "Shopping for Fri 13" when it is for some days only.
@@ -1676,10 +1689,7 @@ fn ListCard(
                 .map(|(eaters, these)| {
                     let first = these[0].purchase.who.clone();
                     let who = if these.iter().all(|l| l.purchase.who == first) { first } else { state.me.get() };
-                    let mut days: Vec<u32> = these.iter().flat_map(|l| l.days.iter().copied()).collect();
-                    days.sort_unstable();
-                    days.dedup();
-                    let prefix = shopping_prefix(&tour, &days);
+                    let prefix = shopping_prefix(&tour, &receipt_days(&these));
                     let names: Vec<String> = these.iter().map(|l| l.product.name.to_lowercase()).collect();
                     let description = if names.len() > 3 {
                         format!("{}: {} +{}", prefix, names[..3].join(", "), names.len() - 3)
@@ -2055,7 +2065,7 @@ mod tests {
             in_cents: None,
             on_behalf: true,
             purchases: vec!["meat".into(), "lamb".into()],
-            purchase_days: Vec::new(),
+            days_of: Vec::new(),
         };
         let after = crate::edit::put_spending(&t, &d);
         let menu = Menu::of(&after).expect("menu");
@@ -2093,7 +2103,7 @@ mod tests {
             in_cents: None,
             on_behalf: true,
             purchases: vec!["lamb".into()],
-            purchase_days: vec![1],
+            days_of: vec![vec![1]],
         };
         let after = crate::edit::put_spending(&t, &d);
         let p = Menu::of(&after).and_then(|m| m.purchase("lamb").cloned()).expect("a purchase");
@@ -2102,6 +2112,25 @@ mod tests {
         // Unticked for the whole trip: the parts go too.
         let none = crate::edit::put_menu(&after, &MenuEdit::Bought { product: "lamb".into(), bought: false });
         assert!(Menu::of(&none).and_then(|m| m.purchase("lamb").cloned()).expect("a purchase").parts.is_empty());
+        // One receipt: rice for the whole trip, the rest of the lamb for day 2. Each is
+        // recorded as what it was bought for - rice not as a part for day 2.
+        let mut both = d.clone();
+        both.id = Some(tc_core::SpendingId::new("s3"));
+        both.purchases = vec!["rice".into(), "lamb".into()];
+        both.days_of = vec![Vec::new(), vec![2]];
+        let m = Menu::of(&crate::edit::put_spending(&after, &both)).expect("menu");
+        let rice = m.purchase("rice").expect("rice");
+        assert!(rice.bought && rice.parts.is_empty());
+        assert_eq!(rice.spending.as_deref(), Some("s3"));
+        assert_eq!(m.covered_days("lamb"), vec![1, 2]);
+
+        // Day 1's expense deleted: its part is bought, not recorded, and recording day 1
+        // again replaces it rather than adding a second part beside it.
+        let gone = crate::edit::remove_spending(&after, &tc_core::SpendingId::new("s2"));
+        let mut again = d.clone();
+        again.id = Some(tc_core::SpendingId::new("s4"));
+        let m = Menu::of(&crate::edit::put_spending(&gone, &again)).expect("menu");
+        assert_eq!(m.purchase("lamb").expect("lamb").parts, vec![tc_core::menu::Part { days: vec![1], spending: Some("s4".into()) }]);
     }
 
     #[test]
