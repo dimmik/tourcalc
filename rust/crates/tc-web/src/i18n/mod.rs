@@ -343,6 +343,8 @@ pub struct MenuTexts {
     pub new_template_label: &'static str,
     pub new_template_placeholder: &'static str,
     pub template_name_needed: &'static str,
+    /// A new template's typed name is already a template's: the name of that one.
+    pub template_name_taken: fn(&str) -> String,
     pub template_save_go: &'static str,
     /// The catalogue is empty, in the catalogue's own view.
     pub empty_here: &'static str,

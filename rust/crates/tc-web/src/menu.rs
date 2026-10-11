@@ -473,12 +473,40 @@ fn templates_among(tours: &[Tour], tour: &Tour) -> Vec<Tour> {
     found
 }
 
+thread_local! {
+    /// When this page last read the tour list from the server, in `now_millis` time.
+    static LIST_READ_AT: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
+}
+
+/// How long a list read from the server stays good for opening a template panel without asking
+/// again.
+const LIST_FRESH_MS: f64 = 60_000.0;
+
+/// Keeps the tour list the server just sent, and notes when it did.
+fn remember_list(tours: &[Tour]) {
+    crate::queue::cache_list(tours);
+    LIST_READ_AT.with(|at| at.set(Some(crate::queue::now_millis())));
+}
+
+fn list_is_fresh() -> bool {
+    LIST_READ_AT.with(|at| at.get()).is_some_and(|read| crate::queue::now_millis() - read < LIST_FRESH_MS)
+}
+
 /// The code's template tours, from the server - or, without a network, from the list this
 /// device saw last. The list is kept, so the tour dialog knows about a template made here.
+///
+/// An empty catalogue opens the take panel by itself, and so every time the tour is opened
+/// with nothing in it; one request a minute is enough for that, so a list read less than a
+/// minute ago is used as it stands. A template saved here refreshes it (see `remember_list`).
 async fn find_templates(tour: &Tour) -> Result<Vec<Tour>, crate::api::Failed> {
+    if list_is_fresh() {
+        if let Some(tours) = crate::queue::cached_list() {
+            return Ok(templates_among(&tours, tour));
+        }
+    }
     match crate::api::tours().await {
         Ok(tours) => {
-            crate::queue::cache_list(&tours);
+            remember_list(&tours);
             Ok(templates_among(&tours, tour))
         }
         Err(e) if crate::api::looks_offline(&e) => {
@@ -515,6 +543,13 @@ fn new_template_name(typed: &str) -> Option<String> {
     (!name.is_empty()).then(|| name.to_owned())
 }
 
+/// The template a typed name would take over, if one is already there: the same name as the
+/// lists show it, blanks cut and case ignored. Saving under it would make two of one name.
+fn taken_by<'a>(typed: &str, templates: &'a [Tour]) -> Option<&'a Tour> {
+    let typed = typed.trim().to_lowercase();
+    templates.iter().find(|found| template_label(&found.name).to_lowercase() == typed)
+}
+
 /// Under the catalogue: take a catalogue from the starter set or from one of the code's
 /// templates, or save this catalogue as one of them - over an existing one, or as a new one.
 ///
@@ -534,7 +569,7 @@ fn TemplateBar(tour: Tour, menu: Menu, apply: Callback<Operation>, open_take: bo
     // The id of the template a save replaces; None saves a new one.
     let target = RwSignal::new(None::<String>);
     let name = RwSignal::new(String::new());
-    let name_error = RwSignal::new(None::<&'static str>);
+    let name_error = RwSignal::new(None::<String>);
     let said = RwSignal::new(String::new());
     let busy = RwSignal::new(false);
     let tour = StoredValue::new(tour);
@@ -618,9 +653,16 @@ fn TemplateBar(tour: Tour, menu: Menu, apply: Callback<Operation>, open_take: bo
             }
             None => {
                 let Some(new_name) = new_template_name(&name.get_untracked()) else {
-                    name_error.set(Some(t().menu.template_name_needed));
+                    name_error.set(Some(t().menu.template_name_needed.to_owned()));
                     return;
                 };
+                let listed = templates.get_untracked().and_then(Result::ok).unwrap_or_default();
+                if let Some(taken) = taken_by(&new_name, &listed) {
+                    // Not a second template of that name: the save is the replace it names.
+                    target.set(Some(taken.id.as_str().to_owned()));
+                    name_error.set(Some((t().menu.template_name_taken)(&template_label(&taken.name))));
+                    return;
+                }
                 name_error.set(None);
                 busy.set(true);
                 leptos::task::spawn_local(async move {
@@ -633,7 +675,7 @@ fn TemplateBar(tour: Tour, menu: Menu, apply: Callback<Operation>, open_take: bo
                     match crate::api::add_tour(body, crate::api::Pile::Hashed(&code)).await {
                         Ok(_) => {
                             if let Ok(tours) = crate::api::tours().await {
-                                crate::queue::cache_list(&tours);
+                                remember_list(&tours);
                             }
                             name.set(String::new());
                             saved(t().menu.template_saved.into(), true);
@@ -2203,6 +2245,22 @@ mod tests {
         let m = Menu::shown(&crate::edit::put_menu(&started, &MenuEdit::Daily(Vec::new()))).expect("a menu");
         assert!(m.daily.is_empty());
         assert_eq!(m.dishes, before.dishes);
+    }
+
+    /// A typed name is taken by a template of the list only when the names are the same, in any
+    /// case and with blanks cut; a new name is not taken by a trip or another code's template.
+    #[test]
+    fn a_taken_name_is_the_template_that_has_it() {
+        let make = |id: &str, name: &str| {
+            Tour::from_json(&serde_json::json!({
+                "Id": id, "Name": name, "AccessCodeMD5": "HIKE", "IsMenuTemplate": true
+            }).to_string()).expect("tour")
+        };
+        let tours = vec![make("t1", "Новый год"), make("t2", "  Походное меню ")];
+        assert_eq!(taken_by("  походное МЕНЮ ", &tours).map(|found| found.id.as_str()), Some("t2"));
+        assert_eq!(taken_by("Новый год", &tours).map(|found| found.id.as_str()), Some("t1"));
+        assert!(taken_by("Новый", &tours).is_none(), "a prefix is another name");
+        assert!(taken_by("Новый год", &[]).is_none(), "nothing listed takes nothing");
     }
 
     /// A code can have several templates: all of them under its code, sorted by name - not the

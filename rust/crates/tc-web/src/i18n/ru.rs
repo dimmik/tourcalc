@@ -1002,6 +1002,7 @@ pub const TEXTS: Texts = Texts {
         new_template_label: "Название нового шаблона",
         new_template_placeholder: "например, Походное меню",
         template_name_needed: "Дайте новому шаблону название.",
+        template_name_taken: |name| format!("Шаблон «{name}» уже есть — выберите «заменить» или дайте другое название."),
         template_save_go: "Сохранить",
         empty_here: "Здесь пока ничего нет. Блюда и продукты можно взять ниже — из стартового набора или \
             из шаблона — или добавить свои.",

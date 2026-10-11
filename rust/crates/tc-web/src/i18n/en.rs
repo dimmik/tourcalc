@@ -988,6 +988,7 @@ pub const TEXTS: Texts = Texts {
         new_template_label: "Name of the new template",
         new_template_placeholder: "e.g. Hiking menu",
         template_name_needed: "Give the new template a name.",
+        template_name_taken: |name| format!("There is already a template “{name}” — choose “replace” or give another name."),
         template_save_go: "Save",
         empty_here: "Nothing here yet. Take dishes and products from the starter set or a template below, \
             or add your own.",
