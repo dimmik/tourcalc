@@ -468,7 +468,9 @@ pub const TEXTS: Texts = Texts {
         archived: "Archived ",
         archived_note: "— hidden from the default list",
         menu_on: "Plan the food",
-        menu_on_note: "— a Menu tab: what is cooked on which day, and what the group has to buy for it",
+        menu_on_note: "— a Menu tab: what is cooked on which day, and what the group has to buy for it. \
+            The menu starts empty: dishes and products come from a template or the starter set, taken \
+            in the Catalogue",
         currencies_of: |name| format!("Currencies of {name}"),
         main_currency: "Main currency",
         main_currency_note: "Totals and balances are calculated in this one. It is a property \
@@ -613,9 +615,9 @@ pub const TEXTS: Texts = Texts {
         cannot_write_tour: "could not write that tour out",
         copied: "Copied — the JSON is in the clipboard.",
         delete_question: |name| format!("Delete '{name}' and everything in it?"),
-        delete_template_question: "This is the menu template of the access code: new tours start \
-            their menu from it, and “Take from template” gives it to any tour. Without it they get \
-            the built-in catalogue. Tours made already keep their menus. Delete the template?",
+        delete_template_question: "This is a menu template of the access code: “Take from a template” \
+            gives its dishes, products, places and daily list to any tour under the code. Tours that \
+            took it keep their menus. Delete the template?",
         search: "Search",
         clear: "Clear",
         new_tour: "+ New tour",
@@ -963,20 +965,34 @@ pub const TEXTS: Texts = Texts {
         amount_needed: "Say how much of the new product goes in.",
         unit_differs: |name, unit| format!("“{name}” is in the catalogue already, counted in {unit}: \
             choose {unit} in its row, or change the product under Products."),
-        template_about: "Dishes, products, places and the daily list, kept for this access code: a new \
-            tour’s menu starts from them, and any tour can take them.",
-        template_save: "Save as template",
-        template_take: "Take from template",
-        template_replace_q: "Replace the template with this tour’s dishes, products, places and daily \
-            list? The template’s versions keep the old one.",
-        template_take_q: "Replace this tour’s dishes, products, places and daily list with the \
-            template’s? Meals with a dish the template does not have are planned anew.",
+        template_about: "This access code can keep several menu templates, each under its own name: \
+            dishes, products, places and the daily list. A tour takes one of them or the starter set; \
+            “Save” puts this tour’s catalogue into one of them, or into a new one.",
+        template_save: "Save as a template…",
+        template_take: "Take from a template…",
+        template_replace_q: |name| format!("Replace the template “{name}” with this tour’s dishes, \
+            products, places and daily list? Its versions keep the old one."),
+        template_take_q: |name| format!("Replace this tour’s dishes, products, places and daily list \
+            with “{name}”? The plan stays where its dishes are in it."),
         template_saved: "Saved as the template.",
         template_saved_here: "Saved on this device; the template gets it when the network is back.",
-        template_none: "No template under this access code yet — “Save as template” makes one.",
-        template_name: "📋 Menu template — do not delete",
-        template_is_this: "This is the menu template of this access code: a new tour’s menu starts \
-            from these dishes, products and places, and any tour can take them. Change them here.",
+        template_no_menu: "This template has no menu in it.",
+        template_loading: "Loading…",
+        template_is_this: "This is a menu template of this access code: any tour under the code can take \
+            its dishes, products, places and daily list from here. Change them here.",
+        take_pick: "Take the catalogue from:",
+        starter_set: "Starter set",
+        save_pick: "Save this catalogue as:",
+        replace_choice: |name| format!("replace “{name}”"),
+        new_template_choice: "a new template",
+        new_template_label: "Name of the new template",
+        new_template_placeholder: "e.g. Hiking menu",
+        template_name_needed: "Give the new template a name.",
+        template_save_go: "Save",
+        empty_here: "Nothing here yet. Take dishes and products from the starter set or a template below, \
+            or add your own.",
+        empty_elsewhere: "The catalogue is empty — dishes and products come from the Catalogue.",
+        open_catalogue: "Open the catalogue",
         dishes: "Dishes",
         per_portion_title: "for one portion",
         per_portion_day_title: "for one portion a day",

@@ -724,9 +724,10 @@ pub struct TourDraft {
     /// what an edit queued before the menu existed says.
     #[serde(default)]
     pub menu: Option<bool>,
-    /// The access code's menu template, when the tour has no menu yet: switching the menu on
-    /// then starts from it instead of the starter. Carried in the edit rather than looked up
-    /// when it is carried out, so that a replay does what the reader saw.
+    /// The access code's menu template, as an edit queued by an older client carried it: new
+    /// clients never set it. Still honoured - switching the menu on starts from it - so that
+    /// such an edit does what its reader saw. Carried in the edit, not looked up when it is
+    /// carried out, so that a replay does the same.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub template: Option<tc_core::menu::Menu>,
 }
@@ -743,14 +744,10 @@ impl TourDraft {
         }
     }
 
-    /// What the tour dialog opens with: [`TourDraft::of`], and - for a tour with no menu yet -
-    /// the code's template, as this device last saw the tour list.
+    /// What the tour dialog opens with: [`TourDraft::of`]. Switching the menu on starts from an
+    /// empty catalogue, so the dialog has no template to look up for it.
     pub fn for_dialog(tour: &Tour) -> TourDraft {
-        let mut d = TourDraft::of(tour);
-        if tc_core::menu::Menu::of(tour).is_none() {
-            d.template = crate::menu::template_for(tour);
-        }
-        d
+        TourDraft::of(tour)
     }
 
     pub fn problem(&self) -> Option<&'static str> {
@@ -801,8 +798,9 @@ pub fn put_tour(tour: &Tour, draft: &TourDraft) -> Tour {
             menu.on = on;
             menu.put(&mut next);
         }
-        // The first time: the code's template if it has one, else the starter menu - for as
-        // many days as the tour lasts.
+        // The first time: an empty catalogue for as many days as the tour lasts, filled in later
+        // from the catalogue. An edit queued by an older client may still carry the template
+        // it was made from, and starts from that.
         (Some(true), None) => {
             let days = u32::try_from(draft.days).unwrap_or(1);
             match &draft.template {
@@ -811,7 +809,11 @@ pub fn put_tour(tour: &Tour, draft: &TourDraft) -> Tour {
                     menu.set_days(days);
                     menu.put(&mut next);
                 }
-                None => crate::menu::starter(days).put(&mut next),
+                None => {
+                    let mut menu = tc_core::menu::Menu { on: true, ..tc_core::menu::Menu::default() };
+                    menu.set_days(days);
+                    menu.put(&mut next);
+                }
             }
         }
         _ => {}
