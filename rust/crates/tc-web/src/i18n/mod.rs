@@ -322,14 +322,35 @@ pub struct MenuTexts {
     pub template_about: &'static str,
     pub template_save: &'static str,
     pub template_take: &'static str,
-    pub template_replace_q: &'static str,
-    pub template_take_q: &'static str,
+    /// The template's name: which one a save replaces.
+    pub template_replace_q: fn(&str) -> String,
+    /// The template's name, or the starter set's: what a take brings in.
+    pub template_take_q: fn(&str) -> String,
     pub template_saved: &'static str,
     pub template_saved_here: &'static str,
-    pub template_none: &'static str,
-    /// The template tour's name - what a client that does not know templates lists it as.
-    pub template_name: &'static str,
+    /// A template that has no menu in it to take.
+    pub template_no_menu: &'static str,
+    pub template_loading: &'static str,
     pub template_is_this: &'static str,
+    /// The heading of the list to take a catalogue from.
+    pub take_pick: &'static str,
+    pub starter_set: &'static str,
+    /// The heading of the choices a save has: which template, or a new one.
+    pub save_pick: &'static str,
+    /// A template to replace, by its name.
+    pub replace_choice: fn(&str) -> String,
+    pub new_template_choice: &'static str,
+    pub new_template_label: &'static str,
+    pub new_template_placeholder: &'static str,
+    pub template_name_needed: &'static str,
+    /// A new template's typed name is already a template's: the name of that one.
+    pub template_name_taken: fn(&str) -> String,
+    pub template_save_go: &'static str,
+    /// The catalogue is empty, in the catalogue's own view.
+    pub empty_here: &'static str,
+    /// The catalogue is empty, in the plan or the shopping, which say where it comes from.
+    pub empty_elsewhere: &'static str,
+    pub open_catalogue: &'static str,
     pub dishes: &'static str,
     /// Beside the headings: what the catalogue's amounts are for.
     pub per_portion_title: &'static str,

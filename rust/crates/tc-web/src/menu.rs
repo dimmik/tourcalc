@@ -459,32 +459,58 @@ pub fn template_owners(template: &Tour, trips: &[Tour]) -> String {
     }
 }
 
-/// The template filed under the same access code as `tour`, among `tours`.
-fn template_among(tours: &[Tour], tour: &Tour) -> Option<Tour> {
+/// The templates filed under the same access code as `tour`, among `tours`, by name: a code
+/// can have several, each a menu of its own ("Походное меню", "Новый год"). Sorted by name, so
+/// the choice reads the same on every device, whatever order the server listed them in.
+fn templates_among(tours: &[Tour], tour: &Tour) -> Vec<Tour> {
     let code = code_of(tour);
-    tours
+    let mut found: Vec<Tour> = tours
         .iter()
-        .find(|t| is_template(t) && t.id != tour.id && code_of(t) == code)
+        .filter(|t| is_template(t) && t.id != tour.id && code_of(t) == code)
         .cloned()
+        .collect();
+    found.sort_by_key(|t| t.name.trim().to_lowercase());
+    found
 }
 
-/// The code's template menu as this device last saw the tour list - for the tour dialog,
-/// which has to say what switching the menu on will start from without asking anybody.
-pub fn template_for(tour: &Tour) -> Option<Menu> {
-    let tours = crate::queue::cached_list()?;
-    Menu::of(&template_among(&tours, tour)?)
+thread_local! {
+    /// When this page last read the tour list from the server, in `now_millis` time.
+    static LIST_READ_AT: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
 }
 
-/// The code's template tour, from the server - or, without a network, from the list this
+/// How long a list read from the server stays good for opening a template panel without asking
+/// again.
+const LIST_FRESH_MS: f64 = 60_000.0;
+
+/// Keeps the tour list the server just sent, and notes when it did.
+fn remember_list(tours: &[Tour]) {
+    crate::queue::cache_list(tours);
+    LIST_READ_AT.with(|at| at.set(Some(crate::queue::now_millis())));
+}
+
+fn list_is_fresh() -> bool {
+    LIST_READ_AT.with(|at| at.get()).is_some_and(|read| crate::queue::now_millis() - read < LIST_FRESH_MS)
+}
+
+/// The code's template tours, from the server - or, without a network, from the list this
 /// device saw last. The list is kept, so the tour dialog knows about a template made here.
-async fn find_template(tour: &Tour) -> Result<Option<Tour>, crate::api::Failed> {
+///
+/// An empty catalogue opens the take panel by itself, and so every time the tour is opened
+/// with nothing in it; one request a minute is enough for that, so a list read less than a
+/// minute ago is used as it stands. A template saved here refreshes it (see `remember_list`).
+async fn find_templates(tour: &Tour) -> Result<Vec<Tour>, crate::api::Failed> {
+    if list_is_fresh() {
+        if let Some(tours) = crate::queue::cached_list() {
+            return Ok(templates_among(&tours, tour));
+        }
+    }
     match crate::api::tours().await {
         Ok(tours) => {
-            crate::queue::cache_list(&tours);
-            Ok(template_among(&tours, tour))
+            remember_list(&tours);
+            Ok(templates_among(&tours, tour))
         }
         Err(e) if crate::api::looks_offline(&e) => {
-            Ok(crate::queue::cached_list().and_then(|tours| template_among(&tours, tour)))
+            Ok(crate::queue::cached_list().map(|tours| templates_among(&tours, tour)).unwrap_or_default())
         }
         Err(e) => Err(e),
     }
@@ -496,45 +522,152 @@ pub(crate) fn ask(question: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Under the catalogue: keep it as the access code's template, or take the template's.
+/// Which of the template bar's two panels is open: one at a time.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Panel {
+    Closed,
+    Take,
+    Save,
+}
+
+/// What a template is called in a list: its name without the blanks around it, or the generic
+/// title when it has none - a template a client made without asking for a name.
+fn template_label(name: &str) -> String {
+    let name = name.trim();
+    if name.is_empty() { t().menu.template_title.to_owned() } else { name.to_owned() }
+}
+
+/// The name a new template is saved under, if one was typed: blanks around it do not count.
+fn new_template_name(typed: &str) -> Option<String> {
+    let name = typed.trim();
+    (!name.is_empty()).then(|| name.to_owned())
+}
+
+/// The template a typed name would take over, if one is already there: the same name as the
+/// lists show it, blanks cut and case ignored. Saving under it would make two of one name.
+fn taken_by<'a>(typed: &str, templates: &'a [Tour]) -> Option<&'a Tour> {
+    let typed = typed.trim().to_lowercase();
+    templates.iter().find(|found| template_label(&found.name).to_lowercase() == typed)
+}
+
+/// Under the catalogue: take a catalogue from the starter set or from one of the code's
+/// templates, or save this catalogue as one of them - over an existing one, or as a new one.
 ///
 /// The template is a tour of its own under the same code, marked `IsMenuTemplate`, with
 /// nobody on it: the one thing every client already stores, lists and keeps versions of. On
-/// the template itself this says what it is instead.
+/// the template itself this says what it is instead. A code can have several templates, each
+/// under its own name, so both panels list them all.
 #[component]
-fn TemplateBar(tour: Tour, menu: Menu, apply: Callback<Operation>) -> impl IntoView {
+fn TemplateBar(tour: Tour, menu: Menu, apply: Callback<Operation>, open_take: bool) -> impl IntoView {
     // The template says what it is where a trip says what its portions come to.
     if is_template(&tour) {
         return ().into_any();
     }
+    let panel = RwSignal::new(if open_take { Panel::Take } else { Panel::Closed });
+    // None while the list is being read; then the templates, or why they could not be read.
+    let templates = RwSignal::new(None::<Result<Vec<Tour>, String>>);
+    // The id of the template a save replaces; None saves a new one.
+    let target = RwSignal::new(None::<String>);
+    let name = RwSignal::new(String::new());
+    let name_error = RwSignal::new(None::<String>);
     let said = RwSignal::new(String::new());
     let busy = RwSignal::new(false);
     let tour = StoredValue::new(tour);
     let menu = StoredValue::new(menu);
 
-    let save = move |_| {
+    // The list is read each time a panel opens, so a template made on another device is there.
+    let load = move || {
         busy.set(true);
-        said.set(String::new());
+        templates.set(None);
         leptos::task::spawn_local(async move {
-            let tour = tour.get_value();
-            let template = menu.get_value().as_template();
-            said.set(match find_template(&tour).await {
-                Err(e) => e.to_string(),
-                Ok(Some(existing)) => {
-                    if ask(t().menu.template_replace_q) {
-                        let op = Operation::Menu(MenuEdit::TakeTemplate(template));
-                        match crate::sync::record(existing.id.as_str(), op).await.1 {
-                            crate::sync::Status::Failed(e) => e.to_string(),
-                            crate::sync::Status::Waiting(_) => t().menu.template_saved_here.into(),
-                            _ => t().menu.template_saved.into(),
-                        }
-                    } else {
-                        String::new()
-                    }
+            let found = find_templates(&tour.get_value()).await.map_err(|e| e.to_string());
+            templates.set(Some(found));
+            busy.set(false);
+        });
+    };
+    if open_take {
+        load();
+    }
+
+    let open = move |which: Panel| {
+        said.set(String::new());
+        name_error.set(None);
+        if panel.get_untracked() == which {
+            panel.set(Panel::Closed);
+        } else {
+            panel.set(which);
+            load();
+        }
+    };
+
+    // A catalogue taken: the starter set, or a template. Asked first, and the question names it.
+    let take = move |source: Option<Tour>| {
+        let (label, catalogue) = match source {
+            None => (t().menu.starter_set.to_owned(), starter(menu.get_value().days).as_template()),
+            Some(found) => match Menu::of(&found) {
+                Some(found_menu) => (template_label(&found.name), found_menu.as_template()),
+                None => {
+                    said.set(t().menu.template_no_menu.into());
+                    return;
                 }
-                Ok(None) => {
-                    let mut body = crate::edit::new_tour_body(t().menu.template_name);
-                    if let (Some(obj), Ok(value)) = (body.as_object_mut(), serde_json::to_value(&template)) {
+            },
+        };
+        if ask(&(t().menu.template_take_q)(&label)) {
+            panel.set(Panel::Closed);
+            apply.run(Operation::Menu(MenuEdit::TakeTemplate(catalogue)));
+        }
+    };
+
+    // What a save said: the panel closes when it went through, and stays open to be fixed if not.
+    let saved = move |text: String, ok: bool| {
+        if ok {
+            panel.set(Panel::Closed);
+        }
+        said.set(text);
+        busy.set(false);
+    };
+
+    let save = move |_| {
+        let catalogue = menu.get_value().as_template();
+        let tour = tour.get_value();
+        match target.get_untracked() {
+            Some(id) => {
+                let existing = templates
+                    .get_untracked()
+                    .and_then(Result::ok)
+                    .and_then(|found| found.into_iter().find(|found_tour| found_tour.id.as_str() == id));
+                let Some(existing) = existing else { return };
+                let label = template_label(&existing.name);
+                if !ask(&(t().menu.template_replace_q)(&label)) {
+                    return;
+                }
+                busy.set(true);
+                let op = Operation::Menu(MenuEdit::TakeTemplate(catalogue));
+                leptos::task::spawn_local(async move {
+                    match crate::sync::record(existing.id.as_str(), op).await.1 {
+                        crate::sync::Status::Failed(e) => saved(e.to_string(), false),
+                        crate::sync::Status::Waiting(_) => saved(t().menu.template_saved_here.into(), true),
+                        _ => saved(t().menu.template_saved.into(), true),
+                    }
+                });
+            }
+            None => {
+                let Some(new_name) = new_template_name(&name.get_untracked()) else {
+                    name_error.set(Some(t().menu.template_name_needed.to_owned()));
+                    return;
+                };
+                let listed = templates.get_untracked().and_then(Result::ok).unwrap_or_default();
+                if let Some(taken) = taken_by(&new_name, &listed) {
+                    // Not a second template of that name: the save is the replace it names.
+                    target.set(Some(taken.id.as_str().to_owned()));
+                    name_error.set(Some((t().menu.template_name_taken)(&template_label(&taken.name))));
+                    return;
+                }
+                name_error.set(None);
+                busy.set(true);
+                leptos::task::spawn_local(async move {
+                    let mut body = crate::edit::new_tour_body(&new_name);
+                    if let (Some(obj), Ok(value)) = (body.as_object_mut(), serde_json::to_value(&catalogue)) {
                         obj.insert(tc_core::extras::MENU_TEMPLATE.into(), true.into());
                         obj.insert(tc_core::menu::MENU.into(), value);
                     }
@@ -542,50 +675,102 @@ fn TemplateBar(tour: Tour, menu: Menu, apply: Callback<Operation>) -> impl IntoV
                     match crate::api::add_tour(body, crate::api::Pile::Hashed(&code)).await {
                         Ok(_) => {
                             if let Ok(tours) = crate::api::tours().await {
-                                crate::queue::cache_list(&tours);
+                                remember_list(&tours);
                             }
-                            t().menu.template_saved.into()
+                            name.set(String::new());
+                            saved(t().menu.template_saved.into(), true);
                         }
-                        Err(e) => e.to_string(),
+                        Err(e) => saved(e.to_string(), false),
                     }
-                }
-            });
-            busy.set(false);
-        });
-    };
-
-    let take = move |_| {
-        busy.set(true);
-        said.set(String::new());
-        leptos::task::spawn_local(async move {
-            let tour = tour.get_value();
-            said.set(match find_template(&tour).await {
-                Err(e) => e.to_string(),
-                Ok(None) => t().menu.template_none.into(),
-                Ok(Some(found)) => match Menu::of(&found) {
-                    None => t().menu.template_none.into(),
-                    Some(template) => {
-                        if ask(t().menu.template_take_q) {
-                            apply.run(Operation::Menu(MenuEdit::TakeTemplate(template.as_template())));
-                        }
-                        String::new()
-                    }
-                },
-            });
-            busy.set(false);
-        });
+                });
+            }
+        }
     };
 
     view! {
         <div class="tcw-food-template">
-            <div class="tcw-food-template-title">{t().menu.template_title}</div>
+            <div class="tcw-food-template-title">{t().list.menu_templates}</div>
             <p class="tcw-food-note">{t().menu.template_about}</p>
             <div class="tcw-food-template-buttons">
-                <button type="button" class="tcn-btn tcn-btn-sm" prop:disabled=move || busy.get()
-                        on:click=save>{t().menu.template_save}</button>
-                <button type="button" class="tcn-btn tcn-btn-sm" prop:disabled=move || busy.get()
-                        on:click=take>{t().menu.template_take}</button>
+                <button type="button" class="tcn-btn tcn-btn-sm"
+                        aria-expanded=move || (panel.get() == Panel::Take).to_string()
+                        on:click=move |_| open(Panel::Take)>{t().menu.template_take}</button>
+                <button type="button" class="tcn-btn tcn-btn-sm"
+                        aria-expanded=move || (panel.get() == Panel::Save).to_string()
+                        on:click=move |_| open(Panel::Save)>{t().menu.template_save}</button>
             </div>
+            <Show when=move || panel.get() == Panel::Take>
+                <div class="tcw-food-choices">
+                    <p class="tcw-food-note">{t().menu.take_pick}</p>
+                    {move || match templates.get() {
+                        None => view! { <p class="tcw-food-note" role="status">{t().menu.template_loading}</p> }.into_any(),
+                        Some(Err(e)) => view! { <div class="tcn-errors">{e}</div> }.into_any(),
+                        Some(Ok(found)) => view! {
+                            <div class="tcw-food-template-buttons">
+                                <button type="button" class="tcn-btn tcn-btn-sm"
+                                        on:click=move |_| take(None)>{t().menu.starter_set}</button>
+                                {found
+                                    .into_iter()
+                                    .map(|template| {
+                                        let label = template_label(&template.name);
+                                        view! {
+                                            <button type="button" class="tcn-btn tcn-btn-sm"
+                                                    on:click=move |_| take(Some(template.clone()))>{label}</button>
+                                        }
+                                    })
+                                    .collect_view()}
+                            </div>
+                        }.into_any(),
+                    }}
+                </div>
+            </Show>
+            <Show when=move || panel.get() == Panel::Save>
+                <fieldset class="tcw-food-choices">
+                    <legend class="tcw-food-note">{t().menu.save_pick}</legend>
+                    {move || match templates.get() {
+                        None => view! { <p class="tcw-food-note" role="status">{t().menu.template_loading}</p> }.into_any(),
+                        Some(Err(e)) => view! { <div class="tcn-errors">{e}</div> }.into_any(),
+                        Some(Ok(found)) => found
+                            .into_iter()
+                            .map(|template| {
+                                let id = template.id.as_str().to_owned();
+                                let input_id = format!("menu-template-{id}");
+                                let label = (t().menu.replace_choice)(&template_label(&template.name));
+                                let shown = id.clone();
+                                let picked = id;
+                                view! {
+                                    <label class="tcw-food-choice">
+                                        <input type="radio" name="menu-template-target" id=input_id
+                                               prop:checked=move || target.get().as_deref() == Some(shown.as_str())
+                                               on:change=move |_| target.set(Some(picked.clone())) />
+                                        {label}
+                                    </label>
+                                }
+                            })
+                            .collect_view()
+                            .into_any(),
+                    }}
+                    <label class="tcw-food-choice">
+                        <input type="radio" name="menu-template-target" id="menu-template-new"
+                               prop:checked=move || target.get().is_none()
+                               on:change=move |_| target.set(None) />
+                        {t().menu.new_template_choice}
+                    </label>
+                    <label class="tcw-food-choice">
+                        {t().menu.new_template_label}
+                        <input type="text" class="tcn-input" id="menu-template-name"
+                               placeholder=t().menu.new_template_placeholder
+                               prop:value=move || name.get()
+                               on:input=move |ev| name.set(event_target_value(&ev))
+                               on:focus=move |_| target.set(None) />
+                    </label>
+                    <Show when=move || name_error.get().is_some()>
+                        <div class="tcn-errors">{move || name_error.get().unwrap_or_default()}</div>
+                    </Show>
+                </fieldset>
+                <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary"
+                        prop:disabled=move || busy.get() on:click=save>{t().menu.template_save_go}</button>
+            </Show>
             <Show when=move || !said.get().is_empty()>
                 <p class="tcw-food-note" role="status">{move || said.get()}</p>
             </Show>
@@ -739,6 +924,8 @@ pub fn MenuTab(
     if template {
         state.view.set(View::Catalogue);
     }
+    // A menu with nothing in its catalogue says so, and says where dishes come from.
+    let nudge = !template && menu.dishes.is_empty() && menu.products.is_empty();
 
     view! {
         <div class="tcw-food">
@@ -766,6 +953,15 @@ pub fn MenuTab(
             <Show when=move || state.view.get() != View::Catalogue>
                 <p class="tcw-food-note">{note.clone()}</p>
             </Show>
+            <Show when=move || nudge && state.view.get() != View::Catalogue>
+                <div class="tcw-food-template">
+                    <p class="tcw-food-note">{t().menu.empty_elsewhere}</p>
+                    <div class="tcw-food-template-buttons">
+                        <button type="button" class="tcn-btn tcn-btn-sm"
+                                on:click=move |_| state.view.set(View::Catalogue)>{t().menu.open_catalogue}</button>
+                    </div>
+                </div>
+            </Show>
 
             <Show when=move || state.view.get() == View::Plan>
                 <Plan menu=menu.clone() apply=apply />
@@ -785,9 +981,13 @@ pub fn MenuTab(
                 }
             </Show>
             <Show when=move || state.view.get() == View::Catalogue>
+                <Show when=move || nudge>
+                    <p class="tcw-food-note">{t().menu.empty_here}</p>
+                </Show>
                 <crate::menu_catalogue::Catalogue menu=menu_for_catalogue.clone() state=state apply=apply
                                                   note=note_for_catalogue.clone() />
-                <TemplateBar tour=tour_for_template.clone() menu=menu_for_template.clone() apply=apply />
+                <TemplateBar tour=tour_for_template.clone() menu=menu_for_template.clone() apply=apply
+                             open_take=nudge />
                 <TransferBar menu=menu_for_template.clone() apply=apply />
                 <ClearBar menu=menu_for_template.clone() apply=apply />
             </Show>
@@ -1948,7 +2148,14 @@ mod tests {
         crate::edit::put_tour(tour, &d)
     }
 
-    /// Switched on, the tour gets the starter for as many days as it lasts; off and on
+    /// A tour whose menu was started from the starter, for the tests that need its dishes.
+    fn from_starter(tour: &Tour) -> Tour {
+        let mut started = tour.clone();
+        starter(5).put(&mut started);
+        started
+    }
+
+    /// Switched on, the tour gets an empty catalogue for as many days as it lasts; off and on
     /// again, the plan is as it was left.
     #[test]
     fn switching_the_menu_off_keeps_it() {
@@ -1966,8 +2173,23 @@ mod tests {
         assert!(Menu::shown(&crate::edit::put_tour(&on, &old)).is_some());
     }
 
-    /// Switched on for the first time with a template, the menu starts from the template's
-    /// catalogue, planned for the tour's days; taking a template later keeps what still fits.
+    /// Switched on for the first time, the menu has no dishes, products or places: the
+    /// catalogue is filled in later, and the plan is for the tour's days.
+    #[test]
+    fn switching_the_menu_on_starts_with_an_empty_catalogue() {
+        let mut d = crate::edit::TourDraft::of(&tour());
+        d.days = 3;
+        d.menu = Some(true);
+        let on = crate::edit::put_tour(&tour(), &d);
+        let menu = Menu::shown(&on).expect("a menu");
+        assert!(menu.on);
+        assert!(menu.dishes.is_empty() && menu.products.is_empty() && menu.places.is_empty());
+        assert_eq!(menu.days, 3);
+    }
+
+    /// Switched on for the first time with a template (an edit queued by an older client), the
+    /// menu starts from the template's catalogue, planned for the tour's days; taking a
+    /// template later keeps what still fits.
     #[test]
     fn a_template_starts_the_menu_and_can_be_taken_later() {
         let mut template = starter(3).as_template();
@@ -1984,7 +2206,7 @@ mod tests {
 
         // A tour started from the starter takes the template: the grill is gone from its plan,
         // and its dinners are planned again from what the template has.
-        let started = switched(&tour(), true);
+        let started = from_starter(&tour());
         assert!(Menu::shown(&started).expect("a menu").plan.iter().any(|s| s.dishes.iter().any(|d| d == "grill")));
         let taken = crate::edit::put_menu(&started, &MenuEdit::TakeTemplate(template.clone()));
         let menu = Menu::shown(&taken).expect("a menu");
@@ -1997,7 +2219,7 @@ mod tests {
     /// planned or bought - and the places still there.
     #[test]
     fn clearing_the_catalogue_keeps_the_places() {
-        let started = switched(&tour(), true);
+        let started = from_starter(&tour());
         let places = Menu::shown(&started).expect("a menu").places;
         let empty = Menu { on: true, places: places.clone(), ..Menu::default() };
         let cleared = crate::edit::put_menu(&started, &MenuEdit::TakeTemplate(empty));
@@ -2012,7 +2234,7 @@ mod tests {
     /// planned; the daily list cleared leaves the dishes alone.
     #[test]
     fn dishes_and_the_daily_list_clear_apart() {
-        let started = switched(&tour(), true);
+        let started = from_starter(&tour());
         let before = Menu::shown(&started).expect("a menu");
         let all = MenuEdit::All(before.dishes.iter().map(|d| MenuEdit::RemoveDish(d.id.clone())).collect());
         let m = Menu::shown(&crate::edit::put_menu(&started, &all)).expect("a menu");
@@ -2023,6 +2245,58 @@ mod tests {
         let m = Menu::shown(&crate::edit::put_menu(&started, &MenuEdit::Daily(Vec::new()))).expect("a menu");
         assert!(m.daily.is_empty());
         assert_eq!(m.dishes, before.dishes);
+    }
+
+    /// A typed name is taken by a template of the list only when the names are the same, in any
+    /// case and with blanks cut; a new name is not taken by a trip or another code's template.
+    #[test]
+    fn a_taken_name_is_the_template_that_has_it() {
+        let make = |id: &str, name: &str| {
+            Tour::from_json(&serde_json::json!({
+                "Id": id, "Name": name, "AccessCodeMD5": "HIKE", "IsMenuTemplate": true
+            }).to_string()).expect("tour")
+        };
+        let tours = vec![make("t1", "Новый год"), make("t2", "  Походное меню ")];
+        assert_eq!(taken_by("  походное МЕНЮ ", &tours).map(|found| found.id.as_str()), Some("t2"));
+        assert_eq!(taken_by("Новый год", &tours).map(|found| found.id.as_str()), Some("t1"));
+        assert!(taken_by("Новый", &tours).is_none(), "a prefix is another name");
+        assert!(taken_by("Новый год", &[]).is_none(), "nothing listed takes nothing");
+    }
+
+    /// A code can have several templates: all of them under its code, sorted by name - not the
+    /// trips, the other codes' templates, or the template the list is asked from.
+    #[test]
+    fn a_code_has_all_its_templates_by_name() {
+        let make = |id: &str, name: &str, code: &str, template: bool| {
+            Tour::from_json(&serde_json::json!({
+                "Id": id, "Name": name, "AccessCodeMD5": code, "IsMenuTemplate": template
+            }).to_string()).expect("tour")
+        };
+        let tours = vec![
+            make("t1", "Новый год", "HIKE", true),
+            make("t2", "  походное меню ", "HIKE", true),
+            make("t3", "Danube", "HIKE", false),
+            make("t4", "Apple", "HIKE", true),
+            make("t5", "Office", "WORK", true),
+            make("t0", "Mine", "HIKE", true),
+        ];
+        let mine = make("t0", "Mine", "HIKE", true);
+        let found: Vec<String> = templates_among(&tours, &mine).iter().map(|t| t.id.as_str().to_owned()).collect();
+        assert_eq!(found, ["t4", "t1", "t2"]);
+        let names: Vec<String> = templates_among(&tours, &make("t3", "Danube", "HIKE", false))
+            .iter().map(|t| t.name.trim().to_owned()).collect();
+        assert_eq!(names, ["Apple", "Mine", "Новый год", "походное меню"]);
+        assert!(templates_among(&tours, &make("t9", "x", "NONE", false)).is_empty());
+    }
+
+    /// A template is listed by its name, blanks cut; one without a name has the generic title. A
+    /// new template's name counts only if something other than blanks was typed.
+    #[test]
+    fn a_template_is_named_as_typed() {
+        assert_eq!(template_label("  Новый год "), "Новый год");
+        assert_eq!(template_label("   "), t().menu.template_title);
+        assert_eq!(new_template_name("  Походное меню  "), Some("Походное меню".to_owned()));
+        assert_eq!(new_template_name(" \t"), None);
     }
 
     /// A template says whose it is by the trips under its own code, not the other code's.

@@ -294,11 +294,14 @@ pub fn TourListPage() -> impl IntoView {
                 return;
             };
             if let Some(obj) = body.as_object_mut() {
-                // A copy of the menu template is a tour, not a second template: with two, which
-                // one "Save as template" and "Take from template" mean would be the server's
-                // order to decide. Nor is it named "do not delete".
-                let template = crate::menu::is_template(&tour);
-                let name = if template { t().menu.template_title } else { tour.name.as_str() };
+                // A copy of a menu template is a tour to plan, not another template - a new
+                // template is made with "Save as a template" under the catalogue, where it is
+                // named. The copy keeps the template's name, so it says which menu it came from.
+                let name = match (crate::menu::is_template(&tour), tour.name.trim()) {
+                    (true, "") => t().menu.template_title,
+                    (true, own) => own,
+                    (false, _) => tour.name.as_str(),
+                };
                 obj.insert("Name".into(), (t().list.clone_of)(name).into());
                 obj.retain(|k, _| !k.eq_ignore_ascii_case(tc_core::extras::MENU_TEMPLATE));
                 for key in ["Id", "GUID", "StateGUID"] {
@@ -355,7 +358,7 @@ pub fn TourListPage() -> impl IntoView {
         if !ask(&(t().list.delete_question)(&tour.name)) {
             return;
         }
-        // The template is not one trip but where every next one's menu starts: asked twice,
+        // A template is not one trip but a menu any tour of the code takes from: asked twice,
         // the second time saying so.
         if crate::menu::is_template(&tour) && !ask(t().list.delete_template_question) {
             return;
@@ -496,12 +499,19 @@ pub fn TourListPage() -> impl IntoView {
                         <div class="tcn-tourgrid" style:display=move || if templates_open.get() { "" } else { "none" }>
                             {templates
                                 .iter()
-                                .map(|tpl| view! {
-                                    <div class="tcw-template-cell">
-                                        <div class="tcw-template-for">{crate::menu::template_owners(tpl, &tours)}</div>
-                                        <Row tour=tpl.clone() remove=remove clone_it=clone
-                                             copy_json=copy_json bells=bells />
-                                    </div>
+                                .map(|tpl| {
+                                    // The row says the template's own name, as a trip's row says the trip's.
+                                    let mut tpl = tpl.clone();
+                                    if tpl.name.trim().is_empty() {
+                                        tpl.name = t().menu.template_title.into();
+                                    }
+                                    view! {
+                                        <div class="tcw-template-cell">
+                                            <div class="tcw-template-for">{crate::menu::template_owners(&tpl, &tours)}</div>
+                                            <Row tour=tpl.clone() remove=remove clone_it=clone
+                                                 copy_json=copy_json bells=bells />
+                                        </div>
+                                    }
                                 })
                                 .collect_view()}
                         </div>
