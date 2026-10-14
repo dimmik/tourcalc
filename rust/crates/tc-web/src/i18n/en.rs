@@ -559,6 +559,14 @@ pub const TEXTS: Texts = Texts {
         expand_all: "Expand all",
         collapse_all: "Collapse all",
         total_weight: "total weight",
+        age_groups: |a, t, c| {
+            [(a, "adult", "adults"), (t, "teenager", "teenagers"), (c, "child", "children")]
+                .into_iter()
+                .filter(|(n, ..)| *n > 0)
+                .map(|(n, one, many)| format!("{n} {}", en_plural(n as i64, one, many)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        },
         legend_paid: " — what they put in · ",
         legend_charged: " — what their part of the spending cost · ",
         legend_balance: " — the difference: + comes to them, − is theirs to pay. Tap any of the three for the itemised list.",

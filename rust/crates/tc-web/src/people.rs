@@ -234,6 +234,10 @@ impl People {
 /// did not.
 pub const SEARCH_FROM: usize = 8;
 
+/// From this weight up to the grown-ups' (`menu::GROWN_UP`), People counts a teenager; below
+/// it, a child. Only words on the head-count chip - nothing is shared or eaten by it.
+const TEENAGER: i32 = 50;
+
 /// The weight almost everybody shares - which Mini leaves unmarked, its column too narrow for
 /// the same number on every line. The roomy People list marks everybody's: a line without
 /// "×" read there as a person without a weight. It lives in `tc_core::menu` because the menu
@@ -282,6 +286,10 @@ pub fn PeopleTab(
         })
     };
     let count = tour.persons.len();
+    // Adults, teenagers, children - by weight, the only age the tour knows.
+    let adults = tour.persons.iter().filter(|p| p.weight >= tc_core::menu::GROWN_UP).count();
+    let teens = tour.persons.iter().filter(|p| (TEENAGER..tc_core::menu::GROWN_UP).contains(&p.weight)).count();
+    let kids = count - adults - teens;
     let searchable = count >= SEARCH_FROM;
     let tour_for_search = tour.clone();
     let everyone: Vec<String> = tour
@@ -358,6 +366,9 @@ pub fn PeopleTab(
                     </button>
                 </Show>
                 <span class="tcn-chip">{(t().list.people)(count)}</span>
+                {([adults, teens, kids].iter().filter(|n| **n > 0).count() > 1).then(|| view! {
+                    <span class="tcn-chip">{(t().people.age_groups)(adults, teens, kids)}</span>
+                })}
                 <span class="tcn-chip">
                     {t().people.total_weight} " "
                     <crate::explain::Explain what={
