@@ -569,11 +569,18 @@ pub const TEXTS: Texts = Texts {
         expand_all: "Раскрыть всех",
         collapse_all: "Свернуть всех",
         total_weight: "общий вес",
-        adults_children: |a, c| format!(
-            "{a} {}, {c} {}",
-            ru_plural(a as i64, "взрослый", "взрослых", "взрослых"),
-            ru_plural(c as i64, "ребёнок", "ребёнка", "детей")
-        ),
+        age_groups: |a, t, c| {
+            [
+                (a, "взрослый", "взрослых", "взрослых"),
+                (t, "подросток", "подростка", "подростков"),
+                (c, "ребёнок", "ребёнка", "детей"),
+            ]
+            .into_iter()
+            .filter(|(n, ..)| *n > 0)
+            .map(|(n, one, few, many)| format!("{n} {}", ru_plural(n as i64, one, few, many)))
+            .collect::<Vec<_>>()
+            .join(", ")
+        },
         legend_paid: " — сколько внесено · ",
         legend_charged: " — во сколько обошлась своя часть трат · ",
         legend_balance: " — разница: + получает, − платит. Нажмите на любое из трёх, чтобы увидеть, из чего оно.",

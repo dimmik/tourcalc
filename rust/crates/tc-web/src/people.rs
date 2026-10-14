@@ -282,7 +282,10 @@ pub fn PeopleTab(
         })
     };
     let count = tour.persons.len();
+    // Adults, teenagers, children - by weight, the only age the tour knows.
     let adults = tour.persons.iter().filter(|p| p.weight >= tc_core::menu::GROWN_UP).count();
+    let teens = tour.persons.iter().filter(|p| (50..tc_core::menu::GROWN_UP).contains(&p.weight)).count();
+    let kids = count - adults - teens;
     let searchable = count >= SEARCH_FROM;
     let tour_for_search = tour.clone();
     let everyone: Vec<String> = tour
@@ -359,8 +362,8 @@ pub fn PeopleTab(
                     </button>
                 </Show>
                 <span class="tcn-chip">{(t().list.people)(count)}</span>
-                {(adults > 0 && adults < count).then(|| view! {
-                    <span class="tcn-chip">{(t().people.adults_children)(adults, count - adults)}</span>
+                {([adults, teens, kids].iter().filter(|n| **n > 0).count() > 1).then(|| view! {
+                    <span class="tcn-chip">{(t().people.age_groups)(adults, teens, kids)}</span>
                 })}
                 <span class="tcn-chip">
                     {t().people.total_weight} " "
