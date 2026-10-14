@@ -569,6 +569,11 @@ pub const TEXTS: Texts = Texts {
         expand_all: "Раскрыть всех",
         collapse_all: "Свернуть всех",
         total_weight: "общий вес",
+        adults_children: |a, c| format!(
+            "{a} {}, {c} {}",
+            ru_plural(a as i64, "взрослый", "взрослых", "взрослых"),
+            ru_plural(c as i64, "ребёнок", "ребёнка", "детей")
+        ),
         legend_paid: " — сколько внесено · ",
         legend_charged: " — во сколько обошлась своя часть трат · ",
         legend_balance: " — разница: + получает, − платит. Нажмите на любое из трёх, чтобы увидеть, из чего оно.",

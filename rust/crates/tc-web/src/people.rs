@@ -282,6 +282,7 @@ pub fn PeopleTab(
         })
     };
     let count = tour.persons.len();
+    let adults = tour.persons.iter().filter(|p| p.weight >= tc_core::menu::GROWN_UP).count();
     let searchable = count >= SEARCH_FROM;
     let tour_for_search = tour.clone();
     let everyone: Vec<String> = tour
@@ -358,6 +359,9 @@ pub fn PeopleTab(
                     </button>
                 </Show>
                 <span class="tcn-chip">{(t().list.people)(count)}</span>
+                {(adults > 0 && adults < count).then(|| view! {
+                    <span class="tcn-chip">{(t().people.adults_children)(adults, count - adults)}</span>
+                })}
                 <span class="tcn-chip">
                     {t().people.total_weight} " "
                     <crate::explain::Explain what={

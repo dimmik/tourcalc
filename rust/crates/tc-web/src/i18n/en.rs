@@ -559,6 +559,11 @@ pub const TEXTS: Texts = Texts {
         expand_all: "Expand all",
         collapse_all: "Collapse all",
         total_weight: "total weight",
+        adults_children: |a, c| format!(
+            "{a} {}, {c} {}",
+            en_plural(a as i64, "adult", "adults"),
+            en_plural(c as i64, "child", "children")
+        ),
         legend_paid: " — what they put in · ",
         legend_charged: " — what their part of the spending cost · ",
         legend_balance: " — the difference: + comes to them, − is theirs to pay. Tap any of the three for the itemised list.",

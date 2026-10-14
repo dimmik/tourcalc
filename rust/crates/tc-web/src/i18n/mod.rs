@@ -731,6 +731,9 @@ pub struct PeopleTexts {
     pub expand_all: &'static str,
     pub collapse_all: &'static str,
     pub total_weight: &'static str,
+    /// Next to the head count: how many of them are grown-ups (weight 100 and up, as the
+    /// menu counts them) and how many children. Shown only when there are both.
+    pub adults_children: fn(usize, usize) -> String,
     pub legend_paid: &'static str,
     pub legend_charged: &'static str,
     pub legend_balance: &'static str,
