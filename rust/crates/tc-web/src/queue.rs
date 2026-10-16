@@ -86,6 +86,17 @@ impl Operation {
         }
     }
 
+    /// The operation with the moment it was made written into it, where it needs one: see
+    /// [`SpendingDraft::entered_at`].
+    pub fn stamped(mut self) -> Operation {
+        match &mut self {
+            Operation::PutSpending(d) if d.entered_at.is_none() => d.entered_at = Some(edit::now()),
+            Operation::RecordPayment(d) if d.entered_at.is_none() => d.entered_at = Some(edit::now()),
+            _ => {}
+        }
+        self
+    }
+
     /// The tour as it would be with this operation carried out.
     pub fn apply(&self, tour: &Tour) -> Tour {
         match self {
@@ -403,6 +414,7 @@ pub fn tours_with_pending() -> Vec<String> {
 }
 
 pub fn push(tour: &str, op: Operation) {
+    let op = op.stamped();
     let mut ops = pending(tour);
     if ops.is_empty() {
         WAITING_SINCE.with(|w| w.borrow_mut().insert(tour.to_owned(), now_millis()));
@@ -555,6 +567,7 @@ mod tests {
     fn add(id: &str, amount: i64) -> Operation {
         let t = tour();
         Operation::PutSpending(SpendingDraft {
+            entered_at: None,
             id: Some(SpendingId::new(id)),
             description: format!("added {id}"),
             category: "Еда".into(),

@@ -1876,14 +1876,9 @@ fn ExpenseRow(
 #[component]
 fn ExpenseDetails(tour: Tour, spending: Spending) -> impl IntoView {
     let payer = name_of(tour.person(&spending.from));
-    // An expense dated at midnight was entered with a day and no time (the app wrote every
-    // new one that way until 16.10.2026): "00:00" under it is not a time anybody spent at.
-    let when = spending.when().unwrap_or_default();
-    let when = match when.get(10..16) {
-        Some("T00:00") => &when[..10],
-        _ => when,
-    };
-    let mut meta: Vec<String> = vec![crate::explain::pretty_stamp(when)];
+    let mut meta: Vec<String> = vec![crate::explain::pretty_stamp(
+        spending.when().unwrap_or_default(),
+    )];
     if !spending.category.trim().is_empty() {
         meta.push(spending.category.trim().to_owned());
     }

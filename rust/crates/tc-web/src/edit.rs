@@ -43,6 +43,12 @@ pub fn new_id() -> String {
 /// the intention behind it, so that it can be replayed onto a tour that has changed since.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SpendingDraft {
+    /// When it was entered, `2026-10-16T10:00:00`, local - stamped by `queue::push`. A new
+    /// expense takes its time of day from here: the queue carries the edit out again at every
+    /// sync, and asking the clock then dated one entered on a train at 10:00 by the 18:00 sync.
+    /// `None` in drafts queued before it existed: those get the time they are carried out at.
+    #[serde(default)]
+    pub entered_at: Option<String>,
     /// Which spending this is about.
     ///
     /// `None` only while the dialog is open. The id is settled when the edit is *recorded*,
@@ -170,6 +176,7 @@ impl SpendingDraft {
     /// A blank draft, with the sensible defaults the app starts from.
     pub fn new(tour: &Tour) -> SpendingDraft {
         SpendingDraft {
+            entered_at: None,
             id: None,
             description: String::new(),
             category: last_category(tour),
@@ -195,6 +202,7 @@ impl SpendingDraft {
     /// A new expense that `payer` pays, recorded by somebody else.
     pub fn paid_by(tour: &Tour, payer: &PersonId) -> SpendingDraft {
         SpendingDraft {
+            entered_at: None,
             from: payer.clone(),
             on_behalf: true,
             ..SpendingDraft::new(tour)
@@ -214,6 +222,7 @@ impl SpendingDraft {
             Split::ByWeight(_) => true,
         };
         SpendingDraft {
+            entered_at: None,
             id: Some(spending.id.clone()),
             description: spending.description.clone(),
             category: spending.category.clone(),
@@ -293,8 +302,9 @@ pub fn now() -> String {
 /// A new record's date: the day chosen, at the time it is entered. Midnight on every new
 /// expense showed "00:00" on each of them and left a day's expenses in no order at all -
 /// they are sorted by this stamp.
-fn date_new(spending: &mut Spending, day: &str) {
-    let time = now().get(10..).unwrap_or("T00:00:00").to_owned();
+fn date_new(spending: &mut Spending, day: &str, entered_at: Option<&str>) {
+    let at = entered_at.map(str::to_owned).unwrap_or_else(now);
+    let time = at.get(10..).unwrap_or("T00:00:00").to_owned();
     tc_core::extras::set(&mut spending.extras, SPENDING_DATE, format!("{day}{time}").into());
 }
 
@@ -418,7 +428,7 @@ fn put_spending_only(tour: &Tour, draft: &SpendingDraft) -> Tour {
             } else {
                 draft.date.clone()
             };
-            date_new(&mut fresh, &when);
+            date_new(&mut fresh, &when, draft.entered_at.as_deref());
             set_colour(&mut fresh, &draft.colour);
             next.spendings.push(fresh);
         }
@@ -1307,6 +1317,9 @@ pub fn plan_currencies(
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PaymentDraft {
     pub id: Option<SpendingId>,
+    /// As on [`SpendingDraft::entered_at`].
+    #[serde(default)]
+    pub entered_at: Option<String>,
     pub description: String,
     pub amount: Cents,
     pub currency_id: String,
@@ -1320,6 +1333,7 @@ pub struct PaymentDraft {
 impl PaymentDraft {
     pub fn of(t: &tc_core::Transfer) -> PaymentDraft {
         PaymentDraft {
+            entered_at: None,
             id: None,
             description: t.description.clone(),
             amount: t.amount,
@@ -1363,7 +1377,8 @@ pub fn record_payment(tour: &Tour, draft: &PaymentDraft) -> Tour {
         kind: Kind::Real,
         extras: Default::default(),
     };
-    date_new(&mut payment, &today());
+    let at = draft.entered_at.clone().unwrap_or_else(now);
+    date_new(&mut payment, at.get(..10).unwrap_or_default(), Some(&at));
     // The colour the app marks a recorded payment with: green for one it suggested between
     // two people, grey for a family one.
     let colour = if draft.description.starts_with('X') {
@@ -1388,6 +1403,7 @@ mod split_tests {
     /// Built by hand: `SpendingDraft::new` asks the browser for today's date.
     fn partial(t: &Tour) -> SpendingDraft {
         SpendingDraft {
+            entered_at: None,
             id: Some(SpendingId::new("split-test")),
             description: "for some".into(),
             category: "Еда".into(),
@@ -1483,23 +1499,28 @@ mod split_tests {
         assert!(d.by_weight);
     }
 
-    /// A new expense is dated by the day chosen and the time it is entered - not midnight,
-    /// which showed "00:00" on each and left a day's expenses in no order. An edit keeps the
-    /// time it had.
+    /// A new expense is dated by the day chosen and the time it was entered - not midnight,
+    /// which showed "00:00" on each and left a day's expenses in no order. Entered offline at
+    /// 10:00, it says 10:00 when the queue carries it out at the 18:00 sync (the test clock
+    /// says 15:00). An edit keeps the time the expense had, whatever the clock says.
     #[test]
     fn a_new_expense_carries_the_time_it_was_entered() {
         let t = tour();
         let mut draft = partial(&t);
         draft.date = "2026-09-05".to_owned();
         let added = put_spending(&t, &draft);
-        let fresh = added.spendings.iter().find(|s| t.spendings.iter().all(|o| o.id != s.id));
-        let fresh = fresh.expect("added").clone();
-        assert_eq!(fresh.when(), Some("2026-09-05T15:00:00"));
-        let mut edit = SpendingDraft::of(&fresh);
+        let id = draft.id.clone().unwrap();
+        let stamp = |tour: &Tour| tour.spendings.iter().find(|s| s.id == id).and_then(|s| s.when()).map(str::to_owned);
+        assert_eq!(stamp(&added).as_deref(), Some("2026-09-05T15:00:00"), "no stamp: the clock");
+
+        draft.entered_at = Some("2026-09-04T10:00:00".to_owned());
+        let offline = put_spending(&t, &draft);
+        assert_eq!(stamp(&offline).as_deref(), Some("2026-09-05T10:00:00"), "the day chosen, the time entered");
+
+        let mut edit = SpendingDraft::of(offline.spendings.iter().find(|s| s.id == id).unwrap());
         edit.date = "2026-09-06".to_owned();
-        let edited = put_spending(&added, &edit);
-        let again = edited.spendings.iter().find(|s| s.id == fresh.id).expect("kept");
-        assert_eq!(again.when(), Some("2026-09-06T15:00:00"));
+        let edited = put_spending(&offline, &edit);
+        assert_eq!(stamp(&edited).as_deref(), Some("2026-09-06T10:00:00"), "an edit keeps the time");
     }
 }
 
