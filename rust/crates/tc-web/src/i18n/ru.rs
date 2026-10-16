@@ -261,6 +261,7 @@ pub const TEXTS: Texts = Texts {
         spent: "потрачено ",
         from_to: ["с ", " по "],
         filtered_out_of: "отобрано из ",
+        collapse_all: "Свернуть все",
         settling_up: "расчёт",
         draft: "черновик",
         drafts: "черновики",

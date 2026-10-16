@@ -2328,6 +2328,7 @@ mod tests {
         let t = switched(&tour(), true);
         // Built whole: `paid_by` asks the browser for today's date.
         let d = SpendingDraft {
+            entered_at: None,
             id: Some(tc_core::SpendingId::new("s1")),
             description: "Market: groceries".into(),
             category: "Groceries".into(),
@@ -2367,6 +2368,7 @@ mod tests {
         let mut t = switched(&tour(), true);
         t = crate::edit::put_menu(&t, &MenuEdit::BoughtOn { product: "lamb".into(), days: vec![1], bought: true });
         let d = SpendingDraft {
+            entered_at: None,
             id: Some(tc_core::SpendingId::new("s2")),
             description: "Shopping for day 1: lamb".into(),
             category: "Shopping".into(),
