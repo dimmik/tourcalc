@@ -1038,6 +1038,16 @@ pub const TEXTS: Texts = Texts {
             "September", "October", "November", "December"],
         day_n: |d| format!("day {d}"),
         name_needed: "It needs a name.",
+        for_group: "for a group",
+        portions_label: "portions:",
+        tour_portions: |p| format!("this tour: {p}"),
+        group_note: "Amounts for the whole group, as in a recipe you trust — plov for 12: a kilo of rice, \
+            3 kg of lamb. They are kept as amounts per portion, divided by the portions, and the dish \
+            opens like this again.",
+        portions_needed: "Say how many portions these amounts are for.",
+        for_all: "for all",
+        for_adults: "for the adults",
+        for_children: "for the children",
         meal_needed: "Tick at least one meal.",
         unit: "Counted in",
         own_unit: "own unit…",

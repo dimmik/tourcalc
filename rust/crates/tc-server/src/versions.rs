@@ -450,6 +450,7 @@ mod tests {
             };
             for (id, name) in [("plov", "Plov"), ("fish", "Fish")] {
                 m.dishes.push(Dish {
+                    serves: None,
                     id: id.into(),
                     name: name.into(),
                     meals: vec![Meal::Dinner],
