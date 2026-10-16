@@ -267,9 +267,35 @@ pub const SPENDING_DATE: &str = "SpendingDate";
 
 /// Today, as the app writes a date: `YYYY-MM-DD`.
 pub fn today() -> String {
-    let iso = js_sys::Date::new_0().to_iso_string();
-    let text: String = iso.into();
-    text.chars().take(10).collect()
+    now().chars().take(10).collect()
+}
+
+/// The device's wall-clock time, `2026-10-16T17:05:09` - no zone, the way the app writes an
+/// expense's date. Local, not UTC: `toISOString` gave the UTC day, and an expense entered
+/// before 02:00 in Belgrade was dated the day before.
+pub fn now() -> String {
+    // Native tests have no JavaScript clock to ask; a fixed afternoon stands in for it.
+    if cfg!(test) {
+        return "2026-10-16T15:00:00".to_owned();
+    }
+    let d = js_sys::Date::new_0();
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
+        d.get_full_year(),
+        d.get_month() + 1,
+        d.get_date(),
+        d.get_hours(),
+        d.get_minutes(),
+        d.get_seconds()
+    )
+}
+
+/// A new record's date: the day chosen, at the time it is entered. Midnight on every new
+/// expense showed "00:00" on each of them and left a day's expenses in no order at all -
+/// they are sorted by this stamp.
+fn date_new(spending: &mut Spending, day: &str) {
+    let time = now().get(10..).unwrap_or("T00:00:00").to_owned();
+    tc_core::extras::set(&mut spending.extras, SPENDING_DATE, format!("{day}{time}").into());
 }
 
 /// The category the last real spending used - what the app offers first.
@@ -392,7 +418,7 @@ fn put_spending_only(tour: &Tour, draft: &SpendingDraft) -> Tour {
             } else {
                 draft.date.clone()
             };
-            set_date(&mut fresh, &when);
+            date_new(&mut fresh, &when);
             set_colour(&mut fresh, &draft.colour);
             next.spendings.push(fresh);
         }
@@ -1337,7 +1363,7 @@ pub fn record_payment(tour: &Tour, draft: &PaymentDraft) -> Tour {
         kind: Kind::Real,
         extras: Default::default(),
     };
-    set_date(&mut payment, &today());
+    date_new(&mut payment, &today());
     // The colour the app marks a recorded payment with: green for one it suggested between
     // two people, grey for a family one.
     let colour = if draft.description.starts_with('X') {
@@ -1455,6 +1481,25 @@ mod split_tests {
         value.as_object_mut().unwrap().remove("by_weight");
         let d: SpendingDraft = serde_json::from_value(value).unwrap();
         assert!(d.by_weight);
+    }
+
+    /// A new expense is dated by the day chosen and the time it is entered - not midnight,
+    /// which showed "00:00" on each and left a day's expenses in no order. An edit keeps the
+    /// time it had.
+    #[test]
+    fn a_new_expense_carries_the_time_it_was_entered() {
+        let t = tour();
+        let mut draft = partial(&t);
+        draft.date = "2026-09-05".to_owned();
+        let added = put_spending(&t, &draft);
+        let fresh = added.spendings.iter().find(|s| t.spendings.iter().all(|o| o.id != s.id));
+        let fresh = fresh.expect("added").clone();
+        assert_eq!(fresh.when(), Some("2026-09-05T15:00:00"));
+        let mut edit = SpendingDraft::of(&fresh);
+        edit.date = "2026-09-06".to_owned();
+        let edited = put_spending(&added, &edit);
+        let again = edited.spendings.iter().find(|s| s.id == fresh.id).expect("kept");
+        assert_eq!(again.when(), Some("2026-09-06T15:00:00"));
     }
 }
 

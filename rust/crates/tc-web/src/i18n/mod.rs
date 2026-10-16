@@ -991,6 +991,8 @@ pub struct ExpenseTexts {
     pub spent: &'static str,
     pub from_to: [&'static str; 2],
     pub filtered_out_of: &'static str,
+    /// Folds every unfolded expense back; shown while any is open.
+    pub collapse_all: &'static str,
     pub settling_up: &'static str,
     pub draft: &'static str,
     pub drafts: &'static str,

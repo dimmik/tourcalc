@@ -114,9 +114,10 @@ pub struct Sifting {
     pub ring: RwSignal<String>,
     /// Stats: which head we are inside, if any.
     pub drill: RwSignal<Option<String>>,
-    /// Expenses: the one expense unfolded to show its details, by id. One at a time, and
-    /// kept here so that an edit elsewhere on the page does not fold it back up.
-    pub unfolded: RwSignal<Option<String>>,
+    /// Expenses: the expenses unfolded to show their details, by id. Any number of them -
+    /// one at a time folded the first as soon as a second was opened to compare - and kept
+    /// here so that an edit elsewhere on the page does not fold them back up.
+    pub unfolded: RwSignal<Vec<String>>,
 }
 
 impl Sifting {
@@ -129,7 +130,7 @@ impl Sifting {
             by_category: RwSignal::new(true),
             ring: RwSignal::new(String::new()),
             drill: RwSignal::new(None),
-            unfolded: RwSignal::new(None),
+            unfolded: RwSignal::new(Vec::new()),
         }
     }
 }
@@ -1480,6 +1481,14 @@ fn ExpensesTab(
                                 {t().expenses.filtered_out_of} {all_count}
                             </span>
                         })}
+                        // Only folding: unfolding every expense of a long trip at once is a
+                        // wall nobody reads.
+                        <Show when=move || unfolded.with(|u| !u.is_empty())>
+                            <button type="button" class="tcn-btn tcn-btn-sm"
+                                    on:click=move |_| unfolded.set(Vec::new())>
+                                {t().expenses.collapse_all}
+                            </button>
+                        </Show>
                     </div>
 
                     {groups
@@ -1671,7 +1680,7 @@ fn ExpenseRow(
     dialog: RwSignal<Option<Dialog>>,
     delete: Callback<Removal>,
     /// Which expense is showing its details; see [`Sifting::unfolded`].
-    unfolded: RwSignal<Option<String>>,
+    unfolded: RwSignal<Vec<String>>,
 ) -> impl IntoView {
     let who = name_of(tour.person(&spending.from));
     // Tapping the expense unfolds what it is - who paid, when, who it is for and what each
@@ -1680,17 +1689,17 @@ fn ExpenseRow(
     let my_id = spending.id.as_str().to_owned();
     let is_open = {
         let my_id = my_id.clone();
-        Memo::new(move |_| unfolded.with(|u| u.as_deref() == Some(my_id.as_str())))
+        Memo::new(move |_| unfolded.with(|u| u.iter().any(|id| *id == my_id)))
     };
     let fold = {
         let my_id = my_id.clone();
         move || {
             unfolded.update(|u| {
-                *u = if u.as_deref() == Some(my_id.as_str()) {
-                    None
+                if let Some(at) = u.iter().position(|id| *id == my_id) {
+                    u.remove(at);
                 } else {
-                    Some(my_id.clone())
-                };
+                    u.push(my_id.clone());
+                }
             })
         }
     };
@@ -1867,9 +1876,14 @@ fn ExpenseRow(
 #[component]
 fn ExpenseDetails(tour: Tour, spending: Spending) -> impl IntoView {
     let payer = name_of(tour.person(&spending.from));
-    let mut meta: Vec<String> = vec![crate::explain::pretty_stamp(
-        spending.when().unwrap_or_default(),
-    )];
+    // An expense dated at midnight was entered with a day and no time (the app wrote every
+    // new one that way until 16.10.2026): "00:00" under it is not a time anybody spent at.
+    let when = spending.when().unwrap_or_default();
+    let when = match when.get(10..16) {
+        Some("T00:00") => &when[..10],
+        _ => when,
+    };
+    let mut meta: Vec<String> = vec![crate::explain::pretty_stamp(when)];
     if !spending.category.trim().is_empty() {
         meta.push(spending.category.trim().to_owned());
     }
