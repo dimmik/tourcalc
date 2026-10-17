@@ -1447,6 +1447,7 @@ fn ExpensesTab(
                 let shown_for_sums: Vec<Spending> = shown.iter().map(|s| (*s).clone()).collect();
                 let shown_for_uncounted = shown_for_sums.clone();
                 let shown_for_uncounted_label = shown_for_sums.clone();
+                let open_from = StoredValue::new((tour.clone(), shown_for_sums.clone(), unit.clone()));
                 view! {
                     <div class="tcn-summary">
                         <span><b>{(t().expenses.count)(shown.len())}</b></span>
@@ -1482,8 +1483,21 @@ fn ExpensesTab(
                             </span>
                         })}
                         // Only folding: unfolding every expense of a long trip at once is a
-                        // wall nobody reads.
+                        // wall nobody reads. The ones open, added up: open the taxi and the
+                        // two dinners, and here is what they came to - the list's own total
+                        // counts whatever the search and categories left.
                         <Show when=move || unfolded.with(|u| !u.is_empty())>
+                            <span class="tcn-hint tcw-open-sum">{move || {
+                                let (n, sum) = unfolded.with(|u| open_from.with_value(|(tour, shown, _)| {
+                                    let open: Vec<&Spending> = shown
+                                        .iter()
+                                        .filter(|s| u.iter().any(|id| id == s.id.as_str()))
+                                        .collect();
+                                    (open.len(), open.iter().fold(Cents::ZERO, |sum, s| sum + tour.amount_in_current(s)))
+                                }));
+                                let unit = open_from.with_value(|(_, _, unit)| unit.clone());
+                                (n > 0).then(|| (t().expenses.open_sum)(n, &money(sum), &unit))
+                            }}</span>
                             <button type="button" class="tcn-btn tcn-btn-sm"
                                     on:click=move |_| unfolded.set(Vec::new())>
                                 {t().expenses.collapse_all}

@@ -250,6 +250,7 @@ pub const TEXTS: Texts = Texts {
         from_to: ["from ", " to "],
         filtered_out_of: "filtered out of ",
         collapse_all: "Collapse all",
+        open_sum: |n, sum, unit| format!("{n} open · {sum} {unit}"),
         settling_up: "settling up",
         draft: "draft",
         drafts: "drafts",
