@@ -338,6 +338,22 @@
         .tcw-unfold { cursor: pointer; border-radius: 8px; }
         .tcw-unfold:focus-visible { outline: 2px solid var(--tcn-primary, #4f46e5); outline-offset: 2px; }
         .tcn-settle.tcw-unfolded { flex-wrap: wrap; row-gap: 6px; }
+        /* An open expense is also a picked one - the summary adds them up - so it says so,
+           quietly: a thin ring in the accent, which a kind's stripe keeps. */
+        .tcn-settle.tcw-unfolded {
+            /* The accent's own colour where color-mix is known. Not two declarations of the
+               variable: a custom property takes either, and a browser without color-mix
+               (Safari before 16.2) only finds out where it is used - and drops the shadow. */
+            --tcw-open-ring: 0 0 0 1.5px rgba(79, 70, 229, .4);
+            box-shadow: var(--tcw-open-ring), var(--tcn-shadow);
+        }
+        @supports (color: color-mix(in srgb, red 40%, transparent)) {
+            .tcn-settle.tcw-unfolded {
+                --tcw-open-ring: 0 0 0 1.5px color-mix(in srgb, var(--tcn-primary, #4f46e5) 40%, transparent);
+            }
+        }
+        .tcn-settle.tcw-kind.tcw-unfolded { box-shadow: inset 4px 0 0 var(--tcw-kind), var(--tcw-open-ring), var(--tcn-shadow); }
+        .tcw-open-sum { font-variant-numeric: tabular-nums; }
         .tcw-details {
             flex: 1 1 100%;
             padding: 8px 2px 0 42px;

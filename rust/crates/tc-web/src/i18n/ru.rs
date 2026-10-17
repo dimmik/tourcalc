@@ -262,6 +262,7 @@ pub const TEXTS: Texts = Texts {
         from_to: ["с ", " по "],
         filtered_out_of: "отобрано из ",
         collapse_all: "Свернуть все",
+        open_count: |n| format!("раскрыто {n}"),
         settling_up: "расчёт",
         draft: "черновик",
         drafts: "черновики",

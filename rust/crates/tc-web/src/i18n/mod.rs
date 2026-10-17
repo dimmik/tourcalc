@@ -993,6 +993,8 @@ pub struct ExpenseTexts {
     pub filtered_out_of: &'static str,
     /// Folds every unfolded expense back; shown while any is open.
     pub collapse_all: &'static str,
+    /// Next to it: how many of the shown expenses are open, before what they add up to.
+    pub open_count: fn(usize) -> String,
     pub settling_up: &'static str,
     pub draft: &'static str,
     pub drafts: &'static str,

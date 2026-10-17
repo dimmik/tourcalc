@@ -1447,6 +1447,7 @@ fn ExpensesTab(
                 let shown_for_sums: Vec<Spending> = shown.iter().map(|s| (*s).clone()).collect();
                 let shown_for_uncounted = shown_for_sums.clone();
                 let shown_for_uncounted_label = shown_for_sums.clone();
+                let open_from = StoredValue::new((tour.clone(), shown_for_sums.clone(), unit.clone()));
                 view! {
                     <div class="tcn-summary">
                         <span><b>{(t().expenses.count)(shown.len())}</b></span>
@@ -1482,8 +1483,39 @@ fn ExpensesTab(
                             </span>
                         })}
                         // Only folding: unfolding every expense of a long trip at once is a
-                        // wall nobody reads.
+                        // wall nobody reads. The ones open, added up: open the taxi and the
+                        // two dinners, and here is what they came to - the list's own total
+                        // counts whatever the search and categories left.
                         <Show when=move || unfolded.with(|u| !u.is_empty())>
+                            <span class="tcn-hint tcw-open-sum">{move || {
+                                // Counted as the line beside it counts: spending is what has a
+                                // category; a payback is said apart, not added to the taxi.
+                                let (open, counted, uncounted) = unfolded.with(|u| open_from.with_value(|(tour, shown, _)| {
+                                    let open: Vec<Spending> = shown
+                                        .iter()
+                                        .filter(|s| u.iter().any(|id| id == s.id.as_str()))
+                                        .cloned()
+                                        .collect();
+                                    let sum = |spent: bool| open
+                                        .iter()
+                                        .filter(|s| s.category.trim().is_empty() != spent)
+                                        .fold(Cents::ZERO, |sum, s| sum + tour.amount_in_current(s));
+                                    let (counted, uncounted) = (sum(true), sum(false));
+                                    (open, counted, uncounted)
+                                }));
+                                let unit = open_from.with_value(|(_, _, unit)| unit.clone());
+                                (!open.is_empty()).then(|| {
+                                    let mut said = (t().expenses.open_count)(open.len());
+                                    if !counted.is_zero() || uncounted.is_zero() {
+                                        said += &format!(" · {} {unit}", money(counted));
+                                    }
+                                    if !uncounted.is_zero() {
+                                        let joint = if counted.is_zero() { " · " } else { " + " };
+                                        said += &format!("{joint}{} {}", money(uncounted), uncounted_label(&open));
+                                    }
+                                    said
+                                })
+                            }}</span>
                             <button type="button" class="tcn-btn tcn-btn-sm"
                                     on:click=move |_| unfolded.set(Vec::new())>
                                 {t().expenses.collapse_all}
