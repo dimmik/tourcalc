@@ -396,6 +396,16 @@ pub struct MenuTexts {
     /// Beside a date: "day 1".
     pub day_n: fn(u32) -> String,
     pub name_needed: &'static str,
+    /// A dish entered for a whole group: the switch, the box for how many portions, this
+    /// tour's portions as a hint, what it means, and what each row's number is for.
+    pub for_group: &'static str,
+    pub portions_label: &'static str,
+    pub tour_portions: fn(&str) -> String,
+    pub group_note: &'static str,
+    pub portions_needed: &'static str,
+    pub for_all: &'static str,
+    pub for_adults: &'static str,
+    pub for_children: &'static str,
     pub meal_needed: &'static str,
     pub unit: &'static str,
     /// The unit select's last option: a unit typed in.

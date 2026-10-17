@@ -305,6 +305,7 @@ pub fn starter(days: u32) -> Menu {
         dishes: DISHES
             .iter()
             .map(|(id, en, r, meals, items)| Dish {
+                serves: None,
                 id: (*id).into(),
                 name: pick(en, r),
                 meals: meals.to_vec(),
@@ -985,7 +986,9 @@ pub fn MenuTab(
                     <p class="tcw-food-note">{t().menu.empty_here}</p>
                 </Show>
                 <crate::menu_catalogue::Catalogue menu=menu_for_catalogue.clone() state=state apply=apply
-                                                  note=note_for_catalogue.clone() />
+                                                  note=note_for_catalogue.clone()
+                                                  portions=if is_template(&tour) { 0.0 } else { eating.portions }
+                                                  shares=crate::menu_catalogue::Shares::of(&eating) />
                 <TemplateBar tour=tour_for_template.clone() menu=menu_for_template.clone() apply=apply
                              open_take=nudge />
                 <TransferBar menu=menu_for_template.clone() apply=apply />

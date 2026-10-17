@@ -128,6 +128,12 @@ pub struct Dish {
     #[serde(skip_serializing)]
     pub meal: Option<Meal>,
     pub ingredients: Vec<Ingredient>,
+    /// Entered for a whole group: how many portions the group's amounts were for - plov for
+    /// 12, a kilo of rice - so that the editor shows the kilo again, as norm times this.
+    /// The norms in `ingredients` stay what everything is counted from, and what a client
+    /// that does not know this field reads; it drops the field, and the dish is per portion.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serves: Option<f64>,
 }
 
 /// One meal of one day: what is cooked for it, in order - plov, and a salad, and mulled
@@ -900,6 +906,7 @@ mod tests {
             ],
             dishes: vec![
                 Dish {
+                    serves: None,
                     id: "plov".into(),
                     name: "Plov".into(),
                     meals: vec![Meal::Dinner],
@@ -910,6 +917,7 @@ mod tests {
                     ],
                 },
                 Dish {
+                    serves: None,
                     id: "steak".into(),
                     name: "Steak".into(),
                     meals: vec![Meal::Dinner],
@@ -1059,6 +1067,7 @@ mod tests {
     fn a_weekend_is_two_evenings_of_wine_and_three_days_of_juice() {
         let mut m = menu();
         m.dishes.push(Dish {
+            serves: None,
             id: "porridge".into(),
             name: "Porridge".into(),
             meals: vec![Meal::Breakfast],
@@ -1096,6 +1105,19 @@ mod tests {
         let wine = Ingredient { product: "wine".into(), amount: 1.0, when: When::With(Meal::Dinner) };
         let back: Ingredient = serde_json::from_value(serde_json::to_value(&wine).unwrap()).unwrap();
         assert_eq!(back, wine);
+    }
+
+    /// A dish entered for a group keeps how many it was for; one entered per portion is
+    /// written as it always was, so a template read by an older client looks the same.
+    #[test]
+    fn a_dish_for_a_group_keeps_how_many_it_was_for() {
+        let plain = serde_json::to_value(Dish { name: "plov".into(), ..Dish::default() }).unwrap();
+        assert!(plain.get("Serves").is_none());
+        let rice = Ingredient { product: "rice".into(), amount: 1000.0 / 12.0, ..Ingredient::default() };
+        let plov = Dish { name: "plov".into(), ingredients: vec![rice], serves: Some(12.0), ..Dish::default() };
+        let back: Dish = serde_json::from_value(serde_json::to_value(&plov).unwrap()).unwrap();
+        assert_eq!(back, plov);
+        assert!((back.ingredients[0].amount * 12.0 - 1000.0).abs() < 1e-9, "the kilo, as entered");
     }
 
     #[test]
