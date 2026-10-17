@@ -1488,15 +1488,33 @@ fn ExpensesTab(
                         // counts whatever the search and categories left.
                         <Show when=move || unfolded.with(|u| !u.is_empty())>
                             <span class="tcn-hint tcw-open-sum">{move || {
-                                let (n, sum) = unfolded.with(|u| open_from.with_value(|(tour, shown, _)| {
-                                    let open: Vec<&Spending> = shown
+                                // Counted as the line beside it counts: spending is what has a
+                                // category; a payback is said apart, not added to the taxi.
+                                let (open, counted, uncounted) = unfolded.with(|u| open_from.with_value(|(tour, shown, _)| {
+                                    let open: Vec<Spending> = shown
                                         .iter()
                                         .filter(|s| u.iter().any(|id| id == s.id.as_str()))
+                                        .cloned()
                                         .collect();
-                                    (open.len(), open.iter().fold(Cents::ZERO, |sum, s| sum + tour.amount_in_current(s)))
+                                    let sum = |spent: bool| open
+                                        .iter()
+                                        .filter(|s| s.category.trim().is_empty() != spent)
+                                        .fold(Cents::ZERO, |sum, s| sum + tour.amount_in_current(s));
+                                    let (counted, uncounted) = (sum(true), sum(false));
+                                    (open, counted, uncounted)
                                 }));
                                 let unit = open_from.with_value(|(_, _, unit)| unit.clone());
-                                (n > 0).then(|| (t().expenses.open_sum)(n, &money(sum), &unit))
+                                (!open.is_empty()).then(|| {
+                                    let mut said = (t().expenses.open_count)(open.len());
+                                    if !counted.is_zero() || uncounted.is_zero() {
+                                        said += &format!(" · {} {unit}", money(counted));
+                                    }
+                                    if !uncounted.is_zero() {
+                                        let joint = if counted.is_zero() { " · " } else { " + " };
+                                        said += &format!("{joint}{} {}", money(uncounted), uncounted_label(&open));
+                                    }
+                                    said
+                                })
                             }}</span>
                             <button type="button" class="tcn-btn tcn-btn-sm"
                                     on:click=move |_| unfolded.set(Vec::new())>
