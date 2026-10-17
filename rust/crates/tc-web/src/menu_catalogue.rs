@@ -25,6 +25,7 @@ pub fn Catalogue(
     /// This tour's portions by weight - what a dish entered for the group is divided by,
     /// unless told otherwise. 0 on a template, which has nobody on it.
     portions: f64,
+    shares: Shares,
 ) -> impl IntoView {
     // What a search looks at: a dish's name, meals and what goes in; a product's name, unit,
     // place and who it is for; the daily list's products.
@@ -56,7 +57,7 @@ pub fn Catalogue(
         .zip(dish_hays.clone())
         .map(|(dish, hay)| view! {
             <div style:display=row_shown(hay)>
-                <DishRow menu=menu.clone() dish=dish.clone() state=state apply=apply portions=portions />
+                <DishRow menu=menu.clone() dish=dish.clone() state=state apply=apply portions=portions shares=shares />
             </div>
         })
         .collect_view();
@@ -437,7 +438,7 @@ fn parse_number(text: &str) -> Option<f64> {
 }
 
 #[component]
-fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>, portions: f64) -> impl IntoView {
+fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>, portions: f64, shares: Shares) -> impl IntoView {
     let id = dish.id.clone();
     let open = {
         let id = id.clone();
@@ -494,7 +495,7 @@ fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>,
                       }
                   }
               }>
-            <DishEditor menu=menu.clone() dish=editor_dish.clone() state=state apply=apply portions=portions />
+            <DishEditor menu=menu.clone() dish=editor_dish.clone() state=state apply=apply portions=portions shares=shares />
         </Show>
     }
 }
@@ -505,48 +506,77 @@ struct Row {
     key: u32,
     product: RwSignal<String>,
     amount: RwSignal<String>,
-    /// The number behind `amount` as it was shown, unrounded; NaN - none. Saved as it is
-    /// while the box still says what it was shown as: opening plov for 12 and saving it
-    /// again must not turn 83,333… g into 83,33.
+    /// The norm per portion behind `amount`, unrounded; NaN - none. The box shows it times
+    /// whatever the editor is showing (a portion, the group), and while it still says that,
+    /// the norm is saved as it is: opening plov for 12 and saving it again must not turn
+    /// 83,333… g into 83,33 - nor into 83,33333333333334 by way of ×12 ÷12.
     exact: RwSignal<f64>,
     /// On the daily list only.
     when: RwSignal<When>,
 }
 
 impl Row {
-    /// What the row says, `None` for a box that says no number.
-    fn value(&self) -> Option<f64> {
+    /// The norm per portion the row says, its box showing it times `by`; `None` for a box
+    /// that says no number.
+    fn norm(&self, by: f64) -> Option<f64> {
         let text = self.amount.get_untracked();
         let exact = self.exact.get_untracked();
-        if exact.is_finite() && text.trim() == shown(exact) {
+        if exact.is_finite() && text.trim() == shown(exact * by) {
             Some(exact)
         } else {
-            parse_number(&text)
+            parse_number(&text).map(|v| v / by)
         }
     }
 
-    /// The row's number times `by`: switching between a portion and the group.
-    fn scale(&self, by: f64) {
-        if let Some(v) = self.value() {
-            self.exact.set(v * by);
-            self.amount.set(shown(v * by));
+    /// The box showing the norm times `to` instead of `from`: a portion and the group.
+    fn rescale(&self, from: f64, to: f64) {
+        if let Some(norm) = self.norm(from) {
+            self.exact.set(norm);
+            self.amount.set(shown(norm * to));
+        }
+    }
+}
+
+/// How much of a group's portions eat a product: all of them, or the adults' or the
+/// children's part - by this tour. Wine for a group of 12 portions, 10 of them adults, is
+/// wine for 10: divided by 12, the shopping (adults' norm times the adults) bought 10/12 of
+/// what the recipe said.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Shares {
+    pub full: f64,
+    pub others: f64,
+}
+
+impl Shares {
+    /// A tour with nobody - a template - or nobody of one kind: the whole group, as the
+    /// number is then all there is to go by.
+    pub fn of(eating: &tc_core::menu::Eating) -> Shares {
+        let part = |p: f64| if eating.portions > 0.0 && p > 0.0 { p / eating.portions } else { 1.0 };
+        Shares { full: part(eating.full_portions), others: part(eating.others_portions) }
+    }
+
+    fn of_eaters(&self, eaters: Eaters) -> f64 {
+        match eaters {
+            Eaters::Everyone => 1.0,
+            Eaters::FullWeight => self.full,
+            Eaters::Others => self.others,
         }
     }
 }
 
 const WHENS: [When; 4] = [When::EveryDay, When::With(Meal::Breakfast), When::With(Meal::Lunch), When::With(Meal::Dinner)];
 
-/// Rows for these ingredients, keyed from 0, their amounts times `by`: 1 for a portion,
-/// the portions for a dish shown for the whole group.
-fn rows_of(items: &[Ingredient], by: f64) -> (RwSignal<Vec<Row>>, StoredValue<u32>) {
+/// Rows for these ingredients, keyed from 0, each amount shown times `by` of its product: 1
+/// for a portion, the group's portions of those who eat it for a dish shown for the group.
+fn rows_of(items: &[Ingredient], by: impl Fn(&str) -> f64) -> (RwSignal<Vec<Row>>, StoredValue<u32>) {
     let rows: Vec<Row> = items
         .iter()
         .enumerate()
         .map(|(i, item)| Row {
             key: i as u32,
             product: RwSignal::new(item.product.clone()),
-            amount: RwSignal::new(shown(item.amount * by)),
-            exact: RwSignal::new(item.amount * by),
+            amount: RwSignal::new(shown(item.amount * by(&item.product))),
+            exact: RwSignal::new(item.amount),
             when: RwSignal::new(item.when),
         })
         .collect();
@@ -554,13 +584,13 @@ fn rows_of(items: &[Ingredient], by: f64) -> (RwSignal<Vec<Row>>, StoredValue<u3
     (RwSignal::new(rows), next)
 }
 
-/// The ingredients as the rows say them, divided by `per`: 1, or the portions a group's
-/// amounts are for. Rows without a product or a number are skipped.
-fn ingredients_of(rows: &[Row], per: f64) -> Vec<Ingredient> {
+/// The ingredients as the rows say them, per portion: each box divided by `by` of its
+/// product, as [`rows_of`]. Rows without a product or a number are skipped.
+fn ingredients_of(rows: &[Row], by: impl Fn(&str) -> f64) -> Vec<Ingredient> {
     rows.iter()
         .filter_map(|r| {
             let product = r.product.get_untracked();
-            let amount = r.value()? / per;
+            let amount = r.norm(by(&product))?;
             (!product.is_empty()).then_some(Ingredient { product, amount, when: r.when.get_untracked() })
         })
         .collect()
@@ -967,7 +997,14 @@ fn Ingredients(
 }
 
 #[component]
-fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>, portions: f64) -> impl IntoView {
+fn DishEditor(
+    menu: Menu,
+    dish: Dish,
+    state: MenuState,
+    apply: Callback<Operation>,
+    portions: f64,
+    shares: Shares,
+) -> impl IntoView {
     let is_new = dish.id.is_empty();
     let name = RwSignal::new(dish.name.clone());
     let meals = RwSignal::new(dish.meals.clone());
@@ -977,12 +1014,18 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
     let group = RwSignal::new(serves.is_some());
     let tour_portions = (portions > 0.0).then(|| (portions * 10.0).round() / 10.0);
     let how_many = RwSignal::new(serves.or(tour_portions).map(shown).unwrap_or_default());
-    let (rows, next) = rows_of(&dish.ingredients, serves.unwrap_or(1.0));
+    let menu_for_save = StoredValue::new(menu.clone());
+    // What a product's box is times its norm, for a group of `n` portions: `n` of those who
+    // eat it - all, or the adults' or children's part. A product not in the menu yet is new
+    // and for everybody.
+    let for_group = move |product: &str, n: f64| {
+        n * menu_for_save.with_value(|m| m.product(product).map(|p| shares.of_eaters(p.eaters)).unwrap_or(1.0))
+    };
+    let (rows, next) = rows_of(&dish.ingredients, |p| serves.map_or(1.0, |n| for_group(p, n)));
     let fresh = new_rows(next);
     let error = RwSignal::new(None::<String>);
     let sure = RwSignal::new(false);
     let id = dish.id.clone();
-    let menu_for_save = StoredValue::new(menu.clone());
 
     let save = {
         let id = id.clone();
@@ -1008,7 +1051,7 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
             } else {
                 None
             };
-            let per = serves.unwrap_or(1.0);
+            let by = move |p: &str| serves.map_or(1.0, |n| for_group(p, n));
             let typed: Vec<Typed> = fresh.get_untracked().iter().map(NewRow::typed).collect();
             let (made, more) = match menu_for_save.with_value(|m| new_products(m, &typed)) {
                 Ok(x) => x,
@@ -1017,8 +1060,8 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
                     return;
                 }
             };
-            let mut ingredients = ingredients_of(&rows.get_untracked(), per);
-            ingredients.extend(more.into_iter().map(|i| Ingredient { amount: i.amount / per, ..i }));
+            let mut ingredients = ingredients_of(&rows.get_untracked(), by);
+            ingredients.extend(more.into_iter().map(|i| Ingredient { amount: i.amount / by(&i.product), ..i }));
             let dish = Dish {
                 id: if id.is_empty() { crate::edit::new_id() } else { id.clone() },
                 name,
@@ -1038,16 +1081,29 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
         if group.get_untracked() == to_group {
             return;
         }
-        let n = parse_number(&how_many.get_untracked()).unwrap_or(1.0);
-        let by = if to_group { n } else { 1.0 / n };
-        rows.with_untracked(|r| r.iter().for_each(|row| row.scale(by)));
-        fresh.with_untracked(|r| {
-            r.iter().for_each(|row| {
-                if let Some(v) = parse_number(&row.amount.get_untracked()) {
-                    row.amount.set(shown(v * by));
-                }
-            })
-        });
+        if let Some(n) = parse_number(&how_many.get_untracked()) {
+            rows.with_untracked(|r| {
+                r.iter().for_each(|row| {
+                    let group_by = for_group(&row.product.get_untracked(), n);
+                    let (from, to) = if to_group { (1.0, group_by) } else { (group_by, 1.0) };
+                    row.rescale(from, to);
+                })
+            });
+            // Typed as new: a name the menu has is that product, eaten as it is eaten.
+            fresh.with_untracked(|r| {
+                r.iter().for_each(|row| {
+                    let name = row.name.get_untracked().trim().to_lowercase();
+                    let group_by = menu_for_save.with_value(|m| {
+                        m.products.iter().find(|p| p.name.trim().to_lowercase() == name).map(|p| p.id.clone())
+                    });
+                    let group_by = group_by.map_or(n, |id| for_group(&id, n));
+                    if let Some(v) = parse_number(&row.amount.get_untracked()) {
+                        let by = if to_group { group_by } else { 1.0 / group_by };
+                        row.amount.set(shown(v * by));
+                    }
+                })
+            });
+        }
         group.set(to_group);
     };
     let remove = {
@@ -1161,7 +1217,7 @@ fn DailyRow(menu: Menu, state: MenuState, apply: Callback<Operation>) -> impl In
                   }
               }>
             {
-                let (rows, next) = rows_of(&items, 1.0);
+                let (rows, next) = rows_of(&items, |_| 1.0);
                 let fresh = new_rows(next);
                 let error = RwSignal::new(None::<String>);
                 let menu_for_save = StoredValue::new(menu.clone());
@@ -1174,7 +1230,7 @@ fn DailyRow(menu: Menu, state: MenuState, apply: Callback<Operation>) -> impl In
                             return;
                         }
                     };
-                    let mut items = ingredients_of(&rows.get_untracked(), 1.0);
+                    let mut items = ingredients_of(&rows.get_untracked(), |_| 1.0);
                     items.extend(more);
                     state.editing.set(None);
                     apply.run(Operation::Menu(with_products(made, MenuEdit::Daily(items))));
@@ -1595,6 +1651,48 @@ fn PlaceEditor(menu: Menu, place: tc_core::menu::Place, state: MenuState, apply:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Wine in a recipe for 12 portions, 10 of them adults, is wine for the 10.
+    #[test]
+    fn a_group_recipe_divides_the_adults_things_by_the_adults() {
+        let eating = tc_core::menu::Eating {
+            portions: 12.0,
+            full: 10.0,
+            others: 4.0,
+            full_portions: 10.0,
+            others_portions: 2.0,
+            full_weight: 100,
+        };
+        let s = Shares::of(&eating);
+        assert_eq!(s.of_eaters(Eaters::Everyone), 1.0);
+        assert!((s.of_eaters(Eaters::FullWeight) * 12.0 - 10.0).abs() < 1e-9);
+        assert!((s.of_eaters(Eaters::Others) * 12.0 - 2.0).abs() < 1e-9);
+        // Nobody on a template: the number is all there is.
+        let nobody = tc_core::menu::Eating { portions: 0.0, full: 0.0, others: 0.0, full_portions: 0.0, others_portions: 0.0, full_weight: 100 };
+        assert_eq!(Shares::of(&nobody), Shares { full: 1.0, others: 1.0 });
+    }
+
+    /// Opened for the group and saved untouched, a norm is the norm it was - not the one
+    /// that comes back from ×12 ÷12, which for many numbers is a hair off and made a
+    /// "dish changed" version out of nothing.
+    #[test]
+    fn a_norm_shown_for_the_group_is_saved_as_it_was() {
+        let _owner = Owner::new();
+        for n in [12.0, 8.9, 9.4, 7.0, 3.0] {
+            for a in [1000.0 / 12.0, 500.0 / 12.0, 178.0 / 8.9, 0.1, 1.0 / 3.0, 150.0, 41.666_666_666_666_664] {
+                let row = Row {
+                    key: 0,
+                    product: RwSignal::new("rice".into()),
+                    amount: RwSignal::new(shown(a * n)),
+                    exact: RwSignal::new(a),
+                    when: RwSignal::new(When::EveryDay),
+                };
+                assert_eq!(row.norm(n), Some(a), "{a} for {n}");
+                row.rescale(n, 1.0);
+                assert_eq!(row.norm(1.0), Some(a), "{a} back per portion");
+            }
+        }
+    }
 
     #[test]
     fn an_amount_reads_with_a_comma_or_a_point_and_must_be_more_than_nothing() {
