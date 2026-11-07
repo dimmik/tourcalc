@@ -470,9 +470,9 @@ pub const TEXTS: Texts = Texts {
         archived: "Archived ",
         archived_note: "— hidden from the default list",
         menu_on: "Plan the food",
-        menu_on_note: "— a Menu tab: what is cooked on which day, and what the group has to buy for it. \
-            The menu starts empty: dishes and products come from a template or the starter set, taken \
-            in the Catalogue",
+        menu_on_note: "— a Food tab: what is cooked on which day, and what the group has to buy for it. \
+            The tab starts empty: dishes and products come from a template or the starter set, taken \
+            in the Menu",
         currencies_of: |name| format!("Currencies of {name}"),
         main_currency: "Main currency",
         main_currency_note: "Totals and balances are calculated in this one. It is a property \
@@ -848,7 +848,7 @@ pub const TEXTS: Texts = Texts {
             kept and go out once you are signed in.",
     },
     menu: MenuTexts {
-        tab: "Menu",
+        tab: "Food",
         plan: "Plan",
         shopping: "Shopping",
         days: "Days",
@@ -895,7 +895,7 @@ pub const TEXTS: Texts = Texts {
         expense_category_is: "Expenses from the shopping go under",
         expense_category_change: "change",
         expense_category_hint: "Each expense adds its products' category: “Shopping/Alcohol”. Empty - “Shopping”.",
-        place_change: "Where it is bought - tap to change; empty is its place in the catalogue",
+        place_change: "Where it is bought - tap to change; empty is its place in the menu",
         in_shared: |amount| format!("✓ in one receipt, {amount}"),
         nothing_to_buy: "Nothing to buy: no dishes are planned.",
         find_product: "Find a product, a place, a person",
@@ -904,7 +904,7 @@ pub const TEXTS: Texts = Texts {
         to_me: "Mine",
         to_me_title: "I buy and pay for it",
         sort: "Sort",
-        sort_catalogue: "as in the catalogue",
+        sort_catalogue: "as in the menu",
         sort_name: "by name",
         sort_place: "by place",
         sort_buyer: "by who buys",
@@ -916,7 +916,7 @@ pub const TEXTS: Texts = Texts {
         group_person: "by who buys",
         no_place: "No place",
         where_buy: "Where",
-        where_buy_title: "Where it is bought: type it or pick one; empty - its place in the catalogue",
+        where_buy_title: "Where it is bought: type it or pick one; empty - its place in the menu",
         no_buyer: "Nobody yet",
         sort_category: "by category",
         product_category: "Category",
@@ -936,14 +936,14 @@ pub const TEXTS: Texts = Texts {
         nothing_mine: "Everybody else has taken all the shopping. Untick «Hide other people's \
             shopping» to see it.",
         category: "Groceries",
-        catalogue: "Catalogue",
+        catalogue: "Menu",
         template_title: "Menu template",
         transfer_title: "To another access code",
         copy_dish: "make a copy",
         copy_dish_title: "A copy of this dish, to change: plov with buckwheat starts as plov",
         copy_of: |name| format!("{name} (copy)"),
         new_dishes_note: "One dish a row; what goes in each is added afterwards, with Edit.",
-        clear_catalogue: "Clear the catalogue",
+        clear_catalogue: "Clear the menu",
         more_dish: "+ another dish",
         day_note_add: "✎ note",
         day_note_title: "A word for the day: arrival, radial hikes, leaving",
@@ -952,32 +952,32 @@ pub const TEXTS: Texts = Texts {
         clear_dishes_q: "Delete every dish? The products, the daily list and the places stay; the \
             meals they were planned on become “— nothing —”. The tour's versions keep them.",
         clear_daily: "Clear the daily list",
-        clear_daily_q: "Take everything off the daily list? The products stay in the catalogue.",
+        clear_daily_q: "Take everything off the daily list? The products stay in the menu.",
         clear_q: "Delete every dish, product and the daily list? The places stay; the plan and \
-            what was bought go with them. The tour's versions keep the old catalogue.",
+            what was bought go with them. The tour's versions keep the old menu.",
         transfer_about: "“Copy menu” puts this tour’s dishes, products, places and daily list on the \
             clipboard — no plan, no shopping, no people. Send it on; in a tour under the other code, \
-            “Paste menu” puts it in place of the catalogue, and there it can be saved as the template.",
+            “Paste menu” puts it in place of the menu, and there it can be saved as the template.",
         copy_menu: "Copy menu",
         menu_copied: "menu copied",
         paste_menu: "Paste menu",
         paste_here: "Paste the copied menu here",
-        take_pasted: "Replace the catalogue",
+        take_pasted: "Replace the menu",
         paste_q: "Replace this tour’s dishes, products, places and daily list with the pasted ones? \
             Meals with a dish they do not have are planned anew.",
         not_a_menu: "This does not look like a menu: copy it with “Copy menu”.",
         typed_product: "new product",
         new_product_note: |place| if place.is_empty() {
-            "A new product joins the catalogue for everybody, with no place; Products changes that.".to_owned()
+            "A new product joins the menu for everybody, with no place; Products changes that.".to_owned()
         } else {
-            format!("A new product joins the catalogue: bought at {place}, for everybody. Products changes that.")
+            format!("A new product joins the menu: bought at {place}, for everybody. Products changes that.")
         },
         amount_needed: "Say how much of the new product goes in.",
-        unit_differs: |name, unit| format!("“{name}” is in the catalogue already, counted in {unit}: \
+        unit_differs: |name, unit| format!("“{name}” is in the menu already, counted in {unit}: \
             choose {unit} in its row, or change the product under Products."),
         template_about: "This access code can keep several menu templates, each under its own name: \
             dishes, products, places and the daily list. A tour takes one of them or the starter set; \
-            “Save” puts this tour’s catalogue into one of them, or into a new one.",
+            “Save” puts this tour’s menu into one of them, or into a new one.",
         template_save: "Save as a template…",
         template_take: "Take from a template…",
         template_replace_q: |name| format!("Replace the template “{name}” with this tour’s dishes, \
@@ -990,9 +990,9 @@ pub const TEXTS: Texts = Texts {
         template_loading: "Loading…",
         template_is_this: "This is a menu template of this access code: any tour under the code can take \
             its dishes, products, places and daily list from here. Change them here.",
-        take_pick: "Take the catalogue from:",
+        take_pick: "Take the menu from:",
         starter_set: "Starter set",
-        save_pick: "Save this catalogue as:",
+        save_pick: "Save this menu as:",
         replace_choice: |name| format!("replace “{name}”"),
         new_template_choice: "a new template",
         new_template_label: "Name of the new template",
@@ -1002,8 +1002,8 @@ pub const TEXTS: Texts = Texts {
         template_save_go: "Save",
         empty_here: "Nothing here yet. Take dishes and products from the starter set or a template below, \
             or add your own.",
-        empty_elsewhere: "The catalogue is empty — dishes and products come from the Catalogue.",
-        open_catalogue: "Open the catalogue",
+        empty_elsewhere: "The menu is empty — dishes and products come from the Menu.",
+        open_catalogue: "Open the menu",
         dishes: "Dishes",
         per_portion_title: "for one portion",
         per_portion_day_title: "for one portion a day",

@@ -13,6 +13,7 @@ cache_read_input_tokens + cache_creation_input_tokens у ответа, в про
 import argparse
 import json
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 SKIP = ('<task-notification', '<local-command', '<command-name>', '<command-message>')
 
@@ -78,10 +79,12 @@ def main():
     ap.add_argument('log')
     ap.add_argument('text', nargs='?')
     ap.add_argument('--last', type=int, default=15)
-    ap.add_argument('--utc-offset', type=float, default=2, help='часы, по умолчанию +2 (CEST)')
+    ap.add_argument('--zone', default='Europe/Berlin',
+                    help='часовой пояс; по умолчанию CET зимой и CEST летом')
+    ap.add_argument('--utc-offset', type=float, help='сдвиг в часах вместо пояса')
     ap.add_argument('--window', type=int, default=1_000_000)
     a = ap.parse_args()
-    tz = timezone(timedelta(hours=a.utc_offset))
+    tz = ZoneInfo(a.zone) if a.utc_offset is None else timezone(timedelta(hours=a.utc_offset))
 
     def at(j):
         t = datetime.fromisoformat(j['timestamp'].replace('Z', '+00:00')).astimezone(tz)
