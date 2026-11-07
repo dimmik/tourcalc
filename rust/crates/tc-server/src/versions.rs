@@ -190,6 +190,7 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
     catalogue(&mut said, "dish", &was.dishes, &is.dishes, |d| (d.id.as_str(), d.name.as_str()));
     catalogue(&mut said, "product", &was.products, &is.products, |p| (p.id.as_str(), p.name.as_str()));
     catalogue(&mut said, "place", &was.places, &is.places, |p| (p.id.as_str(), p.name.as_str()));
+    catalogue(&mut said, "way of cooking", &was.methods, &is.methods, |m| (m.id.as_str(), m.name.as_str()));
     if was.daily != is.daily {
         said.push("daily list changed".to_owned());
     }
@@ -444,12 +445,12 @@ mod tests {
             let mut m = Menu {
                 on: true,
                 days: 2,
-                places: vec![Place { id: "m".into(), name: "Market".into() }],
+                places: vec![Place { id: "m".into(), name: "Market".into(), ..Place::default() }],
                 products: vec![Product { id: "lamb".into(), name: "Lamb".into(), place: "m".into(), ..Product::default() }],
                 ..Menu::default()
             };
             for (id, name) in [("plov", "Plov"), ("fish", "Fish")] {
-                m.dishes.push(Dish {
+                m.dishes.push(Dish { methods: Default::default(), rest: Default::default(),
                     id: id.into(),
                     name: name.into(),
                     meals: vec![Meal::Dinner],
@@ -489,6 +490,12 @@ mod tests {
         assert_eq!(describe_menu(&before, &elsewhere).as_deref(), Some("Menu: Lamb at Lidl"));
         let back = with_menu(&elsewhere, |m| m.set_bought_at(&["lamb".into()], ""));
         assert_eq!(describe_menu(&elsewhere, &back).as_deref(), Some("Menu: Lamb at its usual place"));
+        // A way of cooking is named as a dish is, not "changed".
+        let grill = with_menu(&before, |m| {
+            m.put_method(tc_core::menu::Method { id: "g".into(), name: "Grill".into(), ..Default::default() })
+        });
+        let said = describe_menu(&before, &grill).unwrap_or_default();
+        assert!(said.contains("Grill") && !said.ends_with("changed"), "{said}");
     }
 
     #[test]

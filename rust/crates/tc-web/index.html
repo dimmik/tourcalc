@@ -946,11 +946,35 @@
         .tcw-food-search { margin-bottom: 12px; }
         .tcw-buy-expense { grid-area: expense; justify-self: end; }
         .tcw-buy-done { font-size: 12.5px; font-weight: 600; color: var(--tcn-green, #047857); white-space: nowrap; }
+        /* Under the name, words that turn into boxes where they are: the note, "split", and
+           taking a part away - as "where" does. */
+        .tcw-buy-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; font-size: 11.5px;
+            color: var(--tcn-muted, #6b7280); margin-top: 1px; }
+        .tcw-buy-note { text-align: left; }
+        .tcw-buy-note.is-own { font-style: italic; font-weight: 400; text-decoration: none; }
+        .tcw-buy-acts > .tcw-share { flex-basis: 100%; margin: 3px 0; }
+        .tcw-buy-drop { text-decoration: none; }
+        .tcw-buy-qty { font-weight: 600; }
+        .tcw-buy-split { font-weight: 600; color: var(--tcn-primary, #4f46e5); }
+        .tcw-share-hint { font-size: 12px; color: var(--tcn-muted, #6b7280); }
+        .tcw-buy-total { display: block; font-size: 11px; font-weight: 400; color: var(--tcn-muted, #6b7280); }
+        .tcw-buy-details { grid-column: 1 / -1; display: grid; gap: 6px; padding: 6px 0 4px 28px; }
+        .tcw-buy-details > .tcn-input { padding: 4px 8px; font-size: 13px; }
+        .tcw-share { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+        .tcw-share select, .tcw-share input { width: auto; padding: 3px 6px; font-size: 13px; }
+        .tcw-share-amount { width: 5em !important; }
+        .tcw-share-place { width: 9em !important; }
+        .tcw-share-unit { color: var(--tcn-muted, #6b7280); }
+        .tcw-share-add { justify-self: start; }
         .tcw-buy.is-bought .tcw-buy-title, .tcw-buy.is-bought .tcw-buy-amount {
             color: var(--tcn-muted, #6b7280); text-decoration: line-through; font-weight: 400; }
+        /* In one line where there is room: the amount wide enough for "6 × bottle 0.75" and
+           wrapping beyond that rather than running under the buyer; the buyer and the expense
+           only as wide as they need, so the name keeps the rest. */
         @media (min-width: 740px) {
-            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 6.5em 17em 12.5em;
+            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 9.5em 12em 10em;
                 grid-template-areas: "tick name amount who expense"; }
+            .tcw-buy-amount { white-space: normal; }
             .tcw-buy-who select { flex: 1 1 auto; }
         }
         .tcw-errand-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
@@ -962,6 +986,7 @@
             border: 1px solid var(--tcn-border, #e5e7eb); }
         .tcw-cat.is-dishes { background: #f3f6ff; border-color: #dfe5fb; }
         .tcw-cat.is-daily { background: #f1faf4; border-color: #d5eedd; }
+        .tcw-cat.is-methods { background: #fdf3ee; border-color: #f3dccf; }
         .tcw-cat.is-products { background: #f6f6f4; border-color: #e4e4e0; }
         .tcw-cat.is-places { background: #fbf7f0; border-color: #eee3cf; }
         .tcw-cat-fold { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none;
@@ -976,6 +1001,8 @@
         .tcw-meal.is-breakfast { background: #fef3c7; color: #92400e; }
         .tcw-meal.is-lunch { background: #d1fae5; color: #065f46; }
         .tcw-meal.is-dinner { background: #e0e7ff; color: #3730a3; }
+        /* A way of cooking - the grill - beside a dish's meals: embers. */
+        .tcw-meal.is-method { background: #fde4d6; color: #9a3412; }
         .tcw-cat-meals { display: inline-flex; gap: 4px; flex-wrap: wrap; }
         .tcw-cat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 8px; }
         .tcw-cat-head h3 { margin: 0; font-size: 15px; }
@@ -998,6 +1025,8 @@
         .tcw-meal-pick.is-on.is-breakfast { border-color: #f59e0b; }
         .tcw-meal-pick.is-on.is-lunch { border-color: #10b981; }
         .tcw-meal-pick.is-on.is-dinner { border-color: #6366f1; }
+        .tcw-meal-pick.is-on.is-method { border-color: #ea580c; }
+        .tcw-cat-label { font-size: 13px; color: var(--tcn-muted, #6b7280); align-self: center; }
         .tcw-cat-fields { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
         .tcw-cat-fields label { display: grid; gap: 3px; font-size: 12.5px; color: var(--tcn-muted, #6b7280); }
         .tcw-cat-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -1023,7 +1052,8 @@
                 grid-template-areas: "product amount x" "per per per"; row-gap: 2px; }
             .tcw-ingr-row > select, .tcw-ingr-new > .tcw-ingr-name { grid-area: product; }
             .tcw-ingr-amount { grid-area: amount; }
-            .tcw-ingr-per { grid-area: per; text-align: right; }
+            .tcw-ingr-per { grid-area: per; text-align: left; }
+            .tcw-ingr-kind { min-width: 12em; }
             .tcw-ingr-x { grid-area: x; }
         }
         /* "Saved here for now": over the page, above the "+ Spend" button, rather than in it -

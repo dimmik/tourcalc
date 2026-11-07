@@ -13,7 +13,7 @@ use crate::i18n::t;
 use crate::menu::{folded, found, meal_name, search_box, when_name, MenuState};
 use crate::queue::Operation;
 use leptos::prelude::*;
-use tc_core::menu::{Dish, Eaters, Ingredient, Meal, Menu, Product, Unit, When};
+use tc_core::menu::{Dish, Eaters, Ingredient, Meal, Menu, Method, Per, Product, Unit, When};
 
 #[component]
 pub fn Catalogue(
@@ -95,6 +95,30 @@ pub fn Catalogue(
         .collect_view();
     let place_count = menu.places.len();
     let menu_for_new_place = menu.clone();
+    // The ways of cooking: by name and what goes in, as the dishes are found.
+    let method_hays: Vec<String> = menu
+        .methods
+        .iter()
+        .map(|m| folded(&format!("{} {}", m.name, method_summary(&menu, &m.ingredients))))
+        .collect();
+    let methods_shown = {
+        let hays = method_hays.clone();
+        Memo::new(move |_| {
+            if searching() { hays.iter().any(|h| found(&state.cat_find.get(), h)) } else { state.methods_open.get() }
+        })
+    };
+    let methods = menu
+        .methods
+        .iter()
+        .zip(method_hays)
+        .map(|(m, hay)| view! {
+            <div style:display=row_shown(hay)>
+                <MethodRow menu=menu.clone() method=m.clone() state=state apply=apply />
+            </div>
+        })
+        .collect_view();
+    let method_count = menu.methods.len();
+    let menu_for_new_method = menu.clone();
     let daily_shown = Memo::new(move |_| {
         if searching() { found(&state.cat_find.get(), &daily_hay) } else { state.daily_open.get() }
     });
@@ -162,6 +186,29 @@ pub fn Catalogue(
                         </button>
                     </div>
                 })}
+            </div>
+        </section>
+
+        <section class="tcw-cat is-methods">
+            <div class="tcw-cat-head">
+                {fold(state.methods_open, methods_shown, t().menu.methods_title, Some(method_count), None)}
+                <button type="button" class="tcn-btn tcn-btn-sm"
+                        on:click=move |_| {
+                            state.cat_find.set(String::new());
+                            state.methods_open.set(true);
+                            state.editing.set(Some(method_key("")));
+                        }>
+                    {t().menu.add_method}
+                </button>
+            </div>
+            <Show when=move || methods_shown.get()>
+                <p class="tcw-food-note">{t().menu.methods_note}</p>
+            </Show>
+            <div style:display=move || if methods_shown.get() { "" } else { "none" }>
+                <Show when=move || state.editing.get().as_deref() == Some("#")>
+                    <MethodEditor menu=menu_for_new_method.clone() method=Method::default() state=state apply=apply />
+                </Show>
+                {methods}
             </div>
         </section>
 
@@ -267,7 +314,7 @@ fn NewDishes(state: MenuState, apply: Callback<Operation>) -> impl IntoView {
         }
         let dishes: Vec<Dish> = named
             .iter()
-            .map(|r| Dish {
+            .map(|r| Dish { methods: Default::default(), rest: Default::default(),
                 id: crate::edit::new_id(),
                 name: r.name.get_untracked().trim().to_owned(),
                 meals: r.meals.get_untracked(),
@@ -358,7 +405,7 @@ fn unit_name(unit: Unit) -> &'static str {
 }
 
 /// What a product is counted in, as the lists say it: its own unit if it has one.
-fn unit_label(p: &Product) -> String {
+pub(crate) fn unit_label(p: &Product) -> String {
     match p.own_unit.as_deref().map(str::trim).filter(|u| !u.is_empty()) {
         Some(own) => own.to_owned(),
         None => unit_name(p.unit).to_owned(),
@@ -382,6 +429,64 @@ fn eaters_name(eaters: Eaters) -> &'static str {
     }
 }
 
+/// What an amount is for, as an ingredient's row says it: "per portion", "for each child",
+/// "per fire".
+pub(crate) fn per_name(per: Per, eaters: Eaters) -> &'static str {
+    let m = &t().menu;
+    match (per, eaters) {
+        (Per::Portion, Eaters::Everyone) => m.per_portion,
+        (Per::Portion, Eaters::FullWeight) => m.per_adult,
+        (Per::Portion, Eaters::Others) => m.per_child,
+        (Per::Head, Eaters::Everyone) => m.per_each,
+        (Per::Head, Eaters::FullWeight) => m.per_each_adult,
+        (Per::Head, Eaters::Others) => m.per_each_child,
+        (Per::Fire, _) => m.per_fire,
+        (Per::Trip, _) => m.per_trip,
+        (Per::Day, _) => m.per_day,
+    }
+}
+
+/// Which list of ingredients is being edited: what amounts there can be for.
+#[derive(Clone, Copy, PartialEq)]
+enum List {
+    Dish,
+    Daily,
+    /// A way of cooking's: "per use" first - charcoal each time the grill is lit.
+    Method,
+}
+
+/// A select of what an amount is for, `unit` before each - "g per portion", "pck per use".
+/// "Per use" is a way of cooking's; elsewhere only if it is there already, from before ways
+/// of cooking, when the charcoal was in the dishes.
+fn per_select(per: RwSignal<Per>, list: List, eaters: impl Fn() -> Eaters + Copy + Send + Sync + 'static, unit: impl Fn() -> String + Copy + Send + Sync + 'static) -> impl IntoView {
+    let options = move || {
+        let order: Vec<Per> = if list == List::Method {
+            [Per::Fire, Per::Portion, Per::Head, Per::Trip, Per::Day].to_vec()
+        } else {
+            Per::ALL.into_iter().filter(|k| *k != Per::Fire || per.get_untracked() == Per::Fire).collect()
+        };
+        order
+            .into_iter()
+            .map(|k| {
+                let word = if list == List::Method && k == Per::Fire { t().menu.per_use } else { per_name(k, eaters()) };
+                let label = format!("{} {}", unit(), word).trim().to_owned();
+                view! { <option value=format!("{k:?}") prop:selected=move || per.get() == k>{label}</option> }
+            })
+            .collect_view()
+    };
+    view! {
+        <select class="tcw-ingr-when tcw-ingr-kind" title=t().menu.per_kind_title
+                on:change=move |ev| {
+                    let v = event_target_value(&ev);
+                    if let Some(k) = Per::ALL.into_iter().find(|k| format!("{k:?}") == v) {
+                        per.set(k);
+                    }
+                }>
+            {options}
+        </select>
+    }
+}
+
 /// Where a product is used, by name: "Plov, Fish, Every day" - so that "cannot delete it"
 /// says what to change first.
 fn used_in(menu: &Menu, product: &str) -> String {
@@ -391,6 +496,7 @@ fn used_in(menu: &Menu, product: &str) -> String {
         .filter(|d| d.ingredients.iter().any(|i| i.product == product))
         .map(|d| d.name.clone())
         .collect();
+    places.extend(menu.methods.iter().filter(|m| m.ingredients.iter().any(|i| i.product == product)).map(|m| m.name.clone()));
     if menu.daily.iter().any(|i| i.product == product) {
         places.push(t().menu.daily_title.to_owned());
     }
@@ -410,14 +516,15 @@ fn summary(menu: &Menu, items: &[Ingredient]) -> String {
                 When::EveryDay => String::new(),
                 w => format!(" {}", when_name(w)),
             };
-            Some(format!("{} {}\u{a0}{}{when}", p.name.to_lowercase(), number(i.amount), unit_label(p)))
+            let per = if i.per.is_portion() { String::new() } else { format!(" {}", per_name(i.per, p.eaters)) };
+            Some(format!("{} {}\u{a0}{}{per}{when}", p.name.to_lowercase(), number(i.amount), unit_label(p)))
         })
         .collect::<Vec<_>>()
         .join(" · ")
 }
 
 /// An amount as typed and shown: no ".0", the reader's decimal mark.
-fn number(x: f64) -> String {
+pub(crate) fn number(x: f64) -> String {
     let text = if x.fract() == 0.0 { format!("{x:.0}") } else { format!("{x}") };
     text.replace('.', &crate::ui::decimal().to_string())
 }
@@ -434,6 +541,7 @@ fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>)
         move || state.editing.get().as_deref() == Some(id.as_str())
     };
     let meals: Vec<Meal> = dish.meals.clone();
+    let cooked: Vec<String> = dish.methods.iter().filter_map(|m| menu.method(m)).map(|m| m.name.clone()).collect();
     let what = summary(&menu, &dish.ingredients);
     let editor_dish = dish.clone();
     let copy_name = (t().menu.copy_of)(&dish.name);
@@ -443,6 +551,7 @@ fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>)
                   let id = id.clone();
                   let name = dish.name.clone();
                   let meals = meals.clone();
+                  let cooked = cooked.clone();
                   let what = what.clone();
                   let copy_name = copy_name.clone();
                   move || {
@@ -457,6 +566,7 @@ fn DishRow(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operation>)
                                       {meals.iter().map(|m| view! {
                                           <span class=format!("tcw-meal {}", meal_class(*m))>{meal_name(*m)}</span>
                                       }).collect_view()}
+                                      {cooked.iter().map(|m| view! { <span class="tcw-meal is-method">{m.clone()}</span> }).collect_view()}
                                   </span>
                                   <small class="tcw-cat-what">{what.clone()}</small>
                                   // A copy, opened at once: what is copied is usually to be
@@ -497,6 +607,9 @@ struct Row {
     amount: RwSignal<String>,
     /// On the daily list only.
     when: RwSignal<When>,
+    per: RwSignal<Per>,
+    /// What a later version said about the ingredient, kept through the save.
+    rest: StoredValue<serde_json::Map<String, serde_json::Value>>,
 }
 
 const WHENS: [When; 4] = [When::EveryDay, When::With(Meal::Breakfast), When::With(Meal::Lunch), When::With(Meal::Dinner)];
@@ -511,6 +624,8 @@ fn rows_of(items: &[Ingredient]) -> (RwSignal<Vec<Row>>, StoredValue<u32>) {
             product: RwSignal::new(item.product.clone()),
             amount: RwSignal::new(number(item.amount)),
             when: RwSignal::new(item.when),
+            per: RwSignal::new(item.per),
+            rest: StoredValue::new(item.rest.clone()),
         })
         .collect();
     let next = StoredValue::new(rows.len() as u32);
@@ -523,7 +638,7 @@ fn ingredients_of(rows: &[Row]) -> Vec<Ingredient> {
         .filter_map(|r| {
             let product = r.product.get_untracked();
             let amount = parse_number(&r.amount.get_untracked())?;
-            (!product.is_empty()).then_some(Ingredient { product, amount, when: r.when.get_untracked() })
+            (!product.is_empty()).then_some(Ingredient { product, amount, when: r.when.get_untracked(), per: r.per.get_untracked(), rest: r.rest.get_value() })
         })
         .collect()
 }
@@ -542,6 +657,7 @@ struct NewRow {
     /// A unit of its own being typed, as against picked from the list.
     typing: RwSignal<bool>,
     when: RwSignal<When>,
+    per: RwSignal<Per>,
 }
 
 impl NewRow {
@@ -556,6 +672,7 @@ impl NewRow {
             own: RwSignal::new(None),
             typing: RwSignal::new(false),
             when: RwSignal::new(When::EveryDay),
+            per: RwSignal::new(Per::Portion),
         }
     }
 
@@ -570,19 +687,26 @@ impl NewRow {
             unit: self.unit.get_untracked(),
             own: self.own.get_untracked(),
             when: self.when.get_untracked(),
+            per: self.per.get_untracked(),
         }
     }
 }
 
-/// The rows for new products: one blank.
-fn new_rows(next: StoredValue<u32>) -> RwSignal<Vec<NewRow>> {
-    RwSignal::new(vec![NewRow::blank(next)])
+/// The rows for new products: one blank, its amount for `per` to start with.
+fn new_rows(next: StoredValue<u32>, per: Per) -> RwSignal<Vec<NewRow>> {
+    let row = NewRow::blank(next);
+    row.per.set(per);
+    RwSignal::new(vec![row])
 }
 
-/// A blank row at the end, whatever was typed into the last one.
+/// A blank row at the end, whatever was typed into the last one - its amount for what the
+/// first new row's is.
 fn keep_spare(fresh: RwSignal<Vec<NewRow>>, next: StoredValue<u32>) {
     if fresh.with_untracked(|r| r.last().is_none_or(|last| !last.is_blank())) {
-        fresh.update(|r| r.push(NewRow::blank(next)));
+        let per = fresh.with_untracked(|r| r.first().map_or(Per::Portion, |x| x.per.get_untracked()));
+        let row = NewRow::blank(next);
+        row.per.set(per);
+        fresh.update(|r| r.push(row));
     }
 }
 
@@ -593,6 +717,7 @@ struct Typed {
     unit: Unit,
     own: Option<String>,
     when: When,
+    per: Per,
 }
 
 /// The products typed as new, and the ingredients they make.
@@ -650,11 +775,12 @@ fn new_products(menu: &Menu, typed: &[Typed]) -> Result<(Vec<Product>, Vec<Ingre
                     eaters: Eaters::Everyone,
                     own_unit: own.map(str::to_owned),
                     category: None,
+                    ..Product::default()
                 });
                 id
             }
         };
-        items.push(Ingredient { product, amount, when: row.when });
+        items.push(Ingredient { product, amount, when: row.when, per: row.per, ..Ingredient::default() });
     }
     Ok((made, items))
 }
@@ -675,8 +801,9 @@ fn Ingredients(
     rows: RwSignal<Vec<Row>>,
     next: StoredValue<u32>,
     fresh: RwSignal<Vec<NewRow>>,
-    per_day: bool,
+    list: List,
 ) -> impl IntoView {
+    let per_day = list == List::Daily;
     // The units of its own the tour's products already have, offered for a new one too.
     let mut known_units: Vec<String> = Vec::new();
     for p in &menu.products {
@@ -747,6 +874,8 @@ fn Ingredients(
                 product: RwSignal::new(String::new()),
                 amount: RwSignal::new(String::new()),
                 when: RwSignal::new(When::EveryDay),
+                per: RwSignal::new(if list == List::Method { Per::Fire } else { Per::Portion }),
+                rest: StoredValue::new(Default::default()),
             })
         });
     };
@@ -762,21 +891,13 @@ fn Ingredients(
                             })
                             .collect_view()
                     });
-                    // "g per portion", "ml per adult": what the number means for this product.
-                    let per = move || {
+                    // "g per portion", "pcs for each child", "pack per fire": what the number means
+                    // for this product - the product's unit, and the kind picked.
+                    let chosen = move || {
                         let chosen = row.product.get();
-                        products.with_value(|ps| {
-                            ps.iter().find(|(id, ..)| *id == chosen).map(|(_, _, unit, eaters)| {
-                                let whom = match eaters {
-                                    Eaters::Everyone => t().menu.per_portion,
-                                    Eaters::FullWeight => t().menu.per_adult,
-                                    Eaters::Others => t().menu.per_child,
-                                };
-                                format!("{unit} {whom}")
-                            })
-                        })
-                        .unwrap_or_default()
+                        products.with_value(|ps| ps.iter().find(|(id, ..)| *id == chosen).map(|(_, _, unit, eaters)| (unit.clone(), *eaters)))
                     };
+                    let per = per_select(row.per, list, move || chosen().map_or(Eaters::Everyone, |c| c.1), move || chosen().map(|c| c.0).unwrap_or_default());
                     view! {
                         <div class="tcw-ingr-row">
                             <select class="tcn-input"
@@ -893,7 +1014,7 @@ fn Ingredients(
                                            prop:value=move || row.own.get().unwrap_or_default()
                                            on:input=move |ev| row.own.set(Some(event_target_value(&ev))) />
                                 </Show>
-                                " " {t().menu.per_portion}
+                                " " {per_select(row.per, list, || Eaters::Everyone, String::new)}
                                 {when_select(row.when)}
                             </span>
                             <button type="button" class="tcn-btn tcn-btn-sm tcw-ingr-x" title=t().menu.remove
@@ -928,11 +1049,14 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
     let name = RwSignal::new(dish.name.clone());
     let meals = RwSignal::new(dish.meals.clone());
     let (rows, next) = rows_of(&dish.ingredients);
-    let fresh = new_rows(next);
+    let fresh = new_rows(next, Per::Portion);
     let error = RwSignal::new(None::<String>);
     let sure = RwSignal::new(false);
+    let methods = RwSignal::new(dish.methods.clone());
     let id = dish.id.clone();
     let menu_for_save = StoredValue::new(menu.clone());
+    // What a later version said about the dish, kept through the save.
+    let rest = StoredValue::new(dish.rest.clone());
 
     let save = {
         let id = id.clone();
@@ -963,6 +1087,8 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
                 meals,
                 meal: None,
                 ingredients,
+                methods: methods.get_untracked(),
+                rest: rest.get_value(),
             };
             state.editing.set(None);
             apply.run(Operation::Menu(with_products(made, MenuEdit::PutDish(dish))));
@@ -1004,6 +1130,38 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
         })
         .collect_view();
 
+    // The ways of cooking, pressed as the meals are; none in the menu - a word on where to
+    // add one.
+    let method_boxes = if menu.methods.is_empty() {
+        view! { <small class="tcw-cat-what">{t().menu.no_methods}</small> }.into_any()
+    } else {
+        menu.methods
+            .iter()
+            .map(|m| {
+                let mid = m.id.clone();
+                let on = {
+                    let mid = mid.clone();
+                    move || methods.get().contains(&mid)
+                };
+                view! {
+                    <button type="button" class="tcw-meal tcw-meal-pick is-method"
+                            class:is-on=on.clone()
+                            aria-pressed=move || on().to_string()
+                            on:click=move |_| methods.update(|x| {
+                                if x.contains(&mid) {
+                                    x.retain(|y| *y != mid);
+                                } else {
+                                    x.push(mid.clone());
+                                }
+                            })>
+                        {m.name.clone()}
+                    </button>
+                }
+            })
+            .collect_view()
+            .into_any()
+    };
+
     view! {
         <div class="tcn-card tcw-cat-edit">
             <Show when=move || error.get().is_some()>
@@ -1013,7 +1171,11 @@ fn DishEditor(menu: Menu, dish: Dish, state: MenuState, apply: Callback<Operatio
                    prop:value=move || name.get()
                    on:input=move |ev| name.set(event_target_value(&ev)) />
             <div class="tcw-cat-meals-edit">{meal_boxes}</div>
-            <Ingredients menu=menu.clone() rows=rows next=next fresh=fresh per_day=false />
+            <div class="tcw-cat-meals-edit">
+                <span class="tcw-cat-label">{t().menu.cooked_on}</span>
+                {method_boxes}
+            </div>
+            <Ingredients menu=menu.clone() rows=rows next=next fresh=fresh list=List::Dish />
             <div class="tcw-cat-actions">
                 {(!is_new).then(|| view! {
                     <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" on:click=remove.clone()>
@@ -1052,7 +1214,7 @@ fn DailyRow(menu: Menu, state: MenuState, apply: Callback<Operation>) -> impl In
               }>
             {
                 let (rows, next) = rows_of(&items);
-                let fresh = new_rows(next);
+                let fresh = new_rows(next, Per::Portion);
                 let error = RwSignal::new(None::<String>);
                 let menu_for_save = StoredValue::new(menu.clone());
                 let save = move |_| {
@@ -1074,7 +1236,7 @@ fn DailyRow(menu: Menu, state: MenuState, apply: Callback<Operation>) -> impl In
                         <Show when=move || error.get().is_some()>
                             <div class="tcn-errors">{move || error.get().unwrap_or_default()}</div>
                         </Show>
-                        <Ingredients menu=menu.clone() rows=rows next=next fresh=fresh per_day=true />
+                        <Ingredients menu=menu.clone() rows=rows next=next fresh=fresh list=List::Daily />
                         <div class="tcw-cat-actions">
                             <span class="tcw-cat-gap"></span>
                             <button type="button" class="tcn-btn tcn-btn-sm" on:click=move |_| state.editing.set(None)>
@@ -1154,9 +1316,13 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
     // A new place being typed: its name. `None` - one of the tour's places.
     let new_place = RwSignal::new(None::<String>);
     let category = RwSignal::new(product.category.clone().map(|c| c.trim().to_owned()).filter(|c| !c.is_empty()));
+    // What a later version said about the product, kept through the save.
+    let rest = StoredValue::new(product.rest.clone());
     // A new category being typed, as with units.
     let new_category = RwSignal::new(false);
     let eaters = RwSignal::new(product.eaters);
+    let pack = RwSignal::new(product.pack_size().map(number).unwrap_or_default());
+    let pack_name = RwSignal::new(product.pack_name.clone().unwrap_or_default());
     let error = RwSignal::new(None::<&'static str>);
     let id = product.id.clone();
 
@@ -1184,9 +1350,16 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                     error.set(Some(t().menu.place_needed));
                     return;
                 }
-                Some(n) => Some(tc_core::menu::Place { id: crate::edit::new_id(), name: n }),
+                Some(n) => Some(tc_core::menu::Place { id: crate::edit::new_id(), name: n, ..Default::default() }),
                 None => None,
             };
+            let pack_text = pack.get_untracked();
+            let pack = parse_number(&pack_text);
+            if pack.is_none() && !pack_text.trim().is_empty() {
+                error.set(Some(t().menu.amount_needed));
+                return;
+            }
+            let pack_name = Some(pack_name.get_untracked().trim().to_owned()).filter(|n| !n.is_empty() && pack.is_some());
             let product = Product {
                 id: if id.is_empty() { crate::edit::new_id() } else { id.clone() },
                 name,
@@ -1196,6 +1369,9 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                 eaters: eaters.get_untracked(),
                 own_unit,
                 category: category.filter(|c| !c.is_empty()),
+                pack,
+                pack_name,
+                rest: rest.get_value(),
             };
             state.editing.set(None);
             let edit = match fresh {
@@ -1291,7 +1467,10 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                     </select>
                 </label>
                 <Show when=unit_changed.clone()>
-                    <div class="tcn-hint tcw-cat-warn">{t().menu.unit_changed}</div>
+                    <div class="tcn-hint tcw-cat-warn">
+                        {t().menu.unit_changed}
+                        {move || parse_number(&pack.get()).is_some().then(|| format!(" {}", t().menu.pack_unit_changed))}
+                    </div>
                 </Show>
                 <Show when=move || typing.get()>
                     <label>
@@ -1361,6 +1540,20 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                         }
                     }>{whom}</select>
                 </label>
+                <label>
+                    <span>{t().menu.pack}</span>
+                    <input class="tcn-input" type="text" inputmode="decimal" placeholder=t().menu.pack_placeholder
+                           prop:value=move || pack.get()
+                           on:input=move |ev| pack.set(event_target_value(&ev)) />
+                </label>
+                <Show when=move || parse_number(&pack.get()).is_some()>
+                    <label>
+                        <span>{t().menu.pack_name}</span>
+                        <input class="tcn-input" type="text" placeholder=t().menu.pack_name_placeholder
+                               prop:value=move || pack_name.get()
+                               on:input=move |ev| pack_name.set(event_target_value(&ev)) />
+                    </label>
+                </Show>
             </div>
             <div class="tcw-cat-actions">
                 {(!is_new).then(|| if used {
@@ -1371,6 +1564,141 @@ fn ProductEditor(menu: Menu, product: Product, state: MenuState, apply: Callback
                             {t().menu.delete}
                         </button>
                     }.into_any()
+                })}
+                <span class="tcw-cat-gap"></span>
+                <button type="button" class="tcn-btn tcn-btn-sm" on:click=move |_| state.editing.set(None)>
+                    {t().dialogs.cancel}
+                </button>
+                <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-primary" on:click=save>
+                    {t().dialogs.save}
+                </button>
+            </div>
+        </div>
+    }
+}
+
+/// What `editing` says for a way of cooking; "#" alone for a new one.
+pub(crate) fn method_key(id: &str) -> String {
+    format!("#{id}")
+}
+
+/// A way of cooking in the menu: its name and what it takes each time, and an editor.
+#[component]
+pub(crate) fn MethodRow(menu: Menu, method: Method, state: MenuState, apply: Callback<Operation>) -> impl IntoView {
+    let key = method_key(&method.id);
+    let open = {
+        let key = key.clone();
+        move || state.editing.get().as_deref() == Some(key.as_str())
+    };
+    let what = method_summary(&menu, &method.ingredients);
+    let dishes: Vec<String> = menu.dishes.iter().filter(|d| d.methods.contains(&method.id)).map(|d| d.name.clone()).collect();
+    let editor = method.clone();
+    view! {
+        <Show when=open.clone()
+              fallback={
+                  let key = key.clone();
+                  let name = method.name.clone();
+                  let what = what.clone();
+                  let dishes = dishes.join(", ");
+                  move || {
+                      let key = key.clone();
+                      view! {
+                          <div class="tcw-cat-row">
+                              <div class="tcw-cat-main">
+                                  <b>{name.clone()}</b>
+                                  <small class="tcw-cat-what">{what.clone()}</small>
+                                  {(!dishes.is_empty()).then(|| view! {
+                                      <small class="tcw-cat-what">{(t().menu.method_dishes)(&dishes)}</small>
+                                  })}
+                              </div>
+                              <button type="button" class="tcn-btn tcn-btn-sm"
+                                      on:click=move |_| state.editing.set(Some(key.clone()))>
+                                  {t().menu.edit}
+                              </button>
+                          </div>
+                      }
+                  }
+              }>
+            <MethodEditor menu=menu.clone() method=editor.clone() state=state apply=apply />
+        </Show>
+    }
+}
+
+/// "charcoal 2.5 pck per use · firelighters 0.4 pck per use".
+pub(crate) fn method_summary(menu: &Menu, items: &[Ingredient]) -> String {
+    if items.is_empty() {
+        return t().menu.no_ingredients.to_owned();
+    }
+    items
+        .iter()
+        .filter_map(|i| {
+            let p = menu.product(&i.product)?;
+            let per = if i.per == Per::Fire { t().menu.per_use } else { per_name(i.per, p.eaters) };
+            Some(format!("{} {}\u{a0}{} {per}", p.name.to_lowercase(), number(i.amount), unit_label(p)))
+        })
+        .collect::<Vec<_>>()
+        .join(" · ")
+}
+
+#[component]
+pub(crate) fn MethodEditor(menu: Menu, method: Method, state: MenuState, apply: Callback<Operation>) -> impl IntoView {
+    let is_new = method.id.is_empty();
+    let name = RwSignal::new(method.name.clone());
+    let (rows, next) = rows_of(&method.ingredients);
+    let fresh = new_rows(next, Per::Fire);
+    let error = RwSignal::new(None::<String>);
+    let id = method.id.clone();
+    let rest = StoredValue::new(method.rest.clone());
+    let menu_for_save = StoredValue::new(menu.clone());
+    let save = {
+        let id = id.clone();
+        move |_| {
+            let name = name.get_untracked().trim().to_owned();
+            if name.is_empty() {
+                error.set(Some(t().menu.name_needed.to_owned()));
+                return;
+            }
+            let typed: Vec<Typed> = fresh.get_untracked().iter().map(NewRow::typed).collect();
+            let (made, more) = match menu_for_save.with_value(|m| new_products(m, &typed)) {
+                Ok(x) => x,
+                Err(why) => {
+                    error.set(Some(why));
+                    return;
+                }
+            };
+            let mut ingredients = ingredients_of(&rows.get_untracked());
+            ingredients.extend(more);
+            let method = Method {
+                id: if id.is_empty() { crate::edit::new_id() } else { id.clone() },
+                name,
+                ingredients,
+                rest: rest.get_value(),
+            };
+            state.editing.set(None);
+            apply.run(Operation::Menu(with_products(made, MenuEdit::PutMethod(method))));
+        }
+    };
+    let remove = {
+        let id = id.clone();
+        move |_| {
+            state.editing.set(None);
+            apply.run(Operation::Menu(MenuEdit::RemoveMethod(id.clone())));
+        }
+    };
+    view! {
+        <div class="tcn-card tcw-cat-edit">
+            <Show when=move || error.get().is_some()>
+                <div class="tcn-errors">{move || error.get().unwrap_or_default()}</div>
+            </Show>
+            <input class="tcn-input tcw-cat-name" type="text" placeholder=t().menu.method_name
+                   prop:value=move || name.get()
+                   on:input=move |ev| name.set(event_target_value(&ev)) />
+            <Ingredients menu=menu.clone() rows=rows next=next fresh=fresh list=List::Method />
+            <div class="tcw-cat-actions">
+                {(!is_new).then(|| view! {
+                    <button type="button" class="tcn-btn tcn-btn-sm tcn-btn-danger" on:click=remove.clone()>
+                        {t().menu.delete}
+                    </button>
                 })}
                 <span class="tcw-cat-gap"></span>
                 <button type="button" class="tcn-btn tcn-btn-sm" on:click=move |_| state.editing.set(None)>
@@ -1428,6 +1756,8 @@ fn PlaceRow(menu: Menu, place: tc_core::menu::Place, state: MenuState, apply: Ca
 fn PlaceEditor(menu: Menu, place: tc_core::menu::Place, state: MenuState, apply: Callback<Operation>) -> impl IntoView {
     let is_new = place.id.is_empty();
     let name = RwSignal::new(place.name.clone());
+    // What a later version said about the place, kept through the save.
+    let rest = place.rest.clone();
     let error = RwSignal::new(None::<&'static str>);
     // What is bought there, by name - why it cannot go.
     let here: Vec<String> = menu.products.iter().filter(|p| p.place == place.id).map(|p| p.name.clone()).collect();
@@ -1442,7 +1772,7 @@ fn PlaceEditor(menu: Menu, place: tc_core::menu::Place, state: MenuState, apply:
             }
             let id = if id.is_empty() { crate::edit::new_id() } else { id.clone() };
             state.editing.set(None);
-            apply.run(Operation::Menu(MenuEdit::PutPlace(tc_core::menu::Place { id, name })));
+            apply.run(Operation::Menu(MenuEdit::PutPlace(tc_core::menu::Place { id, name, rest: rest.clone() })));
         }
     };
     let remove = {
@@ -1495,7 +1825,7 @@ mod tests {
     }
 
     fn typed(name: &str, amount: &str, unit: Unit, own: Option<&str>) -> Typed {
-        Typed { name: name.into(), amount: amount.into(), unit, own: own.map(Into::into), when: When::EveryDay }
+        Typed { name: name.into(), amount: amount.into(), unit, own: own.map(Into::into), when: When::EveryDay, per: Per::Portion }
     }
 
     /// Pearl barley typed into the solyanka: a product at the supermarket, for everybody, and
@@ -1542,8 +1872,8 @@ mod tests {
         let mut menu = crate::menu::starter(1);
         assert_eq!(crate::menu::place_for_new(&menu), "supermarket");
         menu.places = vec![
-            Place { id: "a".into(), name: "Рынок".into() },
-            Place { id: "b".into(), name: " супермаркет ".into() },
+            Place { id: "a".into(), name: "Рынок".into(), ..Default::default() },
+            Place { id: "b".into(), name: " супермаркет ".into(), ..Default::default() },
         ];
         assert_eq!(crate::menu::place_for_new(&menu), "b");
         menu.places.truncate(1);

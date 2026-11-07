@@ -5,21 +5,38 @@
 //! the shopping by places, each with whoever does it, a tick per product, and the expense
 //! it was recorded as.
 
-use crate::edit::{MenuEdit, SpendingDraft};
+use crate::edit::{MenuEdit, SpendingDraft, SplitChange};
 use crate::i18n::{t, Lang};
 use crate::queue::Operation;
 use crate::tour::Dialog;
 use crate::ui::money_in;
 use leptos::prelude::*;
-use tc_core::menu::{Dish, Eaters, Eating, Ingredient, Meal, Menu, Place, Product, Slot, Unit, When};
+use tc_core::menu::{Dish, Eaters, Eating, Ingredient, Meal, Menu, Place, Product, Slot, Split, Unit, When};
 use tc_core::{PersonId, Tour};
 
 /// Which of the tab's three views is open.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum View {
     Plan,
     Shopping,
     Catalogue,
+}
+
+impl View {
+    /// How the view is named at the end of an address: `/tour/x/menu/shopping`, so that a
+    /// link to the shopping opens the shopping. The catalogue is the Menu on screen, and its
+    /// dishes in the address - `/menu/menu` reads like a typo.
+    pub fn part(self) -> &'static str {
+        match self {
+            View::Plan => "plan",
+            View::Shopping => "shopping",
+            View::Catalogue => "dishes",
+        }
+    }
+
+    pub fn of_part(part: &str) -> Option<View> {
+        [View::Plan, View::Shopping, View::Catalogue].into_iter().find(|v| v.part().eq_ignore_ascii_case(part))
+    }
 }
 
 /// Text as a search compares it: case and "ё" aside.
@@ -120,6 +137,7 @@ pub struct MenuState {
     pub daily_open: RwSignal<bool>,
     pub products_open: RwSignal<bool>,
     pub places_open: RwSignal<bool>,
+    pub methods_open: RwSignal<bool>,
     /// Who this phone is: the shopping shows theirs.
     pub me: RwSignal<Option<String>>,
     /// Other people's shopping too, although somebody is picked. Without it the shopping
@@ -143,6 +161,7 @@ impl MenuState {
             daily_open: RwSignal::new(true),
             products_open: RwSignal::new(false),
             places_open: RwSignal::new(false),
+            methods_open: RwSignal::new(true),
             me: RwSignal::new(crate::settings::me(tour)),
             everybody: RwSignal::new(false),
             days: RwSignal::new(Vec::new()),
@@ -282,13 +301,13 @@ const DAILY: &[(&str, f64, When)] = &[
 pub fn starter(days: u32) -> Menu {
     let ru = crate::i18n::lang() == Lang::Ru;
     let pick = |en: &str, ru_: &str| if ru { ru_.to_owned() } else { en.to_owned() };
-    let mut menu = Menu {
+    let mut menu = Menu { methods: Default::default(), rest: Default::default(),
         on: true,
         days: days.max(1),
         start: None,
         places: PLACES
             .iter()
-            .map(|(id, en, r)| Place { id: (*id).into(), name: pick(en, r) })
+            .map(|(id, en, r)| Place { id: (*id).into(), name: pick(en, r), ..Place::default() })
             .collect(),
         products: PRODUCTS
             .iter()
@@ -300,11 +319,12 @@ pub fn starter(days: u32) -> Menu {
                 eaters: *eaters,
                 own_unit: own.map(|(en, r)| pick(en, r)),
                 category: starter_category(id).map(|(en, r)| pick(en, r)),
+                ..Product::default()
             })
             .collect(),
         dishes: DISHES
             .iter()
-            .map(|(id, en, r, meals, items)| Dish {
+            .map(|(id, en, r, meals, items)| Dish { methods: Default::default(), rest: Default::default(),
                 id: (*id).into(),
                 name: pick(en, r),
                 meals: meals.to_vec(),
@@ -317,7 +337,7 @@ pub fn starter(days: u32) -> Menu {
             .collect(),
         daily: DAILY
             .iter()
-            .map(|(product, amount, when)| Ingredient { product: (*product).into(), amount: *amount, when: *when })
+            .map(|(product, amount, when)| Ingredient { product: (*product).into(), amount: *amount, when: *when, ..Ingredient::default() })
             .collect(),
         plan: Vec::new(),
         purchases: Vec::new(),
@@ -338,6 +358,24 @@ pub fn quantity_of(amount: f64, product: &Product) -> String {
     match product.own_unit.as_deref().filter(|u| !u.trim().is_empty()) {
         Some(own) => format!("{}\u{a0}{}", to_step(amount, 1.0), own.trim()),
         None => quantity(amount, product.unit),
+    }
+}
+
+/// So much of a product as it is bought: whole packs, if it comes in them - "2 × 1 l" for
+/// 1.9 l of milk, "2 × stack of 10" for 13 lavash - else as [`quantity_of`] says.
+pub fn to_buy(amount: f64, product: &Product) -> String {
+    match product.pack_size() {
+        Some(size) => {
+            let name = product
+                .pack_name
+                .as_deref()
+                .map(str::trim)
+                .filter(|n| !n.is_empty())
+                .map(str::to_owned)
+                .unwrap_or_else(|| quantity_of(size, product));
+            (t().menu.pack_times)(tc_core::menu::packs(amount, size), &name)
+        }
+        None => quantity_of(amount, product),
     }
 }
 
@@ -1372,16 +1410,40 @@ fn Shopping(
     let need_of = |id: &str, days: &[u32]| {
         menu.shopping_on(&eating, days).iter().find(|n| n.product.id == id).map_or(0.0, |n| n.amount)
     };
+    // What the whole trip needs, counted once for the list rather than again for every line.
+    let whole_trip = menu.shopping_on(&eating, &all_days);
+    let whole_of = |id: &str| whole_trip.iter().find(|n| n.product.id == id).map_or(0.0, |n| n.amount);
+    // What the days need - and, over some days, a product with a split-off line not ticked yet
+    // although these days need none of it: Sasha's coffee from home is on Friday's list too,
+    // where there is no breakfast, until it is packed.
+    let mut needs = menu.shopping_on(&eating, &chosen);
+    if subset {
+        for n in &whole_trip {
+            let waiting = menu.purchase(&n.product.id).is_some_and(|p| p.splits.iter().any(|x| !x.bought));
+            if waiting && !needs.iter().any(|x| x.product.id == n.product.id) {
+                needs.push(tc_core::menu::Need { product: n.product, amount: 0.0 });
+            }
+        }
+        needs.sort_by_key(|n| menu.products.iter().position(|p| p.id == n.product.id));
+    }
     // Everything to buy, owned, with what has been said about each.
-    let lines: Vec<Line> = menu
-        .shopping_on(&eating, &chosen)
+    let lines: Vec<Line> = needs
         .into_iter()
-        .map(|n| {
+        .flat_map(|n| {
             let (dishes, daily) = menu.sources_on(&n.product.id, &chosen);
             let mut why: Vec<String> = dishes.iter().map(|(d, times)| format!("{} ×{times}", d.name)).collect();
+            why.extend(menu.methods_for(&n.product.id, &chosen).iter().map(|(m, times)| format!("{} ×{times}", m.name)));
             if let Some(when) = daily {
-                let times = chosen.iter().filter(|&&day| menu.daily_on(when, day)).count();
-                why.push(format!("{} ×{times}", when_name(when)));
+                let per = menu.daily.iter().find(|i| i.product == n.product.id).map(|i| i.per).unwrap_or_default();
+                if per == tc_core::menu::Per::Trip {
+                    why.push(t().menu.per_trip.to_owned());
+                } else {
+                    let times = chosen.iter().filter(|&&day| menu.daily_on(when, day)).count();
+                    // None of these days: a split-off line shown for being not packed yet.
+                    if times > 0 {
+                        why.push(format!("{} ×{times}", when_name(when)));
+                    }
+                }
             }
             let place_name = menu.bought_at(n.product);
             let purchase = menu.purchase(&n.product.id).cloned().unwrap_or_default();
@@ -1430,7 +1492,8 @@ fn Shopping(
             // Saturday too - but the one the line's own expense already shows; and, ticked for
             // some days, how much is left for the others.
             let parts_note = {
-                let total = need_of(id, &needed);
+                // Every day it is needed on is the whole trip's amount.
+                let total = whole_of(id);
                 let mut bits: Vec<String> = purchase
                     .parts
                     .iter()
@@ -1449,22 +1512,38 @@ fn Shopping(
                     .collect();
                 let left: Vec<u32> = needed.iter().copied().filter(|d| !covered.contains(d)).collect();
                 if !purchase.bought && !covered.is_empty() && !left.is_empty() {
-                    bits.push((t().menu.left_for)(&quantity_of(need_of(id, &left), n.product), &days_label(&menu, &left)));
+                    bits.push((t().menu.left_for)(&to_buy(need_of(id, &left), n.product), &days_label(&menu, &left)));
                 }
                 bits.join(" · ")
             };
-            let hay = folded(&format!("{} {} {} {} {} {}", n.product.name, place_name, category, buyer, whom(n.product.eaters), why.join(" ")));
-            Line {
+            let hay_of = |buyer: &str, place: &str, note: &str| {
+                folded(&format!("{} {place} {category} {buyer} {note} {} {}", n.product.name, whom(n.product.eaters), why.join(" ")))
+            };
+            let name_of = |who: Option<&str>| {
+                who.and_then(|w| shoppers.iter().find(|(id, _)| id == w)).map(|(_, name)| name.clone()).unwrap_or_default()
+            };
+            // The rest, after what is split off - over some days, its share of their amount.
+            let whole = whole_of(id);
+            let rest = if whole > 0.0 { (whole - purchase.split_off()).max(0.0) / whole } else { 1.0 };
+            let own_place = menu.places.iter().find(|p| p.id == n.product.place).map(|p| p.name.clone()).unwrap_or_default();
+            let note = purchase.note.clone().unwrap_or_default();
+            let base = Line {
                 product: n.product.clone(),
-                amount: n.amount,
-                purchase,
+                amount: n.amount * rest,
+                total: n.amount,
+                by_people: menu.by_people(&n.product.id),
+                split: None,
+                splits: purchase.splits.len(),
+                who: purchase.who.clone(),
+                hay: hay_of(&buyer, &place_name, &note),
+                note,
+                purchase: purchase.clone(),
                 why: why.join(" · "),
-                hay,
                 place_order: place_order(&place_name),
                 place: place_name,
-                own_place: menu.places.iter().find(|p| p.id == n.product.place).map(|p| p.name.clone()).unwrap_or_default(),
+                own_place: own_place.clone(),
                 category_order: categories.iter().position(|c| *c == category).unwrap_or(usize::MAX),
-                category,
+                category: category.clone(),
                 order: menu.products.iter().position(|p| p.id == n.product.id).unwrap_or(usize::MAX),
                 days,
                 tick_days,
@@ -1472,7 +1551,39 @@ fn Shopping(
                 spending,
                 recorded_parts,
                 parts_note,
+            };
+            // Each split-off line is for the whole trip: over some days, there until ticked.
+            let mut out: Vec<Line> = purchase
+                .splits
+                .iter()
+                .filter(|x| !subset || !x.bought)
+                .map(|x| {
+                    let place = x.place.clone().unwrap_or_else(|| own_place.clone());
+                    let note = x.note.clone().unwrap_or_default();
+                    Line {
+                        amount: x.amount,
+                        total: x.amount,
+                        split: Some(x.id.clone()),
+                        who: x.who.clone(),
+                        hay: hay_of(&name_of(x.who.as_deref()), &place, &note),
+                        note,
+                        place_order: place_order(&place),
+                        place,
+                        days: Vec::new(),
+                        tick_days: Vec::new(),
+                        ticked: x.bought,
+                        spending: x.spending.clone().filter(|s| exists(s)),
+                        recorded_parts: false,
+                        parts_note: String::new(),
+                        ..base.clone()
+                    }
+                })
+                .collect();
+            // Nothing of it needed over these days: only its split-off lines.
+            if n.amount > 0.0 {
+                out.insert(0, base);
             }
+            out
         })
         .collect();
     if lines.is_empty() {
@@ -1482,7 +1593,7 @@ fn Shopping(
     // Somebody picked and everything taken by others, or nothing found: say so, rather than
     // an empty screen.
     let anything_shown = {
-        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.purchase.who.clone(), l.hay.clone())).collect();
+        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.who.clone(), l.hay.clone())).collect();
         move || rows.iter().any(|(who, hay)| visible_line(state, who.as_deref(), hay))
     };
 
@@ -1548,7 +1659,7 @@ fn Shopping(
                     let here: Vec<Line> = lines
                         .iter()
                         .filter(|l| {
-                            let who = l.purchase.who.as_deref().filter(|w| shoppers.iter().any(|(id, _)| id == w));
+                            let who = l.who.as_deref().filter(|w| shoppers.iter().any(|(id, _)| id == w));
                             who == buyer.as_ref().map(|(id, _)| id.as_str())
                         })
                         .cloned()
@@ -1665,7 +1776,19 @@ const PLACES_LIST: &str = "tcw-shop-places";
 #[derive(Clone)]
 struct Line {
     product: Product,
+    /// What this line buys: a split-off line's amount, or what the days need less those.
     amount: f64,
+    /// What the days need, all lines of the product together.
+    total: f64,
+    /// A split-off line's id; `None` - the purchase itself, the rest.
+    split: Option<String>,
+    /// How many lines are split off the product.
+    splits: usize,
+    /// Who buys this line, and the note for them.
+    who: Option<String>,
+    note: String,
+    /// Counted by people somewhere, so whom it is for means something - see `Menu::by_people`.
+    by_people: bool,
     purchase: tc_core::menu::Purchase,
     /// What it is for: "Plov ×1 · Fish ×2", "every day".
     why: String,
@@ -1701,11 +1824,7 @@ struct Line {
 /// that the meat stays together within "Dima's".
 fn sort_lines(lines: &mut [Line], sort: Sort, shoppers: &[(String, String)]) {
     let buyer = |l: &Line| {
-        l.purchase
-            .who
-            .as_deref()
-            .and_then(|w| shoppers.iter().find(|(id, _)| id == w))
-            .map(|(_, name)| name.to_lowercase())
+        l.who.as_deref().and_then(|w| shoppers.iter().find(|(id, _)| id == w)).map(|(_, name)| name.to_lowercase())
     };
     match sort {
         Sort::Catalogue => lines.sort_by_key(|l| l.order),
@@ -1714,7 +1833,7 @@ fn sort_lines(lines: &mut [Line], sort: Sort, shoppers: &[(String, String)]) {
         Sort::Category => lines.sort_by_key(|l| (l.category_order, l.order)),
         // Nobody's last: those are the ones still to share out.
         Sort::Buyer => lines.sort_by_key(|l| (buyer(l).is_none(), buyer(l), l.order)),
-        Sort::NotBought => lines.sort_by_key(|l| (l.purchase.bought, l.order)),
+        Sort::NotBought => lines.sort_by_key(|l| (l.ticked, l.order)),
     }
 }
 
@@ -1732,9 +1851,9 @@ fn visible_line(state: MenuState, who: Option<&str>, hay: &str) -> bool {
     shown(state, who) && found(&state.shop_find.get(), hay)
 }
 
-/// Whether a product bought by `who` is on screen: everybody's are, unless somebody is
-/// picked as "me" and others' are hidden - then theirs and nobody's, nobody's so that there
-/// is something to take.
+/// Whether a line bought by `who` is on screen: everybody's are, unless somebody is picked
+/// as "me" and others' are hidden - then theirs and nobody's, nobody's so that there is
+/// something to take.
 fn shown(state: MenuState, who: Option<&str>) -> bool {
     match (state.me.get(), who) {
         (Some(me), Some(who)) if !state.everybody.get() => who == me,
@@ -1763,6 +1882,7 @@ fn expense_for(tour: &Tour, who: Option<&str>, description: String, lines: &[&Li
     }
     d.purchases = lines.iter().map(|l| l.product.id.clone()).collect();
     d.days_of = lines.iter().map(|l| l.days.clone()).collect();
+    d.splits = lines.iter().map(|l| l.split.clone().unwrap_or_default()).collect();
     d
 }
 
@@ -1836,6 +1956,218 @@ fn by_whom<'a>(lines: &[&'a Line]) -> Vec<(Eaters, Vec<&'a Line>)> {
 }
 
 /// A card of the shopping: one place's, or everything in one list.
+/// Who buys a line: the purchase's buyer, or a split-off line's.
+fn buyer_edit(product: &str, split: Option<&str>, who: Option<String>) -> MenuEdit {
+    match split {
+        Some(id) => MenuEdit::SplitChange { product: product.to_owned(), id: id.to_owned(), change: SplitChange::Who(who) },
+        None => MenuEdit::Buyer { products: vec![product.to_owned()], who },
+    }
+}
+
+/// An amount as typed for a line: packs, if the product comes in them - "1" is a pack of 250 g
+/// of coffee - else its own unit; and back.
+fn typed_amount(text: &str, product: &Product) -> Option<f64> {
+    let x = text.trim().replace(',', ".").parse::<f64>().ok().filter(|a| a.is_finite() && *a > 0.0)?;
+    Some(x * product.pack_size().unwrap_or(1.0))
+}
+
+fn amount_unit(product: &Product) -> String {
+    match product.pack_size() {
+        Some(size) => product
+            .pack_name
+            .as_deref()
+            .map(str::trim)
+            .filter(|n| !n.is_empty())
+            .map(str::to_owned)
+            .unwrap_or_else(|| format!("× {}", quantity_of(size, product))),
+        None => crate::menu_catalogue::unit_label(product),
+    }
+}
+
+/// What a line buys, at its right: whole packs, or "all split off" for a rest with nothing
+/// left; under a rest, "of" the whole. A split-off line's amount is tapped to change it.
+fn amount_cell(line: &Line, change: impl Fn(MenuEdit) + Copy + Send + Sync + 'static) -> AnyView {
+    // A split-off line is what somebody brings, as said - half a pack of coffee is 125 g, not
+    // "1 × pack"; in packs only when it is whole ones.
+    let whole_packs = line.product.pack_size().is_some_and(|size| {
+        let n = line.amount / size;
+        n >= 1.0 && (n - n.round()).abs() < 1e-6
+    });
+    let text = if line.amount <= 0.0 {
+        t().menu.all_split.to_owned()
+    } else if line.split.is_some() && !whole_packs {
+        // As typed: 125 g is 125, not the shop's 120.
+        format!("{}\u{a0}{}", crate::menu_catalogue::number((line.amount * 100.0).round() / 100.0), crate::menu_catalogue::unit_label(&line.product))
+    } else {
+        to_buy(line.amount, &line.product)
+    };
+    let Some(split) = line.split.clone() else {
+        let of = (line.total > line.amount + 1e-9).then(|| (t().menu.of_total)(&quantity_of(line.total, &line.product)));
+        return view! { {text} {of.map(|o| view! { <small class="tcw-buy-total">{o}</small> })} }.into_any();
+    };
+    let typing = RwSignal::new(false);
+    let id = line.product.id.clone();
+    let product = line.product.clone();
+    let unit = amount_unit(&line.product);
+    let value = crate::menu_catalogue::number(((line.amount / line.product.pack_size().unwrap_or(1.0)) * 1000.0).round() / 1000.0);
+    view! {
+        <Show when=move || typing.get()
+              fallback=move || view! {
+                  <button type="button" class="tcw-buy-place tcw-buy-qty" on:click=move |_| typing.set(true)>{text.clone()}</button>
+              }>
+            {
+                let (id, split, product, value, unit) = (id.clone(), split.clone(), product.clone(), value.clone(), unit.clone());
+                view! {
+                    <input type="text" class="tcn-input tcw-share-amount" inputmode="decimal" autofocus=true
+                           prop:value=value
+                           on:change=move |ev| {
+                               typing.set(false);
+                               if let Some(x) = typed_amount(&event_target_value(&ev), &product) {
+                                   change(MenuEdit::SplitChange { product: id.clone(), id: split.clone(), change: SplitChange::Amount(x) });
+                               }
+                           }
+                           on:blur=move |_| typing.set(false)
+                           on:keydown=move |ev| if ev.key() == "Escape" { typing.set(false) } />
+                    <small class="tcw-share-unit">{unit}</small>
+                }
+            }
+        </Show>
+    }
+    .into_any()
+}
+
+/// Under a line's name, words that turn into boxes where they are, as "where" does: the note
+/// ("+ note", or the note itself), "split" - who and how much, as a line of its own - and,
+/// on a split product, taking a part or the rest away. Saved field by field, as the
+/// shopping's other choices are; taking away asks first when it has an expense.
+fn line_acts(
+    line: &Line,
+    recorded_as: Option<String>,
+    rest_recorded: Option<String>,
+    shoppers: &[(String, String)],
+    change: impl Fn(MenuEdit) + Copy + Send + Sync + 'static,
+) -> AnyView {
+    let id = line.product.id.clone();
+    let split = line.split.clone();
+    let note = line.note.clone();
+    let product = line.product.clone();
+    let noting = RwSignal::new(false);
+    let splitting = RwSignal::new(false);
+    let sure = |money: &Option<String>| money.as_deref().is_none_or(|m| ask(&(t().menu.recorded_stays)(m)));
+
+    let note_word = {
+        let note = note.clone();
+        move || {
+            let has = !note.is_empty();
+            let text = if has { note.clone() } else { t().menu.note_add.to_owned() };
+            view! {
+                <button type="button" class="tcw-buy-place tcw-buy-note" class:is-own=has title=t().menu.note_title
+                        on:click=move |_| noting.set(true)>{text}</button>
+            }
+        }
+    };
+    let note_box = {
+        let (id, split, note) = (id.clone(), split.clone(), note.clone());
+        move || {
+            let (id, split) = (id.clone(), split.clone());
+            view! {
+                <input type="text" class="tcn-input tcw-buy-at" autofocus=true prop:value=note.clone()
+                       placeholder=t().menu.note_placeholder
+                       on:change=move |ev| {
+                           noting.set(false);
+                           let note = event_target_value(&ev);
+                           change(match &split {
+                               Some(s) => MenuEdit::SplitChange { product: id.clone(), id: s.clone(), change: SplitChange::Note(note) },
+                               None => MenuEdit::Note { product: id.clone(), note },
+                           });
+                       }
+                       on:blur=move |_| noting.set(false)
+                       on:keydown=move |ev| if ev.key() == "Escape" { noting.set(false) } />
+            }
+        }
+    };
+    // The rest only: split some off. A box for how much, a pick of who, and "Split off".
+    let split_form = {
+        let id = id.clone();
+        let product = product.clone();
+        let options = shoppers.to_vec();
+        move || {
+            let typed = RwSignal::new(String::new());
+            let to = RwSignal::new(String::new());
+            let (id, product, product2) = (id.clone(), product.clone(), product.clone());
+            let options = options
+                .iter()
+                .map(|(pid, name)| view! { <option value=pid.clone()>{name.clone()}</option> })
+                .collect_view();
+            view! {
+                <span class="tcw-share">
+                    <select class="tcn-input" title=t().menu.buyer on:change=move |ev| to.set(event_target_value(&ev))>
+                        <option value="" selected=true>{t().menu.nobody_yet}</option>
+                        {options}
+                    </select>
+                    <input type="text" class="tcn-input tcw-share-amount" inputmode="decimal" autofocus=true
+                           placeholder="1" prop:value=move || typed.get()
+                           on:input=move |ev| typed.set(event_target_value(&ev))
+                           on:keydown=move |ev| if ev.key() == "Escape" { splitting.set(false) } />
+                    <small class="tcw-share-unit">{amount_unit(&product)}</small>
+                    <button type="button" class="tcn-btn tcn-btn-sm"
+                            prop:disabled=move || typed_amount(&typed.get(), &product2).is_none()
+                            on:click=move |_| {
+                                let Some(x) = typed_amount(&typed.get_untracked(), &product) else { return };
+                                let who = Some(to.get_untracked()).filter(|w| !w.is_empty());
+                                splitting.set(false);
+                                let split = Split { id: crate::edit::new_id(), who, amount: x, ..Split::default() };
+                                change(MenuEdit::SplitOff { product: id.clone(), split });
+                            }>
+                        {t().menu.split_off}
+                    </button>
+                    <button type="button" class="tcn-btn tcn-btn-sm tcw-ingr-x" title=t().dialogs.cancel
+                            on:click=move |_| splitting.set(false)>"✕"</button>
+                </span>
+            }
+        }
+    };
+    let take_away = match &split {
+        Some(s) => {
+            let (id, s) = (id.clone(), s.clone());
+            Some(view! {
+                <button type="button" class="tcw-buy-place tcw-buy-drop" title=t().menu.remove_part_title
+                        on:click=move |_| if sure(&recorded_as) { change(MenuEdit::RemoveSplit { product: id.clone(), id: s.clone() }) }>
+                    {t().menu.remove_part}
+                </button>
+            }.into_any())
+        }
+        None if line.splits > 0 => {
+            let id = id.clone();
+            Some(view! {
+                <button type="button" class="tcw-buy-place tcw-buy-drop" title=t().menu.remove_rest_title
+                        on:click=move |_| if sure(&rest_recorded) { change(MenuEdit::DropRest { product: id.clone() }) }>
+                    {t().menu.remove_rest}
+                </button>
+            }.into_any())
+        }
+        None => None,
+    };
+    let is_rest = split.is_none();
+    view! {
+        <small class="tcw-buy-acts">
+            <Show when=move || !noting.get() fallback=note_box>{note_word()}</Show>
+            {is_rest.then(|| view! {
+                " · "
+                <Show when=move || splitting.get()
+                      fallback=move || view! {
+                          <button type="button" class="tcw-buy-place" title=t().menu.split_title
+                                  on:click=move |_| splitting.set(true)>{t().menu.split_word}</button>
+                      }>
+                    {split_form.clone()}
+                </Show>
+            })}
+            {take_away.map(|b| view! { " · " {b} })}
+        </small>
+    }
+    .into_any()
+}
+
 #[component]
 fn ListCard(
     tour: Tour,
@@ -1858,8 +2190,8 @@ fn ListCard(
             .cloned()
     };
 
-    // "Everybody: Dima" - every product here at once.
-    let all_ids: Vec<String> = lines.iter().map(|l| l.product.id.clone()).collect();
+    // "Everybody: Dima" - every line here at once.
+    let all_ids: Vec<(String, Option<String>)> = lines.iter().map(|l| (l.product.id.clone(), l.split.clone())).collect();
     let everybody_options = shoppers
         .iter()
         .map(|(id, name)| view! { <option value=id.clone()>{name.clone()}</option> })
@@ -1869,7 +2201,8 @@ fn ListCard(
         if v == "?" {
             return;
         }
-        change(MenuEdit::Buyer { products: all_ids.clone(), who: (!v.is_empty()).then_some(v) });
+        let who = (!v.is_empty()).then_some(v);
+        change(MenuEdit::All(all_ids.iter().map(|(product, split)| buyer_edit(product, split.as_deref(), who.clone())).collect()));
     };
 
     // Bought, not recorded, and on screen: one receipt for all of them.
@@ -1881,7 +2214,7 @@ fn ListCard(
     let together = {
         let tour = tour.clone();
         move || {
-            let these: Vec<&Line> = unrecorded.iter().filter(|l| shown(state, l.purchase.who.as_deref())).collect();
+            let these: Vec<&Line> = unrecorded.iter().filter(|l| shown(state, l.who.as_deref())).collect();
             if these.len() < 2 {
                 return None;
             }
@@ -1891,8 +2224,8 @@ fn ListCard(
             let buttons = groups
                 .into_iter()
                 .map(|(eaters, these)| {
-                    let first = these[0].purchase.who.clone();
-                    let who = if these.iter().all(|l| l.purchase.who == first) { first } else { state.me.get() };
+                    let first = these[0].who.clone();
+                    let who = if these.iter().all(|l| l.who == first) { first } else { state.me.get() };
                     let prefix = shopping_prefix(&tour, &receipt_days(&these));
                     let names: Vec<String> = these.iter().map(|l| l.product.name.to_lowercase()).collect();
                     let description = if names.len() > 3 {
@@ -1916,7 +2249,7 @@ fn ListCard(
     };
 
     let visible_here = {
-        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.purchase.who.clone(), l.hay.clone())).collect();
+        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.who.clone(), l.hay.clone())).collect();
         move || rows.iter().any(|(who, hay)| visible_line(state, who.as_deref(), hay))
     };
 
@@ -1924,7 +2257,8 @@ fn ListCard(
         .iter()
         .map(|line| {
             let id = line.product.id.clone();
-            let who = line.purchase.who.clone();
+            let split = line.split.clone();
+            let who = line.who.clone();
             let ticked = line.ticked;
             let options = shoppers
                 .iter()
@@ -1935,9 +2269,10 @@ fn ListCard(
                 .collect_view();
             let pick = {
                 let id = id.clone();
+                let split = split.clone();
                 move |ev: leptos::ev::Event| {
                     let v = event_target_value(&ev);
-                    change(MenuEdit::Buyer { products: vec![id.clone()], who: (!v.is_empty()).then_some(v) });
+                    change(buyer_edit(&id, split.as_deref(), (!v.is_empty()).then_some(v)));
                 }
             };
             // Where: a word under the name, which a tap turns into a box with the places said
@@ -1945,7 +2280,7 @@ fn ListCard(
             // with the catalogue's place as its grey hint, every row looked unset.
             let placing = RwSignal::new(false);
             let place_word = {
-                let own = line.purchase.place.is_some();
+                let own = line.place != line.own_place;
                 let label = if line.place.is_empty() { t().menu.where_buy.to_owned() } else { line.place.clone() };
                 move || {
                     view! {
@@ -1956,16 +2291,22 @@ fn ListCard(
             };
             let place_box = {
                 let id = id.clone();
-                let typed = line.purchase.place.clone().unwrap_or_default();
+                let typed = if line.place != line.own_place { line.place.clone() } else { String::new() };
+                let split = split.clone();
                 let hint = if line.own_place.is_empty() { t().menu.where_buy.to_owned() } else { line.own_place.clone() };
                 move || {
                     let id = id.clone();
+                    let split = split.clone();
                     view! {
                         <input type="text" class="tcn-input tcw-buy-at" list=PLACES_LIST autofocus=true
                                prop:value=typed.clone() placeholder=hint.clone() title=t().menu.where_buy_title
                                on:change=move |ev| {
                                    placing.set(false);
-                                   change(MenuEdit::BuyAt { products: vec![id.clone()], place: event_target_value(&ev) });
+                                   let place = event_target_value(&ev);
+                                   change(match &split {
+                                       Some(s) => MenuEdit::SplitChange { product: id.clone(), id: s.clone(), change: SplitChange::Place(place) },
+                                       None => MenuEdit::BuyAt { products: vec![id.clone()], place },
+                                   });
                                }
                                on:blur=move |_| placing.set(false)
                                on:keydown=move |ev| if ev.key() == "Escape" { placing.set(false) } />
@@ -1976,9 +2317,12 @@ fn ListCard(
             let tick = {
                 let id = id.clone();
                 let days = line.tick_days.clone();
+                let split = split.clone();
                 move |ev: leptos::ev::Event| {
                     let bought = event_target_checked(&ev);
-                    if days.is_empty() {
+                    if let Some(s) = &split {
+                        change(MenuEdit::SplitChange { product: id.clone(), id: s.clone(), change: SplitChange::Bought(bought) });
+                    } else if days.is_empty() {
                         change(MenuEdit::Bought { product: id.clone(), bought });
                     } else {
                         change(MenuEdit::BoughtOn { product: id.clone(), days: days.clone(), bought });
@@ -2023,17 +2367,25 @@ fn ListCard(
                 let hay = line.hay.clone();
                 move || visible_line(state, who.as_deref(), &hay)
             };
+            let money_of = |sid: &str| {
+                tour.spendings.iter().find(|s| s.id.as_str() == sid).map(|s| money_in(tour.convert(s.amount, &s.currency), &unit))
+            };
+            let recorded_as = line.spending.as_deref().and_then(money_of);
+            let rest_recorded = line.purchase.spending.as_deref().and_then(money_of);
+            let acts = line_acts(line, recorded_as, rest_recorded, &shoppers, change);
+            let amount_cell = amount_cell(line, change);
             // "Mine": one tap instead of finding oneself in the list - there when somebody is
             // picked as "me" and the product is not theirs yet.
             let to_me = {
                 let id = id.clone();
                 let who = who.clone();
+                let split = split.clone();
                 move || {
                     let me = state.me.get().filter(|me| who.as_deref() != Some(me.as_str()))?;
-                    let id = id.clone();
+                    let edit = buyer_edit(&id, split.as_deref(), Some(me));
                     Some(view! {
                         <button type="button" class="tcn-btn tcn-btn-sm tcw-buy-me" title=t().menu.to_me_title
-                                on:click=move |_| change(MenuEdit::Buyer { products: vec![id.clone()], who: Some(me.clone()) })>
+                                on:click=move |_| change(edit.clone())>
                             {t().menu.to_me}
                         </button>
                     })
@@ -2048,15 +2400,20 @@ fn ListCard(
                         <span class="tcw-buy-name">
                             <span class="tcw-buy-title">{line.product.name.clone()}</span>
                             <small class="tcw-buy-why">
+                                {(line.splits > 0).then(|| view! {
+                                    <b class="tcw-buy-split">{if line.split.is_some() { t().menu.split_part } else { t().menu.split_rest }}</b>
+                                    " · "
+                                })}
                                 <Show when=move || !placing.get() fallback=place_box>{place_word()}</Show>
-                                " · " {whom(line.product.eaters)} " · "
+                                " · " {line.by_people.then(|| if line.why.is_empty() { whom(line.product.eaters).to_owned() } else { format!("{} · ", whom(line.product.eaters)) })}
                                 {line.why.clone()}
                             </small>
                             {(!line.parts_note.is_empty()).then(|| view! {
                                 <small class="tcw-buy-parts">{line.parts_note.clone()}</small>
                             })}
+                            {acts}
                         </span>
-                        <span class="tcw-buy-amount">{quantity_of(line.amount, &line.product)}</span>
+                        <span class="tcw-buy-amount">{amount_cell}</span>
                         <span class="tcw-buy-who">
                             <select class="tcn-input" title=t().menu.buyer on:change=pick>
                                 <option value="" selected=who.is_none()>{t().menu.nobody_yet}</option>
@@ -2322,6 +2679,48 @@ mod tests {
         assert_eq!(template_owners(&lonely, &tours), t().list.template_for_none);
     }
 
+    /// Coffee split: a pack from Sasha's home and the rest by Sergey. Recording Sasha's line
+    /// points his line at the expense, not the rest; taking the rest away leaves Sasha's line
+    /// as the whole purchase, his expense with it.
+    #[test]
+    fn a_split_off_line_has_its_own_expense() {
+        use crate::edit::{put_menu, put_spending, MenuEdit};
+        let t = switched(&tour(), true);
+        let t = put_menu(&t, &MenuEdit::Buyer { products: vec!["coffee".into()], who: Some("b".into()) });
+        let split = Split { id: "s".into(), who: Some("a".into()), amount: 250.0, ..Split::default() };
+        let t = put_menu(&t, &MenuEdit::SplitOff { product: "coffee".into(), split: split.clone() });
+        let t = put_menu(&t, &MenuEdit::SplitOff { product: "coffee".into(), split });
+        let t = put_menu(&t, &MenuEdit::SplitChange { product: "coffee".into(), id: "s".into(), change: SplitChange::Place("From home".into()) });
+        // Built whole: `new` asks the browser for today's date.
+        let d = SpendingDraft {
+            entered_at: None,
+            id: Some(tc_core::SpendingId::new("e1")),
+            description: "Shopping: coffee".into(),
+            category: "Shopping".into(),
+            amount: tc_core::Cents(1500),
+            from: PersonId::new("a"),
+            everyone: true,
+            to: Vec::new(),
+            by_weight: true,
+            date: "2026-11-07".into(),
+            colour: String::new(),
+            currency_id: t.currency().id.as_str().to_owned(),
+            editing: false,
+            in_cents: None,
+            on_behalf: true,
+            purchases: vec!["coffee".into()],
+            days_of: vec![Vec::new()],
+            splits: vec!["s".into()],
+        };
+        let t = put_spending(&t, &d);
+        let p = Menu::of(&t).and_then(|m| m.purchase("coffee").cloned()).expect("coffee");
+        assert_eq!(p.splits.len(), 1, "split off once, however often replayed");
+        assert_eq!((p.spending.as_deref(), p.splits[0].spending.as_deref(), p.splits[0].place.as_deref()), (None, Some("e1"), Some("From home")));
+        let t = put_menu(&t, &MenuEdit::DropRest { product: "coffee".into() });
+        let p = Menu::of(&t).and_then(|m| m.purchase("coffee").cloned()).expect("coffee");
+        assert_eq!((p.who.as_deref(), p.spending.as_deref(), p.splits.len()), (Some("a"), Some("e1"), 0));
+    }
+
     /// One receipt for the meat and the lamb: both point at it, and both are bought.
     #[test]
     fn an_expense_recorded_from_the_shopping_is_its_expense() {
@@ -2345,6 +2744,7 @@ mod tests {
             on_behalf: true,
             purchases: vec!["meat".into(), "lamb".into()],
             days_of: Vec::new(),
+            splits: Vec::new(),
         };
         let after = crate::edit::put_spending(&t, &d);
         let menu = Menu::of(&after).expect("menu");
@@ -2385,6 +2785,7 @@ mod tests {
             on_behalf: true,
             purchases: vec!["lamb".into()],
             days_of: vec![vec![1]],
+            splits: Vec::new(),
         };
         let after = crate::edit::put_spending(&t, &d);
         let m = Menu::of(&after).expect("menu");
@@ -2428,6 +2829,17 @@ mod tests {
         assert_eq!(date_after("", 0), None);
         // 13 November 2026 is a Friday.
         assert_eq!(day_date((2026, 11, 13)), (t().menu.dated)(t().menu.weekdays[4], 13, t().menu.months[10]));
+    }
+
+    /// Sold in packs: whole packs of the trip's total, named by the pack's word or its size.
+    #[test]
+    fn a_pack_is_bought_whole() {
+        let milk = Product { unit: Unit::Millilitre, pack: Some(1000.0), ..Product::default() };
+        assert_eq!(to_buy(1910.0, &milk), format!("2 × 1\u{a0}{}", t().menu.litres));
+        let lavash = Product { unit: Unit::Piece, pack: Some(10.0), pack_name: Some("пачка по 10".into()), ..Product::default() };
+        assert_eq!(to_buy(13.0, &lavash), "2 × пачка по 10");
+        let lemons = Product { unit: Unit::Piece, ..Product::default() };
+        assert_eq!(to_buy(4.01, &lemons), quantity(4.01, Unit::Piece), "no pack: as before");
     }
 
     #[test]

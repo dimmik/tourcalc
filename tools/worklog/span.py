@@ -51,7 +51,8 @@ def request_text(j):
             text = '[снимок] ' + text
     else:
         return None
-    text = text.strip()
+    # One line: a pasted request has several, and the report is read line by line.
+    text = ' '.join(text.split())
     if not text or text.startswith(SKIP):
         return None
     return text
