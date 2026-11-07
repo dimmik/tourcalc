@@ -2183,21 +2183,30 @@ fn ListCard(
     let unit = crate::ui::unit(&tour);
     // Of the lines on screen, not of the card: with "hide the rest" or a search, "0 of 47"
     // counted lines nobody was looking at.
+    // With everybody's lines showing and somebody picked, their share of them follows.
     let tally = {
         let rows: Vec<(Option<String>, String, bool)> =
             lines.iter().map(|l| (l.who.clone(), l.hay.clone(), l.ticked)).collect();
+        let shoppers = shoppers.clone();
         move || {
             let total = rows.len();
-            let shown: Vec<bool> = rows
-                .iter()
-                .filter(|(who, hay, _)| visible_line(state, who.as_deref(), hay))
-                .map(|(_, _, ticked)| *ticked)
-                .collect();
-            let bought = shown.iter().filter(|t| **t).count();
-            if shown.len() == total {
+            let shown: Vec<&(Option<String>, String, bool)> =
+                rows.iter().filter(|(who, hay, _)| visible_line(state, who.as_deref(), hay)).collect();
+            let bought = shown.iter().filter(|r| r.2).count();
+            let count = if shown.len() == total {
                 (t().menu.bought_of)(bought, total)
             } else {
                 (t().menu.shown_bought_of)(bought, shown.len(), total)
+            };
+            let me = state.me.get().filter(|_| state.everybody.get());
+            let theirs: Vec<bool> =
+                shown.iter().filter(|r| r.0.is_some() && r.0 == me).map(|r| r.2).collect();
+            match me.and_then(|me| shoppers.iter().find(|(id, _)| *id == me).map(|(_, name)| name.clone())) {
+                Some(name) if !theirs.is_empty() => format!(
+                    "{count} · {}",
+                    (t().menu.theirs_bought_of)(&name, theirs.iter().filter(|b| **b).count(), theirs.len())
+                ),
+                _ => count,
             }
         }
     };

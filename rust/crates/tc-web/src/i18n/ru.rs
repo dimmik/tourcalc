@@ -900,6 +900,7 @@ pub const TEXTS: Texts = Texts {
         nobody_yet: "пока никто",
         bought_of: |n, total| format!("куплено {n} из {total}"),
         shown_bought_of: |n, shown, total| format!("куплено {n} из {shown} · показано {shown} из {total}"),
+        theirs_bought_of: |who, n, of| format!("{who}: {n} из {of}"),
         record: "Записать",
         record_together: |n| format!("Записать купленное ({n}) одной тратой"),
         record_together_for: |n, whom| format!("Записать одной тратой — {whom} ({n})"),
