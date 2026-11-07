@@ -516,6 +516,88 @@
           }
         }
       }
+    },
+    {
+      "as_of": "2026-11-07",
+      "op": {
+        "Menu": {
+          "Note": {
+            "product": "beer",
+            "note": "Perlenbacher Gold, at Lidl"
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-11-07",
+      "op": {
+        "Menu": {
+          "Shares": {
+            "product": "coffee",
+            "shares": [
+              {
+                "Who": "p1",
+                "Amount": 250.0,
+                "Place": "From home"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-11-07",
+      "op": {
+        "Menu": {
+          "PutDish": {
+            "Id": "sausages",
+            "Name": "Sausages",
+            "Meals": [
+              "Dinner"
+            ],
+            "Ingredients": [
+              {
+                "Product": "syringe",
+                "Amount": 1.0,
+                "Per": "Trip"
+              },
+              {
+                "Product": "charcoal",
+                "Amount": 2.0,
+                "Per": "Fire"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-11-07",
+      "op": {
+        "Menu": {
+          "PutProduct": {
+            "Id": "milk",
+            "Name": "Milk",
+            "Unit": "Millilitre",
+            "Place": "m",
+            "Eaters": "Everyone",
+            "Pack": 1000.0,
+            "PackName": "1 l carton"
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-11-07",
+      "op": {
+        "Menu": {
+          "PutPlace": {
+            "Id": "home",
+            "Name": "From home",
+            "FromHome": true
+          }
+        }
+      }
     }
   ]
 }

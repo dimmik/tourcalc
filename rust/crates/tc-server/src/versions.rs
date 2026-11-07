@@ -444,7 +444,7 @@ mod tests {
             let mut m = Menu {
                 on: true,
                 days: 2,
-                places: vec![Place { id: "m".into(), name: "Market".into() }],
+                places: vec![Place { id: "m".into(), name: "Market".into(), ..Place::default() }],
                 products: vec![Product { id: "lamb".into(), name: "Lamb".into(), place: "m".into(), ..Product::default() }],
                 ..Menu::default()
             };

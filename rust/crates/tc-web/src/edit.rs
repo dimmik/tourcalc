@@ -914,6 +914,10 @@ pub enum MenuEdit {
     DayNote { day: u32, note: String },
     /// What expenses from the shopping are filed under - "Shopping" - or "" for the default.
     ExpenseCategory(String),
+    /// A word for whoever buys a product - "Perlenbacher Gold, at Lidl" - or "" for none.
+    Note { product: String, note: String },
+    /// Who brings some of a product besides its buyer, all of them - see `Purchase::shares`.
+    Shares { product: String, shares: Vec<tc_core::menu::Share> },
 }
 
 /// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
@@ -977,6 +981,11 @@ fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
             let root = root.trim();
             menu.expense_category = (!root.is_empty()).then(|| root.to_owned());
         }
+        MenuEdit::Note { product, note } => {
+            let note = note.trim();
+            menu.purchase_mut(product).note = (!note.is_empty()).then(|| note.to_owned());
+        }
+        MenuEdit::Shares { product, shares } => menu.purchase_mut(product).shares = shares.clone(),
         MenuEdit::TakeTemplate(template) => {
             menu.take_catalogue(template);
             // Meals whose dish the template has not got are planned again from its dishes.

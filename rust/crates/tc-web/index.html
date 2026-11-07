@@ -946,6 +946,23 @@
         .tcw-food-search { margin-bottom: 12px; }
         .tcw-buy-expense { grid-area: expense; justify-self: end; }
         .tcw-buy-done { font-size: 12.5px; font-weight: 600; color: var(--tcn-green, #047857); white-space: nowrap; }
+        /* The name opens the line: a note for the buyer, and who brings some of it. */
+        .tcw-buy-title { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
+            text-align: left; }
+        .tcw-buy-title:hover, .tcw-buy-title.is-open { color: var(--tcn-primary, #4f46e5); }
+        .tcw-buy-note { display: block; font-size: 12px; font-style: italic; color: var(--tcn-text, #111827); }
+        .tcw-buy-total { display: block; font-size: 11px; font-weight: 400; color: var(--tcn-muted, #6b7280); }
+        .tcw-buy-home { font-size: 12.5px; color: var(--tcn-muted, #6b7280); white-space: nowrap; }
+        .tcw-buy-details { grid-column: 1 / -1; display: grid; gap: 6px; padding: 6px 0 4px 28px; }
+        .tcw-buy-details > .tcn-input { padding: 4px 8px; font-size: 13px; }
+        .tcw-share { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+        .tcw-share select, .tcw-share input { width: auto; padding: 3px 6px; font-size: 13px; }
+        .tcw-share-amount { width: 5em !important; }
+        .tcw-share-place { width: 9em !important; }
+        .tcw-share-unit { color: var(--tcn-muted, #6b7280); }
+        .tcw-share-add { justify-self: start; }
+        .tcw-cat-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--tcn-muted, #6b7280); }
+        .tcw-cat-check input { margin-top: 2px; }
         .tcw-buy.is-bought .tcw-buy-title, .tcw-buy.is-bought .tcw-buy-amount {
             color: var(--tcn-muted, #6b7280); text-decoration: line-through; font-weight: 400; }
         @media (min-width: 740px) {

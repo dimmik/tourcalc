@@ -11,7 +11,7 @@ use crate::queue::Operation;
 use crate::tour::Dialog;
 use crate::ui::money_in;
 use leptos::prelude::*;
-use tc_core::menu::{Dish, Eaters, Eating, Ingredient, Meal, Menu, Place, Product, Slot, Unit, When};
+use tc_core::menu::{Dish, Eaters, Eating, Ingredient, Meal, Menu, Place, Product, Purchase, Share, Slot, Unit, When};
 use tc_core::{PersonId, Tour};
 
 /// Which of the tab's three views is open.
@@ -128,6 +128,8 @@ pub struct MenuState {
     /// The days the shopping is for, when only some - Friday's market before the trip, the
     /// rest on Saturday. Empty: the whole trip.
     pub days: RwSignal<Vec<u32>>,
+    /// The product whose line on the shopping list is open: its note, and who brings some.
+    pub details: RwSignal<Option<String>>,
 }
 
 impl MenuState {
@@ -146,6 +148,7 @@ impl MenuState {
             me: RwSignal::new(crate::settings::me(tour)),
             everybody: RwSignal::new(false),
             days: RwSignal::new(Vec::new()),
+            details: RwSignal::new(None),
         }
     }
 }
@@ -288,7 +291,7 @@ pub fn starter(days: u32) -> Menu {
         start: None,
         places: PLACES
             .iter()
-            .map(|(id, en, r)| Place { id: (*id).into(), name: pick(en, r) })
+            .map(|(id, en, r)| Place { id: (*id).into(), name: pick(en, r), from_home: false })
             .collect(),
         products: PRODUCTS
             .iter()
@@ -300,6 +303,7 @@ pub fn starter(days: u32) -> Menu {
                 eaters: *eaters,
                 own_unit: own.map(|(en, r)| pick(en, r)),
                 category: starter_category(id).map(|(en, r)| pick(en, r)),
+                ..Product::default()
             })
             .collect(),
         dishes: DISHES
@@ -317,7 +321,7 @@ pub fn starter(days: u32) -> Menu {
             .collect(),
         daily: DAILY
             .iter()
-            .map(|(product, amount, when)| Ingredient { product: (*product).into(), amount: *amount, when: *when })
+            .map(|(product, amount, when)| Ingredient { product: (*product).into(), amount: *amount, when: *when, ..Ingredient::default() })
             .collect(),
         plan: Vec::new(),
         purchases: Vec::new(),
@@ -338,6 +342,24 @@ pub fn quantity_of(amount: f64, product: &Product) -> String {
     match product.own_unit.as_deref().filter(|u| !u.trim().is_empty()) {
         Some(own) => format!("{}\u{a0}{}", to_step(amount, 1.0), own.trim()),
         None => quantity(amount, product.unit),
+    }
+}
+
+/// So much of a product as it is bought: whole packs, if it comes in them - "2 × 1 l" for
+/// 1.9 l of milk, "2 × stack of 10" for 13 lavash - else as [`quantity_of`] says.
+pub fn to_buy(amount: f64, product: &Product) -> String {
+    match product.pack_size() {
+        Some(size) => {
+            let name = product
+                .pack_name
+                .as_deref()
+                .map(str::trim)
+                .filter(|n| !n.is_empty())
+                .map(str::to_owned)
+                .unwrap_or_else(|| quantity_of(size, product));
+            (t().menu.pack_times)(tc_core::menu::packs(amount, size), &name)
+        }
+        None => quantity_of(amount, product),
     }
 }
 
@@ -1380,8 +1402,13 @@ fn Shopping(
             let (dishes, daily) = menu.sources_on(&n.product.id, &chosen);
             let mut why: Vec<String> = dishes.iter().map(|(d, times)| format!("{} ×{times}", d.name)).collect();
             if let Some(when) = daily {
-                let times = chosen.iter().filter(|&&day| menu.daily_on(when, day)).count();
-                why.push(format!("{} ×{times}", when_name(when)));
+                let per = menu.daily.iter().find(|i| i.product == n.product.id).map(|i| i.per).unwrap_or_default();
+                if per == tc_core::menu::Per::Trip {
+                    why.push(t().menu.per_trip.to_owned());
+                } else {
+                    let times = chosen.iter().filter(|&&day| menu.daily_on(when, day)).count();
+                    why.push(format!("{} ×{times}", when_name(when)));
+                }
             }
             let place_name = menu.bought_at(n.product);
             let purchase = menu.purchase(&n.product.id).cloned().unwrap_or_default();
@@ -1449,14 +1476,34 @@ fn Shopping(
                     .collect();
                 let left: Vec<u32> = needed.iter().copied().filter(|d| !covered.contains(d)).collect();
                 if !purchase.bought && !covered.is_empty() && !left.is_empty() {
-                    bits.push((t().menu.left_for)(&quantity_of(need_of(id, &left), n.product), &days_label(&menu, &left)));
+                    bits.push((t().menu.left_for)(&to_buy(need_of(id, &left), n.product), &days_label(&menu, &left)));
                 }
                 bits.join(" · ")
             };
-            let hay = folded(&format!("{} {} {} {} {} {}", n.product.name, place_name, category, buyer, whom(n.product.eaters), why.join(" ")));
+            let others: Vec<String> = purchase
+                .shares
+                .iter()
+                .filter_map(|x| x.who.as_deref())
+                .filter_map(|w| shoppers.iter().find(|(id, _)| id == w))
+                .map(|(_, name)| name.clone())
+                .collect();
+            let hay = folded(&format!(
+                "{} {} {} {} {} {} {} {}",
+                n.product.name,
+                place_name,
+                category,
+                buyer,
+                others.join(" "),
+                purchase.note.as_deref().unwrap_or(""),
+                whom(n.product.eaters),
+                why.join(" ")
+            ));
             Line {
                 product: n.product.clone(),
-                amount: n.amount,
+                amount: (n.amount - purchase.shared()).max(0.0),
+                total: n.amount,
+                home: menu.from_home(&place_name),
+                by_people: menu.by_people(&n.product.id),
                 purchase,
                 why: why.join(" · "),
                 hay,
@@ -1482,8 +1529,8 @@ fn Shopping(
     // Somebody picked and everything taken by others, or nothing found: say so, rather than
     // an empty screen.
     let anything_shown = {
-        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.purchase.who.clone(), l.hay.clone())).collect();
-        move || rows.iter().any(|(who, hay)| visible_line(state, who.as_deref(), hay))
+        let rows: Vec<(Purchase, String)> = lines.iter().map(|l| (l.purchase.clone(), l.hay.clone())).collect();
+        move || rows.iter().any(|(p, hay)| visible_line(state, p, hay))
     };
 
     let sort_options = Sort::ALL
@@ -1549,7 +1596,9 @@ fn Shopping(
                         .iter()
                         .filter(|l| {
                             let who = l.purchase.who.as_deref().filter(|w| shoppers.iter().any(|(id, _)| id == w));
+                            // A share is its bringer's too: Sasha's coffee from home is on his card.
                             who == buyer.as_ref().map(|(id, _)| id.as_str())
+                                || buyer.as_ref().is_some_and(|(id, _)| l.purchase.shares.iter().any(|x| x.who.as_deref() == Some(id.as_str())))
                         })
                         .cloned()
                         .collect();
@@ -1665,7 +1714,14 @@ const PLACES_LIST: &str = "tcw-shop-places";
 #[derive(Clone)]
 struct Line {
     product: Product,
+    /// What its buyer buys: what the trip needs, less what others bring.
     amount: f64,
+    /// What the trip needs.
+    total: f64,
+    /// Bought where nothing is bought: brought from home, nothing to record.
+    home: bool,
+    /// Counted by people somewhere, so whom it is for means something - see `Menu::by_people`.
+    by_people: bool,
     purchase: tc_core::menu::Purchase,
     /// What it is for: "Plov ×1 · Fish ×2", "every day".
     why: String,
@@ -1728,16 +1784,16 @@ fn whom(eaters: Eaters) -> &'static str {
 }
 
 /// Whether a line is on screen: its buyer's (see [`shown`]) and matching the search.
-fn visible_line(state: MenuState, who: Option<&str>, hay: &str) -> bool {
-    shown(state, who) && found(&state.shop_find.get(), hay)
+fn visible_line(state: MenuState, purchase: &Purchase, hay: &str) -> bool {
+    shown(state, purchase) && found(&state.shop_find.get(), hay)
 }
 
-/// Whether a product bought by `who` is on screen: everybody's are, unless somebody is
-/// picked as "me" and others' are hidden - then theirs and nobody's, nobody's so that there
-/// is something to take.
-fn shown(state: MenuState, who: Option<&str>) -> bool {
-    match (state.me.get(), who) {
-        (Some(me), Some(who)) if !state.everybody.get() => who == me,
+/// Whether a product is on screen: everybody's are, unless somebody is picked as "me" and
+/// others' are hidden - then theirs, those they bring some of, and nobody's, nobody's so that
+/// there is something to take.
+fn shown(state: MenuState, purchase: &Purchase) -> bool {
+    match (state.me.get(), purchase.who.as_deref()) {
+        (Some(me), Some(_)) if !state.everybody.get() => purchase.involves(&me),
         _ => true,
     }
 }
@@ -1836,6 +1892,109 @@ fn by_whom<'a>(lines: &[&'a Line]) -> Vec<(Eaters, Vec<&'a Line>)> {
 }
 
 /// A card of the shopping: one place's, or everything in one list.
+/// Under a line, opened by its name: a note for the buyer, and who brings some of it - each
+/// with how much and from where. Saved field by field, as the shopping's other choices are.
+fn line_details(
+    id: &str,
+    purchase: &Purchase,
+    product: &Product,
+    shoppers: &[(String, String)],
+    change: impl Fn(MenuEdit) + Copy + Send + Sync + 'static,
+) -> impl Fn() -> AnyView + Clone + Send + Sync + 'static {
+    let id = id.to_owned();
+    let note = purchase.note.clone().unwrap_or_default();
+    let shares = purchase.shares.clone();
+    let shoppers = shoppers.to_vec();
+    let unit = crate::menu_catalogue::unit_label(product);
+    move || {
+        let save_note = {
+            let id = id.clone();
+            move |ev: leptos::ev::Event| change(MenuEdit::Note { product: id.clone(), note: event_target_value(&ev) })
+        };
+        // Each field writes the whole list again, from the shares as they were drawn: the line
+        // is drawn anew after every save.
+        let set = {
+            let id = id.clone();
+            let shares = shares.clone();
+            move |i: usize, f: &dyn Fn(&mut Share)| {
+                let mut all = shares.clone();
+                if let Some(x) = all.get_mut(i) {
+                    f(x);
+                }
+                change(MenuEdit::Shares { product: id.clone(), shares: all });
+            }
+        };
+        let rows = shares
+            .iter()
+            .enumerate()
+            .map(|(i, x)| {
+                let options = shoppers
+                    .iter()
+                    .map(|(pid, name)| {
+                        let on = x.who.as_deref() == Some(pid.as_str());
+                        view! { <option value=pid.clone() selected=on>{name.clone()}</option> }
+                    })
+                    .collect_view();
+                let (s1, s2, s3) = (set.clone(), set.clone(), set.clone());
+                let id = id.clone();
+                let all = shares.clone();
+                view! {
+                    <div class="tcw-share">
+                        <select class="tcn-input" title=t().menu.buyer
+                                on:change=move |ev| {
+                                    let v = event_target_value(&ev);
+                                    s1(i, &|x| x.who = (!v.is_empty()).then(|| v.clone()));
+                                }>
+                            <option value="" selected=x.who.is_none()>{t().menu.nobody_yet}</option>
+                            {options}
+                        </select>
+                        <input type="text" class="tcn-input tcw-share-amount" inputmode="decimal"
+                               placeholder=t().menu.share_amount prop:value=crate::menu_catalogue::number(x.amount)
+                               on:change=move |ev| {
+                                   let v = event_target_value(&ev).trim().replace(',', ".");
+                                   let amount = v.parse::<f64>().ok().filter(|a| a.is_finite() && *a >= 0.0).unwrap_or(0.0);
+                                   s2(i, &|x| x.amount = amount);
+                               } />
+                        <span class="tcw-share-unit">{unit.clone()}</span>
+                        <input type="text" class="tcn-input tcw-share-place" list=PLACES_LIST
+                               placeholder=t().menu.where_buy prop:value=x.place.clone().unwrap_or_default()
+                               on:change=move |ev| {
+                                   let v = event_target_value(&ev).trim().to_owned();
+                                   s3(i, &|x| x.place = (!v.is_empty()).then(|| v.clone()));
+                               } />
+                        <button type="button" class="tcn-btn tcn-btn-sm tcw-ingr-x" title=t().menu.remove
+                                on:click=move |_| {
+                                    let mut rest = all.clone();
+                                    rest.remove(i);
+                                    change(MenuEdit::Shares { product: id.clone(), shares: rest });
+                                }>
+                            "✕"
+                        </button>
+                    </div>
+                }
+            })
+            .collect_view();
+        let add = {
+            let id = id.clone();
+            let shares = shares.clone();
+            move |_| {
+                let mut all = shares.clone();
+                all.push(Share::default());
+                change(MenuEdit::Shares { product: id.clone(), shares: all });
+            }
+        };
+        view! {
+            <div class="tcw-buy-details">
+                <input type="text" class="tcn-input" placeholder=t().menu.note_placeholder
+                       prop:value=note.clone() on:change=save_note />
+                {rows}
+                <button type="button" class="tcn-btn tcn-btn-sm tcw-share-add" on:click=add>{t().menu.share_add}</button>
+            </div>
+        }
+        .into_any()
+    }
+}
+
 #[component]
 fn ListCard(
     tour: Tour,
@@ -1875,13 +2034,13 @@ fn ListCard(
     // Bought, not recorded, and on screen: one receipt for all of them.
     let unrecorded: Vec<Line> = lines
         .iter()
-        .filter(|l| l.ticked && recorded(l).is_none() && !l.recorded_parts)
+        .filter(|l| l.ticked && !l.home && recorded(l).is_none() && !l.recorded_parts)
         .cloned()
         .collect();
     let together = {
         let tour = tour.clone();
         move || {
-            let these: Vec<&Line> = unrecorded.iter().filter(|l| shown(state, l.purchase.who.as_deref())).collect();
+            let these: Vec<&Line> = unrecorded.iter().filter(|l| shown(state, &l.purchase)).collect();
             if these.len() < 2 {
                 return None;
             }
@@ -1916,8 +2075,8 @@ fn ListCard(
     };
 
     let visible_here = {
-        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.purchase.who.clone(), l.hay.clone())).collect();
-        move || rows.iter().any(|(who, hay)| visible_line(state, who.as_deref(), hay))
+        let rows: Vec<(Purchase, String)> = lines.iter().map(|l| (l.purchase.clone(), l.hay.clone())).collect();
+        move || rows.iter().any(|(p, hay)| visible_line(state, p, hay))
     };
 
     let rows = lines
@@ -2001,6 +2160,9 @@ fn ListCard(
                 None if line.recorded_parts => {
                     view! { <span class="tcw-buy-done">{t().menu.in_parts}</span> }.into_any()
                 }
+                None if line.home => {
+                    view! { <span class="tcw-buy-home" title=t().menu.from_home_title>{t().menu.from_home}</span> }.into_any()
+                }
                 None => {
                     let draft = expense_for(
                         &tour,
@@ -2019,10 +2181,32 @@ fn ListCard(
                 }
             };
             let visible = {
-                let who = who.clone();
+                let purchase = line.purchase.clone();
                 let hay = line.hay.clone();
-                move || visible_line(state, who.as_deref(), &hay)
+                move || visible_line(state, &purchase, &hay)
             };
+            let open = {
+                let id = id.clone();
+                move || state.details.get().as_deref() == Some(id.as_str())
+            };
+            let toggle = {
+                let id = id.clone();
+                move |_| state.details.update(|d| *d = if d.as_deref() == Some(id.as_str()) { None } else { Some(id.clone()) })
+            };
+            // Who brings some, by name, under the line: "Sasha: 250 g · From home".
+            let shares_note = line
+                .purchase
+                .shares
+                .iter()
+                .map(|x| {
+                    let name = x.who.as_deref().and_then(|w| shoppers.iter().find(|(id, _)| id == w)).map_or(t().menu.nobody_yet, |(_, n)| n.as_str());
+                    let place = x.place.as_deref().map(str::trim).filter(|p| !p.is_empty()).map(|p| format!(" · {p}")).unwrap_or_default();
+                    format!("{name}: {}{place}", quantity_of(x.amount, &line.product))
+                })
+                .collect::<Vec<_>>()
+                .join("; ");
+            let note = line.purchase.note.clone().unwrap_or_default();
+            let details = line_details(&id, &line.purchase, &line.product, &shoppers, change);
             // "Mine": one tap instead of finding oneself in the list - there when somebody is
             // picked as "me" and the product is not theirs yet.
             let to_me = {
@@ -2046,17 +2230,28 @@ fn ListCard(
                         <input type="checkbox" class="tcw-buy-tick" prop:checked=ticked
                                title=t().menu.bought on:change=tick />
                         <span class="tcw-buy-name">
-                            <span class="tcw-buy-title">{line.product.name.clone()}</span>
+                            <button type="button" class="tcw-buy-title" class:is-open=open.clone()
+                                    title=t().menu.details_title on:click=toggle>
+                                {line.product.name.clone()}
+                                {(!note.is_empty() || !shares_note.is_empty()).then(|| " ✎")}
+                            </button>
                             <small class="tcw-buy-why">
                                 <Show when=move || !placing.get() fallback=place_box>{place_word()}</Show>
-                                " · " {whom(line.product.eaters)} " · "
+                                " · " {line.by_people.then(|| format!("{} · ", whom(line.product.eaters)))}
                                 {line.why.clone()}
                             </small>
                             {(!line.parts_note.is_empty()).then(|| view! {
                                 <small class="tcw-buy-parts">{line.parts_note.clone()}</small>
                             })}
+                            {(!note.is_empty()).then(|| view! { <small class="tcw-buy-note">{note.clone()}</small> })}
+                            {(!shares_note.is_empty()).then(|| view! { <small class="tcw-buy-parts">{shares_note.clone()}</small> })}
                         </span>
-                        <span class="tcw-buy-amount">{quantity_of(line.amount, &line.product)}</span>
+                        <span class="tcw-buy-amount">
+                            {to_buy(line.amount, &line.product)}
+                            {(line.total > line.amount + 1e-9).then(|| view! {
+                                <small class="tcw-buy-total">{(t().menu.of_total)(&quantity_of(line.total, &line.product))}</small>
+                            })}
+                        </span>
                         <span class="tcw-buy-who">
                             <select class="tcn-input" title=t().menu.buyer on:change=pick>
                                 <option value="" selected=who.is_none()>{t().menu.nobody_yet}</option>
@@ -2065,6 +2260,7 @@ fn ListCard(
                             {to_me}
                         </span>
                         <span class="tcw-buy-expense">{expense}</span>
+                        <Show when=open.clone()>{details.clone()}</Show>
                     </div>
             }
         })
@@ -2428,6 +2624,17 @@ mod tests {
         assert_eq!(date_after("", 0), None);
         // 13 November 2026 is a Friday.
         assert_eq!(day_date((2026, 11, 13)), (t().menu.dated)(t().menu.weekdays[4], 13, t().menu.months[10]));
+    }
+
+    /// Sold in packs: whole packs of the trip's total, named by the pack's word or its size.
+    #[test]
+    fn a_pack_is_bought_whole() {
+        let milk = Product { unit: Unit::Millilitre, pack: Some(1000.0), ..Product::default() };
+        assert_eq!(to_buy(1910.0, &milk), format!("2 × 1\u{a0}{}", t().menu.litres));
+        let lavash = Product { unit: Unit::Piece, pack: Some(10.0), pack_name: Some("пачка по 10".into()), ..Product::default() };
+        assert_eq!(to_buy(13.0, &lavash), "2 × пачка по 10");
+        let lemons = Product { unit: Unit::Piece, ..Product::default() };
+        assert_eq!(to_buy(4.01, &lemons), quantity(4.01, Unit::Piece), "no pack: as before");
     }
 
     #[test]
