@@ -950,7 +950,8 @@
            taking a part away - as "where" does. */
         .tcw-buy-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; font-size: 11.5px;
             color: var(--tcn-muted, #6b7280); margin-top: 1px; }
-        .tcw-buy-note.is-own { font-style: italic; text-decoration: none; }
+        .tcw-buy-note { text-align: left; }
+        .tcw-buy-note.is-own { font-style: italic; font-weight: 400; text-decoration: none; }
         .tcw-buy-acts > .tcw-share { flex-basis: 100%; margin: 3px 0; }
         .tcw-buy-drop { text-decoration: none; }
         .tcw-buy-qty { font-weight: 600; }
@@ -967,9 +968,13 @@
         .tcw-share-add { justify-self: start; }
         .tcw-buy.is-bought .tcw-buy-title, .tcw-buy.is-bought .tcw-buy-amount {
             color: var(--tcn-muted, #6b7280); text-decoration: line-through; font-weight: 400; }
+        /* In one line where there is room: the amount wide enough for "6 × bottle 0.75" and
+           wrapping beyond that rather than running under the buyer; the buyer and the expense
+           only as wide as they need, so the name keeps the rest. */
         @media (min-width: 740px) {
-            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 6.5em 17em 12.5em;
+            .tcw-buy { grid-template-columns: auto minmax(0, 1fr) 9.5em 12em 10em;
                 grid-template-areas: "tick name amount who expense"; }
+            .tcw-buy-amount { white-space: normal; }
             .tcw-buy-who select { flex: 1 1 auto; }
         }
         .tcw-errand-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
