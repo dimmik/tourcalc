@@ -271,7 +271,7 @@ fn Freshness(refresh: Refresh) -> impl IntoView {
 /// gets a token for that code and sees the tour without being told anything else. That also
 /// means it is the whole of the security here - a link is an invitation.
 #[component]
-fn ShareLink(tour: Tour, tab: RwSignal<Tab>) -> impl IntoView {
+fn ShareLink(tour: Tour, tab: RwSignal<Tab>, view: RwSignal<crate::menu::View>) -> impl IntoView {
     let code = tour
         .extras
         .0
@@ -290,7 +290,7 @@ fn ShareLink(tour: Tour, tab: RwSignal<Tab>) -> impl IntoView {
     let href = StoredValue::new(format!("/goto/{}/{}", code, tour.id));
     let copy = move |with_tab: bool| {
         let href = href.get_value();
-        let path = if with_tab { format!("{href}/{}", tab_part(tab.get_untracked())) } else { href };
+        let path = if with_tab { format!("{href}/{}", tab_address(tab.get_untracked(), view.get_untracked())) } else { href };
         let full = web_sys::window()
             .and_then(|w| w.location().origin().ok())
             .map(|o| format!("{o}{path}"))
@@ -614,10 +614,16 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     // The address bar says which tab is open, so that it can be copied and sent: "the menu"
     // is a link, not "open the tour and tap Menu". Replaced, not pushed - switching tabs is
     // not somewhere Back should step through.
+    // And for the Menu tab: plan or shopping, and whose shopping - the view an address
+    // names, if it names one.
+    let menu_state = crate::menu::MenuState::new(&id);
+    if let crate::Landing::Menu(Some(view)) = landing {
+        menu_state.view.set(view);
+    }
     {
         let id = id.clone();
         Effect::new(move |_| {
-            let address = address_of(&id, tab.get());
+            let address = address_of(&id, tab.get(), menu_state.view.get());
             if let Some(w) = web_sys::window() {
                 if w.location().pathname().ok().as_deref() != Some(address.as_str()) {
                     let _ = w.history().map(|h| {
@@ -652,8 +658,6 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     let sifting = Sifting::new();
     // And the same for the People tab: whose card is open, what is in its search box.
     let people_state = crate::people::People::new();
-    // And for the Menu tab: plan or shopping, and whose shopping.
-    let menu_state = crate::menu::MenuState::new(&id);
 
     let refresh = Refresh {
         busy: RwSignal::new(false),
@@ -1172,7 +1176,7 @@ fn TourView(
                     {t().tour.currencies}
                 </button>
                 <span>"·"</span>
-                <ShareLink tour=tour_for_share.clone() tab=tab />
+                <ShareLink tour=tour_for_share.clone() tab=tab view=menu.view />
                 <span>"·"</span>
                 <span class="tcn-legacy-btn">
                     <button type="button" class="tcn-hero-link"
@@ -2378,8 +2382,16 @@ fn leaving_tab(tour: &str, tab: Tab) {
 
 /// The address of a tour's tab - what the address bar shows while it is open. The app's
 /// own names where it had them (`persons`, `spendings`), so its old links still land.
-pub fn address_of(tour: &str, tab: Tab) -> String {
-    format!("/tour/{tour}/{}", tab_part(tab))
+pub fn address_of(tour: &str, tab: Tab, view: crate::menu::View) -> String {
+    format!("/tour/{tour}/{}", tab_address(tab, view))
+}
+
+/// A tab as an address ends - and the Food tab with its view: `menu/shopping`.
+pub fn tab_address(tab: Tab, view: crate::menu::View) -> String {
+    match tab {
+        Tab::Menu => format!("{}/{}", tab_part(tab), view.part()),
+        other => tab_part(other).to_owned(),
+    }
 }
 
 /// How a tab is named at the end of an address - the tour's own, and a share link's.
@@ -2400,7 +2412,7 @@ pub fn tab_of(landing: crate::Landing) -> Tab {
         crate::Landing::Expenses | crate::Landing::AddSpending => Tab::Expenses,
         crate::Landing::Stats => Tab::Stats,
         crate::Landing::Balance => Tab::Balance,
-        crate::Landing::Menu => Tab::Menu,
+        crate::Landing::Menu(_) => Tab::Menu,
         // Until the tour is here to say. It never shows: the tab is settled the moment
         // there is a tour to settle it from, cached copy included.
         crate::Landing::Unsaid => Tab::People,

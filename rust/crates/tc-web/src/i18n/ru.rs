@@ -891,9 +891,9 @@ pub const TEXTS: Texts = Texts {
         for_everyone: "на всех",
         for_full: "взрослым",
         for_others: "детям",
-        who_am_i: "Кто я",
+        who_am_i: "Закупки для",
         nobody: "— не выбрано —",
-        mine_only: "Скрыть чужие закупки",
+        mine_only: "Скрыть остальные",
         everybody: "Всё —",
         buyer: "Кто покупает и платит",
         bought: "Куплено",
@@ -951,7 +951,7 @@ pub const TEXTS: Texts = Texts {
         place_in_use: |what| format!("Здесь покупаются: {what}. Сначала перенесите их, потом удаляйте."),
         add_place: "+ Место",
         products_here: |n| match n { 0 => "здесь ничего не покупается".to_owned(), n => format!("{n} {}", ru_plural(n as i64, "продукт", "продукта", "продуктов")) },
-        nothing_mine: "Все закупки разобрали другие. Снимите «Скрыть чужие закупки», чтобы их \
+        nothing_mine: "Все закупки разобрали другие. Снимите «Скрыть остальные», чтобы их \
             увидеть.",
         category: "Продукты",
         catalogue: "Меню",

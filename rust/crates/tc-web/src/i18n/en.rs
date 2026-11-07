@@ -873,9 +873,9 @@ pub const TEXTS: Texts = Texts {
         for_everyone: "everybody",
         for_full: "adults",
         for_others: "children",
-        who_am_i: "Who am I",
+        who_am_i: "Shopping by",
         nobody: "— not chosen —",
-        mine_only: "Hide other people's shopping",
+        mine_only: "Hide the others",
         everybody: "All to",
         buyer: "Who buys and pays",
         bought: "Bought",
@@ -933,8 +933,8 @@ pub const TEXTS: Texts = Texts {
         place_in_use: |what| format!("Bought here: {what}. Move them elsewhere first to delete it."),
         add_place: "+ Place",
         products_here: |n| match n { 0 => "nothing bought here".to_owned(), 1 => "1 product".to_owned(), n => format!("{n} products") },
-        nothing_mine: "Everybody else has taken all the shopping. Untick «Hide other people's \
-            shopping» to see it.",
+        nothing_mine: "Everybody else has taken all the shopping. Untick «Hide the others» to see \
+            it.",
         category: "Groceries",
         catalogue: "Menu",
         template_title: "Menu template",

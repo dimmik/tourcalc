@@ -98,8 +98,8 @@ pub enum Landing {
     Expenses,
     Stats,
     /// On a tour without a menu - or in the compact view, which has no Menu tab - the tour's
-    /// own tab instead.
-    Menu,
+    /// own tab instead. With the view the address names, if it names one: the shopping.
+    Menu(Option<crate::menu::View>),
     /// Straight into "record an expense", which is what the app's own add link does.
     AddSpending,
 }
@@ -123,10 +123,13 @@ fn route_of(path: &str) -> Route {
         ["tour", id, "spendings"] => Route::Tour((*id).to_owned(), Landing::Expenses),
         ["tour", id, "stats"] => Route::Tour((*id).to_owned(), Landing::Stats),
         ["tour", id, "balance"] => Route::Tour((*id).to_owned(), Landing::Balance),
-        ["tour", id, "menu"] => Route::Tour((*id).to_owned(), Landing::Menu),
+        ["tour", id, "menu"] => Route::Tour((*id).to_owned(), Landing::Menu(None)),
+        ["tour", id, "menu", view] => Route::Tour((*id).to_owned(), Landing::Menu(crate::menu::View::of_part(view))),
         ["tour", id, "spending", "add"] => Route::Tour((*id).to_owned(), Landing::AddSpending),
         ["goto", code, id] => Route::Goto((*code).to_owned(), (*id).to_owned(), None),
         ["goto", code, id, tab] => Route::Goto((*code).to_owned(), (*id).to_owned(), Some((*tab).to_owned())),
+        // A tab and a view of it: the Food tab's shopping.
+        ["goto", code, id, tab, view] => Route::Goto((*code).to_owned(), (*id).to_owned(), Some(format!("{tab}/{view}"))),
         _ => Route::Unknown(path.to_owned()),
     }
 }
@@ -604,7 +607,7 @@ mod tests {
             tour::Tab::Stats,
             tour::Tab::Menu,
         ] {
-            match route_of(&tour::address_of("abc", tab)) {
+            match route_of(&tour::address_of("abc", tab, crate::menu::View::Plan)) {
                 Route::Tour(id, landing) => {
                     assert_eq!(id, "abc");
                     assert_eq!(tour::tab_of(landing), tab, "{tab:?}");
@@ -615,6 +618,18 @@ mod tests {
         // A query string or a fragment belongs to the page, not to the route: without this
         // a link with one on the end would be swallowed by the interceptor and land on
         // "nothing here".
+        // The Food tab's views each have an address, and a share link can name one.
+        for view in [crate::menu::View::Plan, crate::menu::View::Shopping, crate::menu::View::Catalogue] {
+            assert_eq!(
+                route_of(&tour::address_of("abc", tour::Tab::Menu, view)),
+                Route::Tour("abc".into(), Landing::Menu(Some(view)))
+            );
+        }
+        assert_eq!(route_of("/tour/abc/menu"), Route::Tour("abc".into(), Landing::Menu(None)));
+        assert_eq!(
+            route_of("/goto/CODE/abc/menu/shopping"),
+            Route::Goto("CODE".into(), "abc".into(), Some("menu/shopping".into()))
+        );
         assert_eq!(route_of("/help?from=list"), Route::Help);
         assert_eq!(route_of("/help#weights"), Route::Help);
     }

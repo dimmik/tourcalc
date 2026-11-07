@@ -15,11 +15,28 @@ use tc_core::menu::{Dish, Eaters, Eating, Ingredient, Meal, Menu, Place, Product
 use tc_core::{PersonId, Tour};
 
 /// Which of the tab's three views is open.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum View {
     Plan,
     Shopping,
     Catalogue,
+}
+
+impl View {
+    /// How the view is named at the end of an address: `/tour/x/menu/shopping`, so that a
+    /// link to the shopping opens the shopping. The catalogue is the Menu on screen, and its
+    /// dishes in the address - `/menu/menu` reads like a typo.
+    pub fn part(self) -> &'static str {
+        match self {
+            View::Plan => "plan",
+            View::Shopping => "shopping",
+            View::Catalogue => "dishes",
+        }
+    }
+
+    pub fn of_part(part: &str) -> Option<View> {
+        [View::Plan, View::Shopping, View::Catalogue].into_iter().find(|v| v.part().eq_ignore_ascii_case(part))
+    }
 }
 
 /// Text as a search compares it: case and "ё" aside.
