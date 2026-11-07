@@ -790,14 +790,24 @@ impl Menu {
         p.parts.push(Part { days, spending: Some(spending.to_owned()) });
     }
 
-    /// The first meal cooked on the first day, and the last one on the last day - where the
-    /// trip starts and ends, as the plan has it. Breakfast and dinner when nothing is cooked.
+    /// The first meal of the first day not set to nothing, and the last one of the last day -
+    /// where the trip starts and ends, as [`Menu::arrive`] and [`Menu::leave`] left it.
+    /// Breakfast and dinner when the whole day is nothing.
+    ///
+    /// Not "the first meal with a dish": a tour whose catalogue has no dinner yet - every
+    /// tour that has just switched its menu on - would forget an arrival for dinner at once,
+    /// and the choice would jump back to breakfast.
     pub fn arrival(&self) -> Meal {
-        Meal::ALL.into_iter().find(|m| self.dish_on(1, *m).is_some()).unwrap_or(Meal::Breakfast)
+        Meal::ALL.into_iter().find(|m| !self.is_nothing(1, *m)).unwrap_or(Meal::Breakfast)
     }
 
     pub fn departure(&self) -> Meal {
-        Meal::ALL.into_iter().rev().find(|m| self.dish_on(self.days, *m).is_some()).unwrap_or(Meal::Dinner)
+        Meal::ALL.into_iter().rev().find(|m| !self.is_nothing(self.days, *m)).unwrap_or(Meal::Dinner)
+    }
+
+    /// Set to "— nothing —": a slot with no dishes. A meal with no slot is still to be filled.
+    fn is_nothing(&self, day: u32, meal: Meal) -> bool {
+        self.slot(day, meal).is_some_and(|s| s.dishes.is_empty())
     }
 
     /// Arriving for this meal: the first day's meals before it are nothing, and the ones
@@ -980,8 +990,10 @@ mod tests {
         let mut m = menu();
         let dinners = |m: &Menu| (1..=m.days).map(|d| m.dish_on(d, Meal::Dinner).map(|x| x.id.clone())).collect::<Vec<_>>();
         assert_eq!(dinners(&m), [Some("plov".into()), Some("steak".into())]);
-        m.set(Slot::one(2, Meal::Dinner, None));
+        // A middle day's: on the last day an emptied dinner is where the trip ends, and a
+        // day more moves it on (see `set_days`).
         m.set_days(3);
+        m.set(Slot::one(2, Meal::Dinner, None));
         assert_eq!(dinners(&m), [Some("plov".into()), None, Some("plov".into())]);
         // Fewer days keep the plan of the ones taken off.
         m.set_days(1);
@@ -1085,6 +1097,23 @@ mod tests {
         // Arriving for breakfast after all fills the first day's breakfast again.
         m.arrive(Meal::Breakfast);
         assert!(m.dish_on(1, Meal::Breakfast).is_some());
+    }
+
+    /// With no dishes yet there is nothing to cook, but where the trip starts and ends is
+    /// still what was chosen.
+    #[test]
+    fn arrival_and_departure_stay_with_no_dishes_yet() {
+        let mut m = Menu::default();
+        m.set_days(3);
+        m.arrive(Meal::Dinner);
+        m.leave(Meal::Breakfast);
+        assert_eq!((m.arrival(), m.departure()), (Meal::Dinner, Meal::Breakfast));
+        let back: Menu = serde_json::from_value(serde_json::to_value(&m).unwrap()).unwrap();
+        assert_eq!((back.arrival(), back.departure()), (Meal::Dinner, Meal::Breakfast));
+        // A day longer, the departure moves to the new last day.
+        m.set_days(4);
+        assert_eq!((m.arrival(), m.departure()), (Meal::Dinner, Meal::Breakfast));
+        assert!(!m.is_nothing(3, Meal::Dinner));
     }
 
     /// "When" is written only for a daily item that has one: a dish's ingredients and an
