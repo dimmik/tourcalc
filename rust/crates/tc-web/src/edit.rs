@@ -934,6 +934,10 @@ pub enum MenuEdit {
     SplitChange { product: String, id: String, change: SplitChange },
     /// A split-off line taken away: its amount goes back to the rest. Its expense stays.
     RemoveSplit { product: String, id: String },
+    /// A way of cooking added or changed - the grill and what it takes each time.
+    PutMethod(tc_core::menu::Method),
+    /// A way of cooking taken away, and out of the dishes cooked so.
+    RemoveMethod(String),
     /// The rest taken away: the last split-off line becomes the purchase - see
     /// `Purchase::drop_rest`.
     DropRest { product: String },
@@ -1036,6 +1040,8 @@ fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
         }
         MenuEdit::RemoveSplit { product, id } => menu.purchase_mut(product).splits.retain(|s| s.id != *id),
         MenuEdit::DropRest { product } => menu.purchase_mut(product).drop_rest(),
+        MenuEdit::PutMethod(method) => menu.put_method(method.clone()),
+        MenuEdit::RemoveMethod(id) => menu.remove_method(id),
         MenuEdit::TakeTemplate(template) => {
             menu.take_catalogue(template);
             // Meals whose dish the template has not got are planned again from its dishes.

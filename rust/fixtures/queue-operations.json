@@ -622,6 +622,32 @@
           }
         }
       }
+    },
+    {
+      "as_of": "2026-11-07",
+      "op": {
+        "Menu": {
+          "PutMethod": {
+            "Id": "grill",
+            "Name": "Grill on charcoal",
+            "Ingredients": [
+              {
+                "Product": "charcoal",
+                "Amount": 2.5,
+                "Per": "Fire"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-11-07",
+      "op": {
+        "Menu": {
+          "RemoveMethod": "grill"
+        }
+      }
     }
   ]
 }

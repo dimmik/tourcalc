@@ -207,6 +207,27 @@ pub struct Dish {
     #[serde(skip_serializing)]
     pub meal: Option<Meal>,
     pub ingredients: Vec<Ingredient>,
+    /// How it is cooked - the grill, a campfire - by [`Method`] id: what that needs is the
+    /// method's, bought once a meal however many dishes share it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub methods: Vec<String>,
+    /// Whatever a later version wrote here that this one does not know: kept as it was, so
+    /// that saving through this version does not wipe it - see `nuances.md`.
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
+}
+
+/// A way of cooking - the grill on charcoal, a campfire - and what it takes each time it is
+/// lit: charcoal and firelighters, or firewood. Dishes say they are cooked so; a meal with
+/// any of them lights it once, so meat and prawns at one dinner are one grill, and a grill
+/// at lunch and another at dinner are two. Its amounts are "per use" (`Per::Fire`) unless
+/// said otherwise: per portion, if more people need more charcoal.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase", default)]
+pub struct Method {
+    pub id: String,
+    pub name: String,
+    pub ingredients: Vec<Ingredient>,
     /// Whatever a later version wrote here that this one does not know: kept as it was, so
     /// that saving through this version does not wipe it - see `nuances.md`.
     #[serde(flatten)]
@@ -278,6 +299,9 @@ pub struct Menu {
     pub places: Vec<Place>,
     pub products: Vec<Product>,
     pub dishes: Vec<Dish>,
+    /// How things are cooked - see [`Method`].
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub methods: Vec<Method>,
     /// Bought every day whatever is cooked: vegetables, bread, water, wine.
     pub daily: Vec<Ingredient>,
     pub plan: Vec<Slot>,
@@ -584,6 +608,7 @@ impl Menu {
             places: self.places.clone(),
             products: self.products.clone(),
             dishes: self.dishes.clone(),
+            methods: self.methods.clone(),
             daily: self.daily.clone(),
             ..Menu::default()
         }
@@ -598,6 +623,7 @@ impl Menu {
         self.places = template.places.clone();
         self.products = template.products.clone();
         self.dishes = template.dishes.clone();
+        self.methods = template.methods.clone();
         self.daily = template.daily.clone();
         let dishes = &self.dishes;
         // A meal keeps the dishes still there; one left with none of its own goes back to
@@ -742,6 +768,61 @@ impl Menu {
         }
     }
 
+    pub fn method(&self, id: &str) -> Option<&Method> {
+        self.methods.iter().find(|m| m.id == id)
+    }
+
+    /// Adds a way of cooking, or replaces the one with its id.
+    pub fn put_method(&mut self, method: Method) {
+        match self.methods.iter_mut().find(|m| m.id == method.id) {
+            Some(m) => *m = method,
+            None => self.methods.push(method),
+        }
+    }
+
+    /// Takes a way of cooking away, and out of the dishes cooked so.
+    pub fn remove_method(&mut self, id: &str) {
+        self.methods.retain(|m| m.id != id);
+        for dish in &mut self.dishes {
+            dish.methods.retain(|m| m != id);
+        }
+    }
+
+    /// The ways of cooking one meal of one day lights, each once, in the menu's order.
+    pub fn methods_on(&self, day: u32, meal: Meal) -> Vec<&Method> {
+        let dishes = self.dishes_on(day, meal);
+        self.methods.iter().filter(|m| dishes.iter().any(|d| d.methods.contains(&m.id))).collect()
+    }
+
+    /// The ways of cooking a product goes into, and how many times each is lit over these
+    /// days - "Grill ×2" under the charcoal.
+    pub fn methods_for(&self, product: &str, days: &[u32]) -> Vec<(&Method, u32)> {
+        let mut out: Vec<(&Method, u32)> = Vec::new();
+        for &day in days.iter().filter(|&&d| d >= 1 && d <= self.days) {
+            for meal in Meal::ALL {
+                for m in self.methods_on(day, meal) {
+                    if !m.ingredients.iter().any(|i| i.product == product) {
+                        continue;
+                    }
+                    match out.iter_mut().find(|(x, _)| x.id == m.id) {
+                        Some((_, n)) => *n += 1,
+                        None => out.push((m, 1)),
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Every ingredient list there is: the dishes', the ways of cooking's and the daily one.
+    fn all_ingredients(&self) -> impl Iterator<Item = &Ingredient> {
+        self.dishes
+            .iter()
+            .flat_map(|d| d.ingredients.iter())
+            .chain(self.methods.iter().flat_map(|m| m.ingredients.iter()))
+            .chain(self.daily.iter())
+    }
+
     /// Adds a product, or replaces the one with its id.
     pub fn put_product(&mut self, product: Product) {
         match self.products.iter_mut().find(|p| p.id == product.id) {
@@ -754,17 +835,13 @@ impl Menu {
     /// only per fire, trip or day: charcoal is nobody's in particular, and its line does not
     /// say "everybody".
     pub fn by_people(&self, product: &str) -> bool {
-        self.dishes
-            .iter()
-            .flat_map(|d| d.ingredients.iter())
-            .chain(self.daily.iter())
-            .any(|i| i.product == product && i.per.by_people())
+        self.all_ingredients().any(|i| i.product == product && i.per.by_people())
     }
 
-    /// Whether any dish or the daily list has it - such a product is not to be removed.
+    /// Whether any dish, way of cooking or the daily list has it - such a product is not to
+    /// be removed.
     pub fn uses(&self, product: &str) -> bool {
-        self.daily.iter().any(|i| i.product == product)
-            || self.dishes.iter().any(|d| d.ingredients.iter().any(|i| i.product == product))
+        self.all_ingredients().any(|i| i.product == product)
     }
 
     /// Adds a place, or renames the one with its id.
@@ -1094,6 +1171,20 @@ impl Menu {
                 for (p, amount) in fire {
                     amounts[p] += amount;
                 }
+                // Each way of cooking once a meal, whatever is on it.
+                for method in self.methods_on(day, meal) {
+                    for i in &method.ingredients {
+                        let Some(p) = at(&i.product) else { continue };
+                        match i.per {
+                            Per::Portion | Per::Head => {
+                                amounts[p] += i.amount * eating.times_per(self.products[p].eaters, i.per)
+                            }
+                            Per::Fire => amounts[p] += i.amount,
+                            Per::Day => most(&mut daily_most, p, i.amount),
+                            Per::Trip => {}
+                        }
+                    }
+                }
             }
             for i in self.daily.iter().filter(|i| self.daily_on(i.when, day)) {
                 let Some(p) = at(&i.product) else { continue };
@@ -1123,6 +1214,9 @@ impl Menu {
         for meal in Meal::ALL {
             for dish in self.dishes_on(day, meal) {
                 out.extend(dish.ingredients.iter());
+            }
+            for method in self.methods_on(day, meal) {
+                out.extend(method.ingredients.iter());
             }
         }
         out.extend(self.daily.iter().filter(|i| self.daily_on(i.when, day)));
@@ -1157,7 +1251,7 @@ mod tests {
     }
 
     fn menu() -> Menu {
-        let mut m = Menu { rest: Default::default(),
+        let mut m = Menu { methods: Default::default(), rest: Default::default(),
             on: true,
             days: 2,
             start: None,
@@ -1169,7 +1263,7 @@ mod tests {
                 product("juice", Eaters::Others),
             ],
             dishes: vec![
-                Dish { rest: Default::default(),
+                Dish { methods: Default::default(), rest: Default::default(),
                     id: "plov".into(),
                     name: "Plov".into(),
                     meals: vec![Meal::Dinner],
@@ -1179,7 +1273,7 @@ mod tests {
                         Ingredient { product: "rice".into(), amount: 100.0, ..Ingredient::default() },
                     ],
                 },
-                Dish { rest: Default::default(),
+                Dish { methods: Default::default(), rest: Default::default(),
                     id: "steak".into(),
                     name: "Steak".into(),
                     meals: vec![Meal::Dinner],
@@ -1211,7 +1305,7 @@ mod tests {
         for id in ["meat", "prawns", "sausage", "charcoal", "syringe", "noodles", "bags", "salt"] {
             m.products.push(product(id, if id == "noodles" { Eaters::Others } else { Eaters::Everyone }));
         }
-        let dish = |id: &str, items: Vec<Ingredient>| Dish { rest: Default::default(), id: id.into(), name: id.into(), meals: vec![Meal::Dinner], meal: None, ingredients: items };
+        let dish = |id: &str, items: Vec<Ingredient>| Dish { methods: Default::default(), rest: Default::default(), id: id.into(), name: id.into(), meals: vec![Meal::Dinner], meal: None, ingredients: items };
         m.dishes = vec![
             dish("meat", vec![item("meat", 370.0, Per::Portion), item("charcoal", 3.0, Per::Fire)]),
             dish("prawns", vec![item("prawns", 100.0, Per::Portion), item("charcoal", 1.0, Per::Fire)]),
@@ -1257,6 +1351,34 @@ mod tests {
         assert_eq!(ticked.days_needing("salt"), [2]);
         assert_eq!((amount(&day(&ticked, &eating, 1), "salt"), amount(&day(&ticked, &eating, 2), "salt")), (0.0, 1.0));
         assert_eq!(m.days_needing("bags"), [1, 2, 3]);
+    }
+
+    /// The grill as a way of cooking: lit once a meal however many dishes are on it, twice
+    /// for a grilled lunch and dinner; per portion when said; taken away, out of its dishes.
+    #[test]
+    fn a_way_of_cooking_is_lit_once_a_meal() {
+        let eating = Eating::of(&tour(&[100, 100]));
+        let mut m = grill();
+        for d in &mut m.dishes {
+            d.ingredients.retain(|i| i.per != Per::Fire);
+            if d.id != "lunch" {
+                d.methods = vec!["grill".into()];
+            }
+        }
+        m.methods.push(Method {
+            id: "grill".into(),
+            name: "Grill".into(),
+            ingredients: vec![item("charcoal", 2.5, Per::Fire), item("salt", 10.0, Per::Portion)],
+            ..Method::default()
+        });
+        let needs = m.shopping(&eating);
+        assert_eq!(amount(&needs, "charcoal"), 5.0, "Friday's dinner and Saturday's");
+        assert_eq!(m.methods_for("charcoal", &m.all_days()).iter().map(|(x, n)| (x.id.as_str(), *n)).collect::<Vec<_>>(), [("grill", 2)]);
+        assert!(m.uses("charcoal"));
+        m.set(Slot { day: 2, meal: Meal::Lunch, dishes: vec!["meat".into()] });
+        assert_eq!(amount(&m.shopping(&eating), "charcoal"), 7.5, "a grilled lunch is another fire");
+        m.remove_method("grill");
+        assert!(m.dishes.iter().all(|d| d.methods.is_empty()) && !m.uses("charcoal"));
     }
 
     /// Whole packs, with 5 % to spare, never none.
@@ -1435,7 +1557,7 @@ mod tests {
     #[test]
     fn a_weekend_is_two_evenings_of_wine_and_three_days_of_juice() {
         let mut m = menu();
-        m.dishes.push(Dish { rest: Default::default(),
+        m.dishes.push(Dish { methods: Default::default(), rest: Default::default(),
             id: "porridge".into(),
             name: "Porridge".into(),
             meals: vec![Meal::Breakfast],

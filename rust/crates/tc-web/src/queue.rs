@@ -747,6 +747,8 @@ mod tests {
                         M::SplitChange { .. } => "SplitChange",
                         M::RemoveSplit { .. } => "RemoveSplit",
                         M::DropRest { .. } => "DropRest",
+                        M::PutMethod(_) => "PutMethod",
+                        M::RemoveMethod(_) => "RemoveMethod",
                     }
                 )
             }
@@ -762,6 +764,7 @@ mod tests {
         "Menu.PutPlace", "Menu.RemovePlace", "Menu.All", "Menu.TakeTemplate",
         "Menu.CopyDish", "Menu.DayNote", "Menu.BuyAt", "Menu.ExpenseCategory", "Menu.BoughtOn",
         "Menu.Note", "Menu.SplitOff", "Menu.SplitChange", "Menu.RemoveSplit", "Menu.DropRest",
+        "Menu.PutMethod", "Menu.RemoveMethod",
     ];
 
     /// A queue is sent by whatever version of the app is loaded when the network comes back,
