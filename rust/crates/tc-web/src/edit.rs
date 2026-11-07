@@ -120,6 +120,10 @@ pub struct SpendingDraft {
     /// hold bread for the whole trip and the rest of the meat for Saturday to Tuesday.
     #[serde(default)]
     pub days_of: Vec<Vec<u32>>,
+    /// Which line of each of those products it pays for, in the same order: a split-off
+    /// line's id, or "" (or nothing) for the rest - see `tc_core::menu::Purchase::splits`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub splits: Vec<String>,
 }
 
 /// Whom a new expense starts from: whoever this device last recorded one for, as long as
@@ -196,6 +200,7 @@ impl SpendingDraft {
             on_behalf: false,
             purchases: Vec::new(),
             days_of: Vec::new(),
+            splits: Vec::new(),
         }
     }
 
@@ -239,6 +244,7 @@ impl SpendingDraft {
             on_behalf: false,
             purchases: Vec::new(),
             days_of: Vec::new(),
+            splits: Vec::new(),
         }
     }
 
@@ -341,6 +347,12 @@ pub fn put_spending(tour: &Tour, draft: &SpendingDraft) -> Tour {
             // Recorded, not ticked: the tick is the group's own - see `Purchase::bought`.
             let exists = |s: &str| next.spendings.iter().any(|x| x.id.as_str() == s);
             for (i, product) in draft.purchases.iter().enumerate() {
+                if let Some(split) = draft.splits.get(i).filter(|s| !s.is_empty()) {
+                    if let Some(s) = menu.purchase_mut(product).split_mut(split) {
+                        s.spending = Some(id.as_str().to_owned());
+                    }
+                    continue;
+                }
                 match draft.days_of.get(i).filter(|days| !days.is_empty()) {
                     None => menu.purchase_mut(product).spending = Some(id.as_str().to_owned()),
                     Some(days) => menu.record_on(product, days, id.as_str(), exists),
@@ -916,8 +928,27 @@ pub enum MenuEdit {
     ExpenseCategory(String),
     /// A word for whoever buys a product - "Perlenbacher Gold, at Lidl" - or "" for none.
     Note { product: String, note: String },
-    /// Who brings some of a product besides its buyer, all of them - see `Purchase::shares`.
-    Shares { product: String, shares: Vec<tc_core::menu::Share> },
+    /// Some of a product split off as a line of its own - see `Purchase::splits`.
+    SplitOff { product: String, split: tc_core::menu::Split },
+    /// One thing about a split-off line.
+    SplitChange { product: String, id: String, change: SplitChange },
+    /// A split-off line taken away: its amount goes back to the rest. Its expense stays.
+    RemoveSplit { product: String, id: String },
+    /// The rest taken away: the last split-off line becomes the purchase - see
+    /// `Purchase::drop_rest`.
+    DropRest { product: String },
+}
+
+/// What changes about a split-off line: one thing at a time, so that two people - one
+/// ticking it, the other taking it over - do not undo each other.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum SplitChange {
+    Who(Option<String>),
+    /// "" - the product's place in the menu.
+    Place(String),
+    Amount(f64),
+    Bought(bool),
+    Note(String),
 }
 
 /// The tour with its menu edited. A tour whose menu is gone has nothing to edit.
@@ -985,7 +1016,26 @@ fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
             let note = note.trim();
             menu.purchase_mut(product).note = (!note.is_empty()).then(|| note.to_owned());
         }
-        MenuEdit::Shares { product, shares } => menu.purchase_mut(product).shares = shares.clone(),
+        MenuEdit::SplitOff { product, split } => {
+            let p = menu.purchase_mut(product);
+            // Replayed, the same line is not split off twice.
+            if p.split(&split.id).is_none() {
+                p.splits.push(split.clone());
+            }
+        }
+        MenuEdit::SplitChange { product, id, change } => {
+            let Some(s) = menu.purchase_mut(product).split_mut(id) else { return };
+            let text = |t: &str| Some(t.trim().to_owned()).filter(|t| !t.is_empty());
+            match change {
+                SplitChange::Who(who) => s.who = who.clone(),
+                SplitChange::Place(place) => s.place = text(place),
+                SplitChange::Amount(amount) => s.amount = amount.max(0.0),
+                SplitChange::Bought(bought) => s.bought = *bought,
+                SplitChange::Note(note) => s.note = text(note),
+            }
+        }
+        MenuEdit::RemoveSplit { product, id } => menu.purchase_mut(product).splits.retain(|s| s.id != *id),
+        MenuEdit::DropRest { product } => menu.purchase_mut(product).drop_rest(),
         MenuEdit::TakeTemplate(template) => {
             menu.take_catalogue(template);
             // Meals whose dish the template has not got are planned again from its dishes.
@@ -1429,6 +1479,7 @@ mod split_tests {
             on_behalf: false,
             purchases: Vec::new(),
             days_of: Vec::new(),
+            splits: Vec::new(),
         }
     }
 

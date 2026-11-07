@@ -449,7 +449,7 @@ mod tests {
                 ..Menu::default()
             };
             for (id, name) in [("plov", "Plov"), ("fish", "Fish")] {
-                m.dishes.push(Dish {
+                m.dishes.push(Dish { rest: Default::default(),
                     id: id.into(),
                     name: name.into(),
                     meals: vec![Meal::Dinner],

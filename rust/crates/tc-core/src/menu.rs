@@ -63,11 +63,10 @@ pub enum Unit {
 pub struct Place {
     pub id: String,
     pub name: String,
-    /// Nothing is bought here: what comes from it is brought from somebody's home - the
-    /// syringe for the sausages, coffee from one's own shelf. On the shopping list like
-    /// anything else, to be ticked when it is packed, but never recorded as an expense.
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    pub from_home: bool,
+    /// Whatever a later version wrote here that this one does not know: kept as it was, so
+    /// that saving through this version does not wipe it - see `nuances.md`.
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -96,6 +95,10 @@ pub struct Product {
     /// The pack's word - "bottle 0.7", "bowl" - if it has one; else the list says the size.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pack_name: Option<String>,
+    /// Whatever a later version wrote here that this one does not know: kept as it was, so
+    /// that saving through this version does not wipe it - see `nuances.md`.
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
 }
 
 /// How many packs of `size` buy `amount`: up to a whole one, but not one more for the last
@@ -132,6 +135,10 @@ pub struct Ingredient {
     /// it is not the default, so a dish's ingredients stay two fields.
     #[serde(skip_serializing_if = "When::is_every_day")]
     pub when: When,
+    /// Whatever a later version wrote here that this one does not know: kept as it was, so
+    /// that saving through this version does not wipe it - see `nuances.md`.
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Which days a daily item is bought for - counted from the plan, so that arriving on
@@ -200,6 +207,10 @@ pub struct Dish {
     #[serde(skip_serializing)]
     pub meal: Option<Meal>,
     pub ingredients: Vec<Ingredient>,
+    /// Whatever a later version wrote here that this one does not know: kept as it was, so
+    /// that saving through this version does not wipe it - see `nuances.md`.
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
 }
 
 /// One meal of one day: what is cooked for it, in order - plov, and a salad, and mulled
@@ -279,6 +290,10 @@ pub struct Menu {
     /// default ("Shopping"); each expense adds its products' own category below it - see
     /// [`Menu::expense_category`].
     pub expense_category: Option<String>,
+    /// Whatever a later version wrote here that this one does not know: kept as it was, so
+    /// that saving through this version does not wipe it - see `nuances.md`.
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
 }
 
 /// One product's shopping: who buys and pays for it, where, whether it is bought, and the
@@ -311,35 +326,68 @@ pub struct Purchase {
     pub spending: Option<String>,
     /// Recorded for some days only, each part as its own expense.
     pub parts: Vec<Part>,
-    /// A word about it for whoever buys it - "Perlenbacher Gold, at Lidl", "Olga decides".
+    /// A word about it for whoever buys it - "Perlenbacher Gold", "Olga decides".
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
-    /// Some of it brought by others: coffee, a pack from Sasha's shelf at home and the rest
-    /// bought by Sergey. `who` buys what these leave.
+    /// Parts of it split off as lines of their own - coffee: a pack from Sasha's shelf at
+    /// home, the rest bought by Sergey. Each has its buyer, place, tick and expense; the
+    /// purchase itself is the rest.
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub shares: Vec<Share>,
+    pub splits: Vec<Split>,
+    /// Whatever a later version wrote here that this one does not know: kept as it was, so
+    /// that saving through this version does not wipe it - see `nuances.md`.
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
 }
 
-/// So much of a product that somebody other than its buyer brings.
+/// So much of a product split off its purchase as a line of its own, for the whole trip.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase", default)]
-pub struct Share {
+pub struct Split {
+    pub id: String,
     pub who: Option<String>,
+    /// Where it is got, as whoever gets it says: "From home", "Metro".
+    pub place: Option<String>,
     /// In the product's unit.
     pub amount: f64,
-    /// Where they get it, as they say: "From home", "Metro".
-    pub place: Option<String>,
+    pub bought: bool,
+    /// The expense it was recorded as, as with the purchase's.
+    pub spending: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    /// Whatever a later version wrote here that this one does not know: kept as it was, so
+    /// that saving through this version does not wipe it - see `nuances.md`.
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Purchase {
-    /// What the shares bring between them.
-    pub fn shared(&self) -> f64 {
-        self.shares.iter().map(|s| s.amount.max(0.0)).sum()
+    /// What the split-off lines take between them.
+    pub fn split_off(&self) -> f64 {
+        self.splits.iter().map(|s| s.amount.max(0.0)).sum()
     }
 
-    /// Whether `person` buys any of it: the whole, or a share.
-    pub fn involves(&self, person: &str) -> bool {
-        self.who.as_deref() == Some(person) || self.shares.iter().any(|s| s.who.as_deref() == Some(person))
+    pub fn split(&self, id: &str) -> Option<&Split> {
+        self.splits.iter().find(|s| s.id == id)
+    }
+
+    pub fn split_mut(&mut self, id: &str) -> Option<&mut Split> {
+        self.splits.iter_mut().find(|s| s.id == id)
+    }
+
+    /// Takes the rest away: the last split-off line becomes the purchase, with its buyer,
+    /// place, tick, expense and note - Sergey does not buy coffee after all, Sasha brings it
+    /// all. Its amount is then whatever the trip needs. The rest's expense stays in the tour.
+    /// Nothing, with no line to take its place.
+    pub fn drop_rest(&mut self) {
+        let Some(last) = self.splits.pop() else { return };
+        self.who = last.who;
+        self.place = last.place;
+        self.bought = last.bought;
+        self.bought_days.clear();
+        self.spending = last.spending;
+        self.parts.clear();
+        self.note = last.note;
     }
 }
 
@@ -781,12 +829,6 @@ impl Menu {
         }
     }
 
-    /// Whether a place, by name, is one nothing is bought at - see [`Place::from_home`].
-    pub fn from_home(&self, place: &str) -> bool {
-        let key = place.trim().to_lowercase();
-        !key.is_empty() && self.places.iter().any(|p| p.from_home && p.name.trim().to_lowercase() == key)
-    }
-
     /// Says where these products are bought. Blank, or the product's own place, is that
     /// place again - so a typed "Market" does not stay behind when the catalogue's market is
     /// renamed.
@@ -870,17 +912,33 @@ impl Menu {
 
     /// The days a product is needed on: a dish with it planned, or it on the daily list.
     pub fn days_needing(&self, product: &str) -> Vec<u32> {
-        // What is bought once for the trip is needed on the first day it is there, only.
-        let first_trip = self.all_days().into_iter().find(|&day| {
-            self.on_day(day).iter().any(|i| i.product == product && i.per == Per::Trip)
-        });
+        let trip = self.trip_days(product);
         (1..=self.days)
             .filter(|&day| {
-                self.on_day(day)
-                    .iter()
-                    .any(|i| i.product == product && (i.per != Per::Trip || Some(day) == first_trip))
+                trip.contains(&day)
+                    || self.on_day(day).iter().any(|i| i.product == product && i.per != Per::Trip)
             })
             .collect()
+    }
+
+    /// The days what is bought once for the trip is bought for: the first one ticked, once it
+    /// is ticked for any - it is bought then; until then every day it is there for, so that
+    /// salt not bought with Friday's shopping is on Saturday's list and not forgotten.
+    pub fn trip_days(&self, product: &str) -> Vec<u32> {
+        let there: Vec<u32> = self
+            .all_days()
+            .into_iter()
+            .filter(|&day| self.on_day(day).iter().any(|i| i.product == product && i.per == Per::Trip))
+            .collect();
+        let covered = match self.purchase(product) {
+            Some(p) if p.bought => there.first().copied(),
+            Some(p) => there.iter().copied().find(|d| p.bought_days.contains(d)),
+            None => None,
+        };
+        match covered {
+            Some(day) => vec![day],
+            None => there,
+        }
     }
 
     /// The days a product is ticked for: all of them if it was ticked for the whole trip,
@@ -997,25 +1055,18 @@ impl Menu {
     pub fn shopping_on(&self, eating: &Eating, days: &[u32]) -> Vec<Need<'_>> {
         let mut amounts: Vec<f64> = vec![0.0; self.products.len()];
         let at = |id: &str| self.products.iter().position(|p| p.id == id);
-        // Once for the trip: on the first day of the whole plan it is needed on, so that
-        // shopping a day at a time buys it once - with Friday's, if Friday has the dish.
-        let mut trip: Vec<(usize, u32, f64)> = Vec::new();
-        for day in self.all_days() {
-            for i in self.on_day(day).into_iter().filter(|i| i.per == Per::Trip) {
-                let Some(p) = at(&i.product) else { continue };
-                match trip.iter_mut().find(|(q, ..)| *q == p) {
-                    Some((_, first, amount)) => {
-                        if *first == day {
-                            *amount = amount.max(i.amount);
-                        }
-                    }
-                    None => trip.push((p, day, i.amount)),
-                }
-            }
-        }
-        for (p, first, amount) in trip {
-            if days.contains(&first) {
-                amounts[p] += amount;
+        // Once for the trip, the largest amount any dish or the daily list says, if any day
+        // it is bought for is among these - see `trip_days`.
+        for (p, product) in self.products.iter().enumerate() {
+            let most = self
+                .all_days()
+                .into_iter()
+                .flat_map(|day| self.on_day(day))
+                .filter(|i| i.product == product.id && i.per == Per::Trip)
+                .map(|i| i.amount)
+                .fold(0.0, f64::max);
+            if most > 0.0 && self.trip_days(&product.id).iter().any(|d| days.contains(d)) {
+                amounts[p] += most;
             }
         }
         for &day in days.iter().filter(|&&d| d >= 1 && d <= self.days) {
@@ -1106,7 +1157,7 @@ mod tests {
     }
 
     fn menu() -> Menu {
-        let mut m = Menu {
+        let mut m = Menu { rest: Default::default(),
             on: true,
             days: 2,
             start: None,
@@ -1118,7 +1169,7 @@ mod tests {
                 product("juice", Eaters::Others),
             ],
             dishes: vec![
-                Dish {
+                Dish { rest: Default::default(),
                     id: "plov".into(),
                     name: "Plov".into(),
                     meals: vec![Meal::Dinner],
@@ -1128,7 +1179,7 @@ mod tests {
                         Ingredient { product: "rice".into(), amount: 100.0, ..Ingredient::default() },
                     ],
                 },
-                Dish {
+                Dish { rest: Default::default(),
                     id: "steak".into(),
                     name: "Steak".into(),
                     meals: vec![Meal::Dinner],
@@ -1160,7 +1211,7 @@ mod tests {
         for id in ["meat", "prawns", "sausage", "charcoal", "syringe", "noodles", "bags", "salt"] {
             m.products.push(product(id, if id == "noodles" { Eaters::Others } else { Eaters::Everyone }));
         }
-        let dish = |id: &str, items: Vec<Ingredient>| Dish { id: id.into(), name: id.into(), meals: vec![Meal::Dinner], meal: None, ingredients: items };
+        let dish = |id: &str, items: Vec<Ingredient>| Dish { rest: Default::default(), id: id.into(), name: id.into(), meals: vec![Meal::Dinner], meal: None, ingredients: items };
         m.dishes = vec![
             dish("meat", vec![item("meat", 370.0, Per::Portion), item("charcoal", 3.0, Per::Fire)]),
             dish("prawns", vec![item("prawns", 100.0, Per::Portion), item("charcoal", 1.0, Per::Fire)]),
@@ -1191,12 +1242,20 @@ mod tests {
         assert!((amount(&needs, "bags") - 0.6).abs() < 1e-9);
         assert_eq!(amount(&needs, "noodles"), 4.0, "two children, two meals");
         assert!((amount(&needs, "meat") - 370.0 * 4.85).abs() < 1e-9);
-        // Shopping a day at a time: the trip's salt with day 1's, the syringe with day 2's.
-        let day = |d: u32| m.shopping_on(&eating, &[d]);
-        assert_eq!((amount(&day(1), "salt"), amount(&day(2), "salt")), (1.0, 0.0));
-        assert_eq!((amount(&day(1), "syringe"), amount(&day(2), "syringe")), (0.0, 1.0));
-        assert_eq!((amount(&day(1), "charcoal"), amount(&day(2), "charcoal")), (3.0, 2.0));
-        assert_eq!(m.days_needing("salt"), [1]);
+        // Shopping a day at a time: the trip's salt on every day's list until it is ticked for
+        // one - then on that day's only; the syringe on day 2's, its dish's.
+        fn day<'a>(m: &'a Menu, e: &Eating, d: u32) -> Vec<Need<'a>> {
+            m.shopping_on(e, &[d])
+        }
+        assert_eq!((amount(&day(&m, &eating, 1), "salt"), amount(&day(&m, &eating, 2), "salt")), (1.0, 1.0));
+        assert_eq!(amount(&m.shopping_on(&eating, &[1, 2]), "salt"), 1.0, "once, however many days");
+        assert_eq!((amount(&day(&m, &eating, 1), "syringe"), amount(&day(&m, &eating, 2), "syringe")), (0.0, 1.0));
+        assert_eq!((amount(&day(&m, &eating, 1), "charcoal"), amount(&day(&m, &eating, 2), "charcoal")), (3.0, 2.0));
+        assert_eq!(m.days_needing("salt"), [1, 2, 3]);
+        let mut ticked = m.clone();
+        ticked.set_bought_on("salt", &[2], true);
+        assert_eq!(ticked.days_needing("salt"), [2]);
+        assert_eq!((amount(&day(&ticked, &eating, 1), "salt"), amount(&day(&ticked, &eating, 2), "salt")), (0.0, 1.0));
         assert_eq!(m.days_needing("bags"), [1, 2, 3]);
     }
 
@@ -1214,27 +1273,36 @@ mod tests {
         assert_eq!(packs(5.0, 0.0), 0.0);
     }
 
-    /// What comes from home is said by the place, whatever its case; a share is taken off
-    /// nothing in the model - the list does that - but says who is in it.
+    /// A split-off line is taken off the rest; dropping the rest makes the last line the
+    /// purchase. Nothing new is written where nothing was said, and what a later version
+    /// wrote is kept.
     #[test]
-    fn from_home_and_shares() {
+    fn splits_and_fields_this_version_does_not_know() {
         let mut m = menu();
-        m.places.push(Place { id: "home".into(), name: "From home".into(), from_home: true, ..Place::default() });
-        assert!(m.from_home(" from HOME"));
-        assert!(!m.from_home("Market") && !m.from_home(""));
         let p = m.purchase_mut("rice");
-        p.who = Some("a".into());
-        p.shares.push(Share { who: Some("b".into()), amount: 250.0, place: Some("From home".into()) });
-        assert!(p.involves("a") && p.involves("b") && !p.involves("c"));
-        assert_eq!(p.shared(), 250.0);
-        let json = serde_json::to_value(&m).expect("json");
-        let back: Menu = serde_json::from_value(json.clone()).expect("back");
+        p.who = Some("sergey".into());
+        p.spending = Some("e1".into());
+        p.splits.push(Split { id: "s".into(), who: Some("sasha".into()), amount: 250.0, place: Some("From home".into()), bought: true, ..Split::default() });
+        assert_eq!(p.split_off(), 250.0);
+        let back: Menu = serde_json::from_value(serde_json::to_value(&m).expect("json")).expect("back");
         assert_eq!(back, m);
-        // Nothing new written where nothing was said.
+        let p = m.purchase_mut("rice");
+        p.drop_rest();
+        assert_eq!((p.who.as_deref(), p.place.as_deref(), p.bought, p.spending.as_deref()), (Some("sasha"), Some("From home"), true, None));
+        assert!(p.splits.is_empty());
+
         let plain = serde_json::to_string(&menu()).expect("json");
-        for field in ["\"Per\"", "\"Pack\"", "\"FromHome\"", "\"Note\"", "\"Shares\""] {
+        for field in ["\"Per\"", "\"Pack\"", "\"Note\"", "\"Splits\""] {
             assert!(!plain.contains(field), "{field}");
         }
+        let mut later = serde_json::to_value(menu()).expect("json");
+        later["Future"] = serde_json::json!(1);
+        later["Products"][0]["Shelf"] = serde_json::json!("top");
+        later["Dishes"][0]["Ingredients"][0]["Optional"] = serde_json::json!(true);
+        let read: Menu = serde_json::from_value(later.clone()).expect("read");
+        let again = serde_json::to_value(&read).expect("json");
+        assert_eq!((&again["Future"], &again["Products"][0]["Shelf"], &again["Dishes"][0]["Ingredients"][0]["Optional"]),
+                   (&later["Future"], &later["Products"][0]["Shelf"], &later["Dishes"][0]["Ingredients"][0]["Optional"]));
     }
 
     fn amount(needs: &[Need], id: &str) -> f64 {
@@ -1367,7 +1435,7 @@ mod tests {
     #[test]
     fn a_weekend_is_two_evenings_of_wine_and_three_days_of_juice() {
         let mut m = menu();
-        m.dishes.push(Dish {
+        m.dishes.push(Dish { rest: Default::default(),
             id: "porridge".into(),
             name: "Porridge".into(),
             meals: vec![Meal::Breakfast],

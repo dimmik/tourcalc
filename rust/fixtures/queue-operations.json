@@ -532,23 +532,6 @@
       "as_of": "2026-11-07",
       "op": {
         "Menu": {
-          "Shares": {
-            "product": "coffee",
-            "shares": [
-              {
-                "Who": "p1",
-                "Amount": 250.0,
-                "Place": "From home"
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "as_of": "2026-11-07",
-      "op": {
-        "Menu": {
           "PutDish": {
             "Id": "sausages",
             "Name": "Sausages",
@@ -591,10 +574,51 @@
       "as_of": "2026-11-07",
       "op": {
         "Menu": {
-          "PutPlace": {
-            "Id": "home",
-            "Name": "From home",
-            "FromHome": true
+          "SplitOff": {
+            "product": "coffee",
+            "split": {
+              "Id": "s1",
+              "Who": "p1",
+              "Place": "From home",
+              "Amount": 250.0,
+              "Bought": false,
+              "Spending": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-11-07",
+      "op": {
+        "Menu": {
+          "SplitChange": {
+            "product": "coffee",
+            "id": "s1",
+            "change": {
+              "Bought": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-11-07",
+      "op": {
+        "Menu": {
+          "RemoveSplit": {
+            "product": "coffee",
+            "id": "s1"
+          }
+        }
+      }
+    },
+    {
+      "as_of": "2026-11-07",
+      "op": {
+        "Menu": {
+          "DropRest": {
+            "product": "coffee"
           }
         }
       }
