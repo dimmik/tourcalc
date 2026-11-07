@@ -192,7 +192,7 @@ pub struct Texts {
     pub menu: MenuTexts,
 }
 
-/// The Menu tab: food by the day, and the shopping for it.
+/// The Food tab: food by the day, and the shopping for it.
 pub struct MenuTexts {
     pub tab: &'static str,
     pub plan: &'static str,
