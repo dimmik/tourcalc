@@ -223,6 +223,8 @@ pub struct MenuTexts {
     pub bought: &'static str,
     pub nobody_yet: &'static str,
     pub bought_of: fn(usize, usize) -> String,
+    /// When some lines are hidden: bought of those shown, shown of all.
+    pub shown_bought_of: fn(usize, usize, usize) -> String,
     pub record: &'static str,
     /// One expense for so many bought products.
     pub record_together: fn(usize) -> String,
