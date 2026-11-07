@@ -881,6 +881,8 @@ pub const TEXTS: Texts = Texts {
         bought: "Bought",
         nobody_yet: "nobody yet",
         bought_of: |n, total| format!("{n} of {total} bought"),
+        shown_bought_of: |n, shown, total| format!("{n} of {shown} bought · {shown} of {total} shown"),
+        theirs_bought_of: |who, n, of| format!("{who}: {n} of {of}"),
         record: "Record",
         record_together: |n| format!("Record the {n} bought as one expense"),
         record_together_for: |n, whom| format!("Record as one expense — {whom} ({n})"),

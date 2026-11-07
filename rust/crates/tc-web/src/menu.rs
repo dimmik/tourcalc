@@ -2180,9 +2180,36 @@ fn ListCard(
     dialog: RwSignal<Option<Dialog>>,
 ) -> impl IntoView {
     let change = move |edit: MenuEdit| apply.run(Operation::Menu(edit));
-    let bought = lines.iter().filter(|l| l.ticked).count();
-    let total = lines.len();
     let unit = crate::ui::unit(&tour);
+    // Of the lines on screen, not of the card: with "hide the rest" or a search, "0 of 47"
+    // counted lines nobody was looking at.
+    // With everybody's lines showing and somebody picked, their share of them follows.
+    let tally = {
+        let rows: Vec<(Option<String>, String, bool)> =
+            lines.iter().map(|l| (l.who.clone(), l.hay.clone(), l.ticked)).collect();
+        let shoppers = shoppers.clone();
+        move || {
+            let total = rows.len();
+            let shown: Vec<&(Option<String>, String, bool)> =
+                rows.iter().filter(|(who, hay, _)| visible_line(state, who.as_deref(), hay)).collect();
+            let bought = shown.iter().filter(|r| r.2).count();
+            let count = if shown.len() == total {
+                (t().menu.bought_of)(bought, total)
+            } else {
+                (t().menu.shown_bought_of)(bought, shown.len(), total)
+            };
+            let me = state.me.get().filter(|_| state.everybody.get());
+            let theirs: Vec<bool> =
+                shown.iter().filter(|r| r.0.is_some() && r.0 == me).map(|r| r.2).collect();
+            match me.and_then(|me| shoppers.iter().find(|(id, _)| *id == me).map(|(_, name)| name.clone())) {
+                Some(name) if !theirs.is_empty() => format!(
+                    "{count} · {}",
+                    (t().menu.theirs_bought_of)(&name, theirs.iter().filter(|b| **b).count(), theirs.len())
+                ),
+                _ => count,
+            }
+        }
+    };
     let recorded = |l: &Line| {
         l.spending
             .as_deref()
@@ -2391,9 +2418,15 @@ fn ListCard(
                     })
                 }
             };
+            // Whose the line is, marked while the others' are on screen too - hidden, they need
+            // no marking.
+            let is_mine = {
+                let who = who.clone();
+                move || state.everybody.get() && state.me.get().is_some_and(|me| who.as_deref() == Some(me.as_str()))
+            };
             // Hidden rather than left out, so that picking "me" does not rebuild the list.
             view! {
-                    <div class="tcw-buy" class:is-bought=ticked
+                    <div class="tcw-buy" class:is-bought=ticked class:is-mine=is_mine
                          style:display=move || if visible() { "" } else { "none" }>
                         <input type="checkbox" class="tcw-buy-tick" prop:checked=ticked
                                title=t().menu.bought on:change=tick />
@@ -2432,7 +2465,7 @@ fn ListCard(
                  style:display=move || if visible_here() { "" } else { "none" }>
                 <div class="tcw-errand-head">
                     <b class="tcw-errand-place">{title.clone()}</b>
-                    <span class="tcw-errand-count">{(t().menu.bought_of)(bought, total)}</span>
+                    <span class="tcw-errand-count">{tally}</span>
                     <label class="tcw-errand-who">
                         <span>{t().menu.everybody}</span>
                         <select class="tcn-input" on:change=everybody>
