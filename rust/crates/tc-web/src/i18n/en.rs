@@ -1029,7 +1029,7 @@ pub const TEXTS: Texts = Texts {
         per_fire: "per grill",
         per_trip: "per trip",
         per_day: "per day",
-        per_kind_title: "What the amount is for: a portion, by weight; each person, whatever they weigh; the grill — one a meal, the largest of its dishes' amounts; the whole trip, once; a day",
+        per_kind_title: "What the amount is for: a portion, by weight; each person, whatever they weigh; the whole trip, once; a day. In How we cook it is per use - each time it is lit - unless said otherwise",
         pack: "Sold in packs of",
         pack_placeholder: "empty — by amount",
         pack_name: "Pack",

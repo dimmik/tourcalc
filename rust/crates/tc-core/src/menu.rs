@@ -1007,6 +1007,11 @@ impl Menu {
             .into_iter()
             .filter(|&day| self.on_day(day).iter().any(|i| i.product == product && i.per == Per::Trip))
             .collect();
+        self.trip_days_of(product, there)
+    }
+
+    /// [`Menu::trip_days`] from the days the product is there for once a trip.
+    fn trip_days_of(&self, product: &str, there: Vec<u32>) -> Vec<u32> {
         let covered = match self.purchase(product) {
             Some(p) if p.bought => there.first().copied(),
             Some(p) => there.iter().copied().find(|d| p.bought_days.contains(d)),
@@ -1133,16 +1138,25 @@ impl Menu {
         let mut amounts: Vec<f64> = vec![0.0; self.products.len()];
         let at = |id: &str| self.products.iter().position(|p| p.id == id);
         // Once for the trip, the largest amount any dish or the daily list says, if any day
-        // it is bought for is among these - see `trip_days`.
-        for (p, product) in self.products.iter().enumerate() {
-            let most = self
-                .all_days()
-                .into_iter()
-                .flat_map(|day| self.on_day(day))
-                .filter(|i| i.product == product.id && i.per == Per::Trip)
-                .map(|i| i.amount)
-                .fold(0.0, f64::max);
-            if most > 0.0 && self.trip_days(&product.id).iter().any(|d| days.contains(d)) {
+        // it is bought for is among these - see `trip_days`. One pass over the days for all
+        // products: done per product, the list took products × days × ingredients.
+        let mut trip: Vec<(usize, Vec<u32>, f64)> = Vec::new();
+        for day in self.all_days() {
+            for i in self.on_day(day).into_iter().filter(|i| i.per == Per::Trip) {
+                let Some(p) = at(&i.product) else { continue };
+                match trip.iter_mut().find(|(q, ..)| *q == p) {
+                    Some((_, there, most)) => {
+                        if there.last() != Some(&day) {
+                            there.push(day);
+                        }
+                        *most = most.max(i.amount);
+                    }
+                    None => trip.push((p, vec![day], i.amount)),
+                }
+            }
+        }
+        for (p, there, most) in trip {
+            if most > 0.0 && self.trip_days_of(&self.products[p].id, there).iter().any(|d| days.contains(d)) {
                 amounts[p] += most;
             }
         }

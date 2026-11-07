@@ -1410,9 +1410,24 @@ fn Shopping(
     let need_of = |id: &str, days: &[u32]| {
         menu.shopping_on(&eating, days).iter().find(|n| n.product.id == id).map_or(0.0, |n| n.amount)
     };
+    // What the whole trip needs, counted once for the list rather than again for every line.
+    let whole_trip = menu.shopping_on(&eating, &all_days);
+    let whole_of = |id: &str| whole_trip.iter().find(|n| n.product.id == id).map_or(0.0, |n| n.amount);
+    // What the days need - and, over some days, a product with a split-off line not ticked yet
+    // although these days need none of it: Sasha's coffee from home is on Friday's list too,
+    // where there is no breakfast, until it is packed.
+    let mut needs = menu.shopping_on(&eating, &chosen);
+    if subset {
+        for n in &whole_trip {
+            let waiting = menu.purchase(&n.product.id).is_some_and(|p| p.splits.iter().any(|x| !x.bought));
+            if waiting && !needs.iter().any(|x| x.product.id == n.product.id) {
+                needs.push(tc_core::menu::Need { product: n.product, amount: 0.0 });
+            }
+        }
+        needs.sort_by_key(|n| menu.products.iter().position(|p| p.id == n.product.id));
+    }
     // Everything to buy, owned, with what has been said about each.
-    let lines: Vec<Line> = menu
-        .shopping_on(&eating, &chosen)
+    let lines: Vec<Line> = needs
         .into_iter()
         .flat_map(|n| {
             let (dishes, daily) = menu.sources_on(&n.product.id, &chosen);
@@ -1424,7 +1439,10 @@ fn Shopping(
                     why.push(t().menu.per_trip.to_owned());
                 } else {
                     let times = chosen.iter().filter(|&&day| menu.daily_on(when, day)).count();
-                    why.push(format!("{} ×{times}", when_name(when)));
+                    // None of these days: a split-off line shown for being not packed yet.
+                    if times > 0 {
+                        why.push(format!("{} ×{times}", when_name(when)));
+                    }
                 }
             }
             let place_name = menu.bought_at(n.product);
@@ -1474,7 +1492,8 @@ fn Shopping(
             // Saturday too - but the one the line's own expense already shows; and, ticked for
             // some days, how much is left for the others.
             let parts_note = {
-                let total = need_of(id, &needed);
+                // Every day it is needed on is the whole trip's amount.
+                let total = whole_of(id);
                 let mut bits: Vec<String> = purchase
                     .parts
                     .iter()
@@ -1504,7 +1523,7 @@ fn Shopping(
                 who.and_then(|w| shoppers.iter().find(|(id, _)| id == w)).map(|(_, name)| name.clone()).unwrap_or_default()
             };
             // The rest, after what is split off - over some days, its share of their amount.
-            let whole = need_of(id, &all_days);
+            let whole = whole_of(id);
             let rest = if whole > 0.0 { (whole - purchase.split_off()).max(0.0) / whole } else { 1.0 };
             let own_place = menu.places.iter().find(|p| p.id == n.product.place).map(|p| p.name.clone()).unwrap_or_default();
             let note = purchase.note.clone().unwrap_or_default();
@@ -1560,7 +1579,10 @@ fn Shopping(
                     }
                 })
                 .collect();
-            out.insert(0, base);
+            // Nothing of it needed over these days: only its split-off lines.
+            if n.amount > 0.0 {
+                out.insert(0, base);
+            }
             out
         })
         .collect();
@@ -1965,7 +1987,20 @@ fn amount_unit(product: &Product) -> String {
 /// What a line buys, at its right: whole packs, or "all split off" for a rest with nothing
 /// left; under a rest, "of" the whole. A split-off line's amount is tapped to change it.
 fn amount_cell(line: &Line, change: impl Fn(MenuEdit) + Copy + Send + Sync + 'static) -> AnyView {
-    let text = if line.amount > 0.0 { to_buy(line.amount, &line.product) } else { t().menu.all_split.to_owned() };
+    // A split-off line is what somebody brings, as said - half a pack of coffee is 125 g, not
+    // "1 × pack"; in packs only when it is whole ones.
+    let whole_packs = line.product.pack_size().is_some_and(|size| {
+        let n = line.amount / size;
+        n >= 1.0 && (n - n.round()).abs() < 1e-6
+    });
+    let text = if line.amount <= 0.0 {
+        t().menu.all_split.to_owned()
+    } else if line.split.is_some() && !whole_packs {
+        // As typed: 125 g is 125, not the shop's 120.
+        format!("{}\u{a0}{}", crate::menu_catalogue::number((line.amount * 100.0).round() / 100.0), crate::menu_catalogue::unit_label(&line.product))
+    } else {
+        to_buy(line.amount, &line.product)
+    };
     let Some(split) = line.split.clone() else {
         let of = (line.total > line.amount + 1e-9).then(|| (t().menu.of_total)(&quantity_of(line.total, &line.product)));
         return view! { {text} {of.map(|o| view! { <small class="tcw-buy-total">{o}</small> })} }.into_any();
@@ -2370,7 +2405,7 @@ fn ListCard(
                                     " · "
                                 })}
                                 <Show when=move || !placing.get() fallback=place_box>{place_word()}</Show>
-                                " · " {line.by_people.then(|| format!("{} · ", whom(line.product.eaters)))}
+                                " · " {line.by_people.then(|| if line.why.is_empty() { whom(line.product.eaters).to_owned() } else { format!("{} · ", whom(line.product.eaters)) })}
                                 {line.why.clone()}
                             </small>
                             {(!line.parts_note.is_empty()).then(|| view! {
