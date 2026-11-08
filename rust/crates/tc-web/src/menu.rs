@@ -301,7 +301,7 @@ const DAILY: &[(&str, f64, When)] = &[
 pub fn starter(days: u32) -> Menu {
     let ru = crate::i18n::lang() == Lang::Ru;
     let pick = |en: &str, ru_: &str| if ru { ru_.to_owned() } else { en.to_owned() };
-    let mut menu = Menu { methods: Default::default(), rest: Default::default(),
+    let mut menu = Menu { methods: Default::default(), rest: Default::default(), arrive: None, leave: None,
         on: true,
         days: days.max(1),
         start: None,
@@ -1056,9 +1056,8 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
     let departure = menu.departure();
     let index = |m: Meal| Meal::ALL.iter().position(|x| *x == m).unwrap_or(0);
     // Inside the trip: not before arriving on the first day, not after leaving on the last.
-    let inside = move |day: u32, meal: Meal| {
-        !(day == 1 && index(meal) < index(arrival)) && !(day == days && index(meal) > index(departure))
-    };
+    let trip_menu = StoredValue::new(menu.clone());
+    let inside = move |day: u32, meal: Meal| trip_menu.with_value(|m| m.in_trip(day, meal));
 
     // When the trip starts and ends, and the first day's date.
     let bound = |current: Meal, first: bool| {
@@ -1150,8 +1149,27 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
 
     let day_cards = (1..=days)
         .map(|day| {
+            // The meals outside the trip are not shown: a quiet word in their place - "arriving
+            // for dinner" where the breakfast and lunch of the first day would be.
+            let away = |meals: Vec<Meal>, word: &'static str| {
+                let first = meals.first().copied()?;
+                Some(view! {
+                    <div class="tcw-food-away" style=format!("grid-row: {} / span {}", index(first) + 2, meals.len())>{word}</div>
+                })
+            };
+            let before = if day == 1 {
+                away(Meal::ALL.into_iter().filter(|m| index(*m) < index(arrival)).collect(), t().menu.arriving_for[index(arrival)])
+            } else {
+                None
+            };
+            let after = if day == days {
+                away(Meal::ALL.into_iter().filter(|m| index(*m) > index(departure)).collect(), t().menu.leaving_after[index(departure)])
+            } else {
+                None
+            };
             let meals = Meal::ALL
                 .into_iter()
+                .filter(|meal| inside(day, *meal))
                 .map(|meal| {
                     let now = current(day, meal);
                     let options = |chosen: &str| {
@@ -1197,13 +1215,18 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                     // cooked has nothing to add beside.
                     let next = menu.dishes_for(meal).map(|d| d.id.clone()).find(|id| !now.contains(id));
                     let can_add = !now.is_empty() && next.is_some();
+                    // Not chosen yet - a day just added: marked, and "— not chosen —" rather than
+                    // "— nothing —", which is a choice.
+                    let unplanned = menu.unplanned(day, meal);
                     view! {
-                        <div class=format!("tcw-food-meal tcw-food-slot {}", crate::menu_catalogue::meal_class(meal))>
+                        <div class=format!("tcw-food-meal tcw-food-slot {}", crate::menu_catalogue::meal_class(meal))
+                             class:is-unplanned=unplanned title=unplanned.then_some(t().menu.unplanned_title)>
                             <span class=format!("tcw-meal {}", crate::menu_catalogue::meal_class(meal))>{meal_name(meal)}</span>
                             <div class="tcw-food-dishes">
                                 <select class="tcn-input" aria-label=meal_name(meal)
                                         on:change=move |ev| {
                                             let v = event_target_value(&ev);
+                                            if v == "?" { return; }
                                             let mut dishes = current(day, meal);
                                             match (v.is_empty(), dishes.is_empty()) {
                                                 (true, _) => dishes.clear(),
@@ -1212,7 +1235,8 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                                             }
                                             put(day, meal, dishes);
                                         }>
-                                    <option value="" selected=main.is_empty()>{t().menu.nothing}</option>
+                                    {unplanned.then(|| view! { <option value="?" selected=true>{t().menu.unplanned}</option> })}
+                                    <option value="" selected=main.is_empty() && !unplanned>{t().menu.nothing}</option>
                                     {options(&main)}
                                 </select>
                                 {extras}
@@ -1274,7 +1298,9 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                             </button>
                         </Show>
                     </div>
+                    {before}
                     {meals}
+                    {after}
                 </div>
             }
         })
@@ -1412,10 +1438,144 @@ fn Shopping(
     });
     let places = menu.shop_places();
     let place_options = places.iter().map(|p| view! { <option value=p.clone()></option> }).collect_view();
+    let lines = shopping_lines(&tour, &menu, &eating, &in_plan(state.days.get_untracked()), &shoppers);
+    if lines.is_empty() {
+        return view! { {who_am_i} <div class="tcn-empty">{t().menu.nothing_to_buy}</div> }.into_any();
+    }
+
+    // Somebody picked and everything taken by others, or nothing found: say so, rather than
+    // an empty screen.
+    let anything_shown = {
+        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.who.clone(), l.hay.clone())).collect();
+        move || rows.iter().any(|(who, hay)| visible_line(state, who.as_deref(), hay))
+    };
+
+    let sort_options = Sort::ALL
+        .into_iter()
+        .map(|s| view! { <option value=s.name() selected=move || state.sort.get() == s>{s.name()}</option> })
+        .collect_view();
+    let arrange = view! {
+        <div class="tcw-food-me">
+            <label>
+                <span>{t().menu.sort}</span>
+                <select class="tcn-input" on:change=move |ev| {
+                    let v = event_target_value(&ev);
+                    if let Some(s) = Sort::ALL.into_iter().find(|s| s.name() == v) {
+                        state.sort.set(s);
+                    }
+                }>{sort_options}</select>
+            </label>
+            <label>
+                <span>{t().menu.group}</span>
+                <select class="tcn-input" on:change=move |ev| {
+                    let v = event_target_value(&ev);
+                    if let Some(g) = Group::ALL.into_iter().find(|g| g.name() == v) {
+                        state.group.set(g);
+                    }
+                }>
+                    {Group::ALL.into_iter().map(|g| view! {
+                        <option value=g.name() selected=move || state.group.get() == g>{g.name()}</option>
+                    }).collect_view()}
+                </select>
+            </label>
+        </div>
+    };
+
+    // Redrawn when the order or the grouping changes - nothing is being typed into here.
+    let cards = move || {
+        let names: Vec<(String, String)> = shoppers.clone();
+        let mut lines = lines.clone();
+        sort_lines(&mut lines, state.sort.get(), &names);
+        let group = state.group.get();
+        if group == Group::Category {
+            let mut titles: Vec<String> = categories.clone();
+            titles.push(String::new());
+            titles
+                .into_iter()
+                .filter_map(|category| {
+                    let here: Vec<Line> = lines.iter().filter(|l| l.category == category).cloned().collect();
+                    let title = if category.is_empty() { t().menu.no_category.to_owned() } else { category };
+                    (!here.is_empty()).then(|| view! {
+                        <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
+                                  state=state apply=apply dialog=dialog />
+                    })
+                })
+                .collect_view()
+                .into_any()
+        } else if group == Group::Person {
+            // A buyer who has left the tour counts as nobody: the product is to share out again.
+            let mut buyers: Vec<Option<(String, String)>> = shoppers.iter().cloned().map(Some).collect();
+            buyers.push(None);
+            buyers
+                .into_iter()
+                .filter_map(|buyer| {
+                    let here: Vec<Line> = lines
+                        .iter()
+                        .filter(|l| {
+                            let who = l.who.as_deref().filter(|w| shoppers.iter().any(|(id, _)| id == w));
+                            who == buyer.as_ref().map(|(id, _)| id.as_str())
+                        })
+                        .cloned()
+                        .collect();
+                    let title = buyer.map(|(_, name)| name).unwrap_or_else(|| t().menu.no_buyer.to_owned());
+                    (!here.is_empty()).then(|| view! {
+                        <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
+                                  state=state apply=apply dialog=dialog />
+                    })
+                })
+                .collect_view()
+                .into_any()
+        } else if group == Group::Place {
+            // Where the shopping says, not the catalogue: Sasha's beer from Lidl is Lidl's.
+            let mut titles = places.clone();
+            titles.push(String::new());
+            titles
+                .into_iter()
+                .filter_map(|place| {
+                    let here: Vec<Line> = lines.iter().filter(|l| l.place.to_lowercase() == place.to_lowercase()).cloned().collect();
+                    let title = if place.is_empty() { t().menu.no_place.to_owned() } else { place };
+                    (!here.is_empty()).then(|| view! {
+                        <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
+                                  state=state apply=apply dialog=dialog />
+                    })
+                })
+                .collect_view()
+                .into_any()
+        } else {
+            view! {
+                <ListCard tour=tour.clone() title=t().menu.category.to_owned() lines=lines shoppers=shoppers.clone()
+                          state=state apply=apply dialog=dialog />
+            }
+            .into_any()
+        }
+    };
+
+    view! {
+        {who_am_i}
+        {arrange}
+        {day_chips}
+        <datalist id=PLACES_LIST>{place_options}</datalist>
+        {search_box(state.shop_find, t().menu.find_product)}
+        <Show when=move || !anything_shown()>
+            <div class="tcn-empty">
+                {move || if state.shop_find.get().trim().is_empty() { t().menu.nothing_mine } else { t().menu.nothing_found }}
+            </div>
+        </Show>
+        {cards}
+        {category_line}
+    }
+    .into_any()
+}
+
+/// The shopping's lines for these picked days (none - the whole trip): a product each, and
+/// a line for each part split off it - what the shopping shows, here and in Mini.
+fn shopping_lines(tour: &Tour, menu: &Menu, eating: &Eating, picked: &[u32], shoppers: &[(String, String)]) -> Vec<Line> {
+    let places = menu.shop_places();
+    let categories = menu.categories();
+    let picked: Vec<u32> = picked.to_vec();
     let place_order = |name: &str| places.iter().position(|p| p.to_lowercase() == name.to_lowercase()).unwrap_or(usize::MAX);
     // The days it is for: all of them, or those picked above the list.
     let all_days = menu.all_days();
-    let picked = in_plan(state.days.get_untracked());
     let subset = !picked.is_empty() && picked.len() < all_days.len();
     let chosen: Vec<u32> = if subset { picked.clone() } else { all_days.clone() };
     let unit = crate::ui::unit(&tour);
@@ -1439,7 +1599,7 @@ fn Shopping(
         needs.sort_by_key(|n| menu.products.iter().position(|p| p.id == n.product.id));
     }
     // Everything to buy, owned, with what has been said about each.
-    let lines: Vec<Line> = needs
+    needs
         .into_iter()
         .flat_map(|n| {
             let (dishes, daily) = menu.sources_on(&n.product.id, &chosen);
@@ -1448,10 +1608,21 @@ fn Shopping(
             // Each of its items on the daily list - with breakfast, with dinner - and "per trip"
             // once. Only the first was said: dried fruit with breakfast and with dinner read
             // "with breakfast ×2", though both were counted.
-            if daily.iter().any(|i| i.per == tc_core::menu::Per::Trip) {
+            use tc_core::menu::Per;
+            if daily.iter().any(|i| i.per == Per::Trip) {
                 why.push(t().menu.per_trip.to_owned());
             }
-            for item in daily.iter().filter(|i| i.per != tc_core::menu::Per::Trip) {
+            // Per day (or per fire, which on the daily list is a day too) is bought once a day,
+            // however many meals it is with: "per day ×3", not "with breakfast ×3 · with
+            // dinner ×3" over 0.2 a day.
+            let once_a_day: Vec<_> = daily.iter().filter(|i| matches!(i.per, Per::Day | Per::Fire)).collect();
+            if !once_a_day.is_empty() {
+                let times = chosen.iter().filter(|&&day| once_a_day.iter().any(|i| menu.daily_on(i.when, day))).count();
+                if times > 0 {
+                    why.push(format!("{} ×{times}", t().menu.per_day));
+                }
+            }
+            for item in daily.iter().filter(|i| matches!(i.per, Per::Portion | Per::Head)) {
                 let times = chosen.iter().filter(|&&day| menu.daily_on(item.when, day)).count();
                 let said = format!("{} ×{times}", when_name(item.when));
                 // None of these days: a split-off line shown for being not packed yet.
@@ -1599,131 +1770,213 @@ fn Shopping(
             }
             out
         })
-        .collect();
-    if lines.is_empty() {
-        return view! { {who_am_i} <div class="tcn-empty">{t().menu.nothing_to_buy}</div> }.into_any();
-    }
+        .collect()
+}
 
-    // Somebody picked and everything taken by others, or nothing found: say so, rather than
-    // an empty screen.
-    let anything_shown = {
-        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.who.clone(), l.hay.clone())).collect();
-        move || rows.iter().any(|(who, hay)| visible_line(state, who.as_deref(), hay))
+/// A list's count, of what is on screen: "2 of 47 bought", "2 of 15 bought · 15 of 47 shown"
+/// with lines hidden, and the picked person's share after it with everybody's showing. A row
+/// is (who buys it, what a search looks at, whether it is ticked).
+fn tally_text(state: MenuState, rows: &[(Option<String>, String, bool)], shoppers: &[(String, String)]) -> String {
+    let total = rows.len();
+    let shown: Vec<&(Option<String>, String, bool)> =
+        rows.iter().filter(|(who, hay, _)| visible_line(state, who.as_deref(), hay)).collect();
+    let bought = shown.iter().filter(|r| r.2).count();
+    let count = if shown.len() == total {
+        (t().menu.bought_of)(bought, total)
+    } else {
+        (t().menu.shown_bought_of)(bought, shown.len(), total)
+    };
+    let me = state.me.get().filter(|_| state.everybody.get());
+    let theirs: Vec<bool> = shown.iter().filter(|r| r.0.is_some() && r.0 == me).map(|r| r.2).collect();
+    match me.and_then(|me| shoppers.iter().find(|(id, _)| *id == me).map(|(_, name)| name.clone())) {
+        Some(name) if !theirs.is_empty() => format!(
+            "{count} · {}",
+            (t().menu.theirs_bought_of)(&name, theirs.iter().filter(|b| **b).count(), theirs.len())
+        ),
+        _ => count,
+    }
+}
+
+/// The shopping in Mini: a line a product - tick, name, how much, who buys it - under "Shopping
+/// by" and the days. The roomy list's own lines ([`shopping_lines`]) and count, so the two
+/// cannot disagree; who buys, where, notes and expenses are set in Full.
+#[component]
+pub fn MiniShopping(tour: Tour, state: MenuState, apply: Callback<Operation>, mode: RwSignal<crate::mode::UiMode>) -> impl IntoView {
+    let Some(menu) = Menu::shown(&tour) else {
+        return view! { <div class="tcm-empty">{t().menu.nothing_to_buy}</div> }.into_any();
+    };
+    let change = move |edit: MenuEdit| apply.run(Operation::Menu(edit));
+    let eating = Eating::of(&tour);
+    let tour_id = tour.id.as_str().to_owned();
+    let shoppers: Vec<(String, String)> = crate::edit::sorted_people(&tour)
+        .into_iter()
+        .filter(|p| p.parent.is_none())
+        .map(|p| (p.id.as_str().to_owned(), p.name.clone()))
+        .collect();
+    let plan_days = menu.days;
+    let in_plan = move |v: Vec<u32>| -> Vec<u32> { v.into_iter().filter(|d| (1..=plan_days).contains(d)).collect() };
+
+    let me_options = {
+        let chosen = state.me.get_untracked().unwrap_or_default();
+        shoppers
+            .iter()
+            .map(|(id, name)| view! { <option value=id.clone() selected=*id == chosen>{name.clone()}</option> })
+            .collect_view()
+    };
+    let bar = view! {
+        <div class="tcm-bar">
+            <span class="tcm-hint">{t().menu.who_am_i}</span>
+            <select class="tcm-input" on:change=move |ev| {
+                let v = event_target_value(&ev);
+                let me = (!v.is_empty()).then_some(v);
+                crate::settings::set_me(&tour_id, me.as_deref());
+                state.me.set(me);
+            }>
+                <option value="" selected=state.me.get_untracked().is_none()>{t().menu.nobody}</option>
+                {me_options}
+            </select>
+            <Show when=move || state.me.get().is_some()>
+                <label class="tcm-check">
+                    <input type="checkbox" prop:checked=move || !state.everybody.get()
+                           on:change=move |ev| state.everybody.set(!event_target_checked(&ev)) />
+                    {t().menu.mine_only}
+                </label>
+            </Show>
+        </div>
+    };
+    let days = (menu.days > 1).then(|| {
+        let total = menu.days as usize;
+        let chips = menu
+            .all_days()
+            .into_iter()
+            .map(|day| view! {
+                <button type="button" class="tcm-btn" class:is-on=move || in_plan(state.days.get()).contains(&day)
+                        on:click=move |_| state.days.update(|v| {
+                            v.retain(|d| (1..=plan_days).contains(d));
+                            if v.contains(&day) {
+                                v.retain(|d| *d != day);
+                            } else {
+                                v.push(day);
+                                v.sort_unstable();
+                            }
+                            if v.len() == total {
+                                v.clear();
+                            }
+                        })>
+                    {day_short(&menu, day)}
+                </button>
+            })
+            .collect_view();
+        view! {
+            <div class="tcm-bar">
+                <span class="tcm-hint">{t().menu.shopping_for}</span>
+                <button type="button" class="tcm-btn" class:is-on=move || in_plan(state.days.get()).is_empty()
+                        on:click=move |_| state.days.set(Vec::new())>
+                    {t().menu.days_all}
+                </button>
+                {chips}
+            </div>
+        }
+    });
+
+    // Redrawn when the days change: the amounts are theirs.
+    let list = move || {
+        let lines = shopping_lines(&tour, &menu, &eating, &in_plan(state.days.get()), &shoppers);
+        if lines.is_empty() {
+            return view! { <div class="tcm-empty">{t().menu.nothing_to_buy}</div> }.into_any();
+        }
+        let rows: Vec<(Option<String>, String, bool)> = lines.iter().map(|l| (l.who.clone(), l.hay.clone(), l.ticked)).collect();
+        let tally = {
+            let shoppers = shoppers.clone();
+            move || tally_text(state, &rows, &shoppers)
+        };
+        let items = lines
+            .iter()
+            .map(|line| {
+                let id = line.product.id.clone();
+                let split = line.split.clone();
+                let days = line.tick_days.clone();
+                let tick = move |ev: leptos::ev::Event| {
+                    let bought = event_target_checked(&ev);
+                    change(match &split {
+                        Some(s) => MenuEdit::SplitChange { product: id.clone(), id: s.clone(), change: SplitChange::Bought(bought) },
+                        None if days.is_empty() => MenuEdit::Bought { product: id.clone(), bought },
+                        None => MenuEdit::BoughtOn { product: id.clone(), days: days.clone(), bought },
+                    });
+                };
+                let who = line.who.clone();
+                let buyer = who
+                    .as_deref()
+                    .and_then(|w| shoppers.iter().find(|(id, _)| id == w))
+                    .map(|(_, name)| name.clone())
+                    .unwrap_or_else(|| "—".to_owned());
+                let visible = {
+                    let (who, hay) = (who.clone(), line.hay.clone());
+                    move || visible_line(state, who.as_deref(), &hay)
+                };
+                let is_mine = {
+                    let who = who.clone();
+                    move || state.everybody.get() && state.me.get().is_some_and(|me| who.as_deref() == Some(me.as_str()))
+                };
+                let name = if line.split.is_some() {
+                    format!("{} · {}", line.product.name, t().menu.split_part)
+                } else {
+                    line.product.name.clone()
+                };
+                let title = [line.place.as_str(), line.why.as_str(), line.note.as_str()]
+                    .into_iter()
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" · ");
+                view! {
+                    <div class="tcm-item tcm-buy" class:is-dim=line.ticked class:is-mine=is_mine
+                         style:display=move || if visible() { "" } else { "none" }>
+                        <div class="tcm-row">
+                            <input type="checkbox" class="tcm-buy-tick" prop:checked=line.ticked
+                                   title=t().menu.bought on:change=tick />
+                            <span class="tcm-main" title=title><span class="tcm-name">{name}</span></span>
+                            <span class="tcm-buy-amount">{amount_text(line)}</span>
+                            <span class="tcm-buy-who">{buyer}</span>
+                        </div>
+                    </div>
+                }
+            })
+            .collect_view();
+        view! {
+            <div class="tcm-caption">{tally}</div>
+            <div class="tcm-list">{items}</div>
+        }
+        .into_any()
     };
 
-    let sort_options = Sort::ALL
-        .into_iter()
-        .map(|s| view! { <option value=s.name() selected=move || state.sort.get() == s>{s.name()}</option> })
-        .collect_view();
-    let arrange = view! {
-        <div class="tcw-food-me">
-            <label>
-                <span>{t().menu.sort}</span>
-                <select class="tcn-input" on:change=move |ev| {
-                    let v = event_target_value(&ev);
-                    if let Some(s) = Sort::ALL.into_iter().find(|s| s.name() == v) {
-                        state.sort.set(s);
-                    }
-                }>{sort_options}</select>
-            </label>
-            <label>
-                <span>{t().menu.group}</span>
-                <select class="tcn-input" on:change=move |ev| {
-                    let v = event_target_value(&ev);
-                    if let Some(g) = Group::ALL.into_iter().find(|g| g.name() == v) {
-                        state.group.set(g);
-                    }
-                }>
-                    {Group::ALL.into_iter().map(|g| view! {
-                        <option value=g.name() selected=move || state.group.get() == g>{g.name()}</option>
-                    }).collect_view()}
-                </select>
-            </label>
+    // The search is Full's own, shared: typed there, it narrows the list here too - so it is
+    // here to see and to clear.
+    let find = view! {
+        <div class="tcm-bar">
+            <input class="tcm-find" type="text" placeholder=t().menu.find_product
+                   prop:value=move || state.shop_find.get()
+                   on:input=move |ev| state.shop_find.set(event_target_value(&ev)) />
+            <Show when=move || !state.shop_find.get().is_empty()>
+                <button type="button" class="tcm-btn" title=t().menu.clear_find
+                        on:click=move |_| state.shop_find.set(String::new())>"✕"</button>
+            </Show>
         </div>
     };
 
-    // Redrawn when the order or the grouping changes - nothing is being typed into here.
-    let cards = move || {
-        let names: Vec<(String, String)> = shoppers.clone();
-        let mut lines = lines.clone();
-        sort_lines(&mut lines, state.sort.get(), &names);
-        let group = state.group.get();
-        if group == Group::Category {
-            let mut titles: Vec<String> = categories.clone();
-            titles.push(String::new());
-            titles
-                .into_iter()
-                .filter_map(|category| {
-                    let here: Vec<Line> = lines.iter().filter(|l| l.category == category).cloned().collect();
-                    let title = if category.is_empty() { t().menu.no_category.to_owned() } else { category };
-                    (!here.is_empty()).then(|| view! {
-                        <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
-                                  state=state apply=apply dialog=dialog />
-                    })
-                })
-                .collect_view()
-                .into_any()
-        } else if group == Group::Person {
-            // A buyer who has left the tour counts as nobody: the product is to share out again.
-            let mut buyers: Vec<Option<(String, String)>> = shoppers.iter().cloned().map(Some).collect();
-            buyers.push(None);
-            buyers
-                .into_iter()
-                .filter_map(|buyer| {
-                    let here: Vec<Line> = lines
-                        .iter()
-                        .filter(|l| {
-                            let who = l.who.as_deref().filter(|w| shoppers.iter().any(|(id, _)| id == w));
-                            who == buyer.as_ref().map(|(id, _)| id.as_str())
-                        })
-                        .cloned()
-                        .collect();
-                    let title = buyer.map(|(_, name)| name).unwrap_or_else(|| t().menu.no_buyer.to_owned());
-                    (!here.is_empty()).then(|| view! {
-                        <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
-                                  state=state apply=apply dialog=dialog />
-                    })
-                })
-                .collect_view()
-                .into_any()
-        } else if group == Group::Place {
-            // Where the shopping says, not the catalogue: Sasha's beer from Lidl is Lidl's.
-            let mut titles = places.clone();
-            titles.push(String::new());
-            titles
-                .into_iter()
-                .filter_map(|place| {
-                    let here: Vec<Line> = lines.iter().filter(|l| l.place.to_lowercase() == place.to_lowercase()).cloned().collect();
-                    let title = if place.is_empty() { t().menu.no_place.to_owned() } else { place };
-                    (!here.is_empty()).then(|| view! {
-                        <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
-                                  state=state apply=apply dialog=dialog />
-                    })
-                })
-                .collect_view()
-                .into_any()
-        } else {
-            view! {
-                <ListCard tour=tour.clone() title=t().menu.category.to_owned() lines=lines shoppers=shoppers.clone()
-                          state=state apply=apply dialog=dialog />
-            }
-            .into_any()
-        }
-    };
-
     view! {
-        {who_am_i}
-        {arrange}
-        {day_chips}
-        <datalist id=PLACES_LIST>{place_options}</datalist>
-        {search_box(state.shop_find, t().menu.find_product)}
-        <Show when=move || !anything_shown()>
-            <div class="tcn-empty">
-                {move || if state.shop_find.get().trim().is_empty() { t().menu.nothing_mine } else { t().menu.nothing_found }}
-            </div>
-        </Show>
-        {cards}
-        {category_line}
+        {bar}
+        {days}
+        {find}
+        {list}
+        <div class="tcm-bar">
+            <span class="tcm-hint">{t().menu.mini_in_full}</span>
+            <span class="tcm-spacer"></span>
+            <button type="button" class="tcm-btn" on:click=move |_| {
+                crate::mode::remember(crate::mode::UiMode::Full);
+                state.view.set(View::Shopping);
+                mode.set(crate::mode::UiMode::Full);
+            }>{t().menu.mini_open_full}</button>
+        </div>
     }
     .into_any()
 }
@@ -2000,21 +2253,26 @@ fn amount_unit(product: &Product) -> String {
 
 /// What a line buys, at its right: whole packs, or "all split off" for a rest with nothing
 /// left; under a rest, "of" the whole. A split-off line's amount is tapped to change it.
-fn amount_cell(line: &Line, change: impl Fn(MenuEdit) + Copy + Send + Sync + 'static) -> AnyView {
+/// How much a line buys, as its row says it.
+fn amount_text(line: &Line) -> String {
     // A split-off line is what somebody brings, as said - half a pack of coffee is 125 g, not
     // "1 × pack"; in packs only when it is whole ones.
     let whole_packs = line.product.pack_size().is_some_and(|size| {
         let n = line.amount / size;
         n >= 1.0 && (n - n.round()).abs() < 1e-6
     });
-    let text = if line.amount <= 0.0 {
+    if line.amount <= 0.0 {
         t().menu.all_split.to_owned()
     } else if line.split.is_some() && !whole_packs {
         // As typed: 125 g is 125, not the shop's 120.
         format!("{}\u{a0}{}", crate::menu_catalogue::number((line.amount * 100.0).round() / 100.0), crate::menu_catalogue::unit_label(&line.product))
     } else {
         to_buy(line.amount, &line.product)
-    };
+    }
+}
+
+fn amount_cell(line: &Line, change: impl Fn(MenuEdit) + Copy + Send + Sync + 'static) -> AnyView {
+    let text = amount_text(line);
     let Some(split) = line.split.clone() else {
         let of = (line.total > line.amount + 1e-9).then(|| (t().menu.of_total)(&quantity_of(line.total, &line.product)));
         return view! { {text} {of.map(|o| view! { <small class="tcw-buy-total">{o}</small> })} }.into_any();
@@ -2202,27 +2460,7 @@ fn ListCard(
         let rows: Vec<(Option<String>, String, bool)> =
             lines.iter().map(|l| (l.who.clone(), l.hay.clone(), l.ticked)).collect();
         let shoppers = shoppers.clone();
-        move || {
-            let total = rows.len();
-            let shown: Vec<&(Option<String>, String, bool)> =
-                rows.iter().filter(|(who, hay, _)| visible_line(state, who.as_deref(), hay)).collect();
-            let bought = shown.iter().filter(|r| r.2).count();
-            let count = if shown.len() == total {
-                (t().menu.bought_of)(bought, total)
-            } else {
-                (t().menu.shown_bought_of)(bought, shown.len(), total)
-            };
-            let me = state.me.get().filter(|_| state.everybody.get());
-            let theirs: Vec<bool> =
-                shown.iter().filter(|r| r.0.is_some() && r.0 == me).map(|r| r.2).collect();
-            match me.and_then(|me| shoppers.iter().find(|(id, _)| *id == me).map(|(_, name)| name.clone())) {
-                Some(name) if !theirs.is_empty() => format!(
-                    "{count} · {}",
-                    (t().menu.theirs_bought_of)(&name, theirs.iter().filter(|b| **b).count(), theirs.len())
-                ),
-                _ => count,
-            }
-        }
+        move || tally_text(state, &rows, &shoppers)
     };
     let recorded = |l: &Line| {
         l.spending
