@@ -159,6 +159,37 @@ impl When {
     }
 }
 
+/// The daily list as it is edited and read: items alike but for the meal - dried fruit,
+/// 15 g with breakfast and 15 g with dinner - are one, with both meals, in the meals'
+/// order. Kept as an item a meal in the tour, so that a version that knows one meal an
+/// item counts them the same.
+pub fn daily_groups(items: &[Ingredient]) -> Vec<(Ingredient, Vec<When>)> {
+    let mut groups: Vec<(Ingredient, Vec<When>)> = Vec::new();
+    for item in items {
+        let alike = |(first, whens): &&mut (Ingredient, Vec<When>)| {
+            !item.when.is_every_day()
+                && !first.when.is_every_day()
+                && first.product == item.product
+                && first.amount == item.amount
+                && first.per == item.per
+                && first.rest == item.rest
+                && !whens.contains(&item.when)
+        };
+        match groups.iter_mut().find(|g| alike(g)) {
+            Some((_, whens)) => whens.push(item.when),
+            None => groups.push((item.clone(), vec![item.when])),
+        }
+    }
+    let order = |w: &When| match w {
+        When::EveryDay => 0,
+        When::With(m) => 1 + Meal::ALL.iter().position(|x| x == m).unwrap_or(0),
+    };
+    for (_, whens) in &mut groups {
+        whens.sort_by_key(order);
+    }
+    groups
+}
+
 /// What an ingredient's amount is for. Most food is per portion, by weight; some things
 /// are not shared out by weight at all.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -942,14 +973,14 @@ impl Menu {
     }
 
     /// Why a product is on the list: the planned dishes it goes into, with how many times
-    /// each is cooked, and when it is bought besides, if it is on the daily list.
-    pub fn sources(&self, product: &str) -> (Vec<(&Dish, u32)>, Option<When>) {
+    /// each is cooked, and its items on the daily list - with breakfast, with dinner.
+    pub fn sources(&self, product: &str) -> (Vec<(&Dish, u32)>, Vec<&Ingredient>) {
         self.sources_on(product, &self.all_days())
     }
 
     /// The same for these days of the plan alone: the omelette cooked on days 2 and 3 is
     /// "×1" when shopping for day 2.
-    pub fn sources_on(&self, product: &str, days: &[u32]) -> (Vec<(&Dish, u32)>, Option<When>) {
+    pub fn sources_on(&self, product: &str, days: &[u32]) -> (Vec<(&Dish, u32)>, Vec<&Ingredient>) {
         let mut dishes: Vec<(&Dish, u32)> = Vec::new();
         for &day in days.iter().filter(|&&d| d >= 1 && d <= self.days) {
             for meal in Meal::ALL {
@@ -964,7 +995,7 @@ impl Menu {
                 }
             }
         }
-        (dishes, self.daily.iter().find(|i| i.product == product).map(|i| i.when))
+        (dishes, self.daily.iter().filter(|i| i.product == product).collect())
     }
 
     /// How many of the planned days a daily item is bought for: the days anything is cooked
@@ -1514,14 +1545,49 @@ mod tests {
         assert!(Menu::shown(&back).is_some());
     }
 
+    /// Dried fruit with breakfast and with dinner, 15 g each: one row of the daily list with
+    /// both meals, two items in the tour - both on the shopping's "why", both counted.
+    #[test]
+    fn a_daily_item_for_two_meals_is_one_row_of_two_items() {
+        let with = |product: &str, amount: f64, meal: Meal| Ingredient {
+            product: product.into(),
+            amount,
+            when: When::With(meal),
+            ..Ingredient::default()
+        };
+        let every = Ingredient { product: "dried".into(), amount: 15.0, ..Ingredient::default() };
+        let items = vec![
+            with("dried", 15.0, Meal::Dinner),
+            with("wine", 1.0, Meal::Dinner),
+            with("dried", 15.0, Meal::Breakfast),
+            with("dried", 20.0, Meal::Lunch),
+            every.clone(),
+        ];
+        let groups = daily_groups(&items);
+        let rows: Vec<(&str, f64, Vec<When>)> =
+            groups.iter().map(|(i, w)| (i.product.as_str(), i.amount, w.clone())).collect();
+        assert_eq!(
+            rows,
+            vec![
+                ("dried", 15.0, vec![When::With(Meal::Breakfast), When::With(Meal::Dinner)]),
+                ("wine", 1.0, vec![When::With(Meal::Dinner)]),
+                ("dried", 20.0, vec![When::With(Meal::Lunch)]),
+                ("dried", 15.0, vec![When::EveryDay]),
+            ]
+        );
+        let mut m = menu();
+        m.daily = items;
+        assert_eq!(m.sources("dried").1.len(), 4);
+    }
+
     /// Rice is on the list because of the plov on day 1 - and only while plov is planned.
     #[test]
     fn a_product_says_which_dishes_it_is_for() {
         let mut m = menu();
         let (dishes, daily) = m.sources("rice");
         assert_eq!(dishes.iter().map(|(d, n)| (d.id.as_str(), *n)).collect::<Vec<_>>(), [("plov", 1)]);
-        assert!(daily.is_none());
-        assert_eq!(m.sources("wine").1, Some(When::EveryDay));
+        assert!(daily.is_empty());
+        assert_eq!(m.sources("wine").1.iter().map(|i| i.when).collect::<Vec<_>>(), [When::EveryDay]);
         m.set(Slot::one(1, Meal::Dinner, Some("steak".into())));
         assert!(m.sources("rice").0.is_empty());
         // Steak on days 1 and 2: twice over the trip, once on day 2.

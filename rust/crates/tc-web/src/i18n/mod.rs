@@ -418,6 +418,10 @@ pub struct MenuTexts {
     pub when_breakfast: &'static str,
     pub when_lunch: &'static str,
     pub when_dinner: &'static str,
+    pub when_breakfast_lunch: &'static str,
+    pub when_breakfast_dinner: &'static str,
+    pub when_lunch_dinner: &'static str,
+    pub when_every_meal: &'static str,
     pub when_title: &'static str,
     // The trip's bounds and dates, over the plan.
     pub start_date: &'static str,
