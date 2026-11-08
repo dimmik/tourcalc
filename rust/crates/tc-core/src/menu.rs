@@ -159,6 +159,11 @@ impl When {
     }
 }
 
+/// A meal's place in the day: breakfast 0, lunch 1, dinner 2.
+fn index_of(meal: Meal) -> usize {
+    Meal::ALL.iter().position(|m| *m == meal).unwrap_or(0)
+}
+
 /// The daily list as it is edited and read: items alike but for the meal - dried fruit,
 /// 15 g with breakfast and 15 g with dinner - are one, with both meals, in the meals'
 /// order. Kept as an item a meal in the tour, so that a version that knows one meal an
@@ -345,6 +350,13 @@ pub struct Menu {
     /// default ("Shopping"); each expense adds its products' own category below it - see
     /// [`Menu::expense_category`].
     pub expense_category: Option<String>,
+    /// The meal the trip starts with on the first day, and the one it ends with on the last,
+    /// as said - see [`Menu::arrival`]. The meals outside are still written as nothing, so
+    /// a version without these fields, and the shopping, read the plan as before.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arrive: Option<Meal>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub leave: Option<Meal>,
     /// Whatever a later version wrote here that this one does not know: kept as it was, so
     /// that saving through this version does not wipe it - see `nuances.md`.
     #[serde(flatten)]
@@ -1113,19 +1125,30 @@ impl Menu {
         p.parts.push(Part { days, spending: Some(spending.to_owned()) });
     }
 
-    /// The first meal of the first day not set to nothing, and the last one of the last day -
-    /// where the trip starts and ends, as [`Menu::arrive`] and [`Menu::leave`] left it.
-    /// Breakfast and dinner when the whole day is nothing.
+    /// Where the trip starts: the meal [`Menu::arrive`] said, while the plan agrees - the
+    /// first day's meals before it nothing. A tour from before the field, or one a version
+    /// without it has moved the arrival in, is read from the plan: the first meal of the
+    /// first day not set to nothing, breakfast when the whole day is.
     ///
     /// Not "the first meal with a dish": a tour whose catalogue has no dinner yet - every
     /// tour that has just switched its menu on - would forget an arrival for dinner at once,
     /// and the choice would jump back to breakfast.
     pub fn arrival(&self) -> Meal {
-        Meal::ALL.into_iter().find(|m| !self.is_nothing(1, *m)).unwrap_or(Meal::Breakfast)
+        let said = self.arrive.filter(|&at| Meal::ALL.into_iter().filter(|m| index_of(*m) < index_of(at)).all(|m| self.is_nothing(1, m)));
+        said.unwrap_or_else(|| Meal::ALL.into_iter().find(|m| !self.is_nothing(1, *m)).unwrap_or(Meal::Breakfast))
     }
 
+    /// Where the trip ends, the same way. The field is what tells "leaving after lunch" from
+    /// "the last dinner eaten out": both are a dinner set to nothing.
     pub fn departure(&self) -> Meal {
-        Meal::ALL.into_iter().rev().find(|m| !self.is_nothing(self.days, *m)).unwrap_or(Meal::Dinner)
+        let said = self.leave.filter(|&at| Meal::ALL.into_iter().filter(|m| index_of(*m) > index_of(at)).all(|m| self.is_nothing(self.days, m)));
+        said.unwrap_or_else(|| Meal::ALL.into_iter().rev().find(|m| !self.is_nothing(self.days, *m)).unwrap_or(Meal::Dinner))
+    }
+
+    /// Whether this meal of this day is in the trip: not before arriving, not after leaving.
+    pub fn in_trip(&self, day: u32, meal: Meal) -> bool {
+        !(day == 1 && index_of(meal) < index_of(self.arrival()))
+            && !(day == self.days && index_of(meal) > index_of(self.departure()))
     }
 
     /// Set to "— nothing —": a slot with no dishes. A meal with no slot is still to be filled.
@@ -1136,11 +1159,13 @@ impl Menu {
     /// Arriving for this meal: the first day's meals before it are nothing, and the ones
     /// from it on get a dish if they had none.
     pub fn arrive(&mut self, meal: Meal) {
+        self.arrive = Some(meal);
         self.bound(1, meal, |m, at| m < at);
     }
 
     /// Leaving after this meal: the last day's meals after it are nothing.
     pub fn leave(&mut self, meal: Meal) {
+        self.leave = Some(meal);
         self.bound(self.days, meal, |m, at| m > at);
     }
 
@@ -1296,7 +1321,7 @@ mod tests {
     }
 
     fn menu() -> Menu {
-        let mut m = Menu { methods: Default::default(), rest: Default::default(),
+        let mut m = Menu { methods: Default::default(), rest: Default::default(), arrive: None, leave: None,
             on: true,
             days: 2,
             start: None,
@@ -1668,6 +1693,26 @@ mod tests {
 
     /// With no dishes yet there is nothing to cook, but where the trip starts and ends is
     /// still what was chosen.
+    #[test]
+    fn the_last_dinner_eaten_out_is_not_leaving_after_lunch() {
+        let mut m = menu();
+        m.set_days(3);
+        m.leave(Meal::Dinner);
+        m.set(Slot::one(3, Meal::Dinner, None));
+        assert_eq!(m.departure(), Meal::Dinner);
+        assert!(m.in_trip(3, Meal::Dinner));
+        // Without the field - a tour from before it - the plan says lunch, as it always did.
+        m.leave = None;
+        assert_eq!(m.departure(), Meal::Lunch);
+        assert!(!m.in_trip(3, Meal::Dinner));
+        // Arriving for dinner, then breakfast given a dish by a version that knows no field:
+        // the plan wins over the stale field.
+        m.arrive(Meal::Dinner);
+        assert!(!m.in_trip(1, Meal::Lunch));
+        m.set(Slot::one(1, Meal::Breakfast, Some("plov".into())));
+        assert_eq!(m.arrival(), Meal::Breakfast);
+    }
+
     #[test]
     fn arrival_and_departure_stay_with_no_dishes_yet() {
         let mut m = Menu::default();

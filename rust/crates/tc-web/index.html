@@ -902,7 +902,28 @@
         @supports (grid-template-rows: subgrid) {
             .tcw-food-days-list > .tcw-food-day { grid-row: span 4; grid-template-rows: subgrid; row-gap: 6px; }
             .tcw-food-days-list .tcw-food-slot { align-self: stretch; }
+            /* Each meal in its own row, so that a first day starting at dinner has its dinner
+               across from the others' dinners, and the quiet word where the rest would be. */
+            .tcw-food-days-list .tcw-food-slot.is-breakfast { grid-row: 2; }
+            .tcw-food-days-list .tcw-food-slot.is-lunch { grid-row: 3; }
+            .tcw-food-days-list .tcw-food-slot.is-dinner { grid-row: 4; }
+            /* At the top of the meals it stands for, not a tall empty box beside full ones. */
+            .tcw-food-days-list .tcw-food-away { align-self: start; }
         }
+        /* Mini's shopping: a line a product - tick, name, how much, who - the amount and the
+           buyer as columns, so they start at the same x on every line. */
+        .tcm-buy-tick { flex: 0 0 auto; margin: 0; }
+        .tcm-buy-amount { flex: 0 0 auto; min-width: 5.5em; text-align: right; font-variant-numeric: tabular-nums;
+            white-space: nowrap; }
+        .tcm-buy-who { flex: 0 0 5.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            color: var(--tcn-muted, #6b7280); font-size: 12px; }
+        .tcm-item.tcm-buy.is-dim .tcm-name, .tcm-item.tcm-buy.is-dim .tcm-buy-amount { text-decoration: line-through; }
+        .tcm-item.tcm-buy.is-mine { background: var(--tcn-primary-soft, #eef2ff); }
+        /* The meals outside the trip - before arriving, after leaving: not shown, a word in
+           their place. */
+        .tcw-food-away { display: flex; align-items: center; justify-content: center; padding: 6px 8px;
+            border: 1px dashed var(--tcn-border, #e5e7eb); border-radius: 8px; font-size: 12.5px;
+            font-style: italic; color: var(--tcn-muted, #6b7280); }
         .tcw-food-all .tcw-food-meal { max-width: 420px; }
         .tcw-food-me { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
         .tcw-food-me > label:first-child { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }

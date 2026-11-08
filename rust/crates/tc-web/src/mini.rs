@@ -45,8 +45,14 @@ pub fn MiniTour(
     /// The categories the expense list is narrowed to - the roomy interface's own, so that a
     /// category picked from the statistics is still picked in either.
     picked: RwSignal<Vec<String>>,
+    /// The Food tab's state - whose shopping, which days - shared with Full's, so that
+    /// switching keeps it.
+    menu: crate::menu::MenuState,
 ) -> impl IntoView {
     let show_family = RwSignal::new(false);
+    let has_menu = tc_core::menu::Menu::shown(&tour).is_some();
+    let for_food = tour.clone();
+    let mode = use_context::<RwSignal<crate::mode::UiMode>>().unwrap_or_else(|| RwSignal::new(crate::mode::UiMode::Mini));
 
     let transfers = suggest_settlement(&tour).unwrap_or_default();
     let too_small = crate::settings::threshold(&tour);
@@ -175,6 +181,7 @@ pub fn MiniTour(
             <MiniTab tab=tab mine=Tab::People label=t().mini.tab_people.into() count=Some(people) />
             <MiniTab tab=tab mine=Tab::Expenses label=t().mini.tab_expenses.into() count=Some(expenses) />
             <MiniTab tab=tab mine=Tab::Stats label=t().mini.tab_stats.into() count=None />
+            {has_menu.then(|| view! { <MiniTab tab=tab mine=Tab::Menu label=t().mini.tab_food.into() count=None /> })}
         </nav>
 
         <div class="tcm-panel" role="tabpanel">
@@ -194,6 +201,9 @@ pub fn MiniTour(
             </Show>
             <Show when=move || tab.get() == Tab::Stats>
                 <MiniStats tour=for_stats.clone() unit=unit_stats.clone() tab=tab picked=picked />
+            </Show>
+            <Show when=move || has_menu && tab.get() == Tab::Menu>
+                <crate::menu::MiniShopping tour=for_food.clone() state=menu apply=apply mode=mode />
             </Show>
         </div>
         <crate::ui::ToTop />

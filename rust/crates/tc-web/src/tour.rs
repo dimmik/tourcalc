@@ -1118,7 +1118,7 @@ fn TourView(
         return view! {
             <crate::mini::MiniTour tour=mini_tour reload=reload status=status tab=tab
                                    apply=apply dialog=dialog delete=delete
-                                   picked=sifting.chosen />
+                                   picked=sifting.chosen menu=menu />
             <crate::mini::MiniDialogs tour=mini_dialog_tour dialog=dialog
                                       close=close apply=apply />
         }

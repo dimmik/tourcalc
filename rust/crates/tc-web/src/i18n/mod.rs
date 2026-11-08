@@ -233,6 +233,9 @@ pub struct MenuTexts {
     pub record_together_for: fn(usize, &str) -> String,
     pub shopping_for: &'static str,
     pub days_all: &'static str,
+    /// Under the shopping in Mini: what is only in Full, and the button there.
+    pub mini_in_full: &'static str,
+    pub mini_open_full: &'static str,
     pub weekdays_short: [&'static str; 7],
     /// "recorded for Fri 13: 50 % · 3 000" - a part recorded as an expense of its own.
     pub recorded_part: fn(&str, i64, &str) -> String,
@@ -429,6 +432,10 @@ pub struct MenuTexts {
     pub last_day: &'static str,
     /// "from dinner": the first day starts with this meal - breakfast, lunch, dinner.
     pub from_meal: [&'static str; 3],
+    /// In the plan, where the meals before the arrival would be.
+    pub arriving_for: [&'static str; 3],
+    /// In the plan, where the meals after the departure would be.
+    pub leaving_after: [&'static str; 3],
     /// "until breakfast": the last day ends with it.
     pub to_meal: [&'static str; 3],
     /// Weekday, day of the month, month: "Friday, 13 November".
@@ -1154,6 +1161,7 @@ pub struct MiniTexts {
     pub tab_people: &'static str,
     pub tab_expenses: &'static str,
     pub tab_stats: &'static str,
+    pub tab_food: &'static str,
     pub in_unit: fn(&str) -> String,
     pub square: &'static str,
     pub first_expense: &'static str,
