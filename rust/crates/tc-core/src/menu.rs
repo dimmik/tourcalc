@@ -702,8 +702,12 @@ impl Menu {
     }
 
     /// Everything cooked for this meal of this day, in order; a dish since deleted is left
-    /// out.
+    /// out, and so is a meal outside the trip - kept in the plan, a day shortened and grown
+    /// again finds it, but neither cooked nor bought for.
     pub fn dishes_on(&self, day: u32, meal: Meal) -> Vec<&Dish> {
+        if !self.in_trip(day, meal) {
+            return Vec::new();
+        }
         self.slot(day, meal)
             .map(|s| s.dishes.iter().filter_map(|id| self.dish(id)).collect())
             .unwrap_or_default()
@@ -1124,24 +1128,23 @@ impl Menu {
         p.parts.push(Part { days, spending: Some(spending.to_owned()) });
     }
 
-    /// Where the trip starts: the meal [`Menu::arrive`] said, while the plan agrees - the
-    /// first day's meals before it nothing. A tour from before the field, or one a version
-    /// without it has moved the arrival in, is read from the plan: the first meal of the
-    /// first day not set to nothing, breakfast when the whole day is.
+    /// Where the trip starts: the meal [`Menu::arrive`] said. A tour from before the field
+    /// is read from the plan: the first meal of the first day not set to nothing, breakfast
+    /// when the whole day is. The field wins over the plan - the meals outside may keep
+    /// their dishes, hidden (see [`Menu::dishes_on`]) - so an arrival moved by a version
+    /// without the field is not seen here.
     ///
     /// Not "the first meal with a dish": a tour whose catalogue has no dinner yet - every
     /// tour that has just switched its menu on - would forget an arrival for dinner at once,
     /// and the choice would jump back to breakfast.
     pub fn arrival(&self) -> Meal {
-        let said = self.arrive.filter(|&at| Meal::ALL.into_iter().filter(|m| index_of(*m) < index_of(at)).all(|m| self.is_nothing(1, m)));
-        said.unwrap_or_else(|| Meal::ALL.into_iter().find(|m| !self.is_nothing(1, *m)).unwrap_or(Meal::Breakfast))
+        self.arrive.unwrap_or_else(|| Meal::ALL.into_iter().find(|m| !self.is_nothing(1, *m)).unwrap_or(Meal::Breakfast))
     }
 
     /// Where the trip ends, the same way. The field is what tells "leaving after lunch" from
     /// "the last dinner eaten out": both are a dinner set to nothing.
     pub fn departure(&self) -> Meal {
-        let said = self.leave.filter(|&at| Meal::ALL.into_iter().filter(|m| index_of(*m) > index_of(at)).all(|m| self.is_nothing(self.days, m)));
-        said.unwrap_or_else(|| Meal::ALL.into_iter().rev().find(|m| !self.is_nothing(self.days, *m)).unwrap_or(Meal::Dinner))
+        self.leave.unwrap_or_else(|| Meal::ALL.into_iter().rev().find(|m| !self.is_nothing(self.days, *m)).unwrap_or(Meal::Dinner))
     }
 
     /// Whether this meal of this day is in the trip: not before arriving, not after leaving.
@@ -1172,7 +1175,12 @@ impl Menu {
         let index = |m: Meal| Meal::ALL.iter().position(|x| *x == m).unwrap_or(0);
         for meal in Meal::ALL {
             if outside(index(meal), index(at)) {
-                self.set(Slot::one(day, meal, None));
+                // Nothing, for the shopping of a version without the fields - but a meal with
+                // dishes keeps them, hidden: the last day of five shortened to four and grown
+                // back has its lunch and dinner again.
+                if self.slot(day, meal).is_none_or(|s| s.dishes.is_empty()) {
+                    self.set(Slot::one(day, meal, None));
+                }
             } else if self.slot(day, meal).is_some_and(|s| s.dishes.is_empty()) {
                 // Emptied by an earlier arrival or departure: unplanned again, to choose.
                 self.plan.retain(|s| !(s.day == day && s.meal == meal));
@@ -1693,12 +1701,16 @@ mod tests {
         assert_eq!(amount(&needs, "juice"), 500.0 * 3.0 * 0.5, "a child at 50, three days");
         // A fourth day: Sunday is a whole day now, and the departure is Monday's.
         m.set_days(4);
-        assert!(m.unplanned(3, Meal::Lunch) && m.unplanned(3, Meal::Dinner) && m.unplanned(4, Meal::Breakfast));
+        // Sunday's dinner, planned when the menu was, kept hidden while it was the last day,
+        // is back; its lunch - no lunch dishes to plan from - and Monday are to choose.
+        assert!(m.dish_on(3, Meal::Dinner).is_some());
+        assert!(m.unplanned(3, Meal::Lunch) && m.unplanned(4, Meal::Breakfast));
         assert!(!m.in_trip(4, Meal::Dinner));
         assert_eq!(m.departure(), Meal::Breakfast);
-        // Arriving for breakfast after all: the first day's breakfast is to choose.
+        // Arriving for breakfast after all: the first day's breakfast, planned with the menu
+        // and kept hidden, is back; its lunch, with no lunch dishes, is to choose.
         m.arrive(Meal::Breakfast);
-        assert!(m.unplanned(1, Meal::Breakfast));
+        assert!(m.dish_on(1, Meal::Breakfast).is_some() && m.unplanned(1, Meal::Lunch));
     }
 
     /// With no dishes yet there is nothing to cook, but where the trip starts and ends is
@@ -1715,12 +1727,32 @@ mod tests {
         m.leave = None;
         assert_eq!(m.departure(), Meal::Lunch);
         assert!(!m.in_trip(3, Meal::Dinner));
-        // Arriving for dinner, then breakfast given a dish by a version that knows no field:
-        // the plan wins over the stale field.
-        m.arrive(Meal::Dinner);
-        assert!(!m.in_trip(1, Meal::Lunch));
-        m.set(Slot::one(1, Meal::Breakfast, Some("plov".into())));
-        assert_eq!(m.arrival(), Meal::Breakfast);
+    }
+
+    /// Four days, leaving after breakfast; three, and four again: the third day's lunch and
+    /// dinner are back as they were - kept, hidden, and not bought for while outside.
+    #[test]
+    fn a_day_taken_off_and_put_back_keeps_the_last_days_meals() {
+        let mut m = menu();
+        m.set_days(4);
+        for day in 1..=4 {
+            for meal in Meal::ALL {
+                m.set(Slot::one(day, meal, Some("plov".into())));
+            }
+        }
+        m.leave(Meal::Breakfast);
+        let eating = Eating::of(&tour(&[100]));
+        let rice = |m: &Menu| amount(&m.shopping(&eating), "rice");
+        let four = rice(&m);
+        m.set_days(3);
+        assert_eq!(m.departure(), Meal::Breakfast);
+        assert!(!m.in_trip(3, Meal::Lunch) && m.dish_on(3, Meal::Lunch).is_none());
+        assert!(m.slot(3, Meal::Lunch).is_some_and(|s| !s.dishes.is_empty()), "kept, hidden");
+        assert!(rice(&m) < four, "not bought for while outside");
+        m.set_days(4);
+        assert_eq!(m.dish_on(3, Meal::Lunch).map(|d| d.id.as_str()), Some("plov"));
+        assert_eq!(m.dish_on(3, Meal::Dinner).map(|d| d.id.as_str()), Some("plov"));
+        assert_eq!(rice(&m), four);
     }
 
     #[test]

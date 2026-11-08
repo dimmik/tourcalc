@@ -251,6 +251,7 @@ pub struct MenuTexts {
     pub in_shared: fn(&str) -> String,
     pub nothing_to_buy: &'static str,
     pub find_product: &'static str,
+    pub clear_find: &'static str,
     pub find_in_catalogue: &'static str,
     pub nothing_found: &'static str,
     /// Take a product on oneself - "me" as picked above.

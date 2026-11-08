@@ -904,6 +904,7 @@ pub const TEXTS: Texts = Texts {
         in_shared: |amount| format!("✓ in one receipt, {amount}"),
         nothing_to_buy: "Nothing to buy: no dishes are planned.",
         find_product: "Find a product, a place, a person",
+        clear_find: "Clear the search",
         find_in_catalogue: "Find a dish or a product",
         nothing_found: "Nothing found.",
         to_me: "Mine",

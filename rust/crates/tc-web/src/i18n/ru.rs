@@ -922,6 +922,7 @@ pub const TEXTS: Texts = Texts {
         in_shared: |amount| format!("✓ в общем чеке, {amount}"),
         nothing_to_buy: "Покупать нечего: ни одного блюда не выбрано.",
         find_product: "Найти продукт, место, человека",
+        clear_find: "Очистить поиск",
         find_in_catalogue: "Найти блюдо или продукт",
         nothing_found: "Ничего не нашлось.",
         to_me: "На меня",

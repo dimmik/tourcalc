@@ -1949,9 +1949,24 @@ pub fn MiniShopping(tour: Tour, state: MenuState, apply: Callback<Operation>, mo
         .into_any()
     };
 
+    // The search is Full's own, shared: typed there, it narrows the list here too - so it is
+    // here to see and to clear.
+    let find = view! {
+        <div class="tcm-bar">
+            <input class="tcm-find" type="text" placeholder=t().menu.find_product
+                   prop:value=move || state.shop_find.get()
+                   on:input=move |ev| state.shop_find.set(event_target_value(&ev)) />
+            <Show when=move || !state.shop_find.get().is_empty()>
+                <button type="button" class="tcm-btn" title=t().menu.clear_find
+                        on:click=move |_| state.shop_find.set(String::new())>"✕"</button>
+            </Show>
+        </div>
+    };
+
     view! {
         {bar}
         {days}
+        {find}
         {list}
         <div class="tcm-bar">
             <span class="tcm-hint">{t().menu.mini_in_full}</span>

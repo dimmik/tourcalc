@@ -51,6 +51,11 @@ pub fn MiniTour(
 ) -> impl IntoView {
     let show_family = RwSignal::new(false);
     let has_menu = tc_core::menu::Menu::shown(&tour).is_some();
+    // A link to the Food tab of a tour whose menu is off - or switched off since: there is no
+    // food tab to show, and an empty panel under no lit tab is no answer.
+    if !has_menu && tab.get_untracked() == Tab::Menu {
+        tab.set(Tab::Balance);
+    }
     let for_food = tour.clone();
     let mode = use_context::<RwSignal<crate::mode::UiMode>>().unwrap_or_else(|| RwSignal::new(crate::mode::UiMode::Mini));
 
