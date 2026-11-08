@@ -1448,10 +1448,21 @@ fn Shopping(
             // Each of its items on the daily list - with breakfast, with dinner - and "per trip"
             // once. Only the first was said: dried fruit with breakfast and with dinner read
             // "with breakfast ×2", though both were counted.
-            if daily.iter().any(|i| i.per == tc_core::menu::Per::Trip) {
+            use tc_core::menu::Per;
+            if daily.iter().any(|i| i.per == Per::Trip) {
                 why.push(t().menu.per_trip.to_owned());
             }
-            for item in daily.iter().filter(|i| i.per != tc_core::menu::Per::Trip) {
+            // Per day (or per fire, which on the daily list is a day too) is bought once a day,
+            // however many meals it is with: "per day ×3", not "with breakfast ×3 · with
+            // dinner ×3" over 0.2 a day.
+            let once_a_day: Vec<_> = daily.iter().filter(|i| matches!(i.per, Per::Day | Per::Fire)).collect();
+            if !once_a_day.is_empty() {
+                let times = chosen.iter().filter(|&&day| once_a_day.iter().any(|i| menu.daily_on(i.when, day))).count();
+                if times > 0 {
+                    why.push(format!("{} ×{times}", t().menu.per_day));
+                }
+            }
+            for item in daily.iter().filter(|i| matches!(i.per, Per::Portion | Per::Head)) {
                 let times = chosen.iter().filter(|&&day| menu.daily_on(item.when, day)).count();
                 let said = format!("{} ×{times}", when_name(item.when));
                 // None of these days: a split-off line shown for being not packed yet.
