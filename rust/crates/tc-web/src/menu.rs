@@ -418,6 +418,19 @@ pub(crate) fn when_name(when: When) -> &'static str {
     }
 }
 
+/// "with breakfast and dinner" - the meals a row of the daily list is bought with, as
+/// [`tc_core::menu::daily_groups`] puts them together.
+pub(crate) fn whens_name(whens: &[When]) -> &'static str {
+    let has = |m: Meal| whens.contains(&When::With(m));
+    match (has(Meal::Breakfast), has(Meal::Lunch), has(Meal::Dinner)) {
+        (true, true, true) => t().menu.when_every_meal,
+        (true, true, false) => t().menu.when_breakfast_lunch,
+        (true, false, true) => t().menu.when_breakfast_dinner,
+        (false, true, true) => t().menu.when_lunch_dinner,
+        _ => whens.first().map_or(t().menu.when_every_day, |w| when_name(*w)),
+    }
+}
+
 /// The date so many days after "2026-11-13", as (year, month 1-12, day). Plain arithmetic
 /// on the civil calendar - the browser's clock and zone have nothing to say about it.
 pub fn date_after(start: &str, days: u32) -> Option<(i64, u32, u32)> {
@@ -1267,19 +1280,18 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
         })
         .collect_view();
 
-    let daily = menu
-        .daily
-        .iter()
-        .filter_map(|i| menu.product(&i.product).map(|p| (p, i.when)))
-        .map(|(p, when)| {
+    let daily = tc_core::menu::daily_groups(&menu.daily)
+        .into_iter()
+        .filter_map(|(i, whens)| menu.product(&i.product).map(|p| (p, whens)))
+        .map(|(p, whens)| {
             let mut notes: Vec<&str> = Vec::new();
             match p.eaters {
                 Eaters::Everyone => {}
                 Eaters::FullWeight => notes.push(t().menu.for_full),
                 Eaters::Others => notes.push(t().menu.for_others),
             }
-            if let When::With(meal) = when {
-                notes.push(when_name(When::With(meal)));
+            if !whens.iter().all(When::is_every_day) {
+                notes.push(whens_name(&whens));
             }
             if notes.is_empty() { p.name.clone() } else { format!("{} ({})", p.name, notes.join(", ")) }
         })
@@ -1433,16 +1445,18 @@ fn Shopping(
             let (dishes, daily) = menu.sources_on(&n.product.id, &chosen);
             let mut why: Vec<String> = dishes.iter().map(|(d, times)| format!("{} ×{times}", d.name)).collect();
             why.extend(menu.methods_for(&n.product.id, &chosen).iter().map(|(m, times)| format!("{} ×{times}", m.name)));
-            if let Some(when) = daily {
-                let per = menu.daily.iter().find(|i| i.product == n.product.id).map(|i| i.per).unwrap_or_default();
-                if per == tc_core::menu::Per::Trip {
-                    why.push(t().menu.per_trip.to_owned());
-                } else {
-                    let times = chosen.iter().filter(|&&day| menu.daily_on(when, day)).count();
-                    // None of these days: a split-off line shown for being not packed yet.
-                    if times > 0 {
-                        why.push(format!("{} ×{times}", when_name(when)));
-                    }
+            // Each of its items on the daily list - with breakfast, with dinner - and "per trip"
+            // once. Only the first was said: dried fruit with breakfast and with dinner read
+            // "with breakfast ×2", though both were counted.
+            if daily.iter().any(|i| i.per == tc_core::menu::Per::Trip) {
+                why.push(t().menu.per_trip.to_owned());
+            }
+            for item in daily.iter().filter(|i| i.per != tc_core::menu::Per::Trip) {
+                let times = chosen.iter().filter(|&&day| menu.daily_on(item.when, day)).count();
+                let said = format!("{} ×{times}", when_name(item.when));
+                // None of these days: a split-off line shown for being not packed yet.
+                if times > 0 && !why.contains(&said) {
+                    why.push(said);
                 }
             }
             let place_name = menu.bought_at(n.product);

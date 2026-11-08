@@ -10,7 +10,7 @@
 
 use crate::edit::MenuEdit;
 use crate::i18n::t;
-use crate::menu::{folded, found, meal_name, search_box, when_name, MenuState};
+use crate::menu::{folded, found, meal_name, search_box, whens_name, MenuState};
 use crate::queue::Operation;
 use leptos::prelude::*;
 use tc_core::menu::{Dish, Eaters, Ingredient, Meal, Menu, Method, Per, Product, Unit, When};
@@ -508,14 +508,11 @@ fn summary(menu: &Menu, items: &[Ingredient]) -> String {
     if items.is_empty() {
         return t().menu.no_ingredients.to_owned();
     }
-    items
+    tc_core::menu::daily_groups(items)
         .iter()
-        .filter_map(|i| {
+        .filter_map(|(i, whens)| {
             let p = menu.product(&i.product)?;
-            let when = match i.when {
-                When::EveryDay => String::new(),
-                w => format!(" {}", when_name(w)),
-            };
+            let when = if whens.iter().all(When::is_every_day) { String::new() } else { format!(" {}", whens_name(whens)) };
             let per = if i.per.is_portion() { String::new() } else { format!(" {}", per_name(i.per, p.eaters)) };
             Some(format!("{} {}\u{a0}{}{per}{when}", p.name.to_lowercase(), number(i.amount), unit_label(p)))
         })
@@ -605,25 +602,35 @@ struct Row {
     key: u32,
     product: RwSignal<String>,
     amount: RwSignal<String>,
-    /// On the daily list only.
-    when: RwSignal<When>,
+    /// On the daily list only: one meal or several - an item each in the tour.
+    when: RwSignal<Vec<When>>,
     per: RwSignal<Per>,
     /// What a later version said about the ingredient, kept through the save.
     rest: StoredValue<serde_json::Map<String, serde_json::Value>>,
 }
 
-const WHENS: [When; 4] = [When::EveryDay, When::With(Meal::Breakfast), When::With(Meal::Lunch), When::With(Meal::Dinner)];
+/// Every day, or the meals - one, two or all three.
+const WHENS: [&[When]; 8] = [
+    &[When::EveryDay],
+    &[When::With(Meal::Breakfast)],
+    &[When::With(Meal::Lunch)],
+    &[When::With(Meal::Dinner)],
+    &[When::With(Meal::Breakfast), When::With(Meal::Lunch)],
+    &[When::With(Meal::Breakfast), When::With(Meal::Dinner)],
+    &[When::With(Meal::Lunch), When::With(Meal::Dinner)],
+    &[When::With(Meal::Breakfast), When::With(Meal::Lunch), When::With(Meal::Dinner)],
+];
 
-/// Rows for these ingredients, keyed from 0.
+/// Rows for these ingredients, keyed from 0: daily items alike but for the meal are one row.
 fn rows_of(items: &[Ingredient]) -> (RwSignal<Vec<Row>>, StoredValue<u32>) {
-    let rows: Vec<Row> = items
-        .iter()
+    let rows: Vec<Row> = tc_core::menu::daily_groups(items)
+        .into_iter()
         .enumerate()
-        .map(|(i, item)| Row {
+        .map(|(i, (item, whens))| Row {
             key: i as u32,
             product: RwSignal::new(item.product.clone()),
             amount: RwSignal::new(number(item.amount)),
-            when: RwSignal::new(item.when),
+            when: RwSignal::new(whens),
             per: RwSignal::new(item.per),
             rest: StoredValue::new(item.rest.clone()),
         })
@@ -632,13 +639,23 @@ fn rows_of(items: &[Ingredient]) -> (RwSignal<Vec<Row>>, StoredValue<u32>) {
     (RwSignal::new(rows), next)
 }
 
-/// The ingredients as the rows say them; rows without a product or a number are skipped.
+/// The ingredients as the rows say them, an item a meal; rows without a product or a number
+/// are skipped.
 fn ingredients_of(rows: &[Row]) -> Vec<Ingredient> {
     rows.iter()
         .filter_map(|r| {
             let product = r.product.get_untracked();
             let amount = parse_number(&r.amount.get_untracked())?;
-            (!product.is_empty()).then_some(Ingredient { product, amount, when: r.when.get_untracked(), per: r.per.get_untracked(), rest: r.rest.get_value() })
+            (!product.is_empty()).then_some((*r, product, amount))
+        })
+        .flat_map(|(r, product, amount)| {
+            r.when.get_untracked().into_iter().map(move |when| Ingredient {
+                product: product.clone(),
+                amount,
+                when,
+                per: r.per.get_untracked(),
+                rest: r.rest.get_value(),
+            })
         })
         .collect()
 }
@@ -656,7 +673,7 @@ struct NewRow {
     own: RwSignal<Option<String>>,
     /// A unit of its own being typed, as against picked from the list.
     typing: RwSignal<bool>,
-    when: RwSignal<When>,
+    when: RwSignal<Vec<When>>,
     per: RwSignal<Per>,
 }
 
@@ -671,7 +688,7 @@ impl NewRow {
             unit: RwSignal::new(Unit::Gram),
             own: RwSignal::new(None),
             typing: RwSignal::new(false),
-            when: RwSignal::new(When::EveryDay),
+            when: RwSignal::new(vec![When::EveryDay]),
             per: RwSignal::new(Per::Portion),
         }
     }
@@ -716,7 +733,7 @@ struct Typed {
     amount: String,
     unit: Unit,
     own: Option<String>,
-    when: When,
+    when: Vec<When>,
     per: Per,
 }
 
@@ -780,7 +797,9 @@ fn new_products(menu: &Menu, typed: &[Typed]) -> Result<(Vec<Product>, Vec<Ingre
                 id
             }
         };
-        items.push(Ingredient { product, amount, when: row.when, per: row.per, ..Ingredient::default() });
+        for when in &row.when {
+            items.push(Ingredient { product: product.clone(), amount, when: *when, per: row.per, ..Ingredient::default() });
+        }
     }
     Ok((made, items))
 }
@@ -837,12 +856,12 @@ fn Ingredients(
     let list_id = format!("tcw-products-{}", LISTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
     let place = crate::menu::place_for_new(&menu);
     let place_name = menu.places.iter().find(|p| p.id == place).map(|p| p.name.clone()).unwrap_or_default();
-    let when_select = move |when: RwSignal<When>| {
+    let when_select = move |when: RwSignal<Vec<When>>| {
         per_day.then(|| {
             let options = WHENS
                 .into_iter()
                 .map(|w| view! {
-                    <option value=when_name(w) selected=when.get_untracked() == w>{when_name(w)}</option>
+                    <option value=whens_name(w) selected=when.get_untracked().as_slice() == w>{whens_name(w)}</option>
                 })
                 .collect_view();
             view! {
@@ -850,8 +869,8 @@ fn Ingredients(
                 <select class="tcw-ingr-when" title=t().menu.when_title
                         on:change=move |ev| {
                             let v = event_target_value(&ev);
-                            if let Some(w) = WHENS.into_iter().find(|w| when_name(*w) == v) {
-                                when.set(w);
+                            if let Some(w) = WHENS.into_iter().find(|w| whens_name(w) == v) {
+                                when.set(w.to_vec());
                             }
                         }>
                     {options}
@@ -873,7 +892,7 @@ fn Ingredients(
                 key,
                 product: RwSignal::new(String::new()),
                 amount: RwSignal::new(String::new()),
-                when: RwSignal::new(When::EveryDay),
+                when: RwSignal::new(vec![When::EveryDay]),
                 per: RwSignal::new(if list == List::Method { Per::Fire } else { Per::Portion }),
                 rest: StoredValue::new(Default::default()),
             })
@@ -912,26 +931,7 @@ fn Ingredients(
                                    on:input=move |ev| row.amount.set(event_target_value(&ev)) />
                             <span class="tcw-ingr-per">
                                 {per}
-                                {per_day.then(|| {
-                                    let options = WHENS
-                                        .into_iter()
-                                        .map(|w| view! {
-                                            <option value=when_name(w) selected=row.when.get_untracked() == w>{when_name(w)}</option>
-                                        })
-                                        .collect_view();
-                                    view! {
-                                        " "
-                                        <select class="tcw-ingr-when" title=t().menu.when_title
-                                                on:change=move |ev| {
-                                                    let v = event_target_value(&ev);
-                                                    if let Some(w) = WHENS.into_iter().find(|w| when_name(*w) == v) {
-                                                        row.when.set(w);
-                                                    }
-                                                }>
-                                            {options}
-                                        </select>
-                                    }
-                                })}
+                                {when_select(row.when)}
                             </span>
                             <button type="button" class="tcn-btn tcn-btn-sm tcw-ingr-x" title=t().menu.remove
                                     on:click=move |_| rows.update(|r| r.retain(|x| x.key != row.key))>
@@ -1824,8 +1824,24 @@ mod tests {
         assert_eq!(parse_number("много"), None);
     }
 
+    /// Dried fruit with breakfast and with dinner: one row, saved back as the two items it
+    /// was - and a row turned to "with lunch and dinner" saves an item for each.
+    #[test]
+    fn a_row_for_two_meals_is_an_item_each() {
+        let _owner = Owner::new();
+        let item = |amount: f64, when: When| Ingredient { product: "dried".into(), amount, when, ..Ingredient::default() };
+        let items = vec![item(15.0, When::With(Meal::Breakfast)), item(15.0, When::With(Meal::Dinner)), item(1.0, When::EveryDay)];
+        let (rows, _) = rows_of(&items);
+        assert_eq!(rows.get_untracked().len(), 2);
+        assert_eq!(ingredients_of(&rows.get_untracked()), items);
+        rows.get_untracked()[1].when.set(vec![When::With(Meal::Lunch), When::With(Meal::Dinner)]);
+        let saved: Vec<(f64, When)> = ingredients_of(&rows.get_untracked()).iter().map(|i| (i.amount, i.when)).collect();
+        assert_eq!(saved.len(), 4);
+        assert_eq!(&saved[2..], [(1.0, When::With(Meal::Lunch)), (1.0, When::With(Meal::Dinner))]);
+    }
+
     fn typed(name: &str, amount: &str, unit: Unit, own: Option<&str>) -> Typed {
-        Typed { name: name.into(), amount: amount.into(), unit, own: own.map(Into::into), when: When::EveryDay, per: Per::Portion }
+        Typed { name: name.into(), amount: amount.into(), unit, own: own.map(Into::into), when: vec![When::EveryDay], per: Per::Portion }
     }
 
     /// Pearl barley typed into the solyanka: a product at the supermarket, for everybody, and
