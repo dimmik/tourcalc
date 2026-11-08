@@ -1078,6 +1078,8 @@ pub const TEXTS: Texts = Texts {
         last_day: "Last day",
         from_meal: ["from breakfast", "from lunch", "from dinner"],
         arriving_for: ["arriving for breakfast", "arriving for lunch", "arriving for dinner"],
+        unplanned: "— not chosen —",
+        unplanned_title: "Not chosen yet: neither a dish nor “nothing” — not on the shopping yet",
         leaving_after: ["leaving after breakfast", "leaving after lunch", "leaving after dinner"],
         to_meal: ["until breakfast", "until lunch", "until dinner"],
         dated: |weekday, day, month| format!("{weekday}, {day} {month}"),

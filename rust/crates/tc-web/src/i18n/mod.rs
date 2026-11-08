@@ -434,6 +434,9 @@ pub struct MenuTexts {
     pub from_meal: [&'static str; 3],
     /// In the plan, where the meals before the arrival would be.
     pub arriving_for: [&'static str; 3],
+    /// A meal of the trip not planned yet - a day just added - in its select, and its hint.
+    pub unplanned: &'static str,
+    pub unplanned_title: &'static str,
     /// In the plan, where the meals after the departure would be.
     pub leaving_after: [&'static str; 3],
     /// "until breakfast": the last day ends with it.

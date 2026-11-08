@@ -718,7 +718,9 @@ impl Menu {
     }
 
     /// How many days are planned. Days taken off keep their plan, so that 5 → 3 → 5 is
-    /// where it started; new days are filled in ([`Menu::fill`]).
+    /// where it started; new days are left unplanned - not "nothing", not a dish - for the
+    /// group to choose. They were filled with the next dishes in turn, and a day added for
+    /// the drive home came with three meals nobody had asked for.
     ///
     /// The departure moves with the last day: leaving after breakfast on day 3 of 3, a
     /// fourth day makes day 3 a whole day and day 4 the one left after breakfast - rather
@@ -730,10 +732,7 @@ impl Menu {
         if self.days != was_last && leaving != Meal::Dinner {
             let index = |m: Meal| Meal::ALL.iter().position(|x| *x == m).unwrap_or(0);
             self.plan.retain(|s| !(s.day == was_last && s.dishes.is_empty() && index(s.meal) > index(leaving)));
-            self.fill();
             self.leave(leaving);
-        } else {
-            self.fill();
         }
     }
 
@@ -1175,11 +1174,16 @@ impl Menu {
             if outside(index(meal), index(at)) {
                 self.set(Slot::one(day, meal, None));
             } else if self.slot(day, meal).is_some_and(|s| s.dishes.is_empty()) {
-                // Emptied by an earlier arrival or departure: let `fill` choose again.
+                // Emptied by an earlier arrival or departure: unplanned again, to choose.
                 self.plan.retain(|s| !(s.day == day && s.meal == meal));
             }
         }
-        self.fill();
+    }
+
+    /// Inside the trip and not planned yet - no dish and not "nothing" either: a day just
+    /// added, the first day's lunch after arriving earlier. The plan marks it.
+    pub fn unplanned(&self, day: u32, meal: Meal) -> bool {
+        self.in_trip(day, meal) && self.slot(day, meal).is_none()
     }
 
     /// Everything to buy for the planned days, in the catalogue's order. A product nobody
@@ -1551,7 +1555,10 @@ mod tests {
         // day more moves it on (see `set_days`).
         m.set_days(3);
         m.set(Slot::one(2, Meal::Dinner, None));
-        assert_eq!(dinners(&m), [Some("plov".into()), None, Some("plov".into())]);
+        // A day added is not planned - neither a dish nor "nothing" - and says so.
+        assert_eq!(dinners(&m), [Some("plov".into()), None, None]);
+        assert!(m.unplanned(3, Meal::Dinner) && !m.unplanned(2, Meal::Dinner));
+        m.set(Slot::one(3, Meal::Dinner, Some("plov".into())));
         // Fewer days keep the plan of the ones taken off.
         m.set_days(1);
         m.set_days(3);
@@ -1671,6 +1678,8 @@ mod tests {
         });
         m.daily[0].when = When::With(Meal::Dinner);
         m.set_days(3);
+        // Planned as when the menu is switched on: a day added is left to choose.
+        m.fill();
         m.arrive(Meal::Dinner);
         m.leave(Meal::Breakfast);
         assert_eq!((m.arrival(), m.departure()), (Meal::Dinner, Meal::Breakfast));
@@ -1684,11 +1693,12 @@ mod tests {
         assert_eq!(amount(&needs, "juice"), 500.0 * 3.0 * 0.5, "a child at 50, three days");
         // A fourth day: Sunday is a whole day now, and the departure is Monday's.
         m.set_days(4);
-        assert!(m.dish_on(3, Meal::Dinner).is_some() && m.dish_on(4, Meal::Dinner).is_none());
+        assert!(m.unplanned(3, Meal::Lunch) && m.unplanned(3, Meal::Dinner) && m.unplanned(4, Meal::Breakfast));
+        assert!(!m.in_trip(4, Meal::Dinner));
         assert_eq!(m.departure(), Meal::Breakfast);
-        // Arriving for breakfast after all fills the first day's breakfast again.
+        // Arriving for breakfast after all: the first day's breakfast is to choose.
         m.arrive(Meal::Breakfast);
-        assert!(m.dish_on(1, Meal::Breakfast).is_some());
+        assert!(m.unplanned(1, Meal::Breakfast));
     }
 
     /// With no dishes yet there is nothing to cook, but where the trip starts and ends is
@@ -1761,6 +1771,7 @@ mod tests {
         m.dishes.push(Dish { id: "out".into(), name: "Restaurant".into(), meals: vec![Meal::Dinner], ..Dish::default() });
         m.plan.clear();
         m.set_days(6);
+        m.fill();
         assert!((1..=6).all(|d| m.dish_on(d, Meal::Dinner).is_some_and(|x| x.id != "out")));
     }
 

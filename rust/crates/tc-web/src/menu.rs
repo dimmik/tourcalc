@@ -1215,13 +1215,18 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                     // cooked has nothing to add beside.
                     let next = menu.dishes_for(meal).map(|d| d.id.clone()).find(|id| !now.contains(id));
                     let can_add = !now.is_empty() && next.is_some();
+                    // Not chosen yet - a day just added: marked, and "— not chosen —" rather than
+                    // "— nothing —", which is a choice.
+                    let unplanned = menu.unplanned(day, meal);
                     view! {
-                        <div class=format!("tcw-food-meal tcw-food-slot {}", crate::menu_catalogue::meal_class(meal))>
+                        <div class=format!("tcw-food-meal tcw-food-slot {}", crate::menu_catalogue::meal_class(meal))
+                             class:is-unplanned=unplanned title=unplanned.then_some(t().menu.unplanned_title)>
                             <span class=format!("tcw-meal {}", crate::menu_catalogue::meal_class(meal))>{meal_name(meal)}</span>
                             <div class="tcw-food-dishes">
                                 <select class="tcn-input" aria-label=meal_name(meal)
                                         on:change=move |ev| {
                                             let v = event_target_value(&ev);
+                                            if v == "?" { return; }
                                             let mut dishes = current(day, meal);
                                             match (v.is_empty(), dishes.is_empty()) {
                                                 (true, _) => dishes.clear(),
@@ -1230,7 +1235,8 @@ fn Plan(menu: Menu, apply: Callback<Operation>) -> impl IntoView {
                                             }
                                             put(day, meal, dishes);
                                         }>
-                                    <option value="" selected=main.is_empty()>{t().menu.nothing}</option>
+                                    {unplanned.then(|| view! { <option value="?" selected=true>{t().menu.unplanned}</option> })}
+                                    <option value="" selected=main.is_empty() && !unplanned>{t().menu.nothing}</option>
                                     {options(&main)}
                                 </select>
                                 {extras}

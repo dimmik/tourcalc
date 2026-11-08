@@ -894,6 +894,11 @@
         .tcw-food-slot.is-breakfast { background: #fffbeb; }
         .tcw-food-slot.is-lunch { background: #ecfdf5; }
         .tcw-food-slot.is-dinner { background: #eef2ff; }
+        /* A meal not chosen yet - a day just added: amber and dashed, so that it is seen as
+           something still to do, not a meal of nothing. */
+        .tcw-food-slot.is-unplanned { background: var(--tcn-amber-soft, #fff4d6);
+            outline: 1px dashed var(--tcn-amber, #d97706); outline-offset: -1px; }
+        .tcw-food-slot.is-unplanned select { color: var(--tcn-amber, #b45309); font-style: italic; }
         .tcw-food-day { align-content: start; }
         /* Days side by side line up meal by meal: breakfast across from breakfast, whatever
            the day before it holds. Each card is four rows of the list's grid - the day's

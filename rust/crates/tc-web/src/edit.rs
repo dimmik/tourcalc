@@ -855,6 +855,8 @@ pub fn put_tour(tour: &Tour, draft: &TourDraft) -> Tour {
                 Some(template) => {
                     let mut menu = template.as_template();
                     menu.set_days(days);
+                    // Planned from the start, as the starter is: days added later are not.
+                    menu.fill();
                     menu.put(&mut next);
                 }
                 None => {
