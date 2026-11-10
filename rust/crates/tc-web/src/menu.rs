@@ -2663,7 +2663,7 @@ fn ListCard(
                 let shoppers = shoppers.clone();
                 move || {
                     let me = state.me.get().filter(|me| who.as_deref() != Some(me.as_str()))?;
-                    let name = shoppers.iter().find(|(id, _)| *id == me).map(|(_, name)| name.clone())?;
+                    let name = shoppers.iter().find(|(pid, _)| *pid == me).map(|(_, name)| name.clone())?;
                     let edit = buyer_edit(&id, split.as_deref(), Some(me));
                     Some(view! {
                         <button type="button" class="tcn-btn tcn-btn-sm tcw-buy-me" title=(t().menu.to_me_title)(&name)
