@@ -2653,19 +2653,22 @@ fn ListCard(
             let rest_recorded = line.purchase.spending.as_deref().and_then(money_of);
             let acts = line_acts(line, recorded_as, rest_recorded, &shoppers, change);
             let amount_cell = amount_cell(line, change);
-            // "Mine": one tap instead of finding oneself in the list - there when somebody is
-            // picked as "me" and the product is not theirs yet.
+            // "To: <the picked one>": one tap instead of finding them in the list - there when
+            // somebody is picked in "Shopping by" and the product is not theirs yet. Named, not
+            // "Mine": the one picked need not be the one holding the phone.
             let to_me = {
                 let id = id.clone();
                 let who = who.clone();
                 let split = split.clone();
+                let shoppers = shoppers.clone();
                 move || {
                     let me = state.me.get().filter(|me| who.as_deref() != Some(me.as_str()))?;
+                    let name = shoppers.iter().find(|(pid, _)| *pid == me).map(|(_, name)| name.clone())?;
                     let edit = buyer_edit(&id, split.as_deref(), Some(me));
                     Some(view! {
-                        <button type="button" class="tcn-btn tcn-btn-sm tcw-buy-me" title=t().menu.to_me_title
+                        <button type="button" class="tcn-btn tcn-btn-sm tcw-buy-me" title=(t().menu.to_me_title)(&name)
                                 on:click=move |_| change(edit.clone())>
-                            {t().menu.to_me}
+                            {(t().menu.to_me)(&name)}
                         </button>
                     })
                 }

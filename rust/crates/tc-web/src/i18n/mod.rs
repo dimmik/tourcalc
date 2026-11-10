@@ -254,9 +254,9 @@ pub struct MenuTexts {
     pub clear_find: &'static str,
     pub find_in_catalogue: &'static str,
     pub nothing_found: &'static str,
-    /// Take a product on oneself - "me" as picked above.
-    pub to_me: &'static str,
-    pub to_me_title: &'static str,
+    /// Give a product to the one picked in "Shopping by", named: "To: Sasha".
+    pub to_me: fn(&str) -> String,
+    pub to_me_title: fn(&str) -> String,
     pub sort: &'static str,
     pub sort_catalogue: &'static str,
     pub sort_name: &'static str,
