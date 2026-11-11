@@ -214,10 +214,20 @@ impl GitHubStore {
             (fields::str_of(&a.1, fields::CREATED_AT), a.1.id.as_str().to_owned())
                 .cmp(&(fields::str_of(&b.1, fields::CREATED_AT), b.1.id.as_str().to_owned()))
         });
+        // Which tours start in memory: the newest first, while they fit - they are the ones
+        // being opened. Filled oldest first, a server with more tours than the ceiling started
+        // with trips of years ago in memory and this week's on the disk.
         let hot_cap = settings.memory_bytes;
-        for (path, tour, len) in tours {
-            let keep_hot = path.starts_with("t/") && inner.hot_bytes + weight(len) <= hot_cap;
-            inner.know(path, tour, len, keep_hot);
+        let mut planned = 0;
+        let mut keep_hot = vec![false; tours.len()];
+        for (n, (path, _, len)) in tours.iter().enumerate().rev() {
+            if path.starts_with("t/") && planned + weight(*len) <= hot_cap {
+                planned += weight(*len);
+                keep_hot[n] = true;
+            }
+        }
+        for ((path, tour, len), hot) in tours.into_iter().zip(keep_hot) {
+            inner.know(path, tour, len, hot);
         }
         inner.stats = Stats {
             started: fields::now_stamp(),
@@ -995,6 +1005,28 @@ mod tests {
         let a = store.get(&TourId::new("a")).await.unwrap();
         assert_eq!(a.spendings.len(), fixture("a").spendings.len());
         assert_eq!(store.list(None, &|_| true).await.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn a_start_over_the_ceiling_keeps_the_newest_tours_in_memory() {
+        let repo = Arc::new(Memory::new());
+        let cache = Cache::new("start-newest");
+        let store = open(&repo, &cache, 32 << 20).await;
+        for (id, created) in [("old", "2021-08-01T00:00:00Z"), ("new", "2026-11-01T00:00:00Z"), ("mid", "2024-01-01T00:00:00Z")] {
+            let mut t = fixture(id);
+            fields::set(&mut t, fields::CREATED_AT, created.into());
+            store.store(t).await;
+        }
+        store.flush().await.unwrap();
+        drop(store);
+
+        // Room for about one tour of this size.
+        let again = open(&repo, &cache, 1 << 20).await;
+        let i = again.lock();
+        let hot: Vec<&str> = i.hot.keys().map(|k| k.as_str()).collect();
+        assert_eq!(hot, ["new"]);
+        let listed: Vec<&str> = i.order.iter().map(|k| k.as_str()).collect();
+        assert_eq!(listed, ["old", "mid", "new"], "the list keeps its order: oldest first");
     }
 
     #[tokio::test]
