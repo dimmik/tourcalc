@@ -161,6 +161,7 @@ crates/tc-server/src/
 ├── state.rs         AppState: хранилище, подписки, ключи, метки сборки
 ├── auth.rs          токены: подпись, проверка, код доступа → права
 ├── store.rs         trait TourStore + InMemoryStore
+├── import.rs        `tc-server import <file.json>...` — туры и версии из файлов вида seed в выбранное хранилище, только новые id; сервер не запускается
 ├── mongo.rs         MongoStore (фича `mongo`) + перевод форматов дат и _id
 ├── github/          GitHubStore — туры в репозитории GitHub, зашифрованные (план и решения — `rust/github-store.md`)
 │   ├── seal.rs      ключи из GitHubStoreKey, имена файлов (HMAC), deflate + XChaCha20-Poly1305, id блоба git

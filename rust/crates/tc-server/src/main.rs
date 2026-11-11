@@ -144,6 +144,37 @@ async fn main() {
         }
     };
 
+    // `tc-server import <file.json>...`: tours into the store just chosen, written out, and
+    // the process ends without serving. See `import.rs`.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("import") {
+        if args.len() < 2 {
+            tracing::error!("import: name the file(s) - a JSON array of tours, as the seed file");
+            std::process::exit(2);
+        }
+        match tc_server::import::files(store.as_ref(), &args[1..]).await {
+            Ok(n) => {
+                store.flush().await;
+                tracing::info!(
+                    "import: {} tour(s) and {} version(s) added, {} already there or repeated",
+                    n.tours,
+                    n.versions,
+                    n.skipped
+                );
+                let status = store.status(true);
+                if let Some(e) = status.get("lastError").and_then(|e| e.as_str()) {
+                    tracing::error!("import: not written: {e}");
+                    std::process::exit(1);
+                }
+                std::process::exit(0);
+            }
+            Err(e) => {
+                tracing::error!("import: {e} - nothing was added");
+                std::process::exit(1);
+            }
+        }
+    }
+
     // Notifications: the real thing when there are keys to sign with, silence otherwise -
     // which is what the C# does when the settings are missing.
     let push: Box<dyn tc_server::push::Notifier> = match tc_server::push::WebPush::new(
