@@ -641,6 +641,14 @@ pub struct BuildTexts {
     /// When it started, files, how many of them downloaded.
     pub details_start: fn(&str, u64, u64) -> String,
     pub details_commit: &'static str,
+    /// After the commit's id: when this server made it.
+    pub details_commit_at: fn(&str) -> String,
+    /// After the commit's id: it was there before this server started.
+    pub details_commit_before_start: &'static str,
+    /// Tours and versions the branch has, by its files.
+    pub details_in_repo: fn(u64, u64) -> String,
+    /// Changes not yet in the repository - said when there are none too.
+    pub details_pending: fn(u64) -> String,
 }
 
 /// Somebody else's change arriving on an open tour. What changed is said by `tc_core::news`,

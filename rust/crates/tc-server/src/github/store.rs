@@ -111,6 +111,8 @@ struct Stats {
     evictions: u64,
     last_written: Option<String>,
     last_commit: Option<String>,
+    /// When the branch's commit was made, as the repository said when it was last read.
+    head_at: Option<String>,
     last_error: Option<(String, String)>,
     /// The writer's next tick.
     next_write: Option<SystemTime>,
@@ -221,6 +223,7 @@ impl GitHubStore {
             started: fields::now_stamp(),
             files_at_start: texts.len(),
             downloaded_at_start: downloaded,
+            head_at: snap.head_at.clone(),
             ..Stats::default()
         };
         tracing::info!(
@@ -288,6 +291,7 @@ impl GitHubStore {
                         let mut i = self.lock();
                         i.head = snap.head;
                         i.in_repo = snap.files;
+                        i.stats.head_at = snap.head_at;
                     }
                     Err(e) => return Err(self.failed(e)),
                 }
@@ -441,8 +445,13 @@ impl GitHubStore {
                 "repository": self.core.remote.describe(),
                 "lastCommit": i.stats.last_commit.as_ref().or(Some(&i.head)),
                 "lastCommitUrl": self.core.remote.commit_url(i.stats.last_commit.as_deref().unwrap_or(&i.head)),
+                // This server's last commit, or - none yet - the one the branch was at.
+                "lastCommitAt": i.stats.last_written.as_ref().or(i.stats.head_at.as_ref()),
                 "tours": tours,
                 "versions": i.index.len() - tours,
+                // What the branch has, by its files - not what this server knows of.
+                "repoTours": i.in_repo.keys().filter(|p| p.starts_with("t/")).count(),
+                "repoVersions": i.in_repo.keys().filter(|p| p.starts_with("v/")).count(),
                 "inMemory": i.hot.len(),
                 "memoryBytes": i.hot_bytes,
                 "memoryLimitBytes": self.core.settings.memory_bytes,
@@ -903,6 +912,8 @@ mod tests {
         assert_eq!(tours.len(), 2);
         assert!(files.values().all(|t| !t.contains("Ural") && !t.contains("zscph2y")));
         assert_eq!(store.status(false)["pending"], 0);
+        let s = store.status(true);
+        assert_eq!((s["repoTours"].as_u64(), s["repoVersions"].as_u64()), (Some(2), Some(0)), "{s}");
 
         // Another server, an empty cache: everything from the repository.
         let other = Cache::new("roundtrip-2");

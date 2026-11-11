@@ -447,8 +447,20 @@ fn storage_rows(s: serde_json::Value) -> impl IntoView {
     let details = (github && s.get("repository").is_some()).then(|| {
         let commit = text("lastCommit");
         let url = text("lastCommitUrl");
-        let lines = [
+        // When: the last commit, by this server or - none yet - the one the branch was at. Only
+        // the repository in memory cannot say.
+        let when = match s.get("lastCommitAt").and_then(|v| v.as_str()) {
+            Some(at) => (b.details_commit_at)(&crate::ui::local_stamp_of(at)),
+            None => b.details_commit_before_start.to_owned(),
+        };
+        // What the repository has, what is still to go to it, and its last commit - first;
+        // then this server's own memory and disk.
+        let repo = [
             if emulated { b.details_emulator.to_owned() } else { (b.details_repo)(&text("repository")) },
+            (b.details_in_repo)(num("repoTours"), num("repoVersions")),
+            (b.details_pending)(num("pending")),
+        ];
+        let server = [
             (b.details_tours)(num("tours"), num("versions")),
             (b.details_memory)(num("inMemory"), &mb(num("memoryBytes")), &mb(num("memoryLimitBytes")), num("sentToDisk")),
             (b.details_cache)(&mb(num("cacheBytes"))),
@@ -459,7 +471,7 @@ fn storage_rows(s: serde_json::Value) -> impl IntoView {
                 <div class="tcn-settext">
                     <div class="tcn-setname">{b.storage_details}</div>
                     <div class="tcn-setdesc">
-                        {lines.into_iter().map(|l| view! { <div>{l}</div> }).collect_view()}
+                        {repo.into_iter().map(|l| view! { <div>{l}</div> }).collect_view()}
                         {(!commit.is_empty()).then(|| {
                             let short: String = commit.chars().take(7).collect();
                             view! {
@@ -470,9 +482,11 @@ fn storage_rows(s: serde_json::Value) -> impl IntoView {
                                     } else {
                                         view! { <a href=url target="_blank" rel="noopener">{short}</a> }.into_any()
                                     }}
+                                    {when}
                                 </div>
                             }
                         })}
+                        {server.into_iter().map(|l| view! { <div>{l}</div> }).collect_view()}
                     </div>
                 </div>
             </div>

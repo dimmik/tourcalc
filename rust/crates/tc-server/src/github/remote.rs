@@ -12,6 +12,8 @@ use std::time::Duration;
 #[derive(Clone, Debug, Default)]
 pub struct Snapshot {
     pub head: String,
+    /// When the head commit was made, if the repository says - for the help page.
+    pub head_at: Option<String>,
     pub files: HashMap<String, String>,
 }
 
@@ -179,6 +181,7 @@ impl Remote for Memory {
         }
         Ok(Snapshot {
             head: format!("c{}", r.commits),
+            head_at: None,
             files: r.files.iter().map(|(p, t)| (p.clone(), super::seal::blob_sha(t.as_bytes()))).collect(),
         })
     }
@@ -302,15 +305,18 @@ impl GitHub {
         RemoteError::Failed(format!("GitHub answered {status} to {what}: {message}"))
     }
 
-    async fn tree_of(&self, commit: &str) -> Result<String, RemoteError> {
+    /// A commit's tree, and when it was made.
+    async fn tree_of(&self, commit: &str) -> Result<(String, Option<String>), RemoteError> {
         let (status, json) = self.send(self.request(reqwest::Method::GET, &format!("/git/commits/{commit}")), None).await?;
         if status != 200 {
             return Err(Self::failed("reading a commit", status, &json));
         }
-        json.pointer("/tree/sha")
+        let tree = json
+            .pointer("/tree/sha")
             .and_then(|s| s.as_str())
             .map(str::to_owned)
-            .ok_or_else(|| RemoteError::Failed("GitHub: a commit without a tree".into()))
+            .ok_or_else(|| RemoteError::Failed("GitHub: a commit without a tree".into()))?;
+        Ok((tree, json.pointer("/committer/date").and_then(|s| s.as_str()).map(str::to_owned)))
     }
 }
 
@@ -359,7 +365,7 @@ impl Remote for GitHub {
             .and_then(|s| s.as_str())
             .ok_or_else(|| RemoteError::Failed("GitHub: a branch without a commit".into()))?
             .to_owned();
-        let tree = self.tree_of(&head).await?;
+        let (tree, head_at) = self.tree_of(&head).await?;
         let (status, json) = self
             .send(self.request(reqwest::Method::GET, &format!("/git/trees/{tree}?recursive=1")), None)
             .await?;
@@ -377,7 +383,7 @@ impl Remote for GitHub {
             .filter(|e| e.get("type").and_then(|t| t.as_str()) == Some("blob"))
             .filter_map(|e| Some((e.get("path")?.as_str()?.to_owned(), e.get("sha")?.as_str()?.to_owned())))
             .collect();
-        Ok(Snapshot { head, files })
+        Ok(Snapshot { head, head_at, files })
     }
 
     async fn read(&self, blob: &str) -> Result<String, RemoteError> {
@@ -400,7 +406,7 @@ impl Remote for GitHub {
     }
 
     async fn commit(&self, parent: &str, changes: &[Change], message: &str) -> Result<String, RemoteError> {
-        let base_tree = self.tree_of(parent).await?;
+        let (base_tree, _) = self.tree_of(parent).await?;
         let entries: Vec<serde_json::Value> = changes
             .iter()
             .map(|c| match c {
