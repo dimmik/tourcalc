@@ -187,6 +187,13 @@ WSL до Windows-процесса не доходит.
 
 ## Сборка и тесты
 
+- **Toolchain — тот, что в `tourcalc.rust.docker` (сейчас 1.98.1), с `wasm32-unknown-unknown`,
+  и задавать его явно:** `RUSTUP_TOOLCHAIN=1.98.1` перед `cargo`, `trunk` и
+  `rust/build-and-run.sh` (или `cargo +1.98.1`). `rustup default` на машине общий: его
+  меняют другие сессии и проекты. 11.11.2026 там оказался `stable` 1.99.1 без wasm, и trunk
+  упал с `can't find crate for core`. `rustup default` не трогать, а нужную версию ставить
+  рядом (`rustup toolchain install 1.98.1 -t wasm32-unknown-unknown`). Новая версия Rust — сначала
+  в `tourcalc.rust.docker`, потом здесь и в таблице «Новая машина».
 - `tc-web` — бинарный крейт: тесты — `cargo test -p tc-web --bins` (`--lib` не найдёт цели).
 - Тестам Mongo нужен живой mongod: `TC_TEST_MONGO=mongodb://127.0.0.1:27017 cargo test -p
   tc-server --features mongo --test mongo`. Без переменной они молча пропускаются — зелёный
