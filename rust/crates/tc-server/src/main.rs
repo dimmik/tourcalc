@@ -81,6 +81,46 @@ async fn main() {
             );
             std::process::exit(1);
         }
+    } else if cfg.storage_type.eq_ignore_ascii_case("GitHub") {
+        #[cfg(feature = "github")]
+        {
+            use tc_server::github;
+            let keys = github::seal::Keys::from_setting(&cfg.github_store_key).unwrap_or_else(|e| {
+                tracing::error!("{}", e.0);
+                std::process::exit(1);
+            });
+            let remote = github::remote::GitHub::new(&cfg.github_repo, &cfg.github_branch, &cfg.github_token)
+                .unwrap_or_else(|e| {
+                    tracing::error!("{e}");
+                    std::process::exit(1);
+                });
+            let settings = github::Settings {
+                flush_every: std::time::Duration::from_secs(cfg.github_flush_seconds),
+                memory_bytes: (cfg.github_memory_mb as usize) << 20,
+                cache_dir: std::path::PathBuf::from(&cfg.github_cache_dir),
+            };
+            match github::GitHubStore::open(keys, Box::new(remote), settings).await {
+                Ok(store) => {
+                    tracing::info!(
+                        "storing tours in GitHub ({}), encrypted; written every {} s",
+                        cfg.github_repo,
+                        cfg.github_flush_seconds
+                    );
+                    store.start_writing();
+                    subscriptions = Some(Box::new(store.subscriptions()));
+                    Box::new(store)
+                }
+                Err(e) => {
+                    tracing::error!("GitHub store: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        #[cfg(not(feature = "github"))]
+        {
+            tracing::error!("StorageType is GitHub, but this build cannot reach it: rebuild with --features github");
+            std::process::exit(1);
+        }
     } else {
         match store::InMemoryStore::from_seed_file(std::path::Path::new(&cfg.seed_file)) {
             Ok(s) => {
@@ -137,6 +177,10 @@ async fn main() {
         wakeups: Default::default(),
         forgotten_subscriptions: Default::default(),
     });
+
+    // Kept for the end: a store that writes behind is told to write the rest before the
+    // process goes.
+    let for_shutdown = state.clone();
 
     let mut app = Router::new()
         .merge(api::routes(state.clone()))
@@ -280,6 +324,9 @@ async fn main() {
         .with_graceful_shutdown(stop_asked())
         .await
         .expect("server");
+
+    // Within the ten seconds `podman stop` waits: one commit, if anything is left.
+    for_shutdown.store.flush().await;
 }
 
 /// Waits for somebody to ask the server to stop.

@@ -45,11 +45,26 @@ pub struct Config {
     pub text_browser_redirect: bool,
     pub text_browser_agents: String,
 
-    /// "InMemory" or "MongoDb", as the C# spells them.
+    /// "InMemory" or "MongoDb", as the C# spells them, or "GitHub".
     pub storage_type: String,
     pub mongo_url: String,
     pub mongo_username: String,
     pub mongo_password: String,
+
+    /// `StorageType=GitHub`: tours in a repository, encrypted - see `rust/github-store.md`.
+    /// `owner/name`, its branch, a token that may write to it, and the 32-byte key that
+    /// seals the files (base64).
+    pub github_repo: String,
+    pub github_branch: String,
+    pub github_token: String,
+    pub github_store_key: String,
+    /// How long a change waits in memory before it goes to the repository, with the others.
+    pub github_flush_seconds: u64,
+    /// The same sealed files on disk: what memory has no room for, and a start without
+    /// downloading everything again.
+    pub github_cache_dir: String,
+    /// The ceiling for tours held in memory; the rest are read from the cache.
+    pub github_memory_mb: u64,
 
     /// The VAPID pair a browser needs to subscribe, and who to contact about this server.
     pub push_public_key: String,
@@ -92,6 +107,13 @@ impl Config {
             mongo_url: var("MongoDbUrl").unwrap_or_default(),
             mongo_username: var("MongoDbUsername").unwrap_or_default(),
             mongo_password: var("MongoDbPassword").unwrap_or_default(),
+            github_repo: var("GitHubRepo").unwrap_or_default(),
+            github_branch: var("GitHubBranch").unwrap_or_else(|| "main".to_owned()),
+            github_token: var("GitHubToken").unwrap_or_default(),
+            github_store_key: var("GitHubStoreKey").unwrap_or_default(),
+            github_flush_seconds: number("GitHubFlushSeconds", 10).max(1) as u64,
+            github_cache_dir: var("GitHubCacheDir").unwrap_or_else(|| "github-cache".to_owned()),
+            github_memory_mb: number("GitHubMemoryMB", 32).max(1) as u64,
             push_public_key: var("PushNotificationPublicKey").unwrap_or_default(),
             push_private_key: var("PushNotificationPrivateKey").unwrap_or_default(),
             push_contact: var("PushNotificationMailto").unwrap_or_default(),

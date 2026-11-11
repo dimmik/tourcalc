@@ -162,6 +162,10 @@ crates/tc-server/src/
 ├── auth.rs          токены: подпись, проверка, код доступа → права
 ├── store.rs         trait TourStore + InMemoryStore
 ├── mongo.rs         MongoStore (фича `mongo`) + перевод форматов дат и _id
+├── github/          GitHubStore — туры в репозитории GitHub, зашифрованные (план и решения — `rust/github-store.md`)
+│   ├── seal.rs      ключи из GitHubStoreKey, имена файлов (HMAC), deflate + XChaCha20-Poly1305, id блоба git
+│   ├── remote.rs    trait Remote: GitHub (Git Data API, фича `github`) и Memory — репозиторий в памяти для тестов
+│   └── store.rs     память с потолком, кэш на диске, версии списком, коммит пачкой раз в N с; подписки — файл `s`
 ├── versions.rs      версии тура при каждой записи (строки истории — слово в слово как в C#, не менять)
 ├── news.rs          (реэкспорт tc_core::news) текст push-уведомления человеческими словами
 ├── push.rs          web-push (фича `push`)

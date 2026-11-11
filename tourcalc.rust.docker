@@ -169,7 +169,7 @@ RUN set -eux; \
     cd rust && cargo build --profile server --locked -p tc-server --target "$(cat /triple)"
 
 # `--locked` so the image is built from the versions in Cargo.lock and not from whatever has
-# been published since. The default features are on - MongoDB and push notifications - which
+# been published since. The default features are on - MongoDB, push notifications and GitHub - which
 # is what a deployment runs with. On the `touch`, see the client stage: without it a source
 # file that lands with an older date than the stub above is one cargo leaves alone.
 COPY rust/crates/tc-core/src ./rust/crates/tc-core/src
