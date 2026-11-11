@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::Duration;
 
 /// The branch as it is: the commit it points at, and every file under it with git's id for
 /// its contents.
@@ -32,6 +33,9 @@ impl Change {
 pub enum RemoteError {
     /// The branch is no longer where the commit was going to go: somebody else wrote.
     Moved,
+    /// GitHub's rate limit: wait this long (if it said) before asking again. Asking on
+    /// regardless can get the token banned.
+    Limited(Option<Duration>),
     Failed(String),
 }
 
@@ -39,6 +43,8 @@ impl std::fmt::Display for RemoteError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RemoteError::Moved => write!(f, "the branch moved"),
+            RemoteError::Limited(Some(d)) => write!(f, "GitHub's rate limit: wait {} s", d.as_secs()),
+            RemoteError::Limited(None) => write!(f, "GitHub's rate limit"),
             RemoteError::Failed(why) => write!(f, "{why}"),
         }
     }
@@ -101,6 +107,9 @@ struct MemoryRepo {
     commits: u64,
     files: HashMap<String, String>,
     fail: Option<String>,
+    limited: Option<Option<Duration>>,
+    /// The next commit is made, but its answer is lost - a timeout after GitHub did it.
+    lose_answer: bool,
     reads: u64,
 }
 
@@ -143,6 +152,22 @@ impl Memory {
     pub fn fail_with(&self, why: Option<&str>) {
         self.inner.lock().unwrap().fail = why.map(str::to_owned);
     }
+
+    /// Commits are refused as over the rate limit.
+    pub fn limit(&self, wait: Option<Option<Duration>>) {
+        self.inner.lock().unwrap().limited = wait;
+    }
+
+    pub fn lose_next_answer(&self) {
+        self.inner.lock().unwrap().lose_answer = true;
+    }
+
+    /// Somebody deletes a file by hand: the branch moves on without it.
+    pub fn delete_by_hand(&self, path: &str) {
+        let mut r = self.inner.lock().unwrap();
+        r.commits += 1;
+        r.files.remove(path);
+    }
 }
 
 #[async_trait::async_trait]
@@ -173,8 +198,16 @@ impl Remote for Memory {
         if let Some(why) = &r.fail {
             return Err(RemoteError::Failed(why.clone()));
         }
+        if let Some(wait) = r.limited {
+            return Err(RemoteError::Limited(wait));
+        }
         if parent != format!("c{}", r.commits) {
             return Err(RemoteError::Moved);
+        }
+        // Stricter than GitHub may be: a file that is not there cannot be deleted. The store
+        // must not ask - one change refused would hold back every change after it.
+        if let Some(gone) = changes.iter().find(|c| matches!(c, Change::Delete { path } if !r.files.contains_key(path))) {
+            return Err(RemoteError::Failed(format!("no file {} to delete", gone.path())));
         }
         for c in changes {
             match c {
@@ -187,6 +220,9 @@ impl Remote for Memory {
             }
         }
         r.commits += 1;
+        if std::mem::take(&mut r.lose_answer) {
+            return Err(RemoteError::Failed("timed out".into()));
+        }
         Ok(format!("c{}", r.commits))
     }
 
@@ -250,8 +286,14 @@ impl GitHub {
         };
         let resp = rb.send().await.map_err(|e| RemoteError::Failed(format!("GitHub: {}", e.without_url())))?;
         let status = resp.status().as_u16();
+        let header = |name: &str| resp.headers().get(name).and_then(|v| v.to_str().ok()).and_then(|v| v.trim().parse::<u64>().ok());
+        let (retry_after, remaining, reset) = (header("retry-after"), header("x-ratelimit-remaining"), header("x-ratelimit-reset"));
         let text = resp.text().await.unwrap_or_default();
         let json = serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+        let message = json.get("message").and_then(|m| m.as_str()).unwrap_or("");
+        if let Some(wait) = rate_limited(status, retry_after, remaining, reset, message, now_secs()) {
+            return Err(RemoteError::Limited(wait));
+        }
         Ok((status, json))
     }
 
@@ -270,6 +312,29 @@ impl GitHub {
             .map(str::to_owned)
             .ok_or_else(|| RemoteError::Failed("GitHub: a commit without a tree".into()))
     }
+}
+
+/// Whether an answer is GitHub's rate limit, and how long it says to wait - as its
+/// documentation has it: `retry-after` if there is one, else the reset time when nothing is
+/// left; a limit that says neither is waited out by the caller (a minute at least).
+#[cfg_attr(not(feature = "github"), allow(dead_code))]
+fn rate_limited(status: u16, retry_after: Option<u64>, remaining: Option<u64>, reset: Option<u64>, message: &str, now: u64) -> Option<Option<Duration>> {
+    let limit = status == 429
+        || (status == 403
+            && (retry_after.is_some() || remaining == Some(0) || message.to_ascii_lowercase().contains("rate limit")));
+    if !limit {
+        return None;
+    }
+    Some(match (retry_after, remaining, reset) {
+        (Some(s), _, _) => Some(Duration::from_secs(s)),
+        (None, Some(0), Some(at)) => Some(Duration::from_secs(at.saturating_sub(now))),
+        _ => None,
+    })
+}
+
+#[cfg(feature = "github")]
+fn now_secs() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 #[cfg(feature = "github")]
@@ -405,5 +470,17 @@ mod tests {
         let snap = m.snapshot().await.unwrap();
         assert_eq!(snap.head, next);
         assert_eq!(m.read(&snap.files["t/a"]).await.unwrap(), "x\n");
+    }
+
+    #[test]
+    fn a_rate_limit_is_told_from_a_refusal() {
+        let s = |n| Some(Duration::from_secs(n));
+        // Not a limit: no permission is a 403 too.
+        assert_eq!(rate_limited(403, None, Some(4000), None, "Resource not accessible by personal access token", 0), None);
+        assert_eq!(rate_limited(422, None, None, None, "", 0), None);
+        assert_eq!(rate_limited(403, Some(60), None, None, "", 0), Some(s(60)));
+        assert_eq!(rate_limited(429, None, None, None, "", 0), Some(None));
+        assert_eq!(rate_limited(403, None, Some(0), Some(1_000), "API rate limit exceeded", 900), Some(s(100)));
+        assert_eq!(rate_limited(403, None, None, None, "You have exceeded a secondary rate limit", 0), Some(None));
     }
 }

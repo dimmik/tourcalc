@@ -58,17 +58,37 @@ struct Inner {
     hot: HashMap<TourId, Hot>,
     hot_bytes: usize,
     tick: u64,
-    /// Files changed and not yet in the repository: contents (`None` - deleted), and the
-    /// change's number, so that a change made while a commit is under way is not taken
-    /// for written when it ends.
-    changed: HashMap<String, (Option<String>, u64)>,
+    /// Files changed and not yet in the repository: what is to be done, and the change's
+    /// number, so that a change made while a commit is under way is not taken for written
+    /// when it ends.
+    changed: HashMap<String, (Pending, u64)>,
     change_no: u64,
     /// The branch as last seen: its commit and its files.
     head: String,
     in_repo: HashMap<String, String>,
     subscriptions: HashMap<String, Vec<Subscription>>,
+    /// The repository's file of subscriptions does not open with this key: it is not
+    /// written over - the subscriptions made meanwhile live in memory only.
+    subscriptions_unreadable: bool,
     stats: Stats,
 }
+
+/// A changed file, until it is in the repository.
+enum Pending {
+    /// In the cache on disk, which is where the commit takes it from: memory holds only the
+    /// name, so a long time without GitHub does not fill it.
+    OnDisk,
+    /// The cache could not take it (a full disk): kept here, so that it is not lost.
+    Text(String),
+    Deleted,
+}
+
+/// The least time between two commits. GitHub allows 500 requests that make something in an
+/// hour (and 80 a minute), the web interface's included; a commit is three of them. Every
+/// 30 s at most is 360 an hour - room left for somebody working in the repository by hand.
+const MIN_GAP: Duration = Duration::from_secs(30);
+/// The longest wait after failures in a row (they double from [`MIN_GAP`]).
+const MAX_BACKOFF: Duration = Duration::from_secs(15 * 60);
 
 struct Meta {
     path: String,
@@ -92,7 +112,14 @@ struct Stats {
     last_written: Option<String>,
     last_commit: Option<String>,
     last_error: Option<(String, String)>,
+    /// The writer's next tick.
     next_write: Option<SystemTime>,
+    /// The last commit tried, done or not - for [`MIN_GAP`].
+    last_attempt: Option<SystemTime>,
+    /// Failures in a row, and no commit before this: they double, and a rate limit says how
+    /// long itself.
+    failures: u32,
+    not_before: Option<SystemTime>,
 }
 
 /// What [`Inner::stub`] keeps of a tour's extras.
@@ -146,14 +173,19 @@ impl GitHubStore {
 
         let mut inner = Inner { head: snap.head.clone(), in_repo: snap.files.clone(), ..Inner::default() };
         let mut tours: Vec<(String, Tour, usize)> = Vec::new();
+        let mut opened = 0;
         for (path, text) in &texts {
             let plain = match keys.open(path, text) {
                 Ok(p) => p,
                 Err(e) => {
                     tracing::warn!("GitHub store: {}", e.0);
+                    if path == seal::SUBSCRIPTIONS {
+                        inner.subscriptions_unreadable = true;
+                    }
                     continue;
                 }
             };
+            opened += 1;
             if path == seal::SUBSCRIPTIONS {
                 match serde_json::from_slice(&plain) {
                     Ok(subs) => inner.subscriptions = subs,
@@ -165,6 +197,15 @@ impl GitHubStore {
                 Ok(tour) => tours.push((path.clone(), tour, plain.len())),
                 Err(e) => tracing::warn!("GitHub store: {path} opens, but is not a tour: {e}"),
             }
+        }
+        // Not one file opens: that is the wrong key, not damaged files. Starting would show no
+        // tours, and the first subscription would write over the file of them - lost for good.
+        if opened == 0 && !texts.is_empty() {
+            return Err(format!(
+                "GitHubStoreKey opens none of the {} file(s) in the repository: it is not the key \
+                 they were sealed with. Nothing was changed.",
+                texts.len()
+            ));
         }
         // The order a list comes back in, as the seed file has it: oldest first.
         tours.sort_by(|a, b| {
@@ -204,7 +245,9 @@ impl GitHubStore {
             loop {
                 store.lock().stats.next_write = Some(SystemTime::now() + every);
                 tokio::time::sleep(every).await;
-                let _ = store.flush().await;
+                if store.due(SystemTime::now()) {
+                    let _ = store.flush().await;
+                }
                 if last_note.elapsed().unwrap_or_default() >= Duration::from_secs(600) {
                     last_note = SystemTime::now();
                     let i = store.lock();
@@ -227,38 +270,43 @@ impl GitHubStore {
     /// Everything changed, to the repository, as one commit. If the branch moved meanwhile,
     /// it is read again and the commit made on top of it: a file is written whole, so the
     /// last one written is the one that stays.
+    ///
+    /// Whenever asked - the writer asks only when [`Self::due`] says so, the shutdown always.
     pub async fn flush(&self) -> Result<(), String> {
         let _one = self.core.writing.lock().await;
-        let (changes, numbers): (Vec<Change>, HashMap<String, u64>) = {
-            let mut i = self.lock();
-            let mut changes = Vec::new();
-            let mut numbers = HashMap::new();
-            // A file made and deleted before it was ever written: nothing to tell GitHub.
-            let never_written: Vec<String> = i
-                .changed
-                .iter()
-                .filter(|(p, (t, _))| t.is_none() && !i.in_repo.contains_key(*p))
-                .map(|(p, _)| p.clone())
-                .collect();
-            for p in never_written {
-                i.changed.remove(&p);
-            }
-            for (path, (text, no)) in &i.changed {
-                changes.push(match text {
-                    Some(t) => Change::Put { path: path.clone(), text: t.clone() },
-                    None => Change::Delete { path: path.clone() },
-                });
-                numbers.insert(path.clone(), *no);
-            }
-            (changes, numbers)
-        };
-        if changes.is_empty() {
+        if self.lock().changed.is_empty() {
             return Ok(());
         }
-        // Says how many, and nothing about what.
-        let message = format!("{} file(s)", changes.len());
+        // After a failure the branch is read again first. A commit whose answer was lost, or
+        // a file deleted by hand, would otherwise be asked for again - and refused, with every
+        // change after it, for good.
+        let mut fresh = self.lock().stats.failures > 0;
         for _ in 0..3 {
-            let head = self.lock().head.clone();
+            if fresh {
+                match self.core.remote.snapshot().await {
+                    Ok(snap) => {
+                        let mut i = self.lock();
+                        i.head = snap.head;
+                        i.in_repo = snap.files;
+                    }
+                    Err(e) => return Err(self.failed(e)),
+                }
+            }
+            let Some((changes, numbers)) = self.batch() else {
+                // Nothing left that the branch does not have already.
+                let mut i = self.lock();
+                i.stats.failures = 0;
+                i.stats.not_before = None;
+                i.stats.last_error = None;
+                return Ok(());
+            };
+            // Says how many, and nothing about what.
+            let message = format!("{} file(s)", changes.len());
+            let head = {
+                let mut i = self.lock();
+                i.stats.last_attempt = Some(SystemTime::now());
+                i.head.clone()
+            };
             match self.core.remote.commit(&head, &changes, &message).await {
                 Ok(commit) => {
                     let mut i = self.lock();
@@ -279,38 +327,105 @@ impl GitHubStore {
                     i.stats.last_written = Some(fields::now_stamp());
                     i.stats.last_commit = Some(commit);
                     i.stats.last_error = None;
+                    i.stats.failures = 0;
+                    i.stats.not_before = None;
                     return Ok(());
                 }
                 Err(RemoteError::Moved) => {
                     tracing::warn!("GitHub store: the branch moved; reading it again");
-                    match self.core.remote.snapshot().await {
-                        Ok(snap) => {
-                            let mut i = self.lock();
-                            i.head = snap.head;
-                            i.in_repo = snap.files;
-                        }
-                        Err(e) => return Err(self.failed(e.to_string())),
-                    }
+                    fresh = true;
                 }
-                Err(RemoteError::Failed(why)) => return Err(self.failed(why)),
+                Err(e) => return Err(self.failed(e)),
             }
         }
-        Err(self.failed("the branch kept moving".into()))
+        Err(self.failed(RemoteError::Failed("the branch kept moving".into())))
     }
 
-    fn failed(&self, why: String) -> String {
-        tracing::warn!("GitHub store: not written - {why}; trying again later");
-        self.lock().stats.last_error = Some((fields::now_stamp(), why.clone()));
+    /// What goes in the next commit: every changed file - its contents from the cache - and
+    /// the change's number. A delete of a file the branch does not have is dropped here: made
+    /// and deleted between two commits, or gone already.
+    fn batch(&self) -> Option<(Vec<Change>, HashMap<String, u64>)> {
+        let plan: Vec<(String, Option<Option<String>>, u64)> = {
+            let mut i = self.lock();
+            let gone: Vec<String> = i
+                .changed
+                .iter()
+                .filter(|(p, (w, _))| matches!(w, Pending::Deleted) && !i.in_repo.contains_key(*p))
+                .map(|(p, _)| p.clone())
+                .collect();
+            for p in gone {
+                i.changed.remove(&p);
+            }
+            i.changed
+                .iter()
+                .map(|(p, (w, no))| {
+                    let what = match w {
+                        Pending::Deleted => None,
+                        Pending::OnDisk => Some(None),
+                        Pending::Text(t) => Some(Some(t.clone())),
+                    };
+                    (p.clone(), what, *no)
+                })
+                .collect()
+        };
+        // The files are read without the lock. One changed again meanwhile is read as it is
+        // now, under the older number: written now, and once more with the next commit.
+        let mut changes = Vec::new();
+        let mut numbers = HashMap::new();
+        for (path, what, no) in plan {
+            let change = match what {
+                None => Change::Delete { path: path.clone() },
+                Some(Some(text)) => Change::Put { path: path.clone(), text },
+                Some(None) => match std::fs::read_to_string(self.core.settings.cache_dir.join(&path)) {
+                    Ok(text) => Change::Put { path: path.clone(), text },
+                    Err(e) => {
+                        // Deleted since - a newer change says so - or the cache lost it.
+                        tracing::warn!("GitHub store: {path} is not in the cache ({e}); it waits");
+                        continue;
+                    }
+                },
+            };
+            numbers.insert(path, no);
+            changes.push(change);
+        }
+        (!changes.is_empty()).then_some((changes, numbers))
+    }
+
+    /// Whether the writer may commit now: something to write, [`MIN_GAP`] since the last
+    /// try, and the wait after a failure over.
+    pub fn due(&self, now: SystemTime) -> bool {
+        let i = self.lock();
+        !i.changed.is_empty() && now >= i.earliest_commit()
+    }
+
+    fn failed(&self, e: RemoteError) -> String {
+        let why = e.to_string();
+        let mut i = self.lock();
+        i.stats.failures += 1;
+        let doubled = MIN_GAP.saturating_mul(1 << (i.stats.failures - 1).min(10)).min(MAX_BACKOFF);
+        let wait = match e {
+            // As long as GitHub says, a minute if it does not - and never less than doubling.
+            RemoteError::Limited(said) => said.unwrap_or(Duration::from_secs(60)).max(doubled),
+            _ => doubled,
+        };
+        i.stats.not_before = Some(SystemTime::now() + wait);
+        i.stats.last_error = Some((fields::now_stamp(), why.clone()));
+        tracing::warn!("GitHub store: not written - {why}; next try in {} s", wait.as_secs());
         why
     }
 
     /// The store's state for the help page: what anybody may know, and with `admin` the rest.
     pub fn status(&self, admin: bool) -> serde_json::Value {
+        // Walking the cache takes a while with thousands of files: not under the lock, which
+        // every read and write of a tour waits for.
+        let cache_bytes = if admin { dir_size(&self.core.settings.cache_dir) } else { 0 };
         let i = self.lock();
+        let tick = i.stats.next_write.unwrap_or_else(SystemTime::now);
+        let next_at = if i.changed.is_empty() { tick } else { tick.max(i.earliest_commit()) };
         let next = i
             .stats
             .next_write
-            .and_then(|t| t.duration_since(SystemTime::now()).ok())
+            .and(next_at.duration_since(SystemTime::now()).ok())
             .map(|d| d.as_secs());
         let mut v = serde_json::json!({
             "kind": "GitHub",
@@ -332,7 +447,7 @@ impl GitHubStore {
                 "memoryBytes": i.hot_bytes,
                 "memoryLimitBytes": self.core.settings.memory_bytes,
                 "sentToDisk": i.stats.evictions,
-                "cacheBytes": dir_size(&self.core.settings.cache_dir),
+                "cacheBytes": cache_bytes,
                 "started": i.stats.started,
                 "filesAtStart": i.stats.files_at_start,
                 "downloadedAtStart": i.stats.downloaded_at_start,
@@ -378,19 +493,22 @@ impl GitHubStore {
     /// A file changed: on disk now, in the repository with the next commit.
     fn mark(&self, i: &mut Inner, path: &str, text: Option<String>) {
         let local = self.core.settings.cache_dir.join(path);
-        match &text {
-            Some(t) => {
-                if let Err(e) = write_file(&local, t) {
-                    tracing::warn!("GitHub store: {e}");
+        let pending = match text {
+            Some(t) => match write_file(&local, &t) {
+                Ok(()) => Pending::OnDisk,
+                Err(e) => {
+                    tracing::warn!("GitHub store: {e}; kept in memory until written");
+                    Pending::Text(t)
                 }
-            }
+            },
             None => {
                 let _ = std::fs::remove_file(&local);
+                Pending::Deleted
             }
-        }
+        };
         i.change_no += 1;
         let no = i.change_no;
-        i.changed.insert(path.to_owned(), (text, no));
+        i.changed.insert(path.to_owned(), (pending, no));
     }
 
     /// A tour by id: from memory, or from the disk - and then kept in memory.
@@ -425,6 +543,13 @@ impl GitHubStore {
     }
 
     fn save_subscriptions(&self, i: &mut Inner) {
+        if i.subscriptions_unreadable {
+            tracing::warn!(
+                "GitHub store: subscriptions not written - the file of them in the repository does not \
+                 open with this key, and writing would lose it; kept in memory"
+            );
+            return;
+        }
         let json = serde_json::to_vec(&i.subscriptions).unwrap_or_default();
         let text = self.core.keys.seal(seal::SUBSCRIPTIONS, &json);
         self.mark(i, seal::SUBSCRIPTIONS, Some(text));
@@ -432,6 +557,13 @@ impl GitHubStore {
 }
 
 impl Inner {
+    /// The earliest a commit may be tried: [`MIN_GAP`] after the last, and after the wait a
+    /// failure set.
+    fn earliest_commit(&self) -> SystemTime {
+        let gap = self.stats.last_attempt.map(|t| t + MIN_GAP).unwrap_or(SystemTime::UNIX_EPOCH);
+        gap.max(self.stats.not_before.unwrap_or(SystemTime::UNIX_EPOCH))
+    }
+
     /// Takes a tour into the index - and into memory, if `hot`.
     fn know(&mut self, path: String, tour: Tour, json_len: usize, hot: bool) {
         let id = tour.id.clone();
@@ -916,5 +1048,120 @@ mod tests {
         let again = open(&repo, &Cache::new("subs-2"), 32 << 20).await.subscriptions();
         assert_eq!(again.for_tour("a").await, vec![sub.clone()]);
         assert_eq!(again.tours_of(&sub).await, vec!["a".to_owned()]);
+    }
+
+    const OTHER: &str = "HxwdHhkaGxwVFhcYERITFA0ODxAJCgsMBQYHCAECAwQ=";
+
+    #[tokio::test]
+    async fn the_wrong_key_does_not_start_and_changes_nothing() {
+        let repo = Arc::new(Memory::new());
+        let store = open(&repo, &Cache::new("key"), 32 << 20).await;
+        store.store(fixture("a")).await;
+        let sub = Subscription { url: "https://push.example/1".into(), p256dh: "k".into(), auth: "a".into() };
+        store.subscriptions().add("a", sub.clone()).await;
+        store.flush().await.unwrap();
+        let before = repo.files();
+
+        let settings = Settings { flush_every: Duration::from_secs(10), memory_bytes: 32 << 20, cache_dir: Cache::new("key-2").0.clone() };
+        let wrong = GitHubStore::open(Keys::from_setting(OTHER).unwrap(), Box::new(repo.clone()), settings).await;
+        assert!(wrong.err().unwrap().contains("GitHubStoreKey opens none of the 2 file(s)"));
+        assert_eq!(repo.files(), before);
+        // And an empty repository opens with any key: nothing to tell it by.
+        assert!(open(&Arc::new(Memory::new()), &Cache::new("key-3"), 32 << 20).await.count(None, &|_| true).await == 0);
+    }
+
+    #[tokio::test]
+    async fn subscriptions_that_do_not_open_are_not_written_over() {
+        let repo = Arc::new(Memory::new());
+        let store = open(&repo, &Cache::new("subs-key"), 32 << 20).await;
+        store.store(fixture("a")).await;
+        store.flush().await.unwrap();
+        // The file of subscriptions, sealed with another key.
+        let theirs = Keys::from_setting(OTHER).unwrap().seal(seal::SUBSCRIPTIONS, b"{}");
+        repo.move_on(seal::SUBSCRIPTIONS, &theirs);
+
+        let again = open(&repo, &Cache::new("subs-key-2"), 32 << 20).await;
+        let sub = Subscription { url: "https://push.example/1".into(), p256dh: "k".into(), auth: "a".into() };
+        again.subscriptions().add("a", sub.clone()).await;
+        assert_eq!(again.subscriptions().for_tour("a").await, vec![sub], "kept in memory");
+        again.flush().await.unwrap();
+        assert_eq!(repo.files()[seal::SUBSCRIPTIONS], theirs);
+    }
+
+    #[tokio::test]
+    async fn a_lost_answer_or_a_file_deleted_by_hand_does_not_hold_the_rest_back() {
+        let repo = Arc::new(Memory::new());
+        let store = open(&repo, &Cache::new("gone"), 32 << 20).await;
+        let keys = Keys::from_setting(KEY).unwrap();
+        for id in ["a", "b"] {
+            store.store(fixture(id)).await;
+        }
+        store.flush().await.unwrap();
+
+        // The commit is made, its answer lost: the delete would be asked for twice.
+        assert!(store.remove(&TourId::new("a")).await);
+        repo.lose_next_answer();
+        assert!(store.flush().await.is_err());
+        store.flush().await.unwrap();
+        assert_eq!(store.status(false)["pending"], 0);
+        assert!(!repo.files().contains_key(&keys.tour_path("a")));
+
+        // Deleted by hand, and then here: nothing left to delete, and a change beside it goes.
+        repo.delete_by_hand(&keys.tour_path("b"));
+        assert!(store.remove(&TourId::new("b")).await);
+        store.store(fixture("c")).await;
+        store.flush().await.unwrap();
+        assert_eq!(store.status(false)["pending"], 0);
+        assert!(repo.files().contains_key(&keys.tour_path("c")));
+    }
+
+    #[tokio::test]
+    async fn the_writer_waits_between_commits_and_longer_after_failures() {
+        let repo = Arc::new(Memory::new());
+        let store = open(&repo, &Cache::new("pace"), 32 << 20).await;
+        let s = |n| Duration::from_secs(n);
+        assert!(!store.due(SystemTime::now()), "nothing to write");
+        store.store(fixture("a")).await;
+        assert!(store.due(SystemTime::now()), "the first commit at once");
+        store.flush().await.unwrap();
+
+        store.store(fixture("b")).await;
+        let now = SystemTime::now();
+        assert!(!store.due(now + s(25)), "not within 30 s of the last");
+        assert!(store.due(now + s(31)));
+
+        // A rate limit: as long as GitHub says.
+        repo.limit(Some(Some(s(120))));
+        assert!(store.flush().await.is_err());
+        let now = SystemTime::now();
+        assert!(!store.due(now + s(115)));
+        assert!(store.due(now + s(125)));
+        assert!(store.status(false)["lastError"]["message"].as_str().unwrap().contains("rate limit"));
+
+        // Failures in a row: the wait doubles.
+        repo.limit(None);
+        repo.fail_with(Some("GitHub answered 502"));
+        assert!(store.flush().await.is_err());
+        let now = SystemTime::now();
+        assert!(!store.due(now + s(55)), "the second failure in a row: a minute");
+        assert!(store.due(now + s(65)));
+
+        repo.fail_with(None);
+        store.flush().await.unwrap();
+        let s2 = store.status(false);
+        assert!(s2["lastError"].is_null() && s2["pending"] == 0, "{s2}");
+    }
+
+    #[tokio::test]
+    async fn a_change_waiting_for_the_repository_is_not_held_in_memory() {
+        let repo = Arc::new(Memory::new());
+        let store = open(&repo, &Cache::new("pending"), 32 << 20).await;
+        store.store(fixture("a")).await;
+        assert!(store.lock().changed.values().all(|(p, _)| matches!(p, Pending::OnDisk)));
+        store.flush().await.unwrap();
+        let keys = Keys::from_setting(KEY).unwrap();
+        let path = keys.tour_path("a");
+        let back = keys.open(&path, &repo.files()[&path]).unwrap();
+        assert_eq!(Tour::from_json(std::str::from_utf8(&back).unwrap()).unwrap().spendings.len(), fixture("a").spendings.len());
     }
 }
