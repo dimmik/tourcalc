@@ -51,6 +51,7 @@ pub fn routes(state: Shared) -> Router {
         )
         .route("/api/Info/start", get(info_start))
         .route("/api/Info/version", get(info_version))
+        .route("/api/Info/storage", get(info_storage))
         .route("/api/Info/wakeup/{code}", get(info_wakeup))
         .route("/api/Auth/random/{length}", get(auth::random))
         .route("/api/Log/headers", get(log_headers))
@@ -98,6 +99,18 @@ async fn info_version(
         // tour and nothing came". Null on a server with no push keys.
         "notifications": state.push.stats().map(|s| s.as_json()),
     }))
+}
+
+/// `GET /api/Info/storage` - where the tours are kept, for the help page under "This build".
+///
+/// The kind - in memory, MongoDB, GitHub - for anybody: it says what a restart does to the
+/// tours, and whether the last changes are written yet. The rest - the repository, memory,
+/// the cache - for the administrator only: not secrets, but nobody else's business.
+async fn info_storage(
+    axum::extract::State(state): axum::extract::State<Shared>,
+    Bearer(auth): Bearer,
+) -> axum::Json<serde_json::Value> {
+    axum::Json(state.store.status(auth.is_master))
 }
 
 /// `GET /api/Info/start` - when the server came up, and when it was last woken.

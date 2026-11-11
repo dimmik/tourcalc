@@ -775,6 +775,22 @@ async fn the_server_says_which_build_it_is_and_which_client_it_serves() {
     );
 }
 
+/// Where the tours are kept: the kind for anybody, more for the administrator.
+#[tokio::test]
+async fn the_server_says_where_the_tours_are_kept() {
+    let app = app_with(|_| {});
+    let (status, body) = get(&app, "/api/Info/storage", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let v: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(v["kind"], "InMemory");
+    assert!(v.get("tours").is_none(), "nobody is told more: {v}");
+
+    let admin = token_for_admin(&app).await;
+    let (_, body) = get(&app, "/api/Info/storage", Some(&admin)).await;
+    let v: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert!(v["tours"].as_u64().is_some(), "the administrator is: {v}");
+}
+
 /// The old client's service worker is answered with one that removes itself.
 ///
 /// It has to be a script, and it has to be served as one: a browser checking for an update

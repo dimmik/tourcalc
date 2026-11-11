@@ -337,6 +337,11 @@ pub async fn info_version() -> Result<String, Failed> {
     get("/api/Info/version").await
 }
 
+/// Where the server keeps the tours - more of it for an administrator's token.
+pub async fn info_storage() -> Option<serde_json::Value> {
+    serde_json::from_str(&get("/api/Info/storage").await.ok()?).ok()
+}
+
 /// One tour, in full.
 pub async fn tour(id: &str) -> Result<Tour, Failed> {
     let body = get(&format!("/api/Tour/{id}")).await?;

@@ -610,6 +610,31 @@ pub struct BuildTexts {
     pub running_since_desc: &'static str,
     pub throw_away: &'static str,
     pub ask_again: &'static str,
+    /// Where the tours are kept, under "This build": the kind, whether the last changes are
+    /// written yet, and for the administrator the repository, memory and cache.
+    pub storage_title: &'static str,
+    pub storage_memory: &'static str,
+    pub storage_mongo: &'static str,
+    pub storage_github: &'static str,
+    pub storage_unknown: &'static str,
+    pub written_title: &'static str,
+    /// When everything was last written.
+    pub written_all: fn(&str) -> String,
+    pub written_nothing_yet: &'static str,
+    /// Changes waiting, and in how many seconds the next write is (if known).
+    pub written_waiting: fn(u64, Option<u64>) -> String,
+    /// When, and what GitHub said.
+    pub written_failed: fn(&str, &str) -> String,
+    pub storage_details: &'static str,
+    /// Tours, versions.
+    pub details_tours: fn(u64, u64) -> String,
+    /// Tours in memory, megabytes of the limit, how many sent back to disk.
+    pub details_memory: fn(u64, &str, &str, u64) -> String,
+    /// Megabytes of the cache on disk.
+    pub details_cache: fn(&str) -> String,
+    /// When it started, files, how many of them downloaded.
+    pub details_start: fn(&str, u64, u64) -> String,
+    pub details_commit: &'static str,
 }
 
 /// Somebody else's change arriving on an open tour. What changed is said by `tc_core::news`,

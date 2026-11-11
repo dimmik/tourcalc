@@ -89,17 +89,27 @@ async fn main() {
                 tracing::error!("{}", e.0);
                 std::process::exit(1);
             });
-            let remote = github::remote::GitHub::new(&cfg.github_repo, &cfg.github_branch, &cfg.github_token)
-                .unwrap_or_else(|e| {
-                    tracing::error!("{e}");
-                    std::process::exit(1);
-                });
+            // `GitHubRepo=memory`: a repository inside this process, for trying the store out
+            // with no repository and no token - sealing, the cache and the batches are all
+            // real, and only what would have gone to GitHub is gone when the server stops.
+            let remote: Box<dyn github::remote::Remote> = if cfg.github_repo == "memory" {
+                tracing::warn!("GitHubRepo=memory: a repository in memory, gone when the server stops");
+                Box::new(github::remote::Memory::new())
+            } else {
+                Box::new(
+                    github::remote::GitHub::new(&cfg.github_repo, &cfg.github_branch, &cfg.github_token)
+                        .unwrap_or_else(|e| {
+                            tracing::error!("{e}");
+                            std::process::exit(1);
+                        }),
+                )
+            };
             let settings = github::Settings {
                 flush_every: std::time::Duration::from_secs(cfg.github_flush_seconds),
                 memory_bytes: (cfg.github_memory_mb as usize) << 20,
                 cache_dir: std::path::PathBuf::from(&cfg.github_cache_dir),
             };
-            match github::GitHubStore::open(keys, Box::new(remote), settings).await {
+            match github::GitHubStore::open(keys, remote, settings).await {
                 Ok(store) => {
                     tracing::info!(
                         "storing tours in GitHub ({}), encrypted; written every {} s",

@@ -94,7 +94,7 @@ required except where it says so.
 | `StorageType` | `InMemory` | `InMemory`, `MongoDb` or `GitHub`. Anything else is treated as `InMemory`. |
 | `InMemoryFileName` | `inmemory-tours.json` | Seed data for `InMemory`. |
 | `MongoDbUrl`, `MongoDbUsername`, `MongoDbPassword` | — | Required for `MongoDb`. |
-| `GitHubRepo` | — | `GitHub` only, required: `owner/name` of the repository the tours go to. |
+| `GitHubRepo` | — | `GitHub` only, required: `owner/name` of the repository the tours go to. `memory` — a repository inside the server, for trying it out with no repository and no token: gone when the server stops. |
 | `GitHubToken` | — | Required: a fine-grained token with *Contents: write* on that repository only. |
 | `GitHubStoreKey` | — | Required: base64, 32 bytes (`openssl rand -base64 32`) — encrypts the files. **Lose it and the tours are lost; leak it and the whole history is readable.** |
 | `GitHubBranch` | `main` | The branch to write to. It must exist: make the repository with a README. |
