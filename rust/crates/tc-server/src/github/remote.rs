@@ -55,6 +55,11 @@ pub trait Remote: Send + Sync {
     async fn commit(&self, parent: &str, changes: &[Change], message: &str) -> Result<String, RemoteError>;
     /// "owner/name, branch main" - for the status, and for the administrator only.
     fn describe(&self) -> String;
+    /// Whether this is the repository inside the server (`GitHubRepo=memory`), not GitHub:
+    /// the status says so to everyone, or "written" would read as "written to GitHub".
+    fn emulated(&self) -> bool {
+        false
+    }
     /// Where a commit can be looked at, if anywhere.
     fn commit_url(&self, _commit: &str) -> Option<String> {
         None
@@ -75,6 +80,9 @@ impl<T: Remote> Remote for std::sync::Arc<T> {
     }
     fn describe(&self) -> String {
         (**self).describe()
+    }
+    fn emulated(&self) -> bool {
+        (**self).emulated()
     }
     fn commit_url(&self, commit: &str) -> Option<String> {
         (**self).commit_url(commit)
@@ -184,6 +192,10 @@ impl Remote for Memory {
 
     fn describe(&self) -> String {
         "memory".into()
+    }
+
+    fn emulated(&self) -> bool {
+        true
     }
 }
 

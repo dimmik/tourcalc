@@ -616,8 +616,11 @@ pub struct BuildTexts {
     pub storage_memory: &'static str,
     pub storage_mongo: &'static str,
     pub storage_github: &'static str,
+    /// `GitHubRepo=memory`: the repository is inside the server, not on GitHub.
+    pub storage_emulator: &'static str,
     pub storage_unknown: &'static str,
     pub written_title: &'static str,
+    pub written_title_emulator: &'static str,
     /// When everything was last written.
     pub written_all: fn(&str) -> String,
     pub written_nothing_yet: &'static str,
@@ -626,6 +629,9 @@ pub struct BuildTexts {
     /// When, and what GitHub said.
     pub written_failed: fn(&str, &str) -> String,
     pub storage_details: &'static str,
+    /// "owner/name, branch main".
+    pub details_repo: fn(&str) -> String,
+    pub details_emulator: &'static str,
     /// Tours, versions.
     pub details_tours: fn(u64, u64) -> String,
     /// Tours in memory, megabytes of the limit, how many sent back to disk.

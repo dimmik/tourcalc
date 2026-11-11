@@ -314,6 +314,7 @@ impl GitHubStore {
             .map(|d| d.as_secs());
         let mut v = serde_json::json!({
             "kind": "GitHub",
+            "emulated": self.core.remote.emulated(),
             "pending": i.changed.len(),
             "lastWritten": i.stats.last_written,
             "nextWriteInSeconds": next,
@@ -760,6 +761,8 @@ mod tests {
         store.store(fixture("b")).await;
         assert_eq!(repo.commits(), 1, "nothing written before the flush");
         assert_eq!(store.status(false)["pending"], 2);
+        // The repository in memory says so, to everyone: "written" must not read as GitHub.
+        assert_eq!(store.status(false)["emulated"], true);
 
         store.flush().await.unwrap();
         assert_eq!(repo.commits(), 2, "one commit for both");

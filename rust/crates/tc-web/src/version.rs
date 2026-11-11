@@ -424,6 +424,8 @@ fn storage_rows(s: serde_json::Value) -> impl IntoView {
         _ => b.storage_unknown,
     };
     let github = kind == "GitHub";
+    let emulated = s.get("emulated").and_then(|v| v.as_bool()).unwrap_or(false);
+    let where_ = if github && emulated { b.storage_emulator } else { where_ };
     let written = github.then(|| {
         let failed = s.get("lastError").filter(|e| !e.is_null()).map(|e| {
             let at = e.get("at").and_then(|v| v.as_str()).map(crate::ui::local_stamp_of).unwrap_or_default();
@@ -439,14 +441,14 @@ fn storage_rows(s: serde_json::Value) -> impl IntoView {
                 None => b.written_nothing_yet.to_owned(),
             },
         };
-        row(b.written_title, desc)
+        row(if emulated { b.written_title_emulator } else { b.written_title }, desc)
     });
     // Only an administrator is told the repository; everything below goes with it.
     let details = (github && s.get("repository").is_some()).then(|| {
         let commit = text("lastCommit");
         let url = text("lastCommitUrl");
         let lines = [
-            text("repository"),
+            if emulated { b.details_emulator.to_owned() } else { (b.details_repo)(&text("repository")) },
             (b.details_tours)(num("tours"), num("versions")),
             (b.details_memory)(num("inMemory"), &mb(num("memoryBytes")), &mb(num("memoryLimitBytes")), num("sentToDisk")),
             (b.details_cache)(&mb(num("cacheBytes"))),
