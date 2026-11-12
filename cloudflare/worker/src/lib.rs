@@ -14,7 +14,8 @@
 //! - an object with nothing in its storage starts from the branch, read whole as one archive.
 //!
 //! `POST /seed` (with the master key) adds tours from a seed file - the format `tc-server
-//! import` reads.
+//! import` reads. `POST /crash` (with the master key) drops the object as a failure would - how
+//! a restart between a save and its commit is tried.
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -194,6 +195,9 @@ impl DurableObject for Store {
         let app = self.app().await?;
         if req.path() == "/seed" && req.method() == Method::Post {
             return self.seed(&app, &mut req).await;
+        }
+        if req.path() == "/crash" && req.method() == Method::Post {
+            return self.crash(&req);
         }
         let request = to_axum(&mut req).await?;
         let answer = app.router.clone().oneshot(request).await.map_err(fail)?;
@@ -447,6 +451,27 @@ impl Store {
             w.next_write_at = Some(Date::now().as_millis() as f64 + WRITE_AFTER.as_millis() as f64);
         }
         Ok(())
+    }
+
+    /// The object dropped as a failure drops it - `ctx.abort()`, or a panic with `?panic`: what
+    /// it holds in memory is gone, its storage and alarm stay, and the next request makes a new
+    /// one. Only with the master key.
+    fn crash(&self, req: &Request) -> Result<Response> {
+        let key = req.headers().get("x-master-key")?.unwrap_or_default();
+        if key.is_empty() || self.var("MasterKey").as_deref() != Some(key.as_str()) {
+            return Response::error("no", 403);
+        }
+        // `?panic` - a panic in the Rust code, the failure this code would actually have.
+        if req.url()?.query().is_some_and(|q| q.contains("panic")) {
+            panic!("crash requested");
+        }
+        let ctx: &JsValue = self.state.as_raw().as_ref();
+        let abort: worker::js_sys::Function = worker::js_sys::Reflect::get(ctx, &"abort".into())
+            .map_err(|e| fail(format!("{e:?}")))?
+            .into();
+        // It throws: the request fails, as one in flight during a failure would.
+        abort.call1(ctx, &"crash requested".into()).map_err(|e| fail(format!("{e:?}")))?;
+        Response::ok("still here")
     }
 
     /// Tours from a seed file - a JSON array, as `tc-server import` reads - added or written

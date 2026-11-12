@@ -34,7 +34,7 @@ new_sqlite_classes = ["Store"]
 [assets]
 directory = "../../rust/crates/tc-web/dist"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/t", "/t/*", "/service-worker.js", "/seed"]
+run_worker_first = ["/api/*", "/t", "/t/*", "/service-worker.js", "/seed", "/crash"]
 
 [observability]
 enabled = true
