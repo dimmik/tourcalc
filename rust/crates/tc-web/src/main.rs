@@ -443,6 +443,9 @@ fn App() -> impl IntoView {
             .map(|tab| format!("/tour/{id}/{tab}"))
             .filter(|path| matches!(route_of(path), Route::Tour(..)))
             .unwrap_or_else(|| format!("/tour/{id}"));
+        // And what the link asks of it - whose shopping (see `MenuState::take_link`).
+        let asked = web_sys::window().and_then(|w| w.location().search().ok()).unwrap_or_default();
+        let target = format!("{target}{asked}");
         spawn_local(async move {
             let all = api::codes_with(&api::my_codes().await, &code);
             let signed = match api::log_in_with_md5(&all).await {

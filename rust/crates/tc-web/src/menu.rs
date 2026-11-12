@@ -167,6 +167,86 @@ impl MenuState {
             days: RwSignal::new(Vec::new()),
         }
     }
+
+    /// What a shopping link asks (`?buyer=<person>&others=0|1`, see [`shopping_link`]): whose
+    /// shopping, kept as this phone's "Shopping by" as if picked there - the link is handed
+    /// to the one who shops - and whether the others' lines show. Whether it asked anything.
+    pub fn take_link(&self, tour: &str, search: &str) -> bool {
+        let (buyer, others) = link_asks(search);
+        if let Some(buyer) = &buyer {
+            crate::settings::set_me(tour, Some(buyer));
+            self.me.set(Some(buyer.clone()));
+            self.view.set(View::Shopping);
+        }
+        if let Some(others) = others {
+            self.everybody.set(others);
+        }
+        buyer.is_some() || others.is_some()
+    }
+}
+
+/// The address that opens this tour's shopping with `buyer` picked and the others' lines
+/// shown or hidden: the tour's share link (it signs in whoever opens it) with the view and
+/// the two on the end.
+pub(crate) fn shopping_link(code: &str, tour: &str, buyer: &str, others: bool) -> String {
+    format!(
+        "/goto/{code}/{tour}/menu/{}?buyer={}&others={}",
+        View::Shopping.part(),
+        escaped(buyer),
+        u8::from(others)
+    )
+}
+
+/// Text as it can stand in a query: letters, digits and `-_.~` as they are, every other
+/// byte as `%XX`. By hand rather than through the browser's `encodeURIComponent`, so that
+/// the tests run off the browser too.
+fn escaped(text: &str) -> String {
+    text.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
+}
+
+/// [`escaped`] undone - and a `+` as a space, as forms send it.
+fn unescaped(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = bytes.get(i + 1..i + 3).and_then(|h| std::str::from_utf8(h).ok()).and_then(|h| u8::from_str_radix(h, 16).ok());
+        match (bytes[i], hex) {
+            (b'%', Some(b)) => {
+                out.push(b);
+                i += 3;
+            }
+            (b'+', _) => {
+                out.push(b' ');
+                i += 1;
+            }
+            (b, _) => {
+                out.push(b);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// The buyer and the others' switch a shopping link's query names, each if it does.
+fn link_asks(search: &str) -> (Option<String>, Option<bool>) {
+    let mut buyer = None;
+    let mut others = None;
+    for pair in search.trim_start_matches('?').split('&') {
+        let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+        match key {
+            "buyer" if !value.is_empty() => buyer = Some(unescaped(value)),
+            "others" => others = Some(value == "1"),
+            _ => {}
+        }
+    }
+    (buyer, others)
 }
 
 // ---- the starter catalogue ------------------------------------------------------------
@@ -1371,6 +1451,20 @@ fn Shopping(
             })
             .collect_view()
     };
+    // A link to this list as it is now - whose, and with the others' lines or without - for
+    // that person's phone. Through the tour's share link, which also signs them in; a tour
+    // without one has nothing to offer.
+    let code = StoredValue::new(crate::tour::share_code(&tour));
+    let link_said = crate::ui::Brief::new();
+    let copy_link = {
+        let tour_id = StoredValue::new(tour_id.clone());
+        move |_| {
+            let Some(me) = state.me.get_untracked() else { return };
+            let path = shopping_link(&code.get_value(), &tour_id.get_value(), &me, state.everybody.get_untracked());
+            crate::tour::copy_to_clipboard(&crate::tour::full_address(&path));
+            link_said.say(t().sync.link_copied);
+        }
+    };
     let who_am_i = view! {
         <div class="tcw-food-me">
             <label>
@@ -1395,6 +1489,12 @@ fn Shopping(
                            on:change=move |ev| state.everybody.set(!event_target_checked(&ev)) />
                     {t().menu.mine_only}
                 </label>
+                <Show when=move || !code.with_value(String::is_empty)>
+                    <button type="button" class="tcn-chip tcw-food-link" title=t().menu.shopping_link_hint
+                            on:click=copy_link.clone()>
+                        {move || if link_said.is_on() { link_said.get() } else { t().menu.shopping_link.to_owned() }}
+                    </button>
+                </Show>
             </Show>
         </div>
     };
@@ -2793,6 +2893,22 @@ fn ListCard(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A shopping link reads back as the buyer and the switch it was made with, whatever is
+    /// in the buyer's id; an address without them asks nothing.
+    #[test]
+    fn a_shopping_link_names_the_buyer_and_the_others() {
+        for (buyer, others) in [("p1", false), ("a b&c=d/é", true)] {
+            let link = shopping_link("CODE", "tour1", buyer, others);
+            let (path, query) = link.split_once('?').expect("a query");
+            assert_eq!(path, "/goto/CODE/tour1/menu/shopping");
+            assert_eq!(link_asks(&format!("?{query}")), (Some(buyer.to_owned()), Some(others)));
+        }
+        assert_eq!(link_asks(""), (None, None));
+        assert_eq!(link_asks("?others=1"), (None, Some(true)));
+        assert_eq!(link_asks("?buyer=&x=1"), (None, None));
+        assert_eq!(link_asks("?buyer=Sasha+O.%"), (Some("Sasha O.%".to_owned()), None));
+    }
 
     /// What "Copy menu" writes reads back as the catalogue alone; so does a whole tour's JSON;
     /// anything else is not a menu.
