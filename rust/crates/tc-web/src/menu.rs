@@ -2476,14 +2476,15 @@ fn ListCard(
             .cloned()
     };
 
-    // "All to Dima" - every line here not bought yet, once asked. A bought or recorded line
-    // keeps its buyer: the expense says who paid. And it asks: 12.11.2026 somebody opening the
-    // list for the first time picked their own name here - it looks like "who am I" - and the
-    // whole trip's shopping became theirs, Dima's recorded wine included.
-    let open_lines: Vec<(String, Option<String>, Option<String>)> = lines
+    // "All to Dima" - every line here not bought yet and on screen, once asked. A bought or
+    // recorded line keeps its buyer: the expense says who paid. A line hidden by the search or
+    // by "Hide the others" is not "here" to whoever is looking. And it asks: 12.11.2026
+    // somebody opening the list for the first time picked their own name here - it looks like
+    // "who am I" - and the whole trip's shopping became theirs, Dima's recorded wine included.
+    let open_lines: Vec<(String, Option<String>, Option<String>, String)> = lines
         .iter()
         .filter(|l| !l.ticked && l.spending.is_none() && !l.recorded_parts)
-        .map(|l| (l.product.id.clone(), l.split.clone(), l.who.clone()))
+        .map(|l| (l.product.id.clone(), l.split.clone(), l.who.clone(), l.hay.clone()))
         .collect();
     let everybody_options = shoppers
         .iter()
@@ -2504,8 +2505,10 @@ fn ListCard(
                 return;
             }
             let who = (!v.is_empty()).then_some(v);
-            let these: Vec<&(String, Option<String>, Option<String>)> =
-                open_lines.iter().filter(|(_, _, now)| *now != who).collect();
+            let these: Vec<&(String, Option<String>, Option<String>, String)> = open_lines
+                .iter()
+                .filter(|(_, _, now, hay)| *now != who && visible_line(state, now.as_deref(), hay))
+                .collect();
             if these.is_empty() {
                 ask_nothing(t().menu.everybody_none);
                 assigning.set(false);
@@ -2521,7 +2524,7 @@ fn ListCard(
             if !ask(&question) {
                 return;
             }
-            change(MenuEdit::All(these.iter().map(|(product, split, _)| buyer_edit(product, split.as_deref(), who.clone())).collect()));
+            change(MenuEdit::All(these.iter().map(|(product, split, _, _)| buyer_edit(product, split.as_deref(), who.clone())).collect()));
             assigning.set(false);
         }
     };
