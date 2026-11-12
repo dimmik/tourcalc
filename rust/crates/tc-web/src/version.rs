@@ -400,18 +400,119 @@ pub fn UpdateBar() -> impl IntoView {
     }
 }
 
+/// Where the tours are kept, as `/api/Info/storage` says: the kind; for GitHub, whether the
+/// last changes are written yet - it writes behind, every few seconds - and the last error;
+/// and, when the server told an administrator more, the repository, memory and cache.
+fn storage_rows(s: serde_json::Value) -> impl IntoView {
+    let b = &t().build;
+    let num = |k: &str| s.get(k).and_then(|v| v.as_u64()).unwrap_or(0);
+    let text = |k: &str| s.get(k).and_then(|v| v.as_str()).unwrap_or("").to_owned();
+    let mb = |bytes: u64| format!("{:.1}", bytes as f64 / 1_048_576.0).replace('.', &crate::ui::decimal().to_string());
+    let row = |name: &'static str, desc: String| view! {
+        <div class="tcn-setrow">
+            <div class="tcn-settext">
+                <div class="tcn-setname">{name}</div>
+                <div class="tcn-setdesc">{desc}</div>
+            </div>
+        </div>
+    };
+    let kind = text("kind");
+    let where_ = match kind.as_str() {
+        "InMemory" => b.storage_memory,
+        "MongoDb" => b.storage_mongo,
+        "GitHub" => b.storage_github,
+        _ => b.storage_unknown,
+    };
+    let github = kind == "GitHub";
+    let emulated = s.get("emulated").and_then(|v| v.as_bool()).unwrap_or(false);
+    let where_ = if github && emulated { b.storage_emulator } else { where_ };
+    let written = github.then(|| {
+        let failed = s.get("lastError").filter(|e| !e.is_null()).map(|e| {
+            let at = e.get("at").and_then(|v| v.as_str()).map(crate::ui::local_stamp_of).unwrap_or_default();
+            (b.written_failed)(&at, e.get("message").and_then(|v| v.as_str()).unwrap_or(""))
+        });
+        let desc = match failed {
+            Some(f) => f,
+            None if num("pending") > 0 => {
+                (b.written_waiting)(num("pending"), s.get("nextWriteInSeconds").and_then(|v| v.as_u64()))
+            }
+            None => match s.get("lastWritten").and_then(|v| v.as_str()) {
+                Some(at) => (b.written_all)(&crate::ui::local_stamp_of(at)),
+                None => b.written_nothing_yet.to_owned(),
+            },
+        };
+        row(if emulated { b.written_title_emulator } else { b.written_title }, desc)
+    });
+    // Only an administrator is told the repository; everything below goes with it.
+    let details = (github && s.get("repository").is_some()).then(|| {
+        let commit = text("lastCommit");
+        let url = text("lastCommitUrl");
+        // When: the last commit, by this server or - none yet - the one the branch was at. Only
+        // the repository in memory cannot say.
+        let when = match s.get("lastCommitAt").and_then(|v| v.as_str()) {
+            Some(at) => (b.details_commit_at)(&crate::ui::local_stamp_of(at)),
+            None => b.details_commit_before_start.to_owned(),
+        };
+        // What the repository has, what is still to go to it, and its last commit - first;
+        // then this server's own memory and disk.
+        let repo = [
+            if emulated { b.details_emulator.to_owned() } else { (b.details_repo)(&text("repository")) },
+            (b.details_in_repo)(num("repoTours"), num("repoVersions")),
+            (b.details_pending)(num("pending")),
+        ];
+        let server = [
+            (b.details_tours)(num("tours"), num("versions")),
+            (b.details_memory)(num("inMemory"), &mb(num("memoryBytes")), &mb(num("memoryLimitBytes")), num("sentToDisk")),
+            (b.details_cache)(&mb(num("cacheBytes"))),
+            (b.details_start)(&crate::ui::local_stamp_of(&text("started")), num("filesAtStart"), num("downloadedAtStart")),
+        ];
+        view! {
+            <div class="tcn-setrow">
+                <div class="tcn-settext">
+                    <div class="tcn-setname">{b.storage_details}</div>
+                    <div class="tcn-setdesc">
+                        {repo.into_iter().map(|l| view! { <div>{l}</div> }).collect_view()}
+                        {(!commit.is_empty()).then(|| {
+                            let short: String = commit.chars().take(7).collect();
+                            view! {
+                                <div>
+                                    {b.details_commit} " "
+                                    {if url.is_empty() {
+                                        view! { <span>{short}</span> }.into_any()
+                                    } else {
+                                        view! { <a href=url target="_blank" rel="noopener">{short}</a> }.into_any()
+                                    }}
+                                    {when}
+                                </div>
+                            }
+                        })}
+                        {server.into_iter().map(|l| view! { <div>{l}</div> }).collect_view()}
+                    </div>
+                </div>
+            </div>
+        }
+    });
+    view! {
+        {row(b.storage_title, where_.to_owned())}
+        {written}
+        {details}
+    }
+}
+
 /// The long answer, for the help page: what is running here, what is running there, and
 /// since when.
 #[component]
 pub fn AboutBuild() -> impl IntoView {
     let running = RwSignal::new(running_client());
     let server = RwSignal::new(None::<Deployment>);
+    let storage = RwSignal::new(None::<serde_json::Value>);
     let asked = RwSignal::new(false);
 
     let check = move || {
         asked.set(false);
         spawn_local(async move {
             server.set(deployment().await);
+            storage.set(crate::api::info_storage().await);
             asked.set(true);
         });
     };
@@ -516,6 +617,8 @@ pub fn AboutBuild() -> impl IntoView {
                         </div>
                     }.into_any()
                 }}
+
+                {move || storage.get().map(storage_rows)}
 
                 <div class="tcn-chips" style="margin-top:12px">
                     <button type="button" class="tcn-btn tcn-btn-primary"

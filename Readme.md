@@ -91,13 +91,27 @@ required except where it says so.
 
 | Setting | Default | |
 |---|---|---|
-| `StorageType` | `InMemory` | `InMemory` or `MongoDb`. Anything else is treated as `InMemory`. |
+| `StorageType` | `InMemory` | `InMemory`, `MongoDb` or `GitHub`. Anything else is treated as `InMemory`. |
 | `InMemoryFileName` | `inmemory-tours.json` | Seed data for `InMemory`. |
 | `MongoDbUrl`, `MongoDbUsername`, `MongoDbPassword` | — | Required for `MongoDb`. |
+| `GitHubRepo` | — | `GitHub` only, required: `owner/name` of the repository the tours go to. `memory` — a repository inside the server, for trying it out with no repository and no token: gone when the server stops. |
+| `GitHubToken` | — | Required: a fine-grained token with *Contents: write* on that repository only. |
+| `GitHubStoreKey` | — | Required: base64, 32 bytes (`openssl rand -base64 32`) — encrypts the files. **Lose it and the tours are lost; leak it and the whole history is readable.** |
+| `GitHubBranch` | `main` | The branch to write to. It must exist: make the repository with a README. |
+| `GitHubFlushSeconds` | `10` | How long a change waits in memory before it is committed, with the others. |
+| `GitHubCacheDir` | `github-cache` | The same encrypted files on disk: what memory has no room for, and a restart without downloading everything. Put it on a volume. |
+| `GitHubMemoryMB` | `32` | The ceiling for tours held in memory (a 65-expense trip for ten is about 0.65 MB). |
 
 **`InMemory` keeps nothing.** It reads the seed file at startup and holds everything in
 RAM: restart the container and the trips are gone. It is meant for trying the app out,
 not for a real trip.
+
+**`GitHub` is an experiment** (`rust/github-store.md`): the tours live in a GitHub
+repository — a public one will do — each in a file of its own, encrypted
+(XChaCha20-Poly1305), under a name that says nothing. Reading never waits for GitHub;
+changes are committed in a batch every `GitHubFlushSeconds`, and the rest when the server
+stops — a crash loses at most that much. What an outsider still sees: how many tours there
+are, roughly how big, and when they change.
 
 ### Access
 

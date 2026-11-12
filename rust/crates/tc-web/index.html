@@ -931,8 +931,15 @@
             font-style: italic; color: var(--tcn-muted, #6b7280); }
         .tcw-food-all .tcw-food-meal { max-width: 420px; }
         .tcw-food-me { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
-        .tcw-food-me > label:first-child { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
+        .tcw-food-me > label:not(.tcn-switchline) { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
         .tcw-food-me select { width: auto; min-width: 12em; padding: 6px 8px; }
+        /* The link by "Shopping by": an icon, as tall as the select beside it. */
+        .tcw-food-link { padding: 6px 10px; font-size: 15px; line-height: 1; }
+        /* Sort and grouping folded into one line saying what they are. */
+        .tcw-food-arrange { display: inline-flex; gap: 6px; align-items: center; margin: 0 0 10px; padding: 4px 0;
+            border: 0; background: none; font: inherit; font-size: 13.5px; color: var(--tcn-muted, #6b7280); cursor: pointer; }
+        .tcw-food-arrange:hover { color: var(--tcn-text, #111827); }
+        .tcw-food-arrange-caret { font-size: 11px; }
         .tcw-errand { padding: 10px 12px; margin-bottom: 12px; }
         .tcw-errand-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-bottom: 6px; }
         .tcw-errand-place { font-size: 15px; }

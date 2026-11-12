@@ -25,6 +25,11 @@ pub fn write<T>(lock: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
     lock.write().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// The same for a plain mutex - one held for a moment, never across an `.await`.
+pub fn mutex<T>(lock: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

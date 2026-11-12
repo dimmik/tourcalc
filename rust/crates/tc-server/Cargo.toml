@@ -46,6 +46,14 @@ bson = { version = "2", optional = true }
 # from holding up everybody else's notification.
 futures-util = { version = "0.3", default-features = false }
 
+# Tours kept in a public GitHub repository, encrypted (`github/`). All pure Rust and always
+# built - the sealing, the names and the store are tested without a network; only talking
+# to GitHub itself needs the TLS stack, behind the `github` feature.
+chacha20poly1305 = "0.10"
+hmac = "0.12"
+sha1 = "0.10"
+miniz_oxide = "0.8"
+
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
@@ -54,12 +62,14 @@ tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 
 [features]
-# Both on by default: a deployment stores its tours in MongoDB and notifies the people
+# All on by default: a deployment stores its tours in MongoDB and notifies the people
 # watching them, so a build without either is the unusual one. They are still features
 # because they are what pulls a TLS stack - and with it C and assembly - into a workspace
 # that otherwise has none; `--no-default-features` gets that build back.
-default = ["mongo", "push"]
+default = ["mongo", "push", "github"]
 # Storage in MongoDB. Costs the pure-Rust build - see the note by the dependency.
 mongo = ["dep:mongodb", "dep:bson"]
 # Actually delivering push notifications. Without it they are stored, counted and logged.
 push = ["dep:web-push-native", "dep:http", "dep:reqwest"]
+# Tours in a GitHub repository (`StorageType=GitHub`): the HTTPS client for GitHub's API.
+github = ["dep:reqwest"]

@@ -504,6 +504,10 @@ impl TourStore for MongoStore {
         Ok(())
     }
 
+    fn status(&self, _admin: bool) -> serde_json::Value {
+        serde_json::json!({ "kind": "MongoDb" })
+    }
+
     async fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize) {
         // Without what is in them: a version is a whole copy of the tour, and the screen
         // that lists them shows a date and a line of text. A tour saved a hundred times

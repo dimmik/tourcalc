@@ -141,6 +141,22 @@ pub trait TourStore: Send + Sync {
 
     /// The kept states of one tour, newest first, and how many there are in all.
     async fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize);
+
+    /// Writes out whatever is still only in memory - for a store that writes behind, before
+    /// the server stops. The others have nothing to do.
+    async fn flush(&self) {}
+
+    /// The same when the server stops: within the time a stop allows, and leaving what does
+    /// not make it for the next start. The others have nothing to do.
+    async fn flush_before_stop(&self) {
+        self.flush().await
+    }
+
+    /// What the help page says about where the tours are: `kind` for anybody, and with
+    /// `admin` whatever more the store knows. See `/api/Info/storage`.
+    fn status(&self, _admin: bool) -> serde_json::Value {
+        serde_json::json!({ "kind": "unknown" })
+    }
 }
 
 /// Somebody else saved first: this is the state id that is stored now.
@@ -278,6 +294,14 @@ impl TourStore for InMemoryStore {
         });
         let total = all.len();
         (all.into_iter().skip(from).take(count).collect(), total)
+    }
+
+    fn status(&self, admin: bool) -> serde_json::Value {
+        let mut v = serde_json::json!({ "kind": "InMemory" });
+        if admin {
+            v["tours"] = crate::lock::read(&self.tours).len().into();
+        }
+        v
     }
 
     async fn versions(&self, id: &TourId, from: usize, count: usize) -> (Vec<Arc<Tour>>, usize) {

@@ -81,6 +81,56 @@ async fn main() {
             );
             std::process::exit(1);
         }
+    } else if cfg.storage_type.eq_ignore_ascii_case("GitHub") {
+        #[cfg(feature = "github")]
+        {
+            use tc_server::github;
+            let keys = github::seal::Keys::from_setting(&cfg.github_store_key).unwrap_or_else(|e| {
+                tracing::error!("{}", e.0);
+                std::process::exit(1);
+            });
+            // `GitHubRepo=memory`: a repository inside this process, for trying the store out
+            // with no repository and no token - sealing, the cache and the batches are all
+            // real, and only what would have gone to GitHub is gone when the server stops.
+            let remote: Box<dyn github::remote::Remote> = if cfg.github_repo == "memory" {
+                tracing::warn!("GitHubRepo=memory: a repository in memory, gone when the server stops");
+                Box::new(github::remote::Memory::new())
+            } else {
+                Box::new(
+                    github::remote::GitHub::new(&cfg.github_repo, &cfg.github_branch, &cfg.github_token)
+                        .unwrap_or_else(|e| {
+                            tracing::error!("{e}");
+                            std::process::exit(1);
+                        }),
+                )
+            };
+            let settings = github::Settings {
+                flush_every: std::time::Duration::from_secs(cfg.github_flush_seconds),
+                memory_bytes: (cfg.github_memory_mb as usize) << 20,
+                cache_dir: std::path::PathBuf::from(&cfg.github_cache_dir),
+            };
+            match github::GitHubStore::open(keys, remote, settings).await {
+                Ok(store) => {
+                    tracing::info!(
+                        "storing tours in GitHub ({}), encrypted; written every {} s",
+                        cfg.github_repo,
+                        cfg.github_flush_seconds
+                    );
+                    store.start_writing();
+                    subscriptions = Some(Box::new(store.subscriptions()));
+                    Box::new(store)
+                }
+                Err(e) => {
+                    tracing::error!("GitHub store: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        #[cfg(not(feature = "github"))]
+        {
+            tracing::error!("StorageType is GitHub, but this build cannot reach it: rebuild with --features github");
+            std::process::exit(1);
+        }
     } else {
         match store::InMemoryStore::from_seed_file(std::path::Path::new(&cfg.seed_file)) {
             Ok(s) => {
@@ -93,6 +143,38 @@ async fn main() {
             }
         }
     };
+
+    // `tc-server import <file.json>...`: tours into the store just chosen, written out, and
+    // the process ends without serving. See `import.rs`.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("import") {
+        if args.len() < 2 {
+            tracing::error!("import: name the file(s) - a JSON array of tours, as the seed file");
+            std::process::exit(2);
+        }
+        match tc_server::import::files(store.as_ref(), &args[1..]).await {
+            Ok(n) => {
+                store.flush().await;
+                tracing::info!(
+                    "import: {} tour(s) and {} version(s) added, {} already there or repeated",
+                    n.tours,
+                    n.versions,
+                    n.skipped
+                );
+                // Not written yet is not lost: it waits in the cache, and the server writes it
+                // when it starts.
+                let status = store.status(true);
+                if let Some(e) = status.pointer("/lastError/message").and_then(|e| e.as_str()) {
+                    tracing::warn!("import: not in the repository yet ({e}); it waits in the cache - the server writes it when it starts");
+                }
+                std::process::exit(0);
+            }
+            Err(e) => {
+                tracing::error!("import: {e} - nothing was added");
+                std::process::exit(1);
+            }
+        }
+    }
 
     // Notifications: the real thing when there are keys to sign with, silence otherwise -
     // which is what the C# does when the settings are missing.
@@ -137,6 +219,10 @@ async fn main() {
         wakeups: Default::default(),
         forgotten_subscriptions: Default::default(),
     });
+
+    // Kept for the end: a store that writes behind is told to write the rest before the
+    // process goes.
+    let for_shutdown = state.clone();
 
     let mut app = Router::new()
         .merge(api::routes(state.clone()))
@@ -280,6 +366,10 @@ async fn main() {
         .with_graceful_shutdown(stop_asked())
         .await
         .expect("server");
+
+    // Within the ten seconds `podman stop` waits: one commit, if anything is left - and what
+    // does not make it waits in the cache for the next start.
+    for_shutdown.store.flush_before_stop().await;
 }
 
 /// Waits for somebody to ask the server to stop.

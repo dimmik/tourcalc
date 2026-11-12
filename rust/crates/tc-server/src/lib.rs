@@ -8,6 +8,8 @@ pub mod auth;
 pub mod config;
 pub mod lock;
 pub mod fields;
+pub mod import;
+pub mod github;
 #[cfg(feature = "mongo")]
 pub mod mongo;
 /// The words for a change, shared with the browser client - see [`tc_core::news`].
