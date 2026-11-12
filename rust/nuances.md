@@ -200,10 +200,18 @@
   `tc-server/src/github/store.rs` (`JOURNAL`, `open`, `save_journal`).
 - **Библиотека сервера собирается и под wasm32 (Cloudflare Worker), поэтому `clock::now()`,
   а не `SystemTime::now()`, и `clock::spawn`, а не `tokio::spawn`.** На
-  `wasm32-unknown-unknown` `SystemTime::now()` паникует, а паника в Worker-е роняет весь
-  объект; рантайма tokio там нет. Обычная сборка ничего не заметит: ошибка всплывёт только в
-  Worker-е, на первом же запросе, который дойдёт до этой строки. В тестах можно как угодно. —
-  `tc-server/src/clock.rs`, `cloudflare/worker` (ветка `cf/worker-proto`).
+  `wasm32-unknown-unknown` `SystemTime::now()` и `Instant::now()` паникуют (запрос, в котором
+  это случилось, остаётся без ответа); рантайма tokio там нет. Компилируется всё это и под
+  wasm, так что ловит не сборка, а clippy: `tc-server/clippy.toml` запрещает эти вызовы, CI
+  (`wasm-check` в `docker-publish-rust.yml`) гоняет `cargo clippy -p tc-server --lib
+  --no-default-features --target wasm32-unknown-unknown -- -A clippy::all -D
+  clippy::disallowed_methods`. Без `--no-default-features` не соберётся (сеть драйвера Mongo,
+  `mio`, под wasm нет), без `--lib` — тоже (`main.rs` под wasm не нужен). Ловит и
+  `SystemTime::now` без скобок (`unwrap_or_else(SystemTime::now)` — так один и пропустили
+  при переходе). Где нужно по делу (`clock.rs`, цикл записи хранилища GitHub, который
+  Worker не запускает) — `#[allow(clippy::disallowed_methods)]` с причиной. Тесты и
+  `main.rs` не проверяются — в них можно как угодно. — `tc-server/src/clock.rs`,
+  `cloudflare/worker`.
 
 ## Клиент: сохранение, очередь, устройство
 

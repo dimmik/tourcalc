@@ -313,6 +313,10 @@ impl GitHubStore {
 
     /// The writer: every `flush_every`, whatever changed goes to the repository; and every
     /// ten minutes a line in the log about memory, to see whether the ceiling is right.
+    ///
+    /// The server's own: a Worker commits from its object's alarm and never calls this - so
+    /// tokio's spawn, which has no runtime there, is allowed here (clippy.toml).
+    #[allow(clippy::disallowed_methods)]
     pub fn start_writing(&self) -> tokio::task::JoinHandle<()> {
         let store = self.clone();
         tokio::spawn(async move {
@@ -501,7 +505,7 @@ impl GitHubStore {
         // every read and write of a tour waits for.
         let cache_bytes = if admin { dir_size(&self.core.settings.cache_dir) } else { 0 };
         let i = self.lock();
-        let tick = i.stats.next_write.unwrap_or_else(SystemTime::now);
+        let tick = i.stats.next_write.unwrap_or_else(crate::clock::now);
         let next_at = if i.changed.is_empty() { tick } else { tick.max(i.earliest_commit()) };
         let next = i
             .stats

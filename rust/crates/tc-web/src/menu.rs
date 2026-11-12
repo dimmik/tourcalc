@@ -144,6 +144,8 @@ pub struct MenuState {
     /// shows theirs and nobody's - nobody's so that there is something to take.
     pub everybody: RwSignal<bool>,
     /// What is ticked as bought, hidden: what is left to buy, without the struck-out lines.
+    /// Remembered on the device (`settings::hide_bought`); a shopping link's `bought=` sets it
+    /// for this time only.
     pub hide_bought: RwSignal<bool>,
     /// The shopping's sort and grouping opened from their one-line summary.
     pub arrange_open: RwSignal<bool>,
@@ -168,7 +170,7 @@ impl MenuState {
             methods_open: RwSignal::new(true),
             me: RwSignal::new(crate::settings::me(tour)),
             everybody: RwSignal::new(false),
-            hide_bought: RwSignal::new(false),
+            hide_bought: RwSignal::new(crate::settings::hide_bought()),
             arrange_open: RwSignal::new(false),
             days: RwSignal::new(Vec::new()),
         }
@@ -1528,7 +1530,11 @@ fn Shopping(
             </Show>
             <label class="tcn-switchline">
                 <input type="checkbox" prop:checked=move || state.hide_bought.get()
-                       on:change=move |ev| state.hide_bought.set(event_target_checked(&ev)) />
+                       on:change=move |ev| {
+                           let hide = event_target_checked(&ev);
+                           crate::settings::remember_hide_bought(hide);
+                           state.hide_bought.set(hide);
+                       } />
                 {t().menu.hide_bought}
             </label>
         </div>
@@ -2016,7 +2022,11 @@ pub fn MiniShopping(tour: Tour, state: MenuState, apply: Callback<Operation>, mo
             </Show>
             <label class="tcm-check">
                 <input type="checkbox" prop:checked=move || state.hide_bought.get()
-                       on:change=move |ev| state.hide_bought.set(event_target_checked(&ev)) />
+                       on:change=move |ev| {
+                           let hide = event_target_checked(&ev);
+                           crate::settings::remember_hide_bought(hide);
+                           state.hide_bought.set(hide);
+                       } />
                 {t().menu.hide_bought}
             </label>
         </div>

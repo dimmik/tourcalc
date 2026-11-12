@@ -8,6 +8,7 @@
 use std::time::SystemTime;
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(clippy::disallowed_methods)] // the one place it belongs (clippy.toml)
 pub fn now() -> SystemTime {
     SystemTime::now()
 }
@@ -20,6 +21,7 @@ pub fn now() -> SystemTime {
 /// Runs a task beside the request that started it: on tokio's pool natively, on the
 /// JavaScript event loop in a Worker (where it lives as long as the request's context does).
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(clippy::disallowed_methods)] // the one place it belongs (clippy.toml)
 pub fn spawn(task: impl std::future::Future<Output = ()> + Send + 'static) {
     tokio::spawn(task);
 }
