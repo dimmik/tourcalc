@@ -905,6 +905,8 @@ pub const TEXTS: Texts = Texts {
         nobody: "— not chosen —",
         mine_only: "Hide the others",
         shopping_link: "🔗 Link to this list",
+        hide_bought: "Hide what is bought",
+        nothing_unbought: "Everything here is bought. Untick «Hide what is bought» to see it.",
         shopping_link_hint: "Copy a link that opens the shopping with this person picked and the others hidden or shown, as now - to send to them",
         assign_all: "Assign all…",
         everybody: "Who buys everything here not bought yet:",
