@@ -216,7 +216,10 @@ pub struct MenuTexts {
     pub who_am_i: &'static str,
     pub nobody: &'static str,
     pub mine_only: &'static str,
-    /// Over a place's products: one person for all of them.
+    /// Over a card of the shopping: the button that opens the picker below, one person for
+    /// every line of the card not bought yet.
+    pub assign_all: &'static str,
+    /// The picker's words, before the names.
     pub everybody: &'static str,
     /// Asked before "All to" changes anything: how many lines not bought yet, and to whom.
     pub everybody_ask: fn(usize, &str) -> String,

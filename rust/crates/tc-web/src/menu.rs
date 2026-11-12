@@ -2492,6 +2492,9 @@ fn ListCard(
     // Bumped after every pick, so that the select goes back to "choose…": it is an action,
     // not a setting, and a name left standing in it read as one.
     let picked = RwSignal::new(0u32);
+    // The picker shows only after "Assign all…": a select in the card's head, always there,
+    // read as "who am I" next to "Shopping by" - and one pick in it was the whole trip's.
+    let assigning = RwSignal::new(false);
     let everybody = {
         let shoppers = shoppers.clone();
         move |ev: leptos::ev::Event| {
@@ -2505,6 +2508,7 @@ fn ListCard(
                 open_lines.iter().filter(|(_, _, now)| *now != who).collect();
             if these.is_empty() {
                 ask_nothing(t().menu.everybody_none);
+                assigning.set(false);
                 return;
             }
             let question = match &who {
@@ -2518,6 +2522,7 @@ fn ListCard(
                 return;
             }
             change(MenuEdit::All(these.iter().map(|(product, split, _)| buyer_edit(product, split.as_deref(), who.clone())).collect()));
+            assigning.set(false);
         }
     };
 
@@ -2758,15 +2763,23 @@ fn ListCard(
                 <div class="tcw-errand-head">
                     <b class="tcw-errand-place">{title.clone()}</b>
                     <span class="tcw-errand-count">{tally}</span>
-                    <label class="tcw-errand-who">
-                        <span>{t().menu.everybody}</span>
-                        <select class="tcn-input" on:change=everybody
-                                prop:value=move || { picked.track(); "?" }>
-                            <option value="?" selected=true>{t().menu.pick}</option>
-                            <option value="">{t().menu.nobody_yet}</option>
-                            {everybody_options}
-                        </select>
-                    </label>
+                    <button type="button" class="tcn-btn tcn-btn-sm tcw-errand-all"
+                            style:display=move || if assigning.get() { "none" } else { "" }
+                            on:click=move |_| assigning.set(true)>
+                        {t().menu.assign_all}
+                    </button>
+                </div>
+                <div class="tcw-errand-who" style:display=move || if assigning.get() { "" } else { "none" }>
+                    <span>{t().menu.everybody}</span>
+                    <select class="tcn-input" on:change=everybody
+                            prop:value=move || { picked.track(); "?" }>
+                        <option value="?" selected=true>{t().menu.pick}</option>
+                        <option value="">{t().menu.nobody_yet}</option>
+                        {everybody_options}
+                    </select>
+                    <button type="button" class="tcn-btn tcn-btn-sm" on:click=move |_| assigning.set(false)>
+                        {t().dialogs.cancel}
+                    </button>
                 </div>
                 <div class="tcw-buy-list">{rows}</div>
                 {together}
