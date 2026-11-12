@@ -1,0 +1,27 @@
+# The tourcalc server as a Cloudflare Worker - a prototype. See README.md.
+name = "tc-proto"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[build]
+command = "cargo install -q worker-build --version 0.8.7 --locked && worker-build --release"
+
+[vars]
+GITHUB_REPO = "dimmik/tc-strg-test"
+GITHUB_BRANCH = "master"
+# Secrets, put with `wrangler secret put`: GITHUB_TOKEN (read access is enough here) and
+# STORE_KEY (the store's GitHubStoreKey).
+
+# One object holds what the server holds in memory: the branch's listing and the files read.
+[[durable_objects.bindings]]
+name = "STORE"
+class_name = "Store"
+
+# SQLite-backed: the only kind on the free plan.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Store"]
+
+[observability]
+enabled = true

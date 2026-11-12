@@ -1,0 +1,32 @@
+[package]
+name = "tc-worker"
+version = "0.1.0"
+edition = "2021"
+
+# A prototype: can the server run as a Cloudflare Worker, and within its free limits?
+# Not part of the `rust/` workspace - it builds for wasm32 with `worker-build`, alone.
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tc-core = { path = "../../rust/crates/tc-core" }
+worker = "=0.8.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# What the GitHub store's sealing (`tc-server/src/github/seal.rs`, taken in as it is) needs.
+base64 = "0.22"
+chacha20poly1305 = "0.10"
+hmac = "0.12"
+sha2 = "0.10"
+sha1 = "0.10"
+miniz_oxide = "0.8"
+p256 = { version = "0.13", features = ["ecdsa"] }
+# Randomness in a Worker comes from `crypto.getRandomValues`.
+getrandom = { version = "0.2", features = ["js"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

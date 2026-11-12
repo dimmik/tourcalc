@@ -1,0 +1,11 @@
+{
+  "name": "tc-worker",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail --format json"
+  },
+  "devDependencies": {
+    "wrangler": "4.155.0"
+  }
+}
