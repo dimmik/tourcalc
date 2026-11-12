@@ -1602,15 +1602,24 @@ fn Shopping(
         .into_iter()
         .map(|s| view! { <option value=s.name() selected=move || state.sort.get() == s>{s.name()}</option> })
         .collect_view();
-    // Chosen once and seldom again: a line saying what they are, opening to the two.
+    // The days too: picked now and then, and their line pushed the list down. Folded, the line
+    // still says which, so a list for two days does not pass for the whole trip's.
+    let days_said = (menu.days > 1).then(|| {
+        let picked = in_plan(state.days.get_untracked());
+        if picked.is_empty() { t().menu.days_all.to_owned() } else { days_label(&menu, &picked) }
+    });
+    let some_days = days_said.is_some() && !in_plan(state.days.get_untracked()).is_empty();
+    // Chosen once and seldom again: a line saying what they are, opening to them.
     let arrange = view! {
         <button type="button" class="tcw-food-arrange" aria-expanded=move || state.arrange_open.get().to_string()
                 on:click=move |_| state.arrange_open.update(|o| *o = !*o)>
             <span class="tcw-food-arrange-gear">"⚙"</span>
             <span>{move || format!("{} · {}", state.sort.get().name(), state.group.get().name())}</span>
+            {days_said.map(|d| view! { <span>"·"</span> <span class:tcw-food-arrange-days=some_days>{d}</span> })}
             <span class="tcw-food-arrange-caret">{move || if state.arrange_open.get() { "▴" } else { "▾" }}</span>
         </button>
-        <div class="tcw-food-me" style:display=move || if state.arrange_open.get() { "" } else { "none" }>
+        <div style:display=move || if state.arrange_open.get() { "" } else { "none" }>
+        <div class="tcw-food-me">
             <label>
                 <span>{t().menu.sort}</span>
                 <select class="tcn-input" on:change=move |ev| {
@@ -1633,6 +1642,8 @@ fn Shopping(
                     }).collect_view()}
                 </select>
             </label>
+        </div>
+        {day_chips}
         </div>
     };
 
@@ -1708,7 +1719,6 @@ fn Shopping(
     view! {
         {who_am_i}
         {arrange}
-        {day_chips}
         <datalist id=PLACES_LIST>{place_options}</datalist>
         {search_box(state.shop_find, t().menu.find_product)}
         <Show when=move || !anything_shown()>
