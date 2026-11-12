@@ -477,6 +477,32 @@ async fn the_menu_keeps_no_versions_unless_asked() {
     assert_eq!(version_lines(&app, &token).await.len(), 1);
 }
 
+/// One save giving many products another buyer - "All to Sergey" - keeps a version even with
+/// the menu's versions off: it rewrites the shopping of a place or a trip, and needs a way
+/// back. One product's buyer is a tick, and keeps none.
+#[tokio::test]
+async fn many_buyers_changed_at_once_keep_a_version() {
+    let app = app_with(|s| s.menu_versioning = false);
+    let token = token_for_code(&app).await;
+    save_menu(&app, &token, |m| {
+        m.on = true;
+        m.days = 2;
+    })
+    .await;
+    save_menu(&app, &token, |m| m.purchase_mut("rice").who = Some("a".into())).await;
+    assert!(version_lines(&app, &token).await.is_empty(), "one buyer keeps no version");
+
+    save_menu(&app, &token, |m| {
+        for p in ["rice", "lamb", "carrot"] {
+            m.purchase_mut(p).who = Some("b".into());
+        }
+    })
+    .await;
+    let lines = version_lines(&app, &token).await;
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].starts_with("Menu:"), "{lines:?}");
+}
+
 /// With them on: the shopping keeps none, and a sitting of planning keeps one - the state
 /// before it - until something else is saved in between.
 #[tokio::test]

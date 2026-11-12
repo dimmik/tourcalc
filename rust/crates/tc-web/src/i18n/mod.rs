@@ -218,6 +218,11 @@ pub struct MenuTexts {
     pub mine_only: &'static str,
     /// Over a place's products: one person for all of them.
     pub everybody: &'static str,
+    /// Asked before "All to" changes anything: how many lines not bought yet, and to whom.
+    pub everybody_ask: fn(usize, &str) -> String,
+    pub everybody_ask_nobody: fn(usize) -> String,
+    /// "All to" with nothing to change: every line here is bought, or theirs already.
+    pub everybody_none: &'static str,
     /// Who buys a product and pays for it.
     pub buyer: &'static str,
     pub bought: &'static str,

@@ -567,6 +567,13 @@ async fn find_templates(tour: &Tour) -> Result<Vec<Tour>, crate::api::Failed> {
     }
 }
 
+/// Says something that needs no answer.
+fn ask_nothing(message: &str) {
+    if let Some(w) = web_sys::window() {
+        let _ = w.alert_with_message(message);
+    }
+}
+
 pub(crate) fn ask(question: &str) -> bool {
     web_sys::window()
         .and_then(|w| w.confirm_with_message(question).ok())
@@ -2469,19 +2476,49 @@ fn ListCard(
             .cloned()
     };
 
-    // "Everybody: Dima" - every line here at once.
-    let all_ids: Vec<(String, Option<String>)> = lines.iter().map(|l| (l.product.id.clone(), l.split.clone())).collect();
+    // "All to Dima" - every line here not bought yet, once asked. A bought or recorded line
+    // keeps its buyer: the expense says who paid. And it asks: 12.11.2026 somebody opening the
+    // list for the first time picked their own name here - it looks like "who am I" - and the
+    // whole trip's shopping became theirs, Dima's recorded wine included.
+    let open_lines: Vec<(String, Option<String>, Option<String>)> = lines
+        .iter()
+        .filter(|l| !l.ticked && l.spending.is_none() && !l.recorded_parts)
+        .map(|l| (l.product.id.clone(), l.split.clone(), l.who.clone()))
+        .collect();
     let everybody_options = shoppers
         .iter()
         .map(|(id, name)| view! { <option value=id.clone()>{name.clone()}</option> })
         .collect_view();
-    let everybody = move |ev: leptos::ev::Event| {
-        let v = event_target_value(&ev);
-        if v == "?" {
-            return;
+    // Bumped after every pick, so that the select goes back to "choose…": it is an action,
+    // not a setting, and a name left standing in it read as one.
+    let picked = RwSignal::new(0u32);
+    let everybody = {
+        let shoppers = shoppers.clone();
+        move |ev: leptos::ev::Event| {
+            let v = event_target_value(&ev);
+            picked.update(|n| *n += 1);
+            if v == "?" {
+                return;
+            }
+            let who = (!v.is_empty()).then_some(v);
+            let these: Vec<&(String, Option<String>, Option<String>)> =
+                open_lines.iter().filter(|(_, _, now)| *now != who).collect();
+            if these.is_empty() {
+                ask_nothing(t().menu.everybody_none);
+                return;
+            }
+            let question = match &who {
+                Some(id) => {
+                    let name = shoppers.iter().find(|(p, _)| p == id).map(|(_, n)| n.as_str()).unwrap_or("?");
+                    (t().menu.everybody_ask)(these.len(), name)
+                }
+                None => (t().menu.everybody_ask_nobody)(these.len()),
+            };
+            if !ask(&question) {
+                return;
+            }
+            change(MenuEdit::All(these.iter().map(|(product, split, _)| buyer_edit(product, split.as_deref(), who.clone())).collect()));
         }
-        let who = (!v.is_empty()).then_some(v);
-        change(MenuEdit::All(all_ids.iter().map(|(product, split)| buyer_edit(product, split.as_deref(), who.clone())).collect()));
     };
 
     // Bought, not recorded, and on screen: one receipt for all of them.
@@ -2723,7 +2760,8 @@ fn ListCard(
                     <span class="tcw-errand-count">{tally}</span>
                     <label class="tcw-errand-who">
                         <span>{t().menu.everybody}</span>
-                        <select class="tcn-input" on:change=everybody>
+                        <select class="tcn-input" on:change=everybody
+                                prop:value=move || { picked.track(); "?" }>
                             <option value="?" selected=true>{t().menu.pick}</option>
                             <option value="">{t().menu.nobody_yet}</option>
                             {everybody_options}
