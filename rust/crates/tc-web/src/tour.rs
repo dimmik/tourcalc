@@ -272,14 +272,7 @@ fn Freshness(refresh: Refresh) -> impl IntoView {
 /// means it is the whole of the security here - a link is an invitation.
 #[component]
 fn ShareLink(tour: Tour, tab: RwSignal<Tab>, view: RwSignal<crate::menu::View>) -> impl IntoView {
-    let code = tour
-        .extras
-        .0
-        .iter()
-        .find(|(k, _)| k.eq_ignore_ascii_case("AccessCodeMD5"))
-        .and_then(|(_, v)| v.as_str())
-        .unwrap_or("")
-        .to_owned();
+    let code = share_code(&tour);
     let said = crate::ui::Brief::new();
     // A click copies the tour's link at once, as it always has; then, for a while, one more
     // offers the open tab's - the same invitation with the tab on the end, landing the
@@ -291,11 +284,7 @@ fn ShareLink(tour: Tour, tab: RwSignal<Tab>, view: RwSignal<crate::menu::View>) 
     let copy = move |with_tab: bool| {
         let href = href.get_value();
         let path = if with_tab { format!("{href}/{}", tab_address(tab.get_untracked(), view.get_untracked())) } else { href };
-        let full = web_sys::window()
-            .and_then(|w| w.location().origin().ok())
-            .map(|o| format!("{o}{path}"))
-            .unwrap_or(path);
-        copy_to_clipboard(&full);
+        copy_to_clipboard(&full_address(&path));
     };
     let share = move |_| {
         copy(false);
@@ -329,6 +318,25 @@ fn ShareLink(tour: Tour, tab: RwSignal<Tab>, view: RwSignal<crate::menu::View>) 
             </button>
         </Show>
     }
+}
+
+/// The hashed access code a share link carries - see [`ShareLink`].
+pub(crate) fn share_code(tour: &Tour) -> String {
+    tour.extras
+        .0
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("AccessCodeMD5"))
+        .and_then(|(_, v)| v.as_str())
+        .unwrap_or("")
+        .to_owned()
+}
+
+/// An address on this site, with the site in front: what goes on the clipboard.
+pub(crate) fn full_address(path: &str) -> String {
+    web_sys::window()
+        .and_then(|w| w.location().origin().ok())
+        .map(|o| format!("{o}{path}"))
+        .unwrap_or_else(|| path.to_owned())
 }
 
 /// A tab's name, as its button says it.
@@ -619,6 +627,17 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     let menu_state = crate::menu::MenuState::new(&id);
     if let crate::Landing::Menu(Some(view)) = landing {
         menu_state.view.set(view);
+    }
+    // A shopping link names whose shopping, and whether the others' lines show: taken once,
+    // here, and then the address goes on without it - a reload later must not undo a
+    // choice made since.
+    if let Some(w) = web_sys::window() {
+        let asked = w.location().search().unwrap_or_default();
+        if menu_state.take_link(&id, &asked) {
+            if let Ok(path) = w.location().pathname() {
+                let _ = w.history().map(|h| h.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&path)));
+            }
+        }
     }
     {
         let id = id.clone();

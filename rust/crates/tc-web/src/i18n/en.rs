@@ -904,6 +904,8 @@ pub const TEXTS: Texts = Texts {
         who_am_i: "Shopping by",
         nobody: "— not chosen —",
         mine_only: "Hide the others",
+        shopping_link: "🔗 Link to this list",
+        shopping_link_hint: "Copy a link that opens the shopping with this person picked and the others hidden or shown, as now - to send to them",
         assign_all: "Assign all…",
         everybody: "Who buys everything here not bought yet:",
         everybody_ask: |n, who| format!("Make {who} the buyer of all {n} lines here not bought yet? Whoever buys them now is replaced. Bought lines stay as they are."),
