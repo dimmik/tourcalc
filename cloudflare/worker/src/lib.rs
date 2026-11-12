@@ -264,13 +264,18 @@ impl Store {
         }
         let mut order: Vec<String> = storage.get("order").await.ok().flatten().unwrap_or_default();
         if texts.is_empty() {
-            // Nothing here: a new object, or its storage lost. The branch has it all.
-            for (id, text) in self.from_branch().await? {
+            // Nothing here: a new object, or its storage lost. The branch has it all - and
+            // what came from it is written already: its head is noted, nothing waits.
+            let (head, files) = self.from_branch().await?;
+            for (id, text) in files {
                 storage.put(&format!("t:{id}"), &text).await?;
                 order.push(id.clone());
                 texts.insert(id, text);
             }
             storage.put("order", &order).await?;
+            if let Some(head) = head {
+                storage.put("head", &head).await?;
+            }
         }
         let tours = Arc::new(InMemoryStore::empty());
         let mut known = HashSet::new();
@@ -583,16 +588,17 @@ impl Store {
         Err(fail(last))
     }
 
-    /// Every tour and version in the branch, opened: `(id, json)`. Read as one archive - one
-    /// request however many files, where a request a file would run into the Worker's limit
-    /// of requests out (50 on the free plan).
-    async fn from_branch(&self) -> Result<Vec<(String, String)>> {
+    /// The branch's head and every tour and version in it, opened: `(id, json)`. Read as one
+    /// archive of that very commit - one request however many files, where a request a file
+    /// would run into the Worker's limit of requests out (50 on the free plan).
+    async fn from_branch(&self) -> Result<(Option<String>, Vec<(String, String)>)> {
         let branch = self.branch()?;
-        let (status, _) = self.github(Method::Get, &format!("/git/ref/heads/{branch}"), None).await?;
+        let (status, r) = self.github(Method::Get, &format!("/git/ref/heads/{branch}"), None).await?;
         if status != 200 {
-            return Ok(Vec::new());
+            return Ok((None, Vec::new()));
         }
-        let mut resp = self.github_raw(Method::Get, &format!("/repos/{}/tarball/{branch}", self.repo()?), None).await?;
+        let head = Self::sha(&r, "/object/sha");
+        let mut resp = self.github_raw(Method::Get, &format!("/repos/{}/tarball/{head}", self.repo()?), None).await?;
         if resp.status_code() != 200 {
             return Err(fail(format!("GitHub answered {} to the archive of {branch}", resp.status_code())));
         }
@@ -616,7 +622,7 @@ impl Store {
         if out.is_empty() && unreadable > 0 {
             return Err(fail(format!("STORE_KEY opens none of the {unreadable} file(s) in {branch}: not the key they were sealed with")));
         }
-        Ok(out)
+        Ok((Some(head), out))
     }
 }
 
