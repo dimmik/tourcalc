@@ -217,7 +217,7 @@ pub struct MenuTexts {
     pub nobody: &'static str,
     pub mine_only: &'static str,
     /// Copies a link to the shopping as it is now: this person picked, the others' lines
-    /// hidden or not.
+    /// hidden or not. An icon; the hint says what it does.
     pub shopping_link: &'static str,
     /// Hides the lines ticked as bought; and what the list says when that leaves nothing.
     pub hide_bought: &'static str,
