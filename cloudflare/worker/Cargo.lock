@@ -1337,6 +1337,7 @@ dependencies = [
  "getrandom",
  "http",
  "http-body-util",
+ "miniz_oxide 0.8.9",
  "serde_json",
  "tc-core",
  "tc-server",

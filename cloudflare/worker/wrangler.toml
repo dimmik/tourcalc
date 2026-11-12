@@ -9,8 +9,13 @@ command = "cargo install -q worker-build --version 0.8.7 --locked && worker-buil
 
 [vars]
 BUILD_TYPE = "cloudflare"
-# Secrets, put with `wrangler secret put` (see cf-secrets.sh): MasterKey, AuthPrivateECDSAKey -
-# both this deployment's own, not prod's or the beta's. CLIENT_ASSET (the wasm file the
+# The tours: a branch of its own in the store repository - the beta writes to master there,
+# and a branch per store keeps them apart (see ../README.md).
+GITHUB_REPO = "dimmik/tc-strg-test"
+GITHUB_BRANCH = "cf-worker"
+# Secrets, put with `wrangler secret put` (see cf-secrets.sh): MasterKey, AuthPrivateECDSAKey,
+# STORE_KEY (this store's own sealing key), GITHUB_TOKEN (contents: write on the repository) -
+# the first three this deployment's own, not prod's or the beta's. CLIENT_ASSET (the wasm file the
 # client's index.html names) and BUILD_ID/BUILD_COMMIT come with the deploy (`--var`).
 
 # One object is the server: its memory holds the tours, its storage keeps them.
