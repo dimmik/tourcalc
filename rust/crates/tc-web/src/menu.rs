@@ -145,6 +145,8 @@ pub struct MenuState {
     pub everybody: RwSignal<bool>,
     /// What is ticked as bought, hidden: what is left to buy, without the struck-out lines.
     pub hide_bought: RwSignal<bool>,
+    /// The shopping's sort and grouping opened from their one-line summary.
+    pub arrange_open: RwSignal<bool>,
     /// The days the shopping is for, when only some - Friday's market before the trip, the
     /// rest on Saturday. Empty: the whole trip.
     pub days: RwSignal<Vec<u32>>,
@@ -167,6 +169,7 @@ impl MenuState {
             me: RwSignal::new(crate::settings::me(tour)),
             everybody: RwSignal::new(false),
             hide_bought: RwSignal::new(false),
+            arrange_open: RwSignal::new(false),
             days: RwSignal::new(Vec::new()),
         }
     }
@@ -1093,7 +1096,8 @@ pub fn MenuTab(
                     <button type="button" class:is-on=move || state.view.get() == View::Catalogue
                             on:click=move |_| state.view.set(View::Catalogue)>{t().menu.catalogue}</button>
                 </div>
-                <div class="tcw-food-days">
+                // The plan's length - in the shopping it only pushed the list down.
+                <div class="tcw-food-days" style:display=move || if state.view.get() == View::Shopping { "none" } else { "" }>
                     <span>{t().menu.days}</span>
                     <button type="button" class="tcn-btn tcn-btn-sm" title=t().menu.fewer_days
                             disabled=days <= 1
@@ -1103,9 +1107,10 @@ pub fn MenuTab(
                             on:click=move |_| change(MenuEdit::Days(days + 1))>"+"</button>
                 </div>
             </div>
-            // What the amounts mean for this tour - in the catalogue it is said under the
-            // dishes, where the amounts per portion are.
-            <Show when=move || state.view.get() != View::Catalogue>
+            // What the amounts mean for this tour - in the plan; in the catalogue it is said
+            // under the dishes, where the amounts per portion are. The shopping goes without:
+            // on a phone it pushed the list off the first screen.
+            <Show when=move || state.view.get() == View::Plan>
                 <p class="tcw-food-note">{note.clone()}</p>
             </Show>
             <Show when=move || nudge && state.view.get() != View::Catalogue>
@@ -1507,6 +1512,13 @@ fn Shopping(
                     {me_options}
                 </select>
             </label>
+            // By the select, as an icon: a row of its own pushed the list down.
+            <Show when=move || state.me.get().is_some() && !code.with_value(String::is_empty)>
+                <button type="button" class="tcn-chip tcw-food-link" title=t().menu.shopping_link_hint
+                        aria-label=t().menu.shopping_link_hint on:click=copy_link.clone()>
+                    {move || if link_said.is_on() { link_said.get() } else { t().menu.shopping_link.to_owned() }}
+                </button>
+            </Show>
             <Show when=move || state.me.get().is_some()>
                 <label class="tcn-switchline">
                     <input type="checkbox" prop:checked=move || !state.everybody.get()
@@ -1519,12 +1531,6 @@ fn Shopping(
                        on:change=move |ev| state.hide_bought.set(event_target_checked(&ev)) />
                 {t().menu.hide_bought}
             </label>
-            <Show when=move || state.me.get().is_some() && !code.with_value(String::is_empty)>
-                <button type="button" class="tcn-chip tcw-food-link" title=t().menu.shopping_link_hint
-                        on:click=copy_link.clone()>
-                    {move || if link_said.is_on() { link_said.get() } else { t().menu.shopping_link.to_owned() }}
-                </button>
-            </Show>
         </div>
     };
 
@@ -1596,8 +1602,15 @@ fn Shopping(
         .into_iter()
         .map(|s| view! { <option value=s.name() selected=move || state.sort.get() == s>{s.name()}</option> })
         .collect_view();
+    // Chosen once and seldom again: a line saying what they are, opening to the two.
     let arrange = view! {
-        <div class="tcw-food-me">
+        <button type="button" class="tcw-food-arrange" aria-expanded=move || state.arrange_open.get().to_string()
+                on:click=move |_| state.arrange_open.update(|o| *o = !*o)>
+            <span class="tcw-food-arrange-gear">"⚙"</span>
+            <span>{move || format!("{} · {}", state.sort.get().name(), state.group.get().name())}</span>
+            <span class="tcw-food-arrange-caret">{move || if state.arrange_open.get() { "▴" } else { "▾" }}</span>
+        </button>
+        <div class="tcw-food-me" style:display=move || if state.arrange_open.get() { "" } else { "none" }>
             <label>
                 <span>{t().menu.sort}</span>
                 <select class="tcn-input" on:change=move |ev| {
