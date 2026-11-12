@@ -144,9 +144,11 @@ pub struct MenuState {
     /// shows theirs and nobody's - nobody's so that there is something to take.
     pub everybody: RwSignal<bool>,
     /// What is ticked as bought, hidden: what is left to buy, without the struck-out lines.
-    /// Remembered on the device (`settings::hide_bought`); a shopping link's `bought=` sets it
-    /// for this time only.
+    /// Remembered on the device for the tour (`settings::hide_bought`) when ticked or unticked
+    /// ([`MenuState::set_hide_bought`]); a shopping link's `bought=` sets it for this time only.
     pub hide_bought: RwSignal<bool>,
+    /// Whose state this is - the tour the remembered settings are kept under.
+    tour: StoredValue<String>,
     /// The shopping's sort and grouping opened from their one-line summary.
     pub arrange_open: RwSignal<bool>,
     /// The days the shopping is for, when only some - Friday's market before the trip, the
@@ -170,10 +172,17 @@ impl MenuState {
             methods_open: RwSignal::new(true),
             me: RwSignal::new(crate::settings::me(tour)),
             everybody: RwSignal::new(false),
-            hide_bought: RwSignal::new(crate::settings::hide_bought()),
+            hide_bought: RwSignal::new(crate::settings::hide_bought(tour)),
+            tour: StoredValue::new(tour.to_owned()),
             arrange_open: RwSignal::new(false),
             days: RwSignal::new(Vec::new()),
         }
+    }
+
+    /// "Hide what is bought" ticked or unticked: shown so, and remembered for the tour.
+    pub fn set_hide_bought(&self, hide: bool) {
+        crate::settings::remember_hide_bought(&self.tour.get_value(), hide);
+        self.hide_bought.set(hide);
     }
 
     /// What a shopping link asks (`?buyer=<person>&others=0|1&bought=0|1`, see
@@ -1530,11 +1539,7 @@ fn Shopping(
             </Show>
             <label class="tcn-switchline">
                 <input type="checkbox" prop:checked=move || state.hide_bought.get()
-                       on:change=move |ev| {
-                           let hide = event_target_checked(&ev);
-                           crate::settings::remember_hide_bought(hide);
-                           state.hide_bought.set(hide);
-                       } />
+                       on:change=move |ev| state.set_hide_bought(event_target_checked(&ev)) />
                 {t().menu.hide_bought}
             </label>
         </div>
@@ -2022,11 +2027,7 @@ pub fn MiniShopping(tour: Tour, state: MenuState, apply: Callback<Operation>, mo
             </Show>
             <label class="tcm-check">
                 <input type="checkbox" prop:checked=move || state.hide_bought.get()
-                       on:change=move |ev| {
-                           let hide = event_target_checked(&ev);
-                           crate::settings::remember_hide_bought(hide);
-                           state.hide_bought.set(hide);
-                       } />
+                       on:change=move |ev| state.set_hide_bought(event_target_checked(&ev)) />
                 {t().menu.hide_bought}
             </label>
         </div>
