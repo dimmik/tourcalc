@@ -161,10 +161,11 @@ async fn main() {
                     n.versions,
                     n.skipped
                 );
+                // Not written yet is not lost: it waits in the cache, and the server writes it
+                // when it starts.
                 let status = store.status(true);
-                if let Some(e) = status.get("lastError").and_then(|e| e.as_str()) {
-                    tracing::error!("import: not written: {e}");
-                    std::process::exit(1);
+                if let Some(e) = status.pointer("/lastError/message").and_then(|e| e.as_str()) {
+                    tracing::warn!("import: not in the repository yet ({e}); it waits in the cache - the server writes it when it starts");
                 }
                 std::process::exit(0);
             }
@@ -366,8 +367,9 @@ async fn main() {
         .await
         .expect("server");
 
-    // Within the ten seconds `podman stop` waits: one commit, if anything is left.
-    for_shutdown.store.flush().await;
+    // Within the ten seconds `podman stop` waits: one commit, if anything is left - and what
+    // does not make it waits in the cache for the next start.
+    for_shutdown.store.flush_before_stop().await;
 }
 
 /// Waits for somebody to ask the server to stop.

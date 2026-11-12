@@ -146,6 +146,12 @@ pub trait TourStore: Send + Sync {
     /// the server stops. The others have nothing to do.
     async fn flush(&self) {}
 
+    /// The same when the server stops: within the time a stop allows, and leaving what does
+    /// not make it for the next start. The others have nothing to do.
+    async fn flush_before_stop(&self) {
+        self.flush().await
+    }
+
     /// What the help page says about where the tours are: `kind` for anybody, and with
     /// `admin` whatever more the store knows. See `/api/Info/storage`.
     fn status(&self, _admin: bool) -> serde_json::Value {

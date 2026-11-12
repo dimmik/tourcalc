@@ -2,16 +2,19 @@
 //!
 //! - **Reading** never waits for GitHub: a tour is in memory, or it is read from the cache
 //!   on disk - the same sealed files the repository has - and kept in memory again.
-//! - **Writing** changes memory and the cache at once and marks the file changed; every
-//!   `flush_every` all changed files go to the repository as **one commit**. Stopping the
-//!   server writes what is left; a crash loses at most that much.
+//! - **Writing** changes memory and the cache at once and marks the file changed - in a list
+//!   on disk beside the cache too ([`JOURNAL`]); every `flush_every` all changed files go to
+//!   the repository as **one commit**. Stopping the server writes what is left; what it could
+//!   not - GitHub away, over its limit, too slow for the stop - waits in the cache, and the
+//!   next start takes it from there rather than from the repository.
 //! - **Memory has a ceiling** (`memory_bytes`): a tour not touched for longest goes back to
 //!   the disk when the hot ones weigh more. Versions are never held whole - only what their
 //!   list shows (an id, a date, a comment) - because every save keeps one and they are most
 //!   of what there is.
 //! - **Starting** reads the branch's list of files and takes from GitHub only the ones the
 //!   cache does not have as they are: git's id for a file is a hash of its contents, so a
-//!   file on disk is checked without downloading it.
+//!   file on disk is checked without downloading it. With GitHub out of reach it starts from
+//!   the cache alone, and says so on the help page until a commit goes through.
 //!
 //! Subscriptions are one more file, `s`, the whole list of them.
 
@@ -89,6 +92,15 @@ enum Pending {
 const MIN_GAP: Duration = Duration::from_secs(30);
 /// The longest wait after failures in a row (they double from [`MIN_GAP`]).
 const MAX_BACKOFF: Duration = Duration::from_secs(15 * 60);
+/// How long the last commit may take when the server stops: `podman stop` kills after ten
+/// seconds. What does not make it waits in the cache for the next start.
+const STOP_BUDGET: Duration = Duration::from_secs(8);
+
+/// The files changed and not yet in the repository, in the cache directory beside them: a
+/// path and `put` or `delete`. Without it a restart before the commit - GitHub away, a crash,
+/// a stop that ran out of time - took the repository for the truth: the cache's newer files
+/// were downloaded over, and new ones deleted. Not sealed: the paths are hashes already.
+const JOURNAL: &str = "pending.json";
 
 struct Meta {
     path: String,
@@ -151,29 +163,65 @@ fn ours(path: &str) -> bool {
 impl GitHubStore {
     /// Reads the branch, brings the cache on disk up to it, and opens every file.
     pub async fn open(keys: Keys, remote: Box<dyn Remote>, settings: Settings) -> Result<GitHubStore, String> {
-        let snap = remote.snapshot().await.map_err(|e| e.to_string())?;
         std::fs::create_dir_all(&settings.cache_dir)
             .map_err(|e| format!("GitHubCacheDir {}: {e}", settings.cache_dir.display()))?;
+        let dir = &settings.cache_dir;
+
+        // What was changed and not written before the last stop: as the cache has it, not as
+        // the repository does. A changed file the cache has lost is the repository's again.
+        let journal = read_journal(dir);
+        let waiting: Vec<String> = journal.iter().filter(|(p, put)| **put && dir.join(p).is_file()).map(|(p, _)| p.clone()).collect();
+        let deleted: Vec<String> = journal.iter().filter(|(_, put)| !**put).map(|(p, _)| p.clone()).collect();
+        let own = |p: &str| waiting.iter().chain(&deleted).any(|w| w == p);
 
         let mut texts: Vec<(String, String)> = Vec::new();
         let mut downloaded = 0;
-        for (path, blob) in snap.files.iter().filter(|(p, _)| ours(p)) {
-            let local = settings.cache_dir.join(path);
-            let text = match std::fs::read_to_string(&local) {
-                Ok(t) if seal::blob_sha(t.as_bytes()) == *blob => t,
-                _ => {
-                    let t = remote.read(blob).await.map_err(|e| e.to_string())?;
-                    write_file(&local, &t)?;
-                    downloaded += 1;
-                    t
+        let snap = match remote.snapshot().await {
+            Ok(snap) => {
+                for (path, blob) in snap.files.iter().filter(|(p, _)| ours(p) && !own(p)) {
+                    let local = dir.join(path);
+                    let text = match std::fs::read_to_string(&local) {
+                        Ok(t) if seal::blob_sha(t.as_bytes()) == *blob => t,
+                        _ => {
+                            let t = remote.read(blob).await.map_err(|e| e.to_string())?;
+                            write_file(&local, &t)?;
+                            downloaded += 1;
+                            t
+                        }
+                    };
+                    texts.push((path.clone(), text));
                 }
-            };
-            texts.push((path.clone(), text));
-        }
-        // What the repository no longer has is gone here too: the repository is the truth.
-        prune(&settings.cache_dir, &settings.cache_dir, &snap.files);
+                for path in &waiting {
+                    let text = std::fs::read_to_string(dir.join(path)).map_err(|e| format!("{path}: {e}"))?;
+                    texts.push((path.clone(), text));
+                }
+                // What the repository no longer has is gone here too - the repository is the
+                // truth, but for what is still on its way there.
+                let mut keep = snap.files.clone();
+                keep.extend(waiting.iter().map(|p| (p.clone(), String::new())));
+                prune(dir, dir, &keep);
+                Ok(snap)
+            }
+            Err(e) => {
+                // GitHub out of reach: the cache is what there is, and it is what was last
+                // written or about to be. Without a cache there is nothing to start from - and
+                // an empty start would write over the repository's subscriptions.
+                for path in cached(dir, dir).into_iter().filter(|p| ours(p) && !deleted.contains(p)) {
+                    let text = std::fs::read_to_string(dir.join(&path)).map_err(|e| format!("{path}: {e}"))?;
+                    texts.push((path, text));
+                }
+                if texts.is_empty() {
+                    return Err(format!("{e}; and the cache {} is empty - nothing to start from", dir.display()));
+                }
+                tracing::warn!("GitHub store: {e}; starting from the cache, {} file(s)", texts.len());
+                Err(e.to_string())
+            }
+        };
 
-        let mut inner = Inner { head: snap.head.clone(), in_repo: snap.files.clone(), ..Inner::default() };
+        let mut inner = match &snap {
+            Ok(snap) => Inner { head: snap.head.clone(), in_repo: snap.files.clone(), ..Inner::default() },
+            Err(_) => Inner::default(),
+        };
         let mut tours: Vec<(String, Tour, usize)> = Vec::new();
         let mut opened = 0;
         for (path, text) in &texts {
@@ -233,9 +281,24 @@ impl GitHubStore {
             started: fields::now_stamp(),
             files_at_start: texts.len(),
             downloaded_at_start: downloaded,
-            head_at: snap.head_at.clone(),
+            head_at: snap.as_ref().ok().and_then(|s| s.head_at.clone()),
             ..Stats::default()
         };
+        // Started from the cache: the branch is read before the first commit (as after any
+        // failure), and the help page says why nothing is known of it.
+        if let Err(e) = &snap {
+            inner.stats.failures = 1;
+            inner.stats.last_error = Some((fields::now_stamp(), format!("GitHub out of reach at the start, started from the cache: {e}")));
+        }
+        // And what waited goes with the next commit.
+        for (path, put) in waiting.iter().map(|p| (p, true)).chain(deleted.iter().map(|p| (p, false))) {
+            inner.change_no += 1;
+            let what = if put { Pending::OnDisk } else { Pending::Deleted };
+            inner.changed.insert(path.clone(), (what, inner.change_no));
+        }
+        if !inner.changed.is_empty() {
+            tracing::info!("GitHub store: {} change(s) from before the last stop, to be written", inner.changed.len());
+        }
         tracing::info!(
             "GitHub store: {} tour(s), {} version(s), {} file(s) - {} downloaded, the rest from the cache",
             inner.index.values().filter(|m| !fields::is_version(&m.stub)).count(),
@@ -338,6 +401,7 @@ impl GitHubStore {
                             i.changed.remove(c.path());
                         }
                     }
+                    self.save_journal(&i);
                     i.stats.last_written = Some(fields::now_stamp());
                     i.stats.last_commit = Some(commit);
                     i.stats.last_error = None;
@@ -367,8 +431,11 @@ impl GitHubStore {
                 .filter(|(p, (w, _))| matches!(w, Pending::Deleted) && !i.in_repo.contains_key(*p))
                 .map(|(p, _)| p.clone())
                 .collect();
-            for p in gone {
-                i.changed.remove(&p);
+            if !gone.is_empty() {
+                for p in gone {
+                    i.changed.remove(&p);
+                }
+                self.save_journal(&i);
             }
             i.changed
                 .iter()
@@ -528,6 +595,42 @@ impl GitHubStore {
         i.change_no += 1;
         let no = i.change_no;
         i.changed.insert(path.to_owned(), (pending, no));
+        self.save_journal(i);
+    }
+
+    /// [`JOURNAL`] as `changed` is now; none when nothing waits. A file kept in memory only (a
+    /// full disk) is listed too - and, the cache not having it, is the repository's again
+    /// after a restart.
+    fn save_journal(&self, i: &Inner) {
+        let path = self.core.settings.cache_dir.join(JOURNAL);
+        if i.changed.is_empty() {
+            let _ = std::fs::remove_file(&path);
+            return;
+        }
+        let list: std::collections::BTreeMap<&str, &str> = i
+            .changed
+            .iter()
+            .map(|(p, (w, _))| (p.as_str(), if matches!(w, Pending::Deleted) { "delete" } else { "put" }))
+            .collect();
+        let json = serde_json::to_string_pretty(&list).unwrap_or_default();
+        if let Err(e) = write_file(&path, &json) {
+            tracing::warn!("GitHub store: the list of changes waiting is not on disk ({e}); a restart now would lose them");
+        }
+    }
+
+    /// The last commit before the server stops: not while GitHub's limit says to wait, and no
+    /// longer than [`STOP_BUDGET`]. What is left waits in the cache.
+    pub async fn flush_before_stop(&self) {
+        let paused = self.lock().stats.not_before.is_some_and(|t| SystemTime::now() < t);
+        let done = if paused {
+            false
+        } else {
+            matches!(tokio::time::timeout(STOP_BUDGET, self.flush()).await, Ok(Ok(())))
+        };
+        let left = self.lock().changed.len();
+        if !done && left > 0 {
+            tracing::warn!("GitHub store: {left} change(s) not written before the stop; they wait in the cache for the next start");
+        }
     }
 
     /// A tour by id: from memory, or from the disk - and then kept in memory.
@@ -649,7 +752,35 @@ fn write_file(path: &Path, text: &str) -> Result<(), String> {
     std::fs::rename(&tmp, path).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// Removes the cache's files that the repository does not have.
+/// [`JOURNAL`]: each path, `true` for written, `false` for deleted. None, or unreadable: nothing
+/// waits.
+fn read_journal(dir: &Path) -> HashMap<String, bool> {
+    let Ok(text) = std::fs::read_to_string(dir.join(JOURNAL)) else { return HashMap::new() };
+    match serde_json::from_str::<HashMap<String, String>>(&text) {
+        Ok(list) => list.into_iter().filter(|(p, _)| ours(p)).map(|(p, w)| (p, w != "delete")).collect(),
+        Err(e) => {
+            tracing::warn!("GitHub store: {JOURNAL} does not read ({e}); taken as nothing waiting");
+            HashMap::new()
+        }
+    }
+}
+
+/// Every file in the cache, as a path from its root.
+fn cached(root: &Path, dir: &Path) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
+    let mut out = Vec::new();
+    for e in entries.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            out.extend(cached(root, &p));
+        } else if let Ok(rel) = p.strip_prefix(root) {
+            out.push(rel.to_string_lossy().replace('\\', "/"));
+        }
+    }
+    out
+}
+
+/// Removes the cache's files that the repository does not have - all but [`JOURNAL`].
 fn prune(root: &Path, dir: &Path, keep: &HashMap<String, String>) {
     let Ok(entries) = std::fs::read_dir(dir) else { return };
     for e in entries.flatten() {
@@ -659,7 +790,7 @@ fn prune(root: &Path, dir: &Path, keep: &HashMap<String, String>) {
             let _ = std::fs::remove_dir(&p); // only if empty
         } else if let Ok(rel) = p.strip_prefix(root) {
             let rel = rel.to_string_lossy().replace('\\', "/");
-            if !keep.contains_key(&rel) {
+            if rel != JOURNAL && !keep.contains_key(&rel) {
                 let _ = std::fs::remove_file(&p);
             }
         }
@@ -804,6 +935,10 @@ impl TourStore for GitHubStore {
 
     async fn flush(&self) {
         let _ = GitHubStore::flush(self).await;
+    }
+
+    async fn flush_before_stop(&self) {
+        GitHubStore::flush_before_stop(self).await
     }
 
     fn status(&self, admin: bool) -> serde_json::Value {
@@ -1040,6 +1175,100 @@ mod tests {
         let files = repo.files();
         assert_eq!(files["README.md"], "somebody else\n", "theirs kept");
         assert!(files.keys().any(|p| p.starts_with("t/")), "ours written");
+    }
+
+    fn state_of(t: Option<Arc<Tour>>) -> Option<String> {
+        t.map(|t| fields::str_of(&t, fields::STATE))
+    }
+
+    /// A change, a new tour and a removal not written when the server stops are still there
+    /// at the next start - not the repository's older files - and go with its first commit.
+    #[tokio::test]
+    async fn unwritten_changes_survive_a_restart() {
+        let repo = Arc::new(Memory::new());
+        let cache = Cache::new("restart");
+        let store = open(&repo, &cache, 32 << 20).await;
+        store.store(fixture("a")).await;
+        store.store(fixture("gone")).await;
+        store.flush().await.unwrap();
+        let mut a2 = fixture("a");
+        fields::set(&mut a2, fields::STATE, "s2".into());
+        store.store(a2).await;
+        store.store(fixture("b")).await;
+        store.remove(&TourId::new("gone".to_owned())).await;
+        repo.fail_with(Some("GitHub answered 503"));
+        assert!(store.flush().await.is_err());
+        drop(store);
+
+        repo.fail_with(None);
+        let again = open(&repo, &cache, 32 << 20).await;
+        assert_eq!(state_of(again.get(&TourId::new("a".to_owned())).await).as_deref(), Some("s2"));
+        assert!(again.get(&TourId::new("b".to_owned())).await.is_some());
+        assert!(again.get(&TourId::new("gone".to_owned())).await.is_none());
+        assert_eq!(again.status(false)["pending"], 3);
+        again.flush().await.unwrap();
+        assert_eq!(again.status(false)["pending"], 0);
+        assert!(!cache.0.join(JOURNAL).exists(), "nothing waits, no list");
+        let keys = Keys::from_setting(KEY).unwrap();
+        let files = repo.files();
+        assert!(files.contains_key(&keys.tour_path("b")));
+        assert!(!files.contains_key(&keys.tour_path("gone")));
+        let a = keys.open(&keys.tour_path("a"), &files[&keys.tour_path("a")]).unwrap();
+        assert_eq!(fields::str_of(&Tour::from_json(std::str::from_utf8(&a).unwrap()).unwrap(), fields::STATE), "s2");
+    }
+
+    /// GitHub out of reach at the start: the tours come from the cache, the help page says
+    /// why, and the changes made meanwhile are written once it is back.
+    #[tokio::test]
+    async fn without_github_the_start_is_from_the_cache() {
+        let repo = Arc::new(Memory::new());
+        let cache = Cache::new("offline");
+        let store = open(&repo, &cache, 32 << 20).await;
+        store.store(fixture("a")).await;
+        store.flush().await.unwrap();
+        drop(store);
+
+        repo.fail_with(Some("GitHub: connection refused"));
+        let again = open(&repo, &cache, 32 << 20).await;
+        assert!(again.get(&TourId::new("a".to_owned())).await.is_some());
+        let s = again.status(false);
+        assert!(s["lastError"]["message"].as_str().unwrap().contains("connection refused"), "{s}");
+        again.store(fixture("b")).await;
+        assert!(again.flush().await.is_err());
+
+        repo.fail_with(None);
+        again.flush().await.unwrap();
+        assert!(repo.files().contains_key(&Keys::from_setting(KEY).unwrap().tour_path("b")));
+        assert!(again.status(false)["lastError"].is_null());
+    }
+
+    /// No GitHub and no cache: nothing to start from, and an empty start would write over the
+    /// repository's subscriptions.
+    #[tokio::test]
+    async fn without_github_and_a_cache_it_does_not_start() {
+        let repo = Arc::new(Memory::new());
+        repo.fail_with(Some("GitHub: connection refused"));
+        let cache = Cache::new("nothing");
+        let settings = Settings { flush_every: Duration::from_secs(10), memory_bytes: 32 << 20, cache_dir: cache.0.clone() };
+        let opened = GitHubStore::open(Keys::from_setting(KEY).unwrap(), Box::new(repo.clone()), settings).await;
+        assert!(opened.err().unwrap().contains("nothing to start from"));
+    }
+
+    /// The stop does not ask GitHub while its limit says to wait: the changes stay listed for
+    /// the next start.
+    #[tokio::test]
+    async fn the_stop_waits_out_a_rate_limit_in_the_cache() {
+        let repo = Arc::new(Memory::new());
+        let cache = Cache::new("stop-limit");
+        let store = open(&repo, &cache, 32 << 20).await;
+        store.store(fixture("a")).await;
+        repo.limit(Some(Some(Duration::from_secs(600))));
+        assert!(store.flush().await.is_err());
+        let commits = repo.commits();
+        repo.limit(None);
+        store.flush_before_stop().await;
+        assert_eq!(repo.commits(), commits, "asked while told to wait");
+        assert!(read_journal(&cache.0).contains_key(&Keys::from_setting(KEY).unwrap().tour_path("a")));
     }
 
     #[tokio::test]
