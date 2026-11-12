@@ -625,6 +625,8 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
     // And for the Menu tab: plan or shopping, and whose shopping - the view an address
     // names, if it names one.
     let menu_state = crate::menu::MenuState::new(&id);
+    // The tour card's fold, chosen by its button (see `TourView`): here, above every redraw.
+    let card_fold: RwSignal<Option<bool>> = RwSignal::new(None);
     if let crate::Landing::Menu(Some(view)) = landing {
         menu_state.view.set(view);
     }
@@ -876,7 +878,7 @@ pub fn TourPage(id: String, landing: crate::Landing) -> impl IntoView {
                 view! {
                     <TourView tour=tour reload=load status=status landing=landing tab=tab
                               refresh=refresh sifting=sifting people=people_state
-                              menu=menu_state shown_in=shown_in />
+                              menu=menu_state shown_in=shown_in card_fold=card_fold />
                 }.into_any()
             }
         }}
@@ -935,6 +937,9 @@ fn TourView(
     menu: crate::menu::MenuState,
     /// Which currency this device reads the tour in, if not its main one.
     shown_in: RwSignal<Option<String>>,
+    /// The card folded or unfolded by its button, `None` until then - likewise owned above:
+    /// every edit redraws this view, and a tick on the shopping must not unfold it.
+    card_fold: RwSignal<Option<bool>>,
 ) -> impl IntoView {
     // Every figure on this screen is in this tour's currency: with cents or without.
     crate::ui::show_cents_for(&tour);
@@ -1147,7 +1152,6 @@ fn TourView(
     // On a phone the card is a third of the screen. Folded to its name line it lets the
     // shopping list start on the first screen: so by itself on the shopping, and wherever it
     // is asked. Wider screens have room - there the fold does nothing and has no button (CSS).
-    let card_fold: RwSignal<Option<bool>> = RwSignal::new(None);
     let folded = move || {
         card_fold
             .get()
