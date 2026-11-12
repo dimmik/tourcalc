@@ -1,0 +1,13 @@
+{
+  "name": "tc-proto-mongo",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "mongodb": "7.7.0"
+  },
+  "devDependencies": {
+    "wrangler": "4.155.0"
+  }
+}

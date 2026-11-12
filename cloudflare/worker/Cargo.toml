@@ -22,6 +22,8 @@ sha2 = "0.10"
 sha1 = "0.10"
 miniz_oxide = "0.8"
 p256 = { version = "0.13", features = ["ecdsa"] }
+# Push notifications, made as the server makes them (`tc-server/src/push.rs`).
+web-push-native = "0.5"
 # Randomness in a Worker comes from `crypto.getRandomValues`.
 getrandom = { version = "0.2", features = ["js"] }
 
