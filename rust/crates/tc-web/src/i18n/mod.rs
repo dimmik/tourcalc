@@ -1062,6 +1062,9 @@ pub struct TourTexts {
     pub cannot_remove: fn(&str, &[String], &[String]) -> String,
     pub edit_tour: &'static str,
     pub reload: &'static str,
+    /// The tour card's fold on a phone.
+    pub card_fold: &'static str,
+    pub card_unfold: &'static str,
     pub settling_hint: &'static str,
     pub settling: &'static str,
     pub archived_hint: &'static str,
