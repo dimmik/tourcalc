@@ -1457,6 +1457,7 @@ fn Shopping(
         .filter(|p| p.parent.is_none())
         .map(|p| (p.id.as_str().to_owned(), p.name.clone()))
         .collect();
+    forget_unknown_me(state, &shoppers);
 
     let me_options = {
         let chosen = state.me.get_untracked().unwrap_or_default();
@@ -1960,6 +1961,7 @@ pub fn MiniShopping(tour: Tour, state: MenuState, apply: Callback<Operation>, mo
         .filter(|p| p.parent.is_none())
         .map(|p| (p.id.as_str().to_owned(), p.name.clone()))
         .collect();
+    forget_unknown_me(state, &shoppers);
     let plan_days = menu.days;
     let in_plan = move |v: Vec<u32>| -> Vec<u32> { v.into_iter().filter(|d| (1..=plan_days).contains(d)).collect() };
 
@@ -2262,6 +2264,15 @@ fn whom(eaters: Eaters) -> &'static str {
         Eaters::Everyone => t().menu.for_everyone,
         Eaters::FullWeight => t().menu.for_full,
         Eaters::Others => t().menu.for_others,
+    }
+}
+
+/// "Shopping by" that is nobody who can buy - somebody removed since, a child, a link with
+/// a wrong id - is taken as nobody: otherwise "— nobody —" shows in the select while the list
+/// keeps only nobody's lines. Not written back: the phone's choice stays as it was.
+fn forget_unknown_me(state: MenuState, shoppers: &[(String, String)]) {
+    if state.me.get_untracked().is_some_and(|me| !shoppers.iter().any(|(id, _)| *id == me)) {
+        state.me.set(None);
     }
 }
 
