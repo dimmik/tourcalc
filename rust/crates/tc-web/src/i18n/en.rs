@@ -322,6 +322,8 @@ pub const TEXTS: Texts = Texts {
         },
         edit_tour: "Edit the tour",
         reload: "Reload from the server",
+        card_fold: "Fold the card: the name only",
+        card_unfold: "Unfold the card: totals, link, versions",
         settling_hint: "The tour is being settled up",
         settling: "settling up",
         archived_hint: "The tour is archived and hidden from the default list",

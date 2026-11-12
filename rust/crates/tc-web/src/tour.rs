@@ -1144,8 +1144,18 @@ fn TourView(
         .into_any();
     }
 
+    // On a phone the card is a third of the screen. Folded to its name line it lets the
+    // shopping list start on the first screen: so by itself on the shopping, and wherever it
+    // is asked. Wider screens have room - there the fold does nothing and has no button (CSS).
+    let card_fold: RwSignal<Option<bool>> = RwSignal::new(None);
+    let folded = move || {
+        card_fold
+            .get()
+            .unwrap_or_else(|| tab.get() == Tab::Menu && menu.view.get() == crate::menu::View::Shopping)
+    };
+
     view! {
-        <div class="tcn-hero">
+        <div class="tcn-hero" class:is-folded=folded>
             // Name, edit and reload on one line, as in the app: the two things you do *to*
             // the tour rather than inside it, next to what they act on.
             <div class="tcn-hero-top">
@@ -1165,6 +1175,13 @@ fn TourView(
                     <span class:tcn-spin=move || refresh.busy.get()>
                         <crate::icon::Icon name="refresh" />
                     </span>
+                </button>
+                <button type="button" class="tcn-iconbtn tcw-hero-fold"
+                        title=move || if folded() { t().tour.card_unfold } else { t().tour.card_fold }
+                        aria-label=move || if folded() { t().tour.card_unfold } else { t().tour.card_fold }
+                        aria-expanded=move || (!folded()).to_string()
+                        on:click=move |_| card_fold.set(Some(!folded()))>
+                    {move || if folded() { "▾" } else { "▴" }}
                 </button>
             </div>
 
