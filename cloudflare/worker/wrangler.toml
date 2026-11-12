@@ -1,0 +1,40 @@
+# Tourcalc as a Cloudflare Worker. See ../README.md.
+name = "tc-proto"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[build]
+command = "cargo install -q worker-build --version 0.8.7 --locked && worker-build --release"
+
+[vars]
+BUILD_TYPE = "cloudflare"
+# The tours: a branch of its own in the store repository - the beta writes to master there,
+# and a branch per store keeps them apart (see ../README.md).
+GITHUB_REPO = "dimmik/tc-strg-test"
+GITHUB_BRANCH = "cf-worker"
+# Secrets, put with `wrangler secret put` (see cf-secrets.sh): MasterKey, AuthPrivateECDSAKey,
+# STORE_KEY (this store's own sealing key), GITHUB_TOKEN (contents: write on the repository) -
+# the first three this deployment's own, not prod's or the beta's. CLIENT_ASSET (the wasm file the
+# client's index.html names) and BUILD_ID/BUILD_COMMIT come with the deploy (`--var`).
+
+# One object is the server: its memory holds the tours, its storage keeps them.
+[[durable_objects.bindings]]
+name = "STORE"
+class_name = "Store"
+
+# SQLite-backed: the only kind on the free plan.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Store"]
+
+# The client as static files: served by Cloudflare without running the Worker, free and
+# outside the request limit. What the server answers goes to the Worker first; anything else
+# unknown is the app's own route (/tour/..., /goto/...), so it gets index.html.
+[assets]
+directory = "../../rust/crates/tc-web/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/t", "/t/*", "/service-worker.js", "/seed", "/crash"]
+
+[observability]
+enabled = true

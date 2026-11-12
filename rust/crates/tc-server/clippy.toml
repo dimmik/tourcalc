@@ -1,0 +1,11 @@
+# The library runs in a Cloudflare Worker too (cloudflare/worker), built for wasm32, where
+# these compile and then fail at run time: there is no clock below the standard library
+# (`SystemTime::now()`, `Instant::now()` panic) and no tokio runtime to spawn on.
+# `crate::clock` has what works on both. CI lints the library for wasm with these denied
+# (docker-publish-rust.yml, `wasm-check`); tests and main.rs are not linted there, so they
+# may use anything.
+disallowed-methods = [
+    { path = "std::time::SystemTime::now", reason = "panics on wasm32 (the Worker): use crate::clock::now()" },
+    { path = "std::time::Instant::now", reason = "panics on wasm32 (the Worker)" },
+    { path = "tokio::task::spawn", reason = "no tokio runtime in the Worker: use crate::clock::spawn" },
+]

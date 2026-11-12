@@ -117,6 +117,25 @@ pub fn remember_tour_order(by: &str, downwards: bool) {
     }
 }
 
+fn hide_bought_key(tour: &str) -> String {
+    format!("__tcw_hidebought_{tour}")
+}
+
+/// Whether this tour's shopping hides what is ticked as bought, on this device: whoever
+/// shops with the list hides it every time, and had to tick it every time. Per tour, as
+/// who is shopping (`me`) is.
+pub fn hide_bought(tour: &str) -> bool {
+    storage()
+        .and_then(|s| s.get_item(&hide_bought_key(tour)).ok().flatten())
+        .is_some_and(|v| v == "1")
+}
+
+pub fn remember_hide_bought(tour: &str, hide: bool) {
+    if let Some(s) = storage() {
+        let _ = s.set_item(&hide_bought_key(tour), if hide { "1" } else { "0" });
+    }
+}
+
 fn payer_key(tour: &str) -> String {
     format!("__tcw_payer_{tour}")
 }

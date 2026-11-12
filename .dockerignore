@@ -22,3 +22,5 @@ ai-worklog.md
 # one would rebuild it.
 prototypes/
 tools/
+# The Cloudflare Worker prototype: built and deployed by wrangler, never into an image.
+cloudflare/

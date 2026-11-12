@@ -340,7 +340,7 @@ fn rate_limited(status: u16, retry_after: Option<u64>, remaining: Option<u64>, r
 
 #[cfg(feature = "github")]
 fn now_secs() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+    crate::clock::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 #[cfg(feature = "github")]

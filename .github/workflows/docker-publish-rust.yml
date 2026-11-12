@@ -20,6 +20,34 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # The server's library as the Cloudflare Worker builds it (`cloudflare/worker`): for wasm,
+  # without Mongo and push (`--no-default-features` - Mongo's network layer, mio, does not
+  # build for wasm) and without `main.rs` (`--lib`). Nothing else builds it, so a change to
+  # tc-server that breaks it would otherwise go unseen until the next deploy of the Worker.
+  # Two kinds of breaking: what does not compile there (a dependency only a native build
+  # has), and what compiles and fails at run time - `SystemTime::now()` panics, `tokio::spawn`
+  # has no runtime. The second is what clippy's `disallowed-methods` is for
+  # (tc-server/clippy.toml); everything else clippy says is not this job's business, so all
+  # of it is allowed but that one. A job of its own, beside the image's: about a minute, and
+  # it holds nothing up. The toolchain is the image's (tourcalc.rust.docker).
+  wasm-check:
+    name: tc-server for the Worker (wasm)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - name: Toolchain with wasm
+        run: rustup toolchain install 1.98.1 --profile minimal -c clippy -t wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: wasm
+      - name: Check
+        run: |
+          cd rust
+          cargo +1.98.1 clippy --locked -p tc-server --lib --no-default-features --target wasm32-unknown-unknown -- -A clippy::all -D clippy::disallowed_methods
+
   build-and-push-image:
     name: ${{ inputs.kind }} image
     runs-on: ubuntu-latest

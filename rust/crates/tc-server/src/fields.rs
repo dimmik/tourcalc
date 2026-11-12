@@ -66,7 +66,7 @@ pub fn now_stamp() -> String {
 /// The stamp of so many seconds ago, in the shape [`now_stamp`] writes: fixed width, so two
 /// of them compare as text the way they compare in time.
 pub fn stamp_ago(seconds: u64) -> String {
-    let millis = std::time::SystemTime::now()
+    let millis = crate::clock::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)

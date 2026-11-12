@@ -67,7 +67,7 @@ impl AppState {
     pub fn announce(self: &Arc<Self>, tour_id: &str, message: String) {
         let state = Arc::clone(self);
         let tour_id = tour_id.to_owned();
-        tokio::spawn(async move {
+        crate::clock::spawn(async move {
             // Reading who is subscribed is part of the errand now: with the database
             // holding them it is a query, and a query does not belong on the path of
             // somebody's save.
@@ -103,7 +103,7 @@ impl AppState {
         if list.len() >= WAKEUPS_TO_KEEP {
             list.remove(0);
         }
-        list.push(std::time::SystemTime::now());
+        list.push(crate::clock::now());
     }
 }
 

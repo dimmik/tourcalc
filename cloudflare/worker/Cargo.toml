@@ -1,0 +1,33 @@
+[package]
+name = "tc-worker"
+version = "0.1.0"
+edition = "2021"
+
+# Tourcalc as a Cloudflare Worker: the server's own router (`tc-server`, built for wasm without
+# its native parts) inside a Durable Object, the tours in the object's storage. Not part of
+# the `rust/` workspace - it builds for wasm32 with `worker-build`, alone. See ../README.md.
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tc-core = { path = "../../rust/crates/tc-core" }
+# No MongoDB, no reqwest (push, GitHub): neither builds for wasm, and none is needed here.
+tc-server = { path = "../../rust/crates/tc-server", default-features = false }
+worker = "=0.8.7"
+axum = { version = "0.8", default-features = false }
+tower = { version = "0.5", features = ["util"] }
+http = "1"
+http-body-util = "0.1"
+async-trait = "0.1"
+serde_json = "1"
+# The branch's archive, read when the object starts with nothing: gzip, as the server's
+# sealing already deflates with it.
+miniz_oxide = "0.8"
+# Randomness in a Worker comes from `crypto.getRandomValues`.
+getrandom = { version = "0.2", features = ["js"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
