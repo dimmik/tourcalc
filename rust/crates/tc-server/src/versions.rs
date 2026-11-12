@@ -97,6 +97,27 @@ pub fn shopping_only(old: &Tour, new: &Tour) -> bool {
     bare(old) == bare(new)
 }
 
+/// How many purchases and split-off lines a save gave another buyer (or none).
+pub fn buyers_changed(old: &Tour, new: &Tour) -> usize {
+    use std::collections::HashMap;
+    use tc_core::menu::Menu;
+    let buyers = |t: &Tour| -> HashMap<(String, String), Option<String>> {
+        let mut out = HashMap::new();
+        for p in Menu::of(t).map(|m| m.purchases).unwrap_or_default() {
+            for s in &p.splits {
+                out.insert((p.product.clone(), s.id.clone()), s.who.clone());
+            }
+            out.insert((p.product, String::new()), p.who);
+        }
+        out
+    };
+    let was = buyers(old);
+    buyers(new)
+        .into_iter()
+        .filter(|(k, who)| was.get(k).cloned().flatten() != *who)
+        .count()
+}
+
 /// The line for what a save did to the menu, or `None` when it did nothing to it.
 ///
 /// Apart from [`describe_change`] because it is apart everywhere else: it goes into the
