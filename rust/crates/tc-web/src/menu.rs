@@ -143,6 +143,8 @@ pub struct MenuState {
     /// Other people's shopping too, although somebody is picked. Without it the shopping
     /// shows theirs and nobody's - nobody's so that there is something to take.
     pub everybody: RwSignal<bool>,
+    /// What is ticked as bought, hidden: what is left to buy, without the struck-out lines.
+    pub hide_bought: RwSignal<bool>,
     /// The days the shopping is for, when only some - Friday's market before the trip, the
     /// rest on Saturday. Empty: the whole trip.
     pub days: RwSignal<Vec<u32>>,
@@ -164,15 +166,17 @@ impl MenuState {
             methods_open: RwSignal::new(true),
             me: RwSignal::new(crate::settings::me(tour)),
             everybody: RwSignal::new(false),
+            hide_bought: RwSignal::new(false),
             days: RwSignal::new(Vec::new()),
         }
     }
 
-    /// What a shopping link asks (`?buyer=<person>&others=0|1`, see [`shopping_link`]): whose
-    /// shopping, kept as this phone's "Shopping by" as if picked there - the link is handed
-    /// to the one who shops - and whether the others' lines show. Whether it asked anything.
+    /// What a shopping link asks (`?buyer=<person>&others=0|1&bought=0|1`, see
+    /// [`shopping_link`]): whose shopping, kept as this phone's "Shopping by" as if picked
+    /// there - the link is handed to the one who shops - whether the others' lines show, and
+    /// whether what is bought does. Whether it asked anything.
     pub fn take_link(&self, tour: &str, search: &str) -> bool {
-        let (buyer, others) = link_asks(search);
+        let Asks { buyer, others, bought } = link_asks(search);
         if let Some(buyer) = &buyer {
             crate::settings::set_me(tour, Some(buyer));
             self.me.set(Some(buyer.clone()));
@@ -181,20 +185,33 @@ impl MenuState {
         if let Some(others) = others {
             self.everybody.set(others);
         }
-        buyer.is_some() || others.is_some()
+        if let Some(bought) = bought {
+            self.hide_bought.set(!bought);
+        }
+        buyer.is_some() || others.is_some() || bought.is_some()
     }
 }
 
-/// The address that opens this tour's shopping with `buyer` picked and the others' lines
-/// shown or hidden: the tour's share link (it signs in whoever opens it) with the view and
-/// the two on the end.
-pub(crate) fn shopping_link(code: &str, tour: &str, buyer: &str, others: bool) -> String {
+/// The address that opens this tour's shopping with `buyer` picked, and the others' lines
+/// and the bought ones shown or hidden: the tour's share link (it signs in whoever opens it)
+/// with the view and the three on the end.
+pub(crate) fn shopping_link(code: &str, tour: &str, buyer: &str, others: bool, bought: bool) -> String {
     format!(
-        "/goto/{code}/{tour}/menu/{}?buyer={}&others={}",
+        "/goto/{code}/{tour}/menu/{}?buyer={}&others={}&bought={}",
         View::Shopping.part(),
         escaped(buyer),
-        u8::from(others)
+        u8::from(others),
+        u8::from(bought)
     )
+}
+
+/// What a shopping link's query names: the buyer, whether the others' lines show, whether
+/// the bought ones do - each if it does.
+#[derive(Debug, Default, PartialEq)]
+struct Asks {
+    buyer: Option<String>,
+    others: Option<bool>,
+    bought: Option<bool>,
 }
 
 /// Text as it can stand in a query: letters, digits and `-_.~` as they are, every other
@@ -234,19 +251,19 @@ fn unescaped(text: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// The buyer and the others' switch a shopping link's query names, each if it does.
-fn link_asks(search: &str) -> (Option<String>, Option<bool>) {
-    let mut buyer = None;
-    let mut others = None;
+/// What a shopping link's query asks - see [`Asks`].
+fn link_asks(search: &str) -> Asks {
+    let mut asks = Asks::default();
     for pair in search.trim_start_matches('?').split('&') {
         let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
         match key {
-            "buyer" if !value.is_empty() => buyer = Some(unescaped(value)),
-            "others" => others = Some(value == "1"),
+            "buyer" if !value.is_empty() => asks.buyer = Some(unescaped(value)),
+            "others" => asks.others = Some(value == "1"),
+            "bought" => asks.bought = Some(value == "1"),
             _ => {}
         }
     }
-    (buyer, others)
+    asks
 }
 
 // ---- the starter catalogue ------------------------------------------------------------
@@ -1460,7 +1477,13 @@ fn Shopping(
         let tour_id = StoredValue::new(tour_id.clone());
         move |_| {
             let Some(me) = state.me.get_untracked() else { return };
-            let path = shopping_link(&code.get_value(), &tour_id.get_value(), &me, state.everybody.get_untracked());
+            let path = shopping_link(
+                &code.get_value(),
+                &tour_id.get_value(),
+                &me,
+                state.everybody.get_untracked(),
+                !state.hide_bought.get_untracked(),
+            );
             crate::tour::copy_to_clipboard(&crate::tour::full_address(&path));
             link_said.say(t().sync.link_copied);
         }
@@ -1489,12 +1512,17 @@ fn Shopping(
                            on:change=move |ev| state.everybody.set(!event_target_checked(&ev)) />
                     {t().menu.mine_only}
                 </label>
-                <Show when=move || !code.with_value(String::is_empty)>
-                    <button type="button" class="tcn-chip tcw-food-link" title=t().menu.shopping_link_hint
-                            on:click=copy_link.clone()>
-                        {move || if link_said.is_on() { link_said.get() } else { t().menu.shopping_link.to_owned() }}
-                    </button>
-                </Show>
+            </Show>
+            <label class="tcn-switchline">
+                <input type="checkbox" prop:checked=move || state.hide_bought.get()
+                       on:change=move |ev| state.hide_bought.set(event_target_checked(&ev)) />
+                {t().menu.hide_bought}
+            </label>
+            <Show when=move || state.me.get().is_some() && !code.with_value(String::is_empty)>
+                <button type="button" class="tcn-chip tcw-food-link" title=t().menu.shopping_link_hint
+                        on:click=copy_link.clone()>
+                    {move || if link_said.is_on() { link_said.get() } else { t().menu.shopping_link.to_owned() }}
+                </button>
             </Show>
         </div>
     };
@@ -1552,9 +1580,15 @@ fn Shopping(
 
     // Somebody picked and everything taken by others, or nothing found: say so, rather than
     // an empty screen.
+    let rows: Vec<(Option<String>, String, bool)> = lines.iter().map(|l| (l.who.clone(), l.hay.clone(), l.ticked)).collect();
     let anything_shown = {
-        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.who.clone(), l.hay.clone())).collect();
-        move || rows.iter().any(|(who, hay)| visible_line(state, who.as_deref(), hay))
+        let rows = rows.clone();
+        move || rows.iter().any(|(who, hay, ticked)| visible_line(state, who.as_deref(), hay, *ticked))
+    };
+    // With nothing on screen, why: the search, everything bought, everything others'.
+    let all_bought = {
+        let rows = StoredValue::new(rows);
+        move || rows.with_value(|rows| rows.iter().any(|(who, hay, _)| wanted(state, who.as_deref(), hay)))
     };
 
     let sort_options = Sort::ALL
@@ -1665,7 +1699,13 @@ fn Shopping(
         {search_box(state.shop_find, t().menu.find_product)}
         <Show when=move || !anything_shown()>
             <div class="tcn-empty">
-                {move || if state.shop_find.get().trim().is_empty() { t().menu.nothing_mine } else { t().menu.nothing_found }}
+                {move || if !state.shop_find.get().trim().is_empty() {
+                    t().menu.nothing_found
+                } else if all_bought() {
+                    t().menu.nothing_unbought
+                } else {
+                    t().menu.nothing_mine
+                }}
             </div>
         </Show>
         {cards}
@@ -1886,7 +1926,7 @@ fn shopping_lines(tour: &Tour, menu: &Menu, eating: &Eating, picked: &[u32], sho
 fn tally_text(state: MenuState, rows: &[(Option<String>, String, bool)], shoppers: &[(String, String)]) -> String {
     let total = rows.len();
     let shown: Vec<&(Option<String>, String, bool)> =
-        rows.iter().filter(|(who, hay, _)| visible_line(state, who.as_deref(), hay)).collect();
+        rows.iter().filter(|(who, hay, _)| wanted(state, who.as_deref(), hay)).collect();
     let bought = shown.iter().filter(|r| r.2).count();
     let count = if shown.len() == total {
         (t().menu.bought_of)(bought, total)
@@ -1949,6 +1989,11 @@ pub fn MiniShopping(tour: Tour, state: MenuState, apply: Callback<Operation>, mo
                     {t().menu.mine_only}
                 </label>
             </Show>
+            <label class="tcm-check">
+                <input type="checkbox" prop:checked=move || state.hide_bought.get()
+                       on:change=move |ev| state.hide_bought.set(event_target_checked(&ev)) />
+                {t().menu.hide_bought}
+            </label>
         </div>
     };
     let days = (menu.days > 1).then(|| {
@@ -2018,8 +2063,8 @@ pub fn MiniShopping(tour: Tour, state: MenuState, apply: Callback<Operation>, mo
                     .map(|(_, name)| name.clone())
                     .unwrap_or_else(|| "—".to_owned());
                 let visible = {
-                    let (who, hay) = (who.clone(), line.hay.clone());
-                    move || visible_line(state, who.as_deref(), &hay)
+                    let (who, hay, ticked) = (who.clone(), line.hay.clone(), line.ticked);
+                    move || visible_line(state, who.as_deref(), &hay, ticked)
                 };
                 let is_mine = {
                     let who = who.clone();
@@ -2220,8 +2265,15 @@ fn whom(eaters: Eaters) -> &'static str {
     }
 }
 
-/// Whether a line is on screen: its buyer's (see [`shown`]) and matching the search.
-fn visible_line(state: MenuState, who: Option<&str>, hay: &str) -> bool {
+/// Whether a line is on screen: [`wanted`], and not hidden as bought.
+fn visible_line(state: MenuState, who: Option<&str>, hay: &str, ticked: bool) -> bool {
+    wanted(state, who, hay) && !(ticked && state.hide_bought.get())
+}
+
+/// Whether a line is among those asked for: its buyer's (see [`shown`]) and matching the
+/// search. What the count counts - "2 of 15 bought" says how much of them is done, the
+/// bought hidden or not.
+fn wanted(state: MenuState, who: Option<&str>, hay: &str) -> bool {
     shown(state, who) && found(&state.shop_find.get(), hay)
 }
 
@@ -2607,7 +2659,7 @@ fn ListCard(
             let who = (!v.is_empty()).then_some(v);
             let these: Vec<&(String, Option<String>, Option<String>, String)> = open_lines
                 .iter()
-                .filter(|(_, _, now, hay)| *now != who && visible_line(state, now.as_deref(), hay))
+                .filter(|(_, _, now, hay)| *now != who && visible_line(state, now.as_deref(), hay, false))
                 .collect();
             if these.is_empty() {
                 ask_nothing(t().menu.everybody_none);
@@ -2673,8 +2725,8 @@ fn ListCard(
     };
 
     let visible_here = {
-        let rows: Vec<(Option<String>, String)> = lines.iter().map(|l| (l.who.clone(), l.hay.clone())).collect();
-        move || rows.iter().any(|(who, hay)| visible_line(state, who.as_deref(), hay))
+        let rows: Vec<(Option<String>, String, bool)> = lines.iter().map(|l| (l.who.clone(), l.hay.clone(), l.ticked)).collect();
+        move || rows.iter().any(|(who, hay, ticked)| visible_line(state, who.as_deref(), hay, *ticked))
     };
 
     let rows = lines
@@ -2789,7 +2841,7 @@ fn ListCard(
             let visible = {
                 let who = who.clone();
                 let hay = line.hay.clone();
-                move || visible_line(state, who.as_deref(), &hay)
+                move || visible_line(state, who.as_deref(), &hay, ticked)
             };
             let money_of = |sid: &str| {
                 tour.spendings.iter().find(|s| s.id.as_str() == sid).map(|s| money_in(tour.convert(s.amount, &s.currency), &unit))
@@ -2898,16 +2950,20 @@ mod tests {
     /// in the buyer's id; an address without them asks nothing.
     #[test]
     fn a_shopping_link_names_the_buyer_and_the_others() {
-        for (buyer, others) in [("p1", false), ("a b&c=d/é", true)] {
-            let link = shopping_link("CODE", "tour1", buyer, others);
+        for (buyer, others, bought) in [("p1", false, true), ("a b&c=d/é", true, false)] {
+            let link = shopping_link("CODE", "tour1", buyer, others, bought);
             let (path, query) = link.split_once('?').expect("a query");
             assert_eq!(path, "/goto/CODE/tour1/menu/shopping");
-            assert_eq!(link_asks(&format!("?{query}")), (Some(buyer.to_owned()), Some(others)));
+            assert_eq!(
+                link_asks(&format!("?{query}")),
+                Asks { buyer: Some(buyer.to_owned()), others: Some(others), bought: Some(bought) }
+            );
         }
-        assert_eq!(link_asks(""), (None, None));
-        assert_eq!(link_asks("?others=1"), (None, Some(true)));
-        assert_eq!(link_asks("?buyer=&x=1"), (None, None));
-        assert_eq!(link_asks("?buyer=Sasha+O.%"), (Some("Sasha O.%".to_owned()), None));
+        assert_eq!(link_asks(""), Asks::default());
+        assert_eq!(link_asks("?others=1"), Asks { others: Some(true), ..Asks::default() });
+        assert_eq!(link_asks("?bought=0"), Asks { bought: Some(false), ..Asks::default() });
+        assert_eq!(link_asks("?buyer=&x=1"), Asks::default());
+        assert_eq!(link_asks("?buyer=Sasha+O.%"), Asks { buyer: Some("Sasha O.%".to_owned()), ..Asks::default() });
     }
 
     /// What "Copy menu" writes reads back as the catalogue alone; so does a whole tour's JSON;
