@@ -189,6 +189,14 @@ const MENU_SITTING_SECONDS: u64 = 10 * 60;
 /// ten minutes. Restoring that version undoes the sitting, which is what anybody would
 /// restore it for.
 async fn menu_version(state: &AppState, tour: &TourId, old: &Tour, new: &Tour, line: Option<String>) -> Option<String> {
+    // One save giving many products another buyer - "All to Sergey" - is not a tick: it is
+    // the shopping of a whole place or trip rewritten at once, and needs a way back. Always
+    // a version of its own, whatever the settings, never folded into a sitting. 12.11.2026
+    // one such pick took the whole trip's shopping away from two people, and there was no
+    // version to restore.
+    if crate::versions::buyers_changed(old, new) >= MANY_BUYERS {
+        return line;
+    }
     if !state.menu_versioning || crate::versions::shopping_only(old, new) {
         return None;
     }
@@ -205,6 +213,9 @@ async fn menu_version(state: &AppState, tour: &TourId, old: &Tour, new: &Tour, l
     }
     line
 }
+
+/// From how many products given another buyer in one save that save keeps a version.
+const MANY_BUYERS: usize = 3;
 
 /// Added to a menu version's line when later edits of the same sitting were folded into it.
 const MORE: &str = "; and more";
