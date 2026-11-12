@@ -216,6 +216,13 @@ pub struct MenuTexts {
     pub who_am_i: &'static str,
     pub nobody: &'static str,
     pub mine_only: &'static str,
+    /// Copies a link to the shopping as it is now: this person picked, the others' lines
+    /// hidden or not.
+    pub shopping_link: &'static str,
+    /// Hides the lines ticked as bought; and what the list says when that leaves nothing.
+    pub hide_bought: &'static str,
+    pub nothing_unbought: &'static str,
+    pub shopping_link_hint: &'static str,
     /// Over a card of the shopping: the button that opens the picker below, one person for
     /// every line of the card not bought yet.
     pub assign_all: &'static str,
