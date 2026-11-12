@@ -6,9 +6,12 @@ edition = "2021"
 [dependencies]
 tc-core = { path = "../tc-core" }
 
-axum = "0.8"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
-tower-http = { version = "0.6", features = ["fs", "trace", "compression-br", "compression-gzip", "cors", "set-header", "catch-panic"] }
+# Without its server: a Cloudflare Worker (`cloudflare/worker`) runs the same router with
+# no sockets of its own, so the parts that listen - `tokio`, `http1` - come with the
+# native target below.
+axum = { version = "0.8", default-features = false, features = ["form", "json", "matched-path", "original-uri", "query", "tower-log", "tracing"] }
+# Only the locks and the timer here; the runtime that spawns and listens is native-only.
+tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
@@ -55,7 +58,22 @@ sha1 = "0.10"
 miniz_oxide = "0.8"
 
 tracing = "0.1"
+
+# What only a process with sockets, signals and a disk needs - everything `main` uses to
+# listen, serve files and log. Built for wasm (the Worker), the library goes without.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+tower-http = { version = "0.6", features = ["fs", "trace", "compression-br", "compression-gzip", "cors", "set-header", "catch-panic"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# In a Worker the clock is JavaScript's (`std::time::SystemTime::now` panics on this target),
+# and a task is spawned on its event loop.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
+# The randomness under p256 (nonces, keys): `crypto.getRandomValues`.
+getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

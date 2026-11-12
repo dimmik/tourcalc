@@ -3,27 +3,23 @@ name = "tc-worker"
 version = "0.1.0"
 edition = "2021"
 
-# A prototype: can the server run as a Cloudflare Worker, and within its free limits?
-# Not part of the `rust/` workspace - it builds for wasm32 with `worker-build`, alone.
+# Tourcalc as a Cloudflare Worker: the server's own router (`tc-server`, built for wasm without
+# its native parts) inside a Durable Object, the tours in the object's storage. Not part of
+# the `rust/` workspace - it builds for wasm32 with `worker-build`, alone. See ../README.md.
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
 tc-core = { path = "../../rust/crates/tc-core" }
+# No MongoDB, no reqwest (push, GitHub): neither builds for wasm, and none is needed here.
+tc-server = { path = "../../rust/crates/tc-server", default-features = false }
 worker = "=0.8.7"
-serde = { version = "1", features = ["derive"] }
+axum = { version = "0.8", default-features = false }
+tower = { version = "0.5", features = ["util"] }
+http = "1"
+http-body-util = "0.1"
+async-trait = "0.1"
 serde_json = "1"
-
-# What the GitHub store's sealing (`tc-server/src/github/seal.rs`, taken in as it is) needs.
-base64 = "0.22"
-chacha20poly1305 = "0.10"
-hmac = "0.12"
-sha2 = "0.10"
-sha1 = "0.10"
-miniz_oxide = "0.8"
-p256 = { version = "0.13", features = ["ecdsa"] }
-# Push notifications, made as the server makes them (`tc-server/src/push.rs`).
-web-push-native = "0.5"
 # Randomness in a Worker comes from `crypto.getRandomValues`.
 getrandom = { version = "0.2", features = ["js"] }
 

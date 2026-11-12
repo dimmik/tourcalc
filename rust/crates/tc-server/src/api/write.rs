@@ -392,7 +392,7 @@ pub async fn delete(
 /// Nothing parses it - the only thing anybody does with it is compare it for equality - but
 /// keeping the shape means a tour saved here is indistinguishable from one saved there.
 pub fn new_state_guid() -> String {
-    let now = std::time::SystemTime::now()
+    let now = crate::clock::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)

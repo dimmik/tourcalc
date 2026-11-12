@@ -5,6 +5,7 @@
 
 pub mod api;
 pub mod auth;
+pub mod clock;
 pub mod config;
 pub mod lock;
 pub mod fields;

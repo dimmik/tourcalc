@@ -1,4 +1,4 @@
-# The tourcalc server as a Cloudflare Worker - a prototype. See README.md.
+# Tourcalc as a Cloudflare Worker. See ../README.md.
 name = "tc-proto"
 main = "build/worker/shim.mjs"
 compatibility_date = "2026-10-01"
@@ -8,13 +8,12 @@ workers_dev = true
 command = "cargo install -q worker-build --version 0.8.7 --locked && worker-build --release"
 
 [vars]
-GITHUB_REPO = "dimmik/tc-strg-test"
-# Its own branch, made from master: the beta writes to master, and two writers lose edits.
-GITHUB_BRANCH = "cf-proto"
-# Secrets, put with `wrangler secret put`: GITHUB_TOKEN (contents: write on the repository) and
-# STORE_KEY (the store's GitHubStoreKey).
+BUILD_TYPE = "cloudflare"
+# Secrets, put with `wrangler secret put` (see cf-secrets.sh): MasterKey, AuthPrivateECDSAKey -
+# both this deployment's own, not prod's or the beta's. CLIENT_ASSET (the wasm file the
+# client's index.html names) and BUILD_ID/BUILD_COMMIT come with the deploy (`--var`).
 
-# One object holds what the server holds in memory: the branch's listing and the files read.
+# One object is the server: its memory holds the tours, its storage keeps them.
 [[durable_objects.bindings]]
 name = "STORE"
 class_name = "Store"
@@ -25,12 +24,12 @@ tag = "v1"
 new_sqlite_classes = ["Store"]
 
 # The client as static files: served by Cloudflare without running the Worker, free and
-# outside the request limit. The API goes to the Worker first; anything else unknown is the
-# app's own route (/tour/..., /goto/...), so it gets index.html.
+# outside the request limit. What the server answers goes to the Worker first; anything else
+# unknown is the app's own route (/tour/..., /goto/...), so it gets index.html.
 [assets]
 directory = "../../rust/crates/tc-web/dist"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/calc/*", "/calc-here/*", "/push-test", "/status"]
+run_worker_first = ["/api/*", "/t", "/t/*", "/service-worker.js", "/seed"]
 
 [observability]
 enabled = true

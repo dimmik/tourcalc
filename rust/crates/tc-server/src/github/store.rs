@@ -317,15 +317,15 @@ impl GitHubStore {
         let store = self.clone();
         tokio::spawn(async move {
             let every = store.core.settings.flush_every;
-            let mut last_note = SystemTime::now();
+            let mut last_note = crate::clock::now();
             loop {
-                store.lock().stats.next_write = Some(SystemTime::now() + every);
+                store.lock().stats.next_write = Some(crate::clock::now() + every);
                 tokio::time::sleep(every).await;
-                if store.due(SystemTime::now()) {
+                if store.due(crate::clock::now()) {
                     let _ = store.flush().await;
                 }
                 if last_note.elapsed().unwrap_or_default() >= Duration::from_secs(600) {
-                    last_note = SystemTime::now();
+                    last_note = crate::clock::now();
                     let i = store.lock();
                     tracing::info!(
                         "GitHub store: {} tour(s) in memory, {} K of {} K; {} sent back to disk since start",
@@ -381,7 +381,7 @@ impl GitHubStore {
             let message = format!("{} file(s)", changes.len());
             let head = {
                 let mut i = self.lock();
-                i.stats.last_attempt = Some(SystemTime::now());
+                i.stats.last_attempt = Some(crate::clock::now());
                 i.head.clone()
             };
             match self.core.remote.commit(&head, &changes, &message).await {
@@ -489,7 +489,7 @@ impl GitHubStore {
             RemoteError::Limited(said) => said.unwrap_or(Duration::from_secs(60)).max(doubled),
             _ => doubled,
         };
-        i.stats.not_before = Some(SystemTime::now() + wait);
+        i.stats.not_before = Some(crate::clock::now() + wait);
         i.stats.last_error = Some((fields::now_stamp(), why.clone()));
         tracing::warn!("GitHub store: not written - {why}; next try in {} s", wait.as_secs());
         why
@@ -506,7 +506,7 @@ impl GitHubStore {
         let next = i
             .stats
             .next_write
-            .and(next_at.duration_since(SystemTime::now()).ok())
+            .and(next_at.duration_since(crate::clock::now()).ok())
             .map(|d| d.as_secs());
         let mut v = serde_json::json!({
             "kind": "GitHub",
@@ -621,7 +621,7 @@ impl GitHubStore {
     /// The last commit before the server stops: not while GitHub's limit says to wait, and no
     /// longer than [`STOP_BUDGET`]. What is left waits in the cache.
     pub async fn flush_before_stop(&self) {
-        let paused = self.lock().stats.not_before.is_some_and(|t| SystemTime::now() < t);
+        let paused = self.lock().stats.not_before.is_some_and(|t| crate::clock::now() < t);
         let done = if paused {
             false
         } else {

@@ -156,8 +156,13 @@ async fn info_wakeup(
     state.woke_up();
     tracing::info!("wakeup");
 
-    let minutes = state.wakeup_pre_delay_min + state.wakeup_post_delay_min;
-    tokio::time::sleep(std::time::Duration::from_secs(minutes * 60)).await;
+    // Held open to keep a sleeping host awake. A Worker has no host to keep awake, and no
+    // tokio timer to hold it with.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let minutes = state.wakeup_pre_delay_min + state.wakeup_post_delay_min;
+        tokio::time::sleep(std::time::Duration::from_secs(minutes * 60)).await;
+    }
     "ok"
 }
 
@@ -184,7 +189,7 @@ async fn log_logs() -> axum::Json<Vec<serde_json::Value>> {
 
 /// `2026-09-13T12:34:56Z` for right now - what a spending recorded on the server is dated.
 pub fn now_iso() -> String {
-    chrono_lite::Utc::from(std::time::SystemTime::now()).to_string()
+    chrono_lite::Utc::from(crate::clock::now()).to_string()
 }
 
 /// Formats a unix timestamp the way the stored `StateGUID` is written.
