@@ -877,8 +877,10 @@ pub fn put_tour(tour: &Tour, draft: &TourDraft) -> Tour {
 pub fn for_next_trip(tour: &Tour) -> Tour {
     let mut next = tour.clone();
     if let Some(mut menu) = tc_core::menu::Menu::of(&next) {
-        if !menu.purchases.is_empty() {
+        // And the shopping's own lines - the taxi was this trip's.
+        if !menu.purchases.is_empty() || !menu.extras.is_empty() {
             menu.purchases.clear();
+            menu.extras.clear();
             menu.put(&mut next);
         }
     }
@@ -903,6 +905,9 @@ pub enum MenuEdit {
     PutDish(tc_core::menu::Dish),
     RemoveDish(String),
     PutProduct(tc_core::menu::Product),
+    /// A line of the shopping's own - "book the taxi" - added or changed, or taken off.
+    PutExtra(tc_core::menu::Extra),
+    RemoveExtra(String),
     /// Only if nothing uses it - see `Menu::remove_product`.
     RemoveProduct(String),
     /// What is bought every day, whatever is cooked.
@@ -1007,6 +1012,8 @@ fn edit_menu(menu: &mut tc_core::menu::Menu, change: &MenuEdit) {
         MenuEdit::Start(date) => menu.start = date.clone(),
         MenuEdit::PutPlace(place) => menu.put_place(place.clone()),
         MenuEdit::RemovePlace(id) => menu.remove_place(id),
+        MenuEdit::PutExtra(extra) => menu.put_extra(extra.clone()),
+        MenuEdit::RemoveExtra(id) => menu.remove_extra(id),
         MenuEdit::All(changes) => {
             for change in changes {
                 edit_menu(menu, change);
