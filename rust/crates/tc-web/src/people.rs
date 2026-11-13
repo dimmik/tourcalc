@@ -641,6 +641,12 @@ fn PersonBlock(
         .map(|p| p.name.clone());
 
     let weight = person.weight;
+    // "Vices" set by hand against the weight - the one at 100 who does not drink, the one at
+    // 50 who does: said on the line, or nothing would tell why "Hedonists" leaves them out or
+    // takes them in. Set the way the weight has it anyway, it changes nothing to say.
+    let vices_against_weight = person
+        .vices_set()
+        .filter(|&yes| yes != (weight >= tc_core::menu::GROWN_UP));
 
     let for_edit = person.clone();
     let for_delete = person.clone();
@@ -699,6 +705,9 @@ fn PersonBlock(
                                 </span>
                             }.into_any()
                         }}
+                        {vices_against_weight.map(|yes| view! {
+                            <span class="tcn-person-meta tcw-vices-mark">{(t().dialogs.vices_mark)(yes)}</span>
+                        })}
                     </span>
                     <span class=format!("tcn-chip tcw-row-chip {chip_class}") title=words_row.clone()>
                         {signed_in(shown, &unit_for_stats.get_value(), settling)}

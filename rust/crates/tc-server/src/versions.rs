@@ -328,6 +328,19 @@ fn describe_people(old: &Tour, new: &Tour, out: &mut String) {
                 .map_or("None".to_owned(), |p| name_in(new, p));
             out.push_str(&format!("{} Parent: {before} -> {after}; ", was.name));
         }
+        if was.vices_set() != is.vices_set() {
+            let said = |v: Option<bool>| match v {
+                None => "by weight",
+                Some(true) => "yes",
+                Some(false) => "no",
+            };
+            out.push_str(&format!(
+                "{} Vices: {} -> {}; ",
+                was.name,
+                said(was.vices_set()),
+                said(is.vices_set())
+            ));
+        }
     }
 }
 
@@ -461,6 +474,16 @@ mod tests {
         let mut one_more = before.clone();
         one_more.persons.push(two_more.persons[1].clone());
         assert_eq!(describe_change(&before, &one_more).as_deref(), Some("P 'Эмма' added"), "one reads as before");
+    }
+
+    /// "Vices" set and cleared are said: it changes who a spending can be split between.
+    #[test]
+    fn vices_are_said() {
+        let before = tour(4400, 117_500);
+        let mut after = before.clone();
+        tc_core::extras::set(&mut after.persons[0].extras, tc_core::extras::VICES, false.into());
+        assert_eq!(describe_change(&before, &after).as_deref(), Some("Changed: P Vices: by weight -> no; "));
+        assert_eq!(describe_change(&after, &before).as_deref(), Some("Changed: P Vices: no -> by weight; "));
     }
 
     fn with_menu(t: &Tour, edit: impl FnOnce(&mut tc_core::menu::Menu)) -> Tour {

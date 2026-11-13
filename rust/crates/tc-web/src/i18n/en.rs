@@ -461,6 +461,15 @@ pub const TEXTS: Texts = Texts {
         custom: "custom",
         share_note: "A full share is 100. Someone on 50 pays for half as much of everything \
             shared. A custom 0 means they pay for nothing at all.",
+        vices: "Vices",
+        vices_by_weight: |yes| format!("by weight · {}", if yes { "yes" } else { "no" }),
+        vices_yes: "yes",
+        vices_no: "no",
+        vices_note: "Whether expenses for the hedonists — wine, beer and the like — are split \
+            onto them. By weight: yes from a share of 100.",
+        vices_mark: |yes| format!("vices: {}", if yes { "yes" } else { "no" }),
+        hedonists: "Hedonists",
+        healthy: "Healthy",
         paid_for_by: "Paid for by",
         pays_for_self: "Pays for themselves",
         paid_for_note: "Children and partners can be settled through one person instead of \

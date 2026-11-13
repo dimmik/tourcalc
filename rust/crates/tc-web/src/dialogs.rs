@@ -105,6 +105,15 @@ pub fn SpendingDialog(
     // them.
     let people_paid = edit::sorted_people(&tour);
     let people_split = people_paid.clone();
+    // "Hedonists" and "Healthy": the people with "Vices" and those without, in the list's
+    // order - a tap puts one group in place of whatever was picked, to adjust from there.
+    // Only when the tour has both: with one of them empty, the other is everybody.
+    let (hedonists, healthy): (Vec<_>, Vec<_>) =
+        people_split.iter().partition(|p| p.has_vices());
+    let hedonists: Vec<tc_core::PersonId> = hedonists.into_iter().map(|p| p.id.clone()).collect();
+    let healthy: Vec<tc_core::PersonId> = healthy.into_iter().map(|p| p.id.clone()).collect();
+    let vice_picks = (!hedonists.is_empty() && !healthy.is_empty())
+        .then(|| [(t().dialogs.hedonists, hedonists), (t().dialogs.healthy, healthy)]);
     let headcount = tour.persons.len();
     let currencies = tour.currencies.clone();
     let currencies_for_hint = StoredValue::new(tour.currencies.clone());
@@ -454,6 +463,27 @@ pub fn SpendingDialog(
                     </div>
                 </Show>
                 <Show when=move || !everyone.get()>
+                    {vice_picks.clone().map(|picks| view! {
+                        <div class="tcn-chips tcw-vice-picks">
+                            {picks
+                                .into_iter()
+                                .map(|(label, group)| {
+                                    let mine = group.clone();
+                                    view! {
+                                        <span class="tcn-chip tcn-filter-chip"
+                                              class:is-on=move || {
+                                                  let now = to.get();
+                                                  now.len() == mine.len()
+                                                      && mine.iter().all(|id| now.contains(id))
+                                              }
+                                              on:click=move |_| to.set(group.clone())>
+                                            {label}
+                                        </span>
+                                    }
+                                })
+                                .collect_view()}
+                        </div>
+                    })}
                     <div class="tcn-pchips">
                         {people_split
                             .iter()
@@ -712,6 +742,9 @@ pub fn PersonDialog(
     // the start when it has a value, so that a value is never hidden.
     let family = RwSignal::new(draft.family.clone().unwrap_or_default());
     let more = RwSignal::new(!family.get_untracked().trim().is_empty());
+    // A new person starts "by weight" and stays so unless somebody taps another answer:
+    // nothing is written for them until then, as for "together".
+    let vices = RwSignal::new(draft.vices.unwrap_or(edit::Vices::ByWeight));
     let error = RwSignal::new(String::new());
 
     // Somebody cannot pay for themselves, and a payer who is paid for by another would
@@ -741,6 +774,10 @@ pub fn PersonDialog(
         if d.family.is_some() || !f.trim().is_empty() {
             d.family = Some(f);
         }
+        let v = vices.get_untracked();
+        if d.vices.is_some() || v != edit::Vices::ByWeight {
+            d.vices = Some(v);
+        }
         d
     });
 
@@ -761,6 +798,7 @@ pub fn PersonDialog(
         weight.set(fresh.weight.to_string());
         parent.set(String::new());
         family.set(String::new());
+        vices.set(edit::Vices::ByWeight);
         error.set(String::new());
         crate::drafts::forget_person(&tour_id.get_value());
         carried.set(false);
@@ -855,6 +893,35 @@ pub fn PersonDialog(
                 </div>
                 <div class="tcn-hint">
                     {t().dialogs.share_note}
+                </div>
+            </div>
+
+            <div class="tcn-field">
+                <div class="tcn-label">{t().dialogs.vices}</div>
+                <div class="tcn-chips">
+                    {[edit::Vices::ByWeight, edit::Vices::Yes, edit::Vices::No]
+                        .into_iter()
+                        .map(|v| {
+                            view! {
+                                <span class="tcn-chip tcn-filter-chip"
+                                      class:is-on=move || vices.get() == v
+                                      on:click=move |_| vices.set(v)>
+                                    {move || match v {
+                                        // What the weight in the box makes it, as typed.
+                                        edit::Vices::ByWeight => (t().dialogs.vices_by_weight)(
+                                            weight.get().trim().parse::<i32>().unwrap_or(0)
+                                                >= tc_core::menu::GROWN_UP,
+                                        ),
+                                        edit::Vices::Yes => t().dialogs.vices_yes.to_owned(),
+                                        edit::Vices::No => t().dialogs.vices_no.to_owned(),
+                                    }}
+                                </span>
+                            }
+                        })
+                        .collect_view()}
+                </div>
+                <div class="tcn-hint">
+                    {t().dialogs.vices_note}
                 </div>
             </div>
 
