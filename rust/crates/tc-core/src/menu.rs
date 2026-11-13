@@ -1301,8 +1301,15 @@ impl Menu {
                 out.extend(method.ingredients.iter());
             }
         }
-        out.extend(self.daily.iter().filter(|i| self.daily_on(i.when, day)));
+        out.extend(self.daily.iter().filter(|i| self.daily_on(i.when, day) || Self::whatever_cooked(i)));
         out
+    }
+
+    /// A daily item bought once for the trip and every day - a pot, an axe, salt: there on
+    /// every day of the trip, cooked on or not. Added from the shopping as "something else to
+    /// buy", it is gear rather than food, and a tour that plans no dishes yet buys it too.
+    fn whatever_cooked(item: &Ingredient) -> bool {
+        item.per == Per::Trip && item.when.is_every_day()
     }
 }
 
@@ -1433,6 +1440,25 @@ mod tests {
         assert_eq!(ticked.days_needing("salt"), [2]);
         assert_eq!((amount(&day(&ticked, &eating, 1), "salt"), amount(&day(&ticked, &eating, 2), "salt")), (0.0, 1.0));
         assert_eq!(m.days_needing("bags"), [1, 2, 3]);
+    }
+
+    /// Gear - a pot, once for the trip - is bought with nothing cooked yet, and on a day
+    /// nothing is cooked on; with a meal, only if that meal is somewhere.
+    #[test]
+    fn once_a_trip_whatever_is_cooked() {
+        let eating = Eating::of(&tour(&[100, 100]));
+        let mut m = grill();
+        m.plan.clear();
+        m.products.push(product("pot", Eaters::Everyone));
+        m.products.push(product("axe", Eaters::Everyone));
+        m.daily.push(item("pot", 1.0, Per::Trip));
+        let with_dinner = Ingredient { when: When::With(Meal::Dinner), ..item("axe", 1.0, Per::Trip) };
+        m.daily.push(with_dinner);
+        let needs = m.shopping(&eating);
+        assert_eq!(amount(&needs, "pot"), 1.0);
+        assert_eq!(amount(&needs, "axe"), 0.0, "no dinner planned");
+        assert_eq!(amount(&needs, "bags"), 0.0, "per day: nothing cooked, no day");
+        assert_eq!(m.days_needing("pot"), (1..=m.days).collect::<Vec<_>>());
     }
 
     /// The grill as a way of cooking: lit once a meal however many dishes are on it, twice

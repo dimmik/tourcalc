@@ -813,6 +813,30 @@ fn with_products(made: Vec<Product>, edit: MenuEdit) -> MenuEdit {
     }
 }
 
+/// "Something else to buy" from the shopping - a pot, an axe: once for the trip, on the daily
+/// list, whatever is cooked (see `Menu::on_day`). A name the menu has is that product, in its
+/// own unit; a new one is counted in pieces. Added again, it is so many more.
+pub fn buy_once(menu: &Menu, name: &str, amount: &str) -> Result<MenuEdit, String> {
+    let key = name.trim().to_lowercase();
+    let known = menu.products.iter().find(|p| p.name.trim().to_lowercase() == key);
+    let typed = Typed {
+        name: name.to_owned(),
+        amount: amount.to_owned(),
+        unit: known.map_or(Unit::Piece, |p| p.unit),
+        own: known.and_then(|p| p.own_unit.clone()).filter(|u| !u.trim().is_empty()),
+        when: vec![When::EveryDay],
+        per: Per::Trip,
+    };
+    let (made, items) = new_products(menu, &[typed])?;
+    let Some(item) = items.into_iter().next() else { return Err(t().menu.name_needed.into()) };
+    let mut daily = menu.daily.clone();
+    match daily.iter_mut().find(|i| i.product == item.product && i.per == Per::Trip && i.when.is_every_day()) {
+        Some(there) => there.amount += item.amount,
+        None => daily.push(item),
+    }
+    Ok(with_products(made, MenuEdit::Daily(daily)))
+}
+
 /// A list of product-and-amount rows, with "+" and "✕".
 #[component]
 fn Ingredients(
@@ -1879,6 +1903,28 @@ mod tests {
         // A new name twice in two units: the same.
         assert!(new_products(&menu, &[typed("Перловка", "50", Unit::Gram, None), typed("перловка", "1", Unit::Piece, None)]).is_err());
         assert!(new_products(&menu, &[typed("", "50", Unit::Gram, None)]).is_err(), "no name");
+    }
+
+    /// "Something else to buy": a pot is a new product in pieces, once for the trip on the
+    /// daily list; typed again, two pots; rice there is stays rice, in its grams.
+    #[test]
+    fn something_else_to_buy_is_once_a_trip_on_the_daily_list() {
+        let mut menu = crate::menu::starter(3);
+        let daily = menu.daily.len();
+        let MenuEdit::All(edits) = buy_once(&menu, " Котелок ", "1").expect("pot") else { panic!("a new product") };
+        let [MenuEdit::PutProduct(pot), MenuEdit::Daily(items)] = &edits[..] else { panic!("{edits:?}") };
+        assert_eq!((pot.name.as_str(), pot.unit), ("Котелок", Unit::Piece));
+        assert_eq!(items.len(), daily + 1);
+        let item = items.last().expect("item");
+        assert_eq!((item.product.as_str(), item.amount, item.per, item.when), (pot.id.as_str(), 1.0, Per::Trip, When::EveryDay));
+        menu.products.push(pot.clone());
+        menu.daily = items.clone();
+        let MenuEdit::Daily(again) = buy_once(&menu, "котелок", "1").expect("again") else { panic!("no new product") };
+        assert_eq!((again.len(), again.last().map(|i| i.amount)), (daily + 1, Some(2.0)));
+        let rice = menu.products.iter().find(|p| p.id == "rice").expect("rice").name.clone();
+        let MenuEdit::Daily(rice_too) = buy_once(&menu, &rice, "500").expect("rice") else { panic!("rice is there") };
+        assert_eq!(rice_too.last().map(|i| (i.product.as_str(), i.amount)), Some(("rice", 500.0)));
+        assert!(buy_once(&menu, "Топор", "").is_err(), "no amount");
     }
 
     /// The supermarket where the menu has it - by id or by name - else the first place.

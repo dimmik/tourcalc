@@ -1592,8 +1592,9 @@ fn Shopping(
     let places = menu.shop_places();
     let place_options = places.iter().map(|p| view! { <option value=p.clone()></option> }).collect_view();
     let lines = shopping_lines(&tour, &menu, &eating, &in_plan(state.days.get_untracked()), &shoppers);
+    let else_box = buy_else(&menu, apply);
     if lines.is_empty() {
-        return view! { {who_am_i} <div class="tcn-empty">{t().menu.nothing_to_buy}</div> }.into_any();
+        return view! { {who_am_i} <div class="tcn-empty">{t().menu.nothing_to_buy}</div> {else_box} }.into_any();
     }
 
     // Somebody picked and everything taken by others, or nothing found: say so, rather than
@@ -1744,9 +1745,53 @@ fn Shopping(
             </div>
         </Show>
         {cards}
+        {else_box}
         {category_line}
     }
     .into_any()
+}
+
+/// "Something else to buy" under the list - a pot, an axe: once for the trip, on the daily
+/// list as "per trip", so that its buyer, tick and expense are a line's like any other, and
+/// the daily list is where it is changed or taken off.
+fn buy_else(menu: &Menu, apply: Callback<Operation>) -> impl IntoView {
+    let menu = StoredValue::new(menu.clone());
+    let name = RwSignal::new(String::new());
+    let amount = RwSignal::new("1".to_owned());
+    let error = RwSignal::new(None::<String>);
+    let add = move || {
+        if name.get_untracked().trim().is_empty() {
+            return;
+        }
+        let made = menu.with_value(|m| crate::menu_catalogue::buy_once(m, &name.get_untracked(), &amount.get_untracked()));
+        match made {
+            Ok(edit) => {
+                error.set(None);
+                name.set(String::new());
+                amount.set("1".to_owned());
+                apply.run(Operation::Menu(edit));
+            }
+            Err(why) => error.set(Some(why)),
+        }
+    };
+    view! {
+        <form class="tcw-shop-else" on:submit=move |ev| {
+            ev.prevent_default();
+            add();
+        }>
+            <input class="tcn-input tcw-shop-else-name" type="text" placeholder=t().menu.buy_else
+                   aria-label=t().menu.buy_else
+                   prop:value=move || name.get() on:input=move |ev| name.set(event_target_value(&ev)) />
+            <input class="tcn-input tcw-shop-else-amount" type="text" inputmode="decimal"
+                   aria-label=t().menu.buy_else_amount title=t().menu.buy_else_amount
+                   prop:value=move || amount.get() on:input=move |ev| amount.set(event_target_value(&ev)) />
+            <button type="submit" class="tcn-btn tcn-btn-sm">{t().menu.buy_else_add}</button>
+        </form>
+        <Show when=move || error.get().is_some()>
+            <div class="tcn-errors">{move || error.get().unwrap_or_default()}</div>
+        </Show>
+        <p class="tcn-hint tcw-shop-else-hint">{t().menu.buy_else_hint}</p>
+    }
 }
 
 /// The shopping's lines for these picked days (none - the whole trip): a product each, and

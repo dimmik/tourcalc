@@ -266,6 +266,11 @@ pub struct MenuTexts {
     pub in_shared: fn(&str) -> String,
     pub nothing_to_buy: &'static str,
     pub find_product: &'static str,
+    /// "Something else to buy" under the shopping: the box, how many, the button, the hint.
+    pub buy_else: &'static str,
+    pub buy_else_amount: &'static str,
+    pub buy_else_add: &'static str,
+    pub buy_else_hint: &'static str,
     pub clear_find: &'static str,
     pub find_in_catalogue: &'static str,
     pub nothing_found: &'static str,
