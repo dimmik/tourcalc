@@ -996,11 +996,9 @@
         .tcw-buy-parts { display: block; font-size: 11.5px; color: var(--tcn-green, #047857); }
         .tcw-shop-category { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; margin-top: 4px; }
         .tcw-shop-category-input { width: 12em; padding: 3px 8px; font-size: 13px; }
-        /* "Something else to buy": the name takes the row, how many is a few digits wide. */
-        .tcw-shop-else { display: flex; gap: 6px; align-items: center; margin-top: 12px; max-width: 40rem; }
-        .tcw-shop-else-name { flex: 1 1 auto; min-width: 0; }
-        .tcw-shop-else-amount { flex: 0 0 4em; width: 4em; text-align: right; }
-        .tcw-shop-else-hint { margin: 4px 0 0; }
+        /* A line of the shopping's own: the text takes the row, up to the search box's width. */
+        .tcw-shop-extra { display: flex; gap: 6px; align-items: center; margin-top: 12px; max-width: 40rem; }
+        .tcw-shop-extra .tcn-input { flex: 1 1 auto; min-width: 0; }
         .tcw-food-search { margin-bottom: 12px; }
         .tcw-buy-expense { grid-area: expense; justify-self: end; }
         .tcw-buy-done { font-size: 12.5px; font-weight: 600; color: var(--tcn-green, #047857); white-space: nowrap; }

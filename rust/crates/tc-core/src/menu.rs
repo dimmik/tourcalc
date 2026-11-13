@@ -342,6 +342,9 @@ pub struct Menu {
     pub daily: Vec<Ingredient>,
     pub plan: Vec<Slot>,
     pub purchases: Vec<Purchase>,
+    /// Lines of the shopping that are no food of the menu - see [`Extra`].
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub extras: Vec<Extra>,
     /// A word for a day, by its number from 1 - "arrival", "radial hikes", "leaving" - beside
     /// its date or number. Kept for days beyond the trip's length too: shortened and grown
     /// again, a day finds its word where it left it.
@@ -357,6 +360,21 @@ pub struct Menu {
     pub arrive: Option<Meal>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub leave: Option<Meal>,
+    /// Whatever a later version wrote here that this one does not know: kept as it was, so
+    /// that saving through this version does not wipe it - see `nuances.md`.
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
+}
+
+/// A line of the shopping that is no product of the menu: free text - "a pot", "book the
+/// taxi" - with no amount, to take and tick like any. This trip's own: a template does not
+/// take it along, and taking a template keeps it. Its buyer, tick, place, note and expense are
+/// a [`Purchase`] under its id, as a product's are.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase", default)]
+pub struct Extra {
+    pub id: String,
+    pub text: String,
     /// Whatever a later version wrote here that this one does not know: kept as it was, so
     /// that saving through this version does not wipe it - see `nuances.md`.
     #[serde(flatten)]
@@ -676,8 +694,29 @@ impl Menu {
             s.dishes.retain(|id| dishes.iter().any(|d| &d.id == id));
             !had || !s.dishes.is_empty()
         });
-        let products = &self.products;
-        self.purchases.retain(|p| products.iter().any(|x| x.id == p.product));
+        let (products, extras) = (&self.products, &self.extras);
+        self.purchases.retain(|p| products.iter().any(|x| x.id == p.product) || extras.iter().any(|x| x.id == p.product));
+    }
+
+    /// A line of the shopping's own added, or its text changed - see [`Extra`].
+    pub fn put_extra(&mut self, extra: Extra) {
+        match self.extras.iter_mut().find(|x| x.id == extra.id) {
+            Some(there) => *there = extra,
+            None => self.extras.push(extra),
+        }
+    }
+
+    /// A line of the shopping's own taken off, with what was said about it. Its expense stays.
+    pub fn remove_extra(&mut self, id: &str) {
+        self.extras.retain(|x| x.id != id);
+        self.purchases.retain(|p| p.product != id);
+    }
+
+    /// What a purchase is of: its product's name, or the text of a line of the shopping's own.
+    pub fn bought_name(&self, id: &str) -> Option<&str> {
+        self.product(id)
+            .map(|p| p.name.as_str())
+            .or_else(|| self.extras.iter().find(|x| x.id == id).map(|x| x.text.as_str()))
     }
 
     pub fn product(&self, id: &str) -> Option<&Product> {
@@ -1301,15 +1340,8 @@ impl Menu {
                 out.extend(method.ingredients.iter());
             }
         }
-        out.extend(self.daily.iter().filter(|i| self.daily_on(i.when, day) || Self::whatever_cooked(i)));
+        out.extend(self.daily.iter().filter(|i| self.daily_on(i.when, day)));
         out
-    }
-
-    /// A daily item bought once for the trip and every day - a pot, an axe, salt: there on
-    /// every day of the trip, cooked on or not. Added from the shopping as "something else to
-    /// buy", it is gear rather than food, and a tour that plans no dishes yet buys it too.
-    fn whatever_cooked(item: &Ingredient) -> bool {
-        item.per == Per::Trip && item.when.is_every_day()
     }
 }
 
@@ -1340,7 +1372,7 @@ mod tests {
     }
 
     fn menu() -> Menu {
-        let mut m = Menu { methods: Default::default(), rest: Default::default(), arrive: None, leave: None,
+        let mut m = Menu { methods: Default::default(), rest: Default::default(), arrive: None, leave: None, extras: Vec::new(),
             on: true,
             days: 2,
             start: None,
@@ -1411,6 +1443,25 @@ mod tests {
         m
     }
 
+    /// A line of the shopping's own - "book the taxi" - stays out of a template, stays with
+    /// its tick when a template is taken, and goes with its purchase.
+    #[test]
+    fn a_line_of_the_shopping_is_this_trips_own() {
+        let mut m = grill();
+        m.put_extra(Extra { id: "taxi".into(), text: "Book the taxi".into(), ..Extra::default() });
+        m.purchase_mut("taxi").bought = true;
+        assert_eq!(m.bought_name("taxi"), Some("Book the taxi"));
+        assert!(m.as_template().extras.is_empty());
+        let mut taken = m.clone();
+        taken.take_catalogue(&grill());
+        assert_eq!(taken.extras.len(), 1);
+        assert!(taken.purchase("taxi").is_some_and(|p| p.bought));
+        m.put_extra(Extra { id: "taxi".into(), text: "Order the taxi".into(), ..Extra::default() });
+        assert_eq!((m.extras.len(), m.bought_name("taxi")), (1, Some("Order the taxi")));
+        m.remove_extra("taxi");
+        assert!(m.extras.is_empty() && m.purchase("taxi").is_none());
+    }
+
     /// One fire a meal - the largest of its dishes', 3 on Friday and 2 on Saturday; the
     /// syringe and the salt once; bags a day for three days; noodles a bowl a child, twice.
     #[test]
@@ -1440,25 +1491,6 @@ mod tests {
         assert_eq!(ticked.days_needing("salt"), [2]);
         assert_eq!((amount(&day(&ticked, &eating, 1), "salt"), amount(&day(&ticked, &eating, 2), "salt")), (0.0, 1.0));
         assert_eq!(m.days_needing("bags"), [1, 2, 3]);
-    }
-
-    /// Gear - a pot, once for the trip - is bought with nothing cooked yet, and on a day
-    /// nothing is cooked on; with a meal, only if that meal is somewhere.
-    #[test]
-    fn once_a_trip_whatever_is_cooked() {
-        let eating = Eating::of(&tour(&[100, 100]));
-        let mut m = grill();
-        m.plan.clear();
-        m.products.push(product("pot", Eaters::Everyone));
-        m.products.push(product("axe", Eaters::Everyone));
-        m.daily.push(item("pot", 1.0, Per::Trip));
-        let with_dinner = Ingredient { when: When::With(Meal::Dinner), ..item("axe", 1.0, Per::Trip) };
-        m.daily.push(with_dinner);
-        let needs = m.shopping(&eating);
-        assert_eq!(amount(&needs, "pot"), 1.0);
-        assert_eq!(amount(&needs, "axe"), 0.0, "no dinner planned");
-        assert_eq!(amount(&needs, "bags"), 0.0, "per day: nothing cooked, no day");
-        assert_eq!(m.days_needing("pot"), (1..=m.days).collect::<Vec<_>>());
     }
 
     /// The grill as a way of cooking: lit once a meal however many dishes are on it, twice

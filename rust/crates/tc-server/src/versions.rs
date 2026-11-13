@@ -174,7 +174,7 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
     }
     said.extend(few(plan));
     // The shopping: ticks, who buys and where.
-    let product = |id: &str| is.product(id).or_else(|| was.product(id)).map_or(id.to_owned(), |p| p.name.clone());
+    let product = |id: &str| is.bought_name(id).or_else(|| was.bought_name(id)).unwrap_or(id).to_owned();
     let person = |id: &Option<String>| {
         id.as_deref()
             .and_then(|id| new.persons.iter().find(|p| p.id.as_str() == id))
