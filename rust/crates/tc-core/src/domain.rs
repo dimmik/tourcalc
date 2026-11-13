@@ -83,6 +83,25 @@ impl Person {
         }
     }
 
+    /// "Vices" as set by hand: `Some(true)` - in on the grown-ups' things (wine, beer),
+    /// `Some(false)` - out of them, `None` - by weight, the default. See
+    /// [`Person::has_vices`].
+    pub fn vices_set(&self) -> Option<bool> {
+        self.extras
+            .0
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(extras::VICES))
+            .and_then(|(_, v)| v.as_bool())
+    }
+
+    /// Whether this one is among the "Hedonists" - of an expense's two picks and of the
+    /// menu's grown-ups' products: as set, and otherwise by weight - [`crate::menu::GROWN_UP`]
+    /// and over. Not an age: somebody at 100 who does not drink is no child, and somebody at
+    /// 50 - leaving early, half the days - may well drink. How much is still by weight.
+    pub fn has_vices(&self) -> bool {
+        self.vices_set().unwrap_or(self.weight >= crate::menu::GROWN_UP)
+    }
+
     /// The settlement pays these creditors back first. Inherited from C#'s `_PGS_ = "r"`;
     /// what the letter means is not recorded anywhere, and the data in hand does not use it.
     pub fn is_preferred_creditor(&self) -> bool {
@@ -865,6 +884,8 @@ pub mod extras {
     pub const MENU_TEMPLATE: &str = "IsMenuTemplate";
     /// How many days the tour is reckoned to last, for the per-day figures.
     pub const DURATION: &str = "Duration";
+    /// On a person: "Vices" set by hand, a bool; none - by weight. See `Person::has_vices`.
+    pub const VICES: &str = "Vices";
     /// On a currency: its amounts are hundredths, shown with a decimal part. See `units`.
     pub const WITH_CENTS: &str = "WithCents";
 
@@ -916,5 +937,36 @@ pub mod extras {
         if let Some(k) = existing {
             extras.0.remove(&k);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn at(weight: i32) -> Person {
+        Person {
+            id: PersonId::new("p"),
+            name: "p".into(),
+            weight,
+            parent: None,
+            group: None,
+            extras: Extras::default(),
+        }
+    }
+
+    /// "Vices" set by hand beats the weight both ways; none set - the weight decides.
+    #[test]
+    fn vices_by_weight_unless_set() {
+        assert!(at(100).has_vices());
+        assert!(!at(50).has_vices());
+        let mut teetotal = at(100);
+        extras::set(&mut teetotal.extras, extras::VICES, false.into());
+        assert_eq!((teetotal.vices_set(), teetotal.has_vices()), (Some(false), false));
+        let mut early = at(50);
+        extras::set(&mut early.extras, extras::VICES, true.into());
+        assert!(early.has_vices());
+        extras::remove(&mut early.extras, extras::VICES);
+        assert_eq!((early.vices_set(), early.has_vices()), (None, false));
     }
 }

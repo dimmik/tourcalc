@@ -535,6 +535,30 @@ pub struct PersonDraft {
     /// this field existed must not wipe a value set since. `Some("")` clears it.
     #[serde(default)]
     pub family: Option<String>,
+    /// "Vices": who a spending "for the hedonists" is split between. `None` leaves whatever
+    /// is stored, as `family` does - an edit queued before this field existed must not undo
+    /// one set since.
+    #[serde(default)]
+    pub vices: Option<Vices>,
+}
+
+/// "Vices" as the person dialog sets it. See [`tc_core::Person::has_vices`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum Vices {
+    /// Nothing stored: from the weight, 100 and over - yes.
+    ByWeight,
+    Yes,
+    No,
+}
+
+impl Vices {
+    pub fn of(p: &Person) -> Vices {
+        match p.vices_set() {
+            None => Vices::ByWeight,
+            Some(true) => Vices::Yes,
+            Some(false) => Vices::No,
+        }
+    }
 }
 
 /// The field the app keeps "together" in. Only ever a sort key: people sharing it are listed
@@ -568,6 +592,7 @@ impl PersonDraft {
             parent: None,
             editing: false,
             family: None,
+            vices: None,
         }
     }
 
@@ -579,6 +604,7 @@ impl PersonDraft {
             parent: p.parent.clone(),
             editing: true,
             family: Some(family_of(p)),
+            vices: Some(Vices::of(p)),
         }
     }
 
@@ -629,6 +655,15 @@ pub fn put_person(tour: &Tour, draft: &PersonDraft) -> Tour {
         match family.trim() {
             "" => tc_core::extras::remove(extras, FAMILY),
             text => tc_core::extras::set(extras, FAMILY, text.into()),
+        }
+    }
+    if let Some(vices) = draft.vices {
+        let extras = &mut next.persons[person].extras;
+        let key = tc_core::extras::VICES;
+        match vices {
+            Vices::ByWeight => tc_core::extras::remove(extras, key),
+            Vices::Yes => tc_core::extras::set(extras, key, true.into()),
+            Vices::No => tc_core::extras::set(extras, key, false.into()),
         }
     }
     next
@@ -1986,5 +2021,27 @@ mod together_tests {
         let t = put_person(&tour(), &d);
         let zoe = t.person(&PersonId::new("zoe")).unwrap();
         assert_eq!((zoe.weight, family_of(zoe).as_str()), (80, "Smiths"));
+    }
+
+    /// "Vices" set, then back to "by weight": stored as a bool, then gone - not left as
+    /// `null` or `false` for the weight to be ignored by. An older queued edit, without the
+    /// field, leaves it as it is.
+    #[test]
+    fn vices_are_written_cleared_and_left_alone() {
+        let anna = PersonId::new("anna");
+        let t = tour();
+        let mut d = PersonDraft::of(t.person(&anna).unwrap());
+        assert_eq!(d.vices, Some(Vices::ByWeight));
+        d.vices = Some(Vices::No);
+        let t = put_person(&t, &d);
+        assert_eq!(t.person(&anna).unwrap().vices_set(), Some(false));
+        let mut older = d.clone();
+        older.vices = None;
+        let t = put_person(&t, &older);
+        assert_eq!(t.person(&anna).unwrap().vices_set(), Some(false));
+        d.vices = Some(Vices::ByWeight);
+        let t = put_person(&t, &d);
+        assert_eq!(t.person(&anna).unwrap().vices_set(), None);
+        assert!(!t.to_json().unwrap().contains("Vices"));
     }
 }

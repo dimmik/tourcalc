@@ -461,6 +461,15 @@ pub const TEXTS: Texts = Texts {
         custom: "custom",
         share_note: "A full share is 100. Someone on 50 pays for half as much of everything \
             shared. A custom 0 means they pay for nothing at all.",
+        vices: "Vices",
+        vices_by_weight: |yes| format!("by weight · {}", if yes { "yes" } else { "no" }),
+        vices_yes: "yes",
+        vices_no: "no",
+        vices_note: "Whether expenses for the hedonists — wine, beer and the like — are split \
+            onto them. By weight: yes from a share of 100.",
+        vices_mark: |yes| format!("vices: {}", if yes { "yes" } else { "no" }),
+        hedonists: "Hedonists",
+        healthy: "Healthy",
         paid_for_by: "Paid for by",
         pays_for_self: "Pays for themselves",
         paid_for_note: "Children and partners can be settled through one person instead of \
@@ -886,9 +895,9 @@ pub const TEXTS: Texts = Texts {
         more_days: "One day more",
         portions_note: |portions, full, others, weight| {
             let mut s = format!("This tour is {portions} portions by weight: a weight of 100 is one. \
-                “Adults” are those at weight {weight} and over ({full})");
+                “Hedonists” are those with vices — by weight, {weight} and over ({full})");
             if others > 0 {
-                s += &format!(", “children” the others ({others})");
+                s += &format!(", “healthy” the others ({others})");
             }
             s + "; their products go by weight too, and “for each” ones by people."
         },
@@ -901,8 +910,8 @@ pub const TEXTS: Texts = Texts {
         nothing: "— nothing —",
         daily: "Every day:",
         for_everyone: "everybody",
-        for_full: "adults",
-        for_others: "children",
+        for_full: "hedonists",
+        for_others: "healthy",
         who_am_i: "Shopping by",
         nobody: "— not chosen —",
         mine_only: "Hide the others",
@@ -1069,11 +1078,11 @@ pub const TEXTS: Texts = Texts {
         remove: "Remove",
         add_ingredient: "+ Product",
         per_portion: "per portion",
-        per_adult: "per adult",
-        per_child: "per child",
+        per_adult: "per hedonist",
+        per_child: "per healthy one",
         per_each: "for each person",
-        per_each_adult: "for each adult",
-        per_each_child: "for each child",
+        per_each_adult: "for each hedonist",
+        per_each_child: "for each healthy one",
         per_fire: "per grill",
         per_trip: "per trip",
         per_day: "per day",
@@ -1141,8 +1150,8 @@ pub const TEXTS: Texts = Texts {
         place: "Usually bought at",
         for_whom: "For",
         eaters_everyone: "everybody, by weight",
-        eaters_full: "adults, by weight",
-        eaters_others: "children, by weight",
+        eaters_full: "hedonists, by weight",
+        eaters_others: "healthy, by weight",
         in_use: |r#where| format!("In: {where}. Take it out there first to delete it."),
         grams: "g",
         kilograms: "kg",

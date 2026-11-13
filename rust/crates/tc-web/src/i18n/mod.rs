@@ -945,6 +945,18 @@ pub struct DialogTexts {
     pub share: &'static str,
     pub custom: &'static str,
     pub share_note: &'static str,
+    /// "Vices": whether a spending "for the hedonists" is split onto somebody.
+    pub vices: &'static str,
+    /// The three answers: by weight (saying what the weight makes it), yes, no.
+    pub vices_by_weight: fn(bool) -> String,
+    pub vices_yes: &'static str,
+    pub vices_no: &'static str,
+    pub vices_note: &'static str,
+    /// On People, beside somebody whose "Vices" was set by hand.
+    pub vices_mark: fn(bool) -> String,
+    /// The two picks over an expense's people: those with vices and those without.
+    pub hedonists: &'static str,
+    pub healthy: &'static str,
     pub paid_for_by: &'static str,
     pub pays_for_self: &'static str,
     pub paid_for_note: &'static str,

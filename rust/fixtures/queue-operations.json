@@ -80,6 +80,20 @@
       }
     },
     {
+      "as_of": "2026-11-13",
+      "op": {
+        "PutPerson": {
+          "id": "se6i4vy",
+          "name": "Саша",
+          "weight": 100,
+          "parent": null,
+          "editing": true,
+          "family": "",
+          "vices": "No"
+        }
+      }
+    },
+    {
       "as_of": "2026-09-30",
       "op": {
         "RemovePerson": "se6i4vy"

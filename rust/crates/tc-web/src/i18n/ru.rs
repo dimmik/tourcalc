@@ -476,6 +476,15 @@ pub const TEXTS: Texts = Texts {
         custom: "своя",
         share_note: "Полная доля — 100. С долей 50 человек платит половину от всего общего. \
             Своя доля 0 значит, что человек не платит ни за что.",
+        vices: "Вредности",
+        vices_by_weight: |yes| format!("по весу · {}", if yes { "да" } else { "нет" }),
+        vices_yes: "да",
+        vices_no: "нет",
+        vices_note: "Делить ли на этого человека траты «Гедонистам»: вино, пиво и прочее. \
+            По весу — да с доли 100.",
+        vices_mark: |yes| format!("вредности: {}", if yes { "да" } else { "нет" }),
+        hedonists: "Гедонистам",
+        healthy: "ЗОЖ",
         paid_for_by: "Кто платит за участника",
         pays_for_self: "Платит сам(а) за себя",
         paid_for_note: "Детей и партнёров можно рассчитывать через одного человека, а не \
@@ -902,11 +911,11 @@ pub const TEXTS: Texts = Texts {
         more_days: "На день больше",
         portions_note: |portions, full, others, weight| {
             let mut s = format!("В этом туре {portions} {} по весу: вес 100 — одна порция. \
-                «Взрослым» — тем, у кого вес {weight} и больше ({full} {})",
+                «Гедонистам» — тем, у кого «Вредности»: да, а «по весу» — с {weight} ({full} {})",
                 match portions.parse::<i64>() { Ok(n) => ru_plural(n, "порция", "порции", "порций"), Err(_) => "порции" },
                 ru_plural(full as i64, "человек", "человека", "человек"));
             if others > 0 {
-                s += &format!(", «детям» — остальным ({others})");
+                s += &format!(", «ЗОЖ» — остальным ({others})");
             }
             s + "; их продукты тоже по весу, а «на каждого» — по людям."
         },
@@ -919,8 +928,8 @@ pub const TEXTS: Texts = Texts {
         nothing: "— ничего —",
         daily: "Каждый день:",
         for_everyone: "на всех",
-        for_full: "взрослым",
-        for_others: "детям",
+        for_full: "гедонистам",
+        for_others: "ЗОЖ",
         who_am_i: "Закупки для",
         nobody: "— не выбрано —",
         mine_only: "Скрыть остальные",
@@ -1087,11 +1096,11 @@ pub const TEXTS: Texts = Texts {
         remove: "Убрать",
         add_ingredient: "+ Продукт",
         per_portion: "на порцию",
-        per_adult: "на взрослого",
-        per_child: "на ребёнка",
+        per_adult: "на гедониста",
+        per_child: "на ЗОЖ",
         per_each: "на каждого",
-        per_each_adult: "на каждого взрослого",
-        per_each_child: "на каждого ребёнка",
+        per_each_adult: "на каждого гедониста",
+        per_each_child: "на каждого ЗОЖ",
         per_fire: "к грилю",
         per_trip: "на поездку",
         per_day: "на день",
@@ -1159,8 +1168,8 @@ pub const TEXTS: Texts = Texts {
         place: "Где обычно покупать",
         for_whom: "Для кого",
         eaters_everyone: "для всех, по весу",
-        eaters_full: "взрослым, по весу",
-        eaters_others: "детям, по весу",
+        eaters_full: "гедонистам, по весу",
+        eaters_others: "ЗОЖ, по весу",
         in_use: |r#where| format!("Есть в: {where}. Сначала уберите оттуда, потом удаляйте."),
         grams: "г",
         kilograms: "кг",

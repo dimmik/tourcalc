@@ -12,9 +12,10 @@
 //!
 //! **Portions are weights.** The weight that divides the money divides the food: somebody
 //! at 100 eats one portion, a child at 35 a third of one. Two kinds of product are only for
-//! some: what the grown-ups have (wine), at weight 100 and over ([`GROWN_UP`]), and what the
-//! children have (juice) - counted by weight among them too: a child at 50 gets half a
-//! juice, a couple written as one at 200 two bottles.
+//! some: what the hedonists have (wine) - "Vices" as set on a person, otherwise weight 100
+//! and over ([`GROWN_UP`], [`crate::Person::has_vices`]) - and what the healthy ones have
+//! (juice), counted by weight among them too: a child at 50 gets half a juice, a couple
+//! written as one at 200 two bottles, somebody at 50 with vices half a wine.
 
 use crate::domain::Extras;
 use crate::Tour;
@@ -40,11 +41,13 @@ pub enum Eaters {
     /// Everybody, by weight: a child at 35 counts as 0.35 of a portion.
     #[default]
     Everyone,
-    /// Everybody at the full weight or above, by weight, nothing for the others. Wine: a
-    /// couple written as one person at 200 drinks two people's.
+    /// The hedonists - [`crate::Person::has_vices`]: "Vices" as set, otherwise the full
+    /// weight or above - by weight, nothing for the others. Wine: a couple written as one
+    /// person at 200 drinks two people's, somebody at 50 with vices half a portion. The name
+    /// is from before "Vices" and stays: tours store it.
     FullWeight,
-    /// Everybody below the full weight, by weight. Juice: a child at 50 drinks half of what
-    /// a teenager at 100 would - were the teenager not already a grown-up by weight.
+    /// The healthy ones, everybody else, by weight. Juice: a child at 50 drinks half of what
+    /// a teenager at 100 would - were the teenager not already a hedonist by weight.
     Others,
 }
 
@@ -499,7 +502,7 @@ pub struct Need<'a> {
 pub struct Eating {
     /// Everybody's weight over 100.
     pub portions: f64,
-    /// Heads at the full weight or above - said on the plan, not counted with.
+    /// Hedonists' heads ([`crate::Person::has_vices`]) - said on the plan, not counted with.
     pub full: f64,
     /// Heads below it.
     pub others: f64,
@@ -536,7 +539,9 @@ impl Eating {
             let heads = if p.weight <= 0 { 0.0 } else { f64::from((p.weight / 100).max(1)) };
             e.portions += share;
             e.heads += heads;
-            if p.weight >= full_weight {
+            // "Vices", not the weight alone: somebody at 100 who does not drink is on the
+            // healthy side, somebody at 50 who does - on the hedonists', half a portion.
+            if p.has_vices() {
                 e.full += 1.0;
                 e.full_portions += share;
                 e.full_heads += heads;
@@ -570,20 +575,20 @@ impl Eating {
 }
 
 /// Who pays for a product, by whom it is for: `None` for everybody - the tour's own "for
-/// everyone, by weight" - and otherwise the people at the full weight or above, or those
-/// below it, by weight as it was bought. Wine bought for the grown-ups is the grown-ups'
-/// expense; recorded "for everyone", the children paid a share of it.
+/// everyone, by weight" - and otherwise the hedonists or the healthy ones
+/// ([`crate::Person::has_vices`]), by weight as it was bought. Wine bought for the hedonists
+/// is the hedonists' expense; recorded "for everyone", the children paid a share of it.
 pub fn payers_for(tour: &Tour, eaters: Eaters) -> Option<Vec<crate::PersonId>> {
-    let full = GROWN_UP;
     let grown = match eaters {
         Eaters::Everyone => return None,
         Eaters::FullWeight => true,
         Eaters::Others => false,
     };
-    Some(tour.persons.iter().filter(|p| (p.weight >= full) == grown).map(|p| p.id.clone()).collect())
+    Some(tour.persons.iter().filter(|p| p.has_vices() == grown).map(|p| p.id.clone()).collect())
 }
 
-/// From what weight on somebody is a grown-up for the menu: wine, beer, the adults' share.
+/// From what weight on somebody is a grown-up - a hedonist, unless "Vices" says otherwise:
+/// wine, beer, the adults' share.
 /// A weight, not "the most common weight in the tour": in a group of mostly children at 35
 /// that made everybody at 35 a grown-up, wine and all. 100 is one portion, and a couple
 /// written as one at 200 is two grown-ups' worth.
@@ -1990,6 +1995,30 @@ mod tests {
         let ids = |v: Option<Vec<crate::PersonId>>| v.unwrap().iter().map(|p| p.as_str().to_owned()).collect::<Vec<_>>();
         assert_eq!(ids(payers_for(&t, Eaters::FullWeight)), vec!["p0", "p1"]);
         assert_eq!(ids(payers_for(&t, Eaters::Others)), vec!["p2"]);
+    }
+
+    /// "Vices" set by hand beat the weight in the menu too, and the weight still sizes the
+    /// portion: somebody at 100 who does not drink gets the juice and pays none of the wine;
+    /// somebody at 50 who does gets half a portion of wine and pays for it.
+    #[test]
+    fn vices_set_by_hand_beat_the_weight() {
+        let mut t = tour(&[100, 100, 50]);
+        let set = |p: &mut crate::Person, on: bool| {
+            crate::extras::set(&mut p.extras, crate::extras::VICES, on.into())
+        };
+        set(&mut t.persons[1], false);
+        set(&mut t.persons[2], true);
+        let eating = Eating::of(&t);
+        assert_eq!((eating.full, eating.others), (2.0, 1.0));
+        assert_eq!((eating.full_portions, eating.others_portions), (1.5, 1.0));
+        assert_eq!((eating.full_heads, eating.others_heads), (2.0, 1.0));
+        let m = menu();
+        let needs = m.shopping(&eating);
+        assert_eq!(amount(&needs, "wine"), 350.0 * 2.0 * 1.5);
+        assert_eq!(amount(&needs, "juice"), 500.0 * 2.0 * 1.0);
+        let ids = |v: Option<Vec<crate::PersonId>>| v.unwrap().iter().map(|p| p.as_str().to_owned()).collect::<Vec<_>>();
+        assert_eq!(ids(payers_for(&t, Eaters::FullWeight)), vec!["p0", "p2"]);
+        assert_eq!(ids(payers_for(&t, Eaters::Others)), vec!["p1"]);
     }
 
     #[test]
