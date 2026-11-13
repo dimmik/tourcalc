@@ -1888,10 +1888,14 @@ fn ExpenseRow(
                      }
                  }>
                 <Avatar name=who.clone() />
-                <span class="tcn-settle-who">
-                    {description}
-                    <small class="tcn-hint">
-                        " · " {who.clone()}
+                // Who paid on a line of its own under the description: after it, a long one cut
+                // "др пиво, хлеб, молоко, всякая со…" and the payer with it, who was then only
+                // initials on the avatar; and beside it, the description shrank to "др …".
+                // Unfolded, the description is whole - see index.html.
+                <span class="tcn-settle-who tcw-sp-title">
+                    <span class="tcw-sp-what" title=description.clone()>{description.clone()}</span>
+                    <small class="tcn-hint tcw-sp-payer">
+                        {who.clone()}
                         {everyone.then(|| t().expenses.for_everyone)}
                     </small>
                 </span>
