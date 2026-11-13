@@ -94,10 +94,10 @@ impl Person {
             .and_then(|(_, v)| v.as_bool())
     }
 
-    /// Whether this one is among the "Hedonists" a spending can be split between: as set,
-    /// and otherwise by weight - [`crate::menu::GROWN_UP`] and over. Not an age: somebody at
-    /// 100 who does not drink is no child, and somebody at 50 - leaving early, half the days
-    /// - may well drink. The menu does not read it (yet): it still counts wine by weight.
+    /// Whether this one is among the "Hedonists" - of an expense's two picks and of the
+    /// menu's grown-ups' products: as set, and otherwise by weight - [`crate::menu::GROWN_UP`]
+    /// and over. Not an age: somebody at 100 who does not drink is no child, and somebody at
+    /// 50 - leaving early, half the days - may well drink. How much is still by weight.
     pub fn has_vices(&self) -> bool {
         self.vices_set().unwrap_or(self.weight >= crate::menu::GROWN_UP)
     }
