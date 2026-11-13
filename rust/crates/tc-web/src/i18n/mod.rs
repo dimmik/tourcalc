@@ -269,6 +269,8 @@ pub struct MenuTexts {
     /// A line of the shopping's own: the box under the list, its button, and taking one off.
     pub extra_placeholder: &'static str,
     pub extra_add: &'static str,
+    /// Their group, by category or by place.
+    pub extras_group: &'static str,
     pub extra_remove: &'static str,
     pub extra_remove_title: &'static str,
     pub clear_find: &'static str,

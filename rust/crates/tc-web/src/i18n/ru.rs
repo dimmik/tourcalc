@@ -961,6 +961,7 @@ pub const TEXTS: Texts = Texts {
         find_product: "Найти продукт, место, человека",
         extra_placeholder: "Добавить в список: котелок, «заказать такси»…",
         extra_add: "Добавить",
+        extras_group: "Дополнительно",
         extra_remove: "убрать",
         extra_remove_title: "Убрать эту строку из списка",
         clear_find: "Очистить поиск",

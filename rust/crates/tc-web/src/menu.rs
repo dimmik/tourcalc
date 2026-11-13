@@ -1666,13 +1666,26 @@ fn Shopping(
         sort_lines(&mut lines, state.sort.get(), &names);
         let group = state.group.get();
         if group == Group::Category {
-            let mut titles: Vec<String> = categories.clone();
-            titles.push(String::new());
+            // The shopping's own lines are a group of their own, after the products'.
+            let mut titles: Vec<Option<String>> = categories.iter().cloned().map(Some).collect();
+            titles.push(Some(String::new()));
+            titles.push(None);
             titles
                 .into_iter()
                 .filter_map(|category| {
-                    let here: Vec<Line> = lines.iter().filter(|l| l.category == category).cloned().collect();
-                    let title = if category.is_empty() { t().menu.no_category.to_owned() } else { category };
+                    let here: Vec<Line> = lines
+                        .iter()
+                        .filter(|l| match &category {
+                            Some(c) => !l.extra && l.category == *c,
+                            None => l.extra,
+                        })
+                        .cloned()
+                        .collect();
+                    let title = match category {
+                        None => t().menu.extras_group.to_owned(),
+                        Some(c) if c.is_empty() => t().menu.no_category.to_owned(),
+                        Some(c) => c,
+                    };
                     (!here.is_empty()).then(|| view! {
                         <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
                                   state=state apply=apply dialog=dialog />
@@ -1704,14 +1717,27 @@ fn Shopping(
                 .collect_view()
                 .into_any()
         } else if group == Group::Place {
-            // Where the shopping says, not the catalogue: Sasha's beer from Lidl is Lidl's.
-            let mut titles = places.clone();
-            titles.push(String::new());
+            // Where the shopping says, not the catalogue: Sasha's beer from Lidl is Lidl's. The
+            // shopping's own lines with no place said are a group of their own, after the rest.
+            let mut titles: Vec<Option<String>> = places.iter().cloned().map(Some).collect();
+            titles.push(Some(String::new()));
+            titles.push(None);
             titles
                 .into_iter()
                 .filter_map(|place| {
-                    let here: Vec<Line> = lines.iter().filter(|l| l.place.to_lowercase() == place.to_lowercase()).cloned().collect();
-                    let title = if place.is_empty() { t().menu.no_place.to_owned() } else { place };
+                    let here: Vec<Line> = lines
+                        .iter()
+                        .filter(|l| match &place {
+                            Some(p) => !(l.extra && l.place.is_empty()) && l.place.to_lowercase() == p.to_lowercase(),
+                            None => l.extra && l.place.is_empty(),
+                        })
+                        .cloned()
+                        .collect();
+                    let title = match place {
+                        None => t().menu.extras_group.to_owned(),
+                        Some(p) if p.is_empty() => t().menu.no_place.to_owned(),
+                        Some(p) => p,
+                    };
                     (!here.is_empty()).then(|| view! {
                         <ListCard tour=tour.clone() title=title lines=here shoppers=shoppers.clone()
                                   state=state apply=apply dialog=dialog />
@@ -2195,7 +2221,7 @@ pub fn MiniShopping(tour: Tour, state: MenuState, apply: Callback<Operation>, mo
                             <input type="checkbox" class="tcm-buy-tick" prop:checked=line.ticked
                                    title=t().menu.bought on:change=tick />
                             <span class="tcm-main" title=title><span class="tcm-name">{name}</span></span>
-                            <span class="tcm-buy-amount">{amount_text(line)}</span>
+                            <span class="tcm-buy-amount">{(!line.extra).then(|| amount_text(line))}</span>
                             <span class="tcm-buy-who">{buyer}</span>
                         </div>
                     </div>

@@ -943,6 +943,7 @@ pub const TEXTS: Texts = Texts {
         find_product: "Find a product, a place, a person",
         extra_placeholder: "Add to the list: a pot, “book the taxi”…",
         extra_add: "Add",
+        extras_group: "Additional",
         extra_remove: "remove",
         extra_remove_title: "Take this line off the list",
         clear_find: "Clear the search",

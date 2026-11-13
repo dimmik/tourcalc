@@ -84,13 +84,15 @@ pub fn describe_change(old: &Tour, new: &Tour) -> Option<String> {
     Some(format!("Changed: {changed}"))
 }
 
-/// Whether all a save did to the menu was the shopping - ticks, who buys, where. Those keep
-/// no version: nobody restores a tick, and a trip's shopping is a couple of hundred of them.
+/// Whether all a save did to the menu was the shopping - ticks, who buys, where, and the
+/// shopping's own lines ("book the taxi"). Those keep no version: nobody restores a tick, and
+/// a trip's shopping is a couple of hundred of them.
 pub fn shopping_only(old: &Tour, new: &Tour) -> bool {
     use tc_core::menu::Menu;
     let bare = |t: &Tour| {
         Menu::of(t).map(|mut m| {
             m.purchases.clear();
+            m.extras.clear();
             m
         })
     };
@@ -212,6 +214,7 @@ pub fn describe_menu(old: &Tour, new: &Tour) -> Option<String> {
     catalogue(&mut said, "product", &was.products, &is.products, |p| (p.id.as_str(), p.name.as_str()));
     catalogue(&mut said, "place", &was.places, &is.places, |p| (p.id.as_str(), p.name.as_str()));
     catalogue(&mut said, "way of cooking", &was.methods, &is.methods, |m| (m.id.as_str(), m.name.as_str()));
+    catalogue(&mut said, "shopping line", &was.extras, &is.extras, |x| (x.id.as_str(), x.text.as_str()));
     if was.daily != is.daily {
         said.push("daily list changed".to_owned());
     }
@@ -517,6 +520,16 @@ mod tests {
         });
         let said = describe_menu(&before, &grill).unwrap_or_default();
         assert!(said.contains("Grill") && !said.ends_with("changed"), "{said}");
+        // A line of the shopping's own, by its text - and, like a tick, no planning version.
+        let taxi = tc_core::menu::Extra { id: "x".into(), text: "Book the taxi".into(), ..Default::default() };
+        let listed = with_menu(&before, |m| m.put_extra(taxi.clone()));
+        assert_eq!(describe_menu(&before, &listed).as_deref(), Some("Menu: shopping line added: Book the taxi"));
+        let ticked = with_menu(&listed, |m| m.purchase_mut("x").bought = true);
+        assert_eq!(describe_menu(&listed, &ticked).as_deref(), Some("Menu: bought Book the taxi"));
+        let gone = with_menu(&listed, |m| m.remove_extra("x"));
+        assert_eq!(describe_menu(&listed, &gone).as_deref(), Some("Menu: shopping line removed: Book the taxi"));
+        assert!(shopping_only(&before, &listed) && shopping_only(&listed, &gone));
+        assert!(!shopping_only(&before, &renamed));
     }
 
     #[test]
